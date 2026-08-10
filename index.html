@@ -132,8 +132,12 @@
   }
   button:hover { background: var(--core); color: #12131a; box-shadow: 0 0 12px var(--core); }
   #micBtn.listening { background: #c0392b; border-color: #c0392b; color: white; box-shadow: 0 0 12px #c0392b; }
-  .toggle-row { display: flex; justify-content: center; gap: 16px; margin-top: 10px; font-size: 10px; letter-spacing: 1px; color: var(--metal); }
-  .toggle-row label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  .control-row { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 10px; font-size: 10px; letter-spacing: 1px; color: var(--metal); flex-wrap: wrap; }
+  .control-row label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  select {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 4px; padding: 5px 8px; font-family: inherit; font-size: 10px; max-width: 220px;
+  }
 </style>
 </head>
 <body>
@@ -172,8 +176,10 @@
         <button id="micBtn" onclick="toggleListening()">🎤</button>
         <button onclick="sendMessage()">SEND</button>
       </div>
-      <div class="toggle-row">
+      <div class="control-row">
         <label><input type="checkbox" id="voiceToggle" checked> VOICE OUTPUT</label>
+        <select id="voiceSelect"></select>
+        <button id="testVoiceBtn" onclick="testVoice()" style="padding:5px 10px;font-size:10px;">TEST</button>
       </div>
     </div>
   </div>
@@ -206,6 +212,43 @@ for (let i = 0; i < 36; i++) {
 }
 document.querySelector('.core-wrap').appendChild(tickRing);
 
+let allVoices = [];
+const voiceSelect = document.getElementById('voiceSelect');
+
+function loadVoiceOptions() {
+  allVoices = window.speechSynthesis.getVoices();
+  if (!allVoices.length) return;
+
+  voiceSelect.innerHTML = '';
+  allVoices.forEach((v, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `${v.name} (${v.lang})`;
+    voiceSelect.appendChild(opt);
+  });
+
+  const preferredIndex = allVoices.findIndex(v =>
+    /male|david|daniel|guy|mark|fred|alex/i.test(v.name) && /en/i.test(v.lang)
+  );
+  voiceSelect.value = preferredIndex !== -1 ? preferredIndex : 0;
+
+  const saved = localStorage.getItem('rayvenVoiceIndex');
+  if (saved !== null && allVoices[saved]) voiceSelect.value = saved;
+}
+
+if ('speechSynthesis' in window) {
+  loadVoiceOptions();
+  window.speechSynthesis.onvoiceschanged = loadVoiceOptions;
+}
+
+voiceSelect.addEventListener('change', () => {
+  localStorage.setItem('rayvenVoiceIndex', voiceSelect.value);
+});
+
+function testVoice() {
+  speak("Systems online. Voice calibration complete, sir.");
+}
+
 function speak(text) {
   if (!document.getElementById('voiceToggle').checked) return;
   if (!('speechSynthesis' in window)) return;
@@ -213,11 +256,10 @@ function speak(text) {
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.rate = 1.0;
-  utterance.pitch = 0.8;
+  utterance.pitch = 0.85;
 
-  const voices = window.speechSynthesis.getVoices();
-  const preferred = voices.find(v => /male|david|daniel|google uk english male/i.test(v.name)) || voices[0];
-  if (preferred) utterance.voice = preferred;
+  const chosen = allVoices[voiceSelect.value];
+  if (chosen) utterance.voice = chosen;
 
   const ring = document.getElementById('coreRing3');
   utterance.onstart = () => ring.classList.add('speaking');
@@ -292,10 +334,6 @@ async function sendMessage() {
   }
   status.textContent = "STANDING BY";
   messages.scrollTop = messages.scrollHeight;
-}
-
-if ('speechSynthesis' in window) {
-  window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
 }
 </script>
 </body>
