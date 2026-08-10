@@ -35,7 +35,6 @@
   .lightning-line.strike { animation: lightningFlicker 0.4s ease-out forwards; }
   @keyframes lightningFlicker { 0% { opacity: 0; } 8% { opacity: 1; } 15% { opacity: 0.1; } 22% { opacity: 0.9; } 35% { opacity: 0.15; } 100% { opacity: 0; } }
 
-  /* Meteors — pure CSS transform/opacity, GPU-accelerated, never touches the canvas render loop */
   .meteor {
     position: fixed; top: -10vh; width: 3px; height: 110px; border-radius: 3px;
     opacity: 0; pointer-events: none; z-index: 3;
@@ -184,6 +183,34 @@
   #activateBtn { width: 100%; margin-bottom: 8px; border-color: var(--purple); color: var(--purple); }
   #activateBtn:hover { background: var(--purple); color: #0a0510; }
   #activateBtn.hidden { display: none; }
+
+  /* Holographic status panels */
+  .holo-box {
+    position: fixed; z-index: 10; width: 210px; max-width: 78vw;
+    background: rgba(20,10,35,0.35);
+    border: 1px solid rgba(155,107,255,0.35);
+    border-radius: 6px; padding: 10px 12px;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 0 20px rgba(155,107,255,0.15), inset 0 0 20px rgba(155,107,255,0.05);
+    overflow: hidden;
+    animation: holoFlicker 4.5s infinite;
+  }
+  .holo-box::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(0deg, rgba(155,107,255,0.05) 0px, rgba(155,107,255,0.05) 1px, transparent 1px, transparent 3px);
+  }
+  #holoTop { top: 16px; right: 16px; }
+  #holoBottom { bottom: 16px; right: 16px; }
+  .holo-title { font-size: 9px; letter-spacing: 2px; color: var(--gold); margin-bottom: 8px; text-shadow: 0 0 6px var(--gold-glow); }
+  .holo-row { margin-bottom: 8px; font-size: 9px; }
+  .holo-row:last-child { margin-bottom: 0; }
+  .holo-label { color: var(--purple); letter-spacing: 1px; display: block; text-shadow: 0 0 4px var(--purple-glow); }
+  .holo-val { color: var(--text); opacity: 0.75; font-size: 8px; }
+  .holo-bar { height: 2px; background: rgba(155,107,255,0.15); margin-top: 4px; border-radius: 2px; overflow: hidden; }
+  .holo-fill { height: 100%; background: var(--gold); box-shadow: 0 0 6px var(--gold-glow); animation: holoFill 3s ease-in-out infinite alternate; }
+  @keyframes holoFill { from { width: 15%; } to { width: 90%; } }
+  @keyframes holoFlicker { 0%,92%,100% { opacity: 1; } 93% { opacity: 0.6; } 94% { opacity: 1; } 96% { opacity: 0.7; } 97% { opacity: 1; } }
+  @media (max-width: 720px) { .holo-box { display: none; } }
 </style>
 </head>
 <body>
@@ -235,6 +262,22 @@
     <button class="mini-btn" onclick="testVoice()">TEST</button>
     <button class="mini-btn" onclick="clearMemory()">CLEAR MEMORY</button>
   </div>
+</div>
+
+<div id="holoTop" class="holo-box">
+  <div class="holo-title">◈ SYSTEM STATUS</div>
+  <div class="holo-row"><span class="holo-label">01 · CORE</span><span class="holo-val">Neural link active</span><div class="holo-bar"><div class="holo-fill"></div></div></div>
+  <div class="holo-row"><span class="holo-label">02 · MEMORY</span><span class="holo-val">Context buffer nominal</span><div class="holo-bar"><div class="holo-fill" style="animation-delay:0.4s"></div></div></div>
+  <div class="holo-row"><span class="holo-label">03 · UPLINK</span><span class="holo-val">Cloudflare Worker</span><div class="holo-bar"><div class="holo-fill" style="animation-delay:0.8s"></div></div></div>
+  <div class="holo-row"><span class="holo-label">04 · SEARCH</span><span class="holo-val">SerpAPI online</span><div class="holo-bar"><div class="holo-fill" style="animation-delay:1.2s"></div></div></div>
+</div>
+
+<div id="holoBottom" class="holo-box">
+  <div class="holo-title">◈ INTEGRATIONS</div>
+  <div class="holo-row"><span class="holo-label">05 · SUPERVISOR</span><span class="holo-val">JARVIS link active</span><div class="holo-bar"><div class="holo-fill" style="animation-delay:0.2s"></div></div></div>
+  <div class="holo-row"><span class="holo-label">06 · SPOTIFY</span><span class="holo-val">Playback connected</span><div class="holo-bar"><div class="holo-fill" style="animation-delay:0.6s"></div></div></div>
+  <div class="holo-row"><span class="holo-label">07 · TELEGRAM</span><span class="holo-val">Bot linked</span><div class="holo-bar"><div class="holo-fill" style="animation-delay:1.0s"></div></div></div>
+  <div class="holo-row"><span class="holo-label">08 · NETWORK</span><span class="holo-val">JARVIS · KEVOS · RAYVEN</span><div class="holo-bar"><div class="holo-fill" style="animation-delay:1.4s"></div></div></div>
 </div>
 
 <script>
@@ -462,7 +505,6 @@ function ambientLightningLoop() {
 }
 setTimeout(ambientLightningLoop, 1500);
 
-// ---- Meteors: lightweight ambient decoration, pure CSS, never touches the canvas ----
 function spawnMeteor() {
   const meteor = document.createElement('div');
   const isGold = Math.random() > 0.5;
@@ -547,10 +589,7 @@ function wakeBurst() {
     conversationHistory.push({ role: 'assistant', content: greeting });
     saveConversation();
 
-    speak(greeting, () => {
-      wakeSequenceRunning = false;
-      startConvoListening();
-    });
+    speak(greeting, () => { wakeSequenceRunning = false; });
   }, 680);
 
   setTimeout(() => {
@@ -675,7 +714,6 @@ let wakeRecognition = null;
 let convoRecognition = null;
 let voiceActive = false;
 let awake = false;
-let speakingNow = false;
 
 function setVoiceStatus(msg) { document.getElementById('voiceStatus').textContent = msg; }
 
@@ -717,37 +755,47 @@ function startWakeListening() {
 }
 
 function enterAwakeMode() {
-  speakingNow = true;
   wakeBurst();
-  setVoiceStatus('Awake — listening...');
+  setVoiceStatus('Awake — talk anytime, even to interrupt me...');
+  startContinuousAwakeListening();
 }
 
 function exitAwakeMode() {
   awake = false;
+  if (convoRecognition) { try { convoRecognition.stop(); } catch (e) {} }
   startWakeListening();
 }
 
-function startConvoListening() {
-  speakingNow = false;
+// ---- Continuous listener for the whole awake session — this is what enables barge-in interruption.
+// It runs the entire time RAYVEN is awake, including while RAYVEN is talking, so you can just
+// start speaking to cut it off and it'll immediately stop and respond to the new thing you said. ----
+function startContinuousAwakeListening() {
   if (!awake) return;
-  setSphereState('listening');
   convoRecognition = new SpeechRecognitionCtor();
-  convoRecognition.continuous = false;
+  convoRecognition.continuous = true;
   convoRecognition.interimResults = false;
   convoRecognition.lang = 'en-US';
-  convoRecognition.maxAlternatives = 3;
 
   convoRecognition.onresult = (event) => {
-    const transcript = event.results[0][0].transcript;
+    const lastResult = event.results[event.results.length - 1];
+    const transcript = lastResult && lastResult[0] ? lastResult[0].transcript.trim() : '';
+    if (!transcript) return;
+
+    // Interrupt: if RAYVEN is currently talking, cut it off immediately
+    if (window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+    }
+
     if (matchesAny(transcript, SLEEP_PHRASES)) {
-      speakingNow = true;
-      speak("Powering down. I'll be here when you need me, sir.", () => { speakingNow = false; exitAwakeMode(); });
+      speak("Powering down. I'll be here when you need me, sir.", () => exitAwakeMode());
       return;
     }
-    sendMessage(transcript, () => { if (awake) startConvoListening(); });
+
+    sendMessage(transcript, null);
   };
-  convoRecognition.onend = () => { if (awake && !speakingNow) setTimeout(() => { if (awake && !speakingNow) startConvoListening(); }, 200); };
-  convoRecognition.onerror = () => { if (awake && !speakingNow) setTimeout(() => { if (awake && !speakingNow) startConvoListening(); }, 200); };
+
+  convoRecognition.onend = () => { if (awake) { try { startContinuousAwakeListening(); } catch (e) { setTimeout(() => { if (awake) startContinuousAwakeListening(); }, 200); } } };
+  convoRecognition.onerror = () => { if (awake) setTimeout(() => { if (awake) startContinuousAwakeListening(); }, 200); };
 
   try { convoRecognition.start(); } catch (e) {}
 }
@@ -789,9 +837,7 @@ async function sendMessage(text, onReplyDone) {
     conversationHistory.push({ role: 'assistant', content: replyText });
     saveConversation();
 
-    speakingNow = true;
     speak(replyText, () => {
-      speakingNow = false;
       setSphereState(awake ? 'listening' : 'idle');
       if (onReplyDone) onReplyDone();
     });
