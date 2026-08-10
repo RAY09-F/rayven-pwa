@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAYVEN</title>
+<style>
+  body { background: #0a0a0a; color: #e0e0e0; font-family: sans-serif; margin: 0; padding: 20px; }
+  h1 { color: #4da6ff; }
+  #chat { max-width: 600px; margin: 0 auto; }
+  #messages { min-height: 300px; border: 1px solid #333; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+  .msg { margin-bottom: 10px; }
+  .user { color: #4da6ff; }
+  .rayven { color: #e0e0e0; }
+  input { width: 75%; padding: 10px; border-radius: 6px; border: 1px solid #333; background: #1a1a1a; color: white; }
+  button { padding: 10px 15px; border-radius: 6px; border: none; background: #4da6ff; color: white; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="chat">
+  <h1>RAYVEN</h1>
+  <div id="messages"></div>
+  <input type="text" id="userInput" placeholder="Type a message...">
+  <button onclick="sendMessage()">Send</button>
+</div>
+
+<script>
+const BACKEND_URL = "https://rayven-backend.rayanfahil2.workers.dev";
+
+async function sendMessage() {
+  const input = document.getElementById("userInput");
+  const messages = document.getElementById("messages");
+  const text = input.value.trim();
+  if (!text) return;
+
+  messages.innerHTML += `<div class="msg user"><b>You:</b> ${text}</div>`;
+  input.value = "";
+
+  const response = await fetch(BACKEND_URL, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ message: text })
+  });
+  const data = await response.json();
+
+  messages.innerHTML += `<div class="msg rayven"><b>RAYVEN:</b> ${data.reply || data.error}</div>`;
+  messages.scrollTop = messages.scrollHeight;
+}
+</script>
+</body>
+</html>
