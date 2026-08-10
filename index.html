@@ -35,7 +35,7 @@
   .lightning-line.strike { animation: lightningFlicker 0.4s ease-out forwards; }
   @keyframes lightningFlicker { 0% { opacity: 0; } 8% { opacity: 1; } 15% { opacity: 0.1; } 22% { opacity: 0.9; } 35% { opacity: 0.15; } 100% { opacity: 0; } }
 
-  /* Wake-sequence gold lightning rain: these actually fall, not just flicker in place */
+  /* Wake-sequence gold lightning rain */
   .rain-bolt {
     position: fixed; top: -15vh; width: 3px; height: 40vh;
     background: linear-gradient(180deg, #fff6d8, var(--gold-glow), var(--gold));
@@ -49,6 +49,23 @@
     20% { opacity: 0.2; }
     30% { opacity: 1; }
     100% { opacity: 0; transform: translateY(130vh); }
+  }
+
+  /* Impact crackle: purple core lightning with a thin gold outline glow — fires from the hammer strike point */
+  .impact-bolt {
+    position: fixed; width: 3px; height: 22vh;
+    background: linear-gradient(180deg, #d8c6ff, var(--purple), var(--purple-glow));
+    filter: drop-shadow(0 0 2px var(--gold)) drop-shadow(0 0 4px var(--gold-glow)) drop-shadow(0 0 16px var(--purple));
+    opacity: 0; z-index: 8; pointer-events: none;
+    transform-origin: top center;
+  }
+  .impact-bolt.crackle { animation: crackleOut 0.55s ease-out forwards; }
+  @keyframes crackleOut {
+    0% { opacity: 0; transform: translate(-50%,-50%) rotate(var(--ang)) scaleY(0.2); }
+    12% { opacity: 1; }
+    30% { opacity: 0.3; }
+    45% { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%,-50%) rotate(var(--ang)) scaleY(1.4); }
   }
 
   #wakeOverlay { position: fixed; inset: 0; pointer-events: none; z-index: 7; }
@@ -67,13 +84,13 @@
   }
   #impactRing {
     position: fixed; top: 50%; left: 50%; width: 30px; height: 30px; border-radius: 50%;
-    border: 3px solid var(--gold-glow); transform: translate(-50%,-50%) scale(0); opacity: 0;
-    box-shadow: 0 0 40px var(--gold);
+    border: 3px solid var(--purple-glow); transform: translate(-50%,-50%) scale(0); opacity: 0;
+    box-shadow: 0 0 20px var(--gold), 0 0 40px var(--purple);
   }
   #wakeOverlay.active #impactRing { animation: impactExpand 0.8s ease-out 0.68s forwards; }
   @keyframes impactExpand { 0% { transform: translate(-50%,-50%) scale(0); opacity: 1; } 100% { transform: translate(-50%,-50%) scale(16); opacity: 0; } }
 
-  #wakeFlash { position: fixed; inset: 0; background: radial-gradient(circle at 50% 50%, rgba(255,221,136,0.55), rgba(155,107,255,0.3) 40%, transparent 65%); opacity: 0; z-index: 6; pointer-events: none; }
+  #wakeFlash { position: fixed; inset: 0; background: radial-gradient(circle at 50% 50%, rgba(155,107,255,0.55), rgba(232,196,104,0.25) 45%, transparent 65%); opacity: 0; z-index: 6; pointer-events: none; }
   #wakeOverlay.active #wakeFlash { animation: wakeFlashAnim 1.3s ease-out forwards; }
   @keyframes wakeFlashAnim { 0% { opacity: 0; } 68% { opacity: 0; } 74% { opacity: 1; } 100% { opacity: 0; } }
 
@@ -181,7 +198,6 @@
 </div>
 
 <script>
-/* ---- Build the wordmark out of individual animatable letters ---- */
 const WORDMARK_TEXT = "RAYVEN";
 const wordmarkEl = document.getElementById('wordmark');
 WORDMARK_TEXT.split('').forEach(ch => {
@@ -201,7 +217,6 @@ function scatterLetters() {
     letter.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
     letter.style.opacity = '0.15';
   });
-  // force reflow so the "scatter" position registers before we animate back
   void wordmarkEl.offsetWidth;
   requestAnimationFrame(() => {
     letters.forEach((letter, i) => {
@@ -212,25 +227,16 @@ function scatterLetters() {
   });
 }
 
-/* =========================================================
-   PARTICLE SPHERE — full-screen canvas background
-   ========================================================= */
 const canvas = document.getElementById('sphereCanvas');
 const ctx = canvas.getContext('2d');
 
-function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
 resize();
 window.addEventListener('resize', resize);
 
 const SEED_COUNT = 320;
 const SUBDOTS_PER_SEED = 7;
-
-function baseSphereRadius() {
-  return Math.min(window.innerWidth, window.innerHeight) * 0.26;
-}
+function baseSphereRadius() { return Math.min(window.innerWidth, window.innerHeight) * 0.26; }
 
 const points = [];
 const goldenAngle = Math.PI * (3 - Math.sqrt(5));
@@ -242,7 +248,6 @@ for (let i = 0; i < SEED_COUNT; i++) {
   const sz = Math.sin(theta) * radiusAtY;
   const sy = y;
   const isGoldAccent = Math.random() < 0.16;
-
   for (let k = 0; k < SUBDOTS_PER_SEED; k++) {
     const jitter = 0.035;
     points.push({
@@ -267,7 +272,6 @@ let target = STATES.idle;
 function setSphereState(name) { target = STATES[name] || STATES.idle; }
 function lerp(a, b, t) { return a + (b - a) * t; }
 
-// ---- Explosion offset: particles blast outward then settle back ----
 let explosionOffset = 0;
 function triggerExplosion() { explosionOffset = 2.2; }
 
@@ -312,7 +316,7 @@ function render() {
   current.speed = lerp(current.speed, target.speed, 0.04);
   current.colorMix = lerp(current.colorMix, target.colorMix, 0.04);
   current.lightningRate = lerp(current.lightningRate, target.lightningRate, 0.04);
-  explosionOffset = lerp(explosionOffset, 0, 0.055); // eases back to 0 — the "come back in together"
+  explosionOffset = lerp(explosionOffset, 0, 0.055);
 
   ctx.fillStyle = 'rgba(10,5,16,0.32)';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -374,7 +378,6 @@ function ambientLightningLoop() {
 }
 setTimeout(ambientLightningLoop, 1500);
 
-// ---- Gold lightning RAIN for the wake sequence ----
 function spawnRainBolt(delay) {
   setTimeout(() => {
     const bolt = document.createElement('div');
@@ -390,21 +393,35 @@ function rainLightning(count) {
   for (let i = 0; i < count; i++) spawnRainBolt(i * 55);
 }
 
-// ---- FULL WAKE SEQUENCE: rain -> hammer drop -> smack -> explosion + letters scatter -> settle ----
+// ---- Purple lightning with a gold outline, crackling outward from the hammer's impact point ----
+function spawnImpactBolt() {
+  const bolt = document.createElement('div');
+  bolt.className = 'impact-bolt';
+  const angle = Math.random() * 360;
+  bolt.style.setProperty('--ang', angle + 'deg');
+  bolt.style.top = '50%';
+  bolt.style.left = '50%';
+  document.body.appendChild(bolt);
+  requestAnimationFrame(() => bolt.classList.add('crackle'));
+  setTimeout(() => bolt.remove(), 700);
+}
+function impactCrackle(count) {
+  for (let i = 0; i < count; i++) setTimeout(spawnImpactBolt, i * 30);
+}
+
 function wakeBurst() {
   const overlay = document.getElementById('wakeOverlay');
   overlay.classList.remove('active');
   void overlay.offsetWidth;
   overlay.classList.add('active');
 
-  rainLightning(16);          // gold lightning rains down as the hammer falls
+  rainLightning(16);
   setSphereState('burst');
 
-  // impact happens around 0.68-0.7s into the hammer's drop (matches the hammerDrop keyframe timing)
   setTimeout(() => {
-    triggerExplosion();       // particles blast outward, then ease back together
-    scatterLetters();         // RAYVEN letters fly apart and snap back into place
-    for (let i = 0; i < 8; i++) setTimeout(spawnLightning, i * 40); // extra crackle right at impact
+    triggerExplosion();
+    scatterLetters();
+    impactCrackle(10); // purple lightning with gold outline, radiating out from the strike point
   }, 680);
 
   setTimeout(() => {
@@ -413,9 +430,6 @@ function wakeBurst() {
   }, 1600);
 }
 
-/* =========================================================
-   RAYVEN LOGIC — memory, voice, wake word, backend calls
-   ========================================================= */
 const BACKEND_URL = "https://rayven-backend.rayanfahil2.workers.dev";
 const WAKE_PHRASES = [
   "hey rayven", "hey raven", "hey ray ven",
@@ -569,7 +583,7 @@ function enterAwakeMode() {
   setVoiceStatus('Awake — listening...');
   setTimeout(() => {
     speak("I'm here, sir. Go ahead.", () => startConvoListening());
-  }, 1650); // wait for the hammer/lightning/scatter sequence to finish before RAYVEN speaks
+  }, 1650);
 }
 
 function exitAwakeMode() {
