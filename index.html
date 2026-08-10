@@ -184,7 +184,6 @@
   #activateBtn:hover { background: var(--purple); color: #0a0510; }
   #activateBtn.hidden { display: none; }
 
-  /* Holographic status panels */
   .holo-box {
     position: fixed; z-index: 10; width: 210px; max-width: 78vw;
     background: rgba(20,10,35,0.35);
@@ -516,9 +515,11 @@ function spawnMeteor() {
 }
 function meteorLoop() {
   spawnMeteor();
-  setTimeout(meteorLoop, 4000 + Math.random() * 6000);
+  spawnMeteor();
+  spawnMeteor();
+  setTimeout(meteorLoop, 500);
 }
-setTimeout(meteorLoop, 2500);
+setTimeout(meteorLoop, 1000);
 
 function spawnRainBolt(delay) {
   setTimeout(() => {
@@ -747,8 +748,8 @@ function startWakeListening() {
       }
     }
   };
-  wakeRecognition.onend = () => { if (voiceActive && !awake) { try { startWakeListening(); } catch (e) { setTimeout(startWakeListening, 200); } } };
-  wakeRecognition.onerror = () => { if (voiceActive && !awake) setTimeout(() => { try { startWakeListening(); } catch (err) {} }, 200); };
+  wakeRecognition.onend = () => { if (voiceActive && !awake) { try { startWakeListening(); } catch (e) { setTimeout(startWakeListening, 100); } } };
+  wakeRecognition.onerror = () => { if (voiceActive && !awake) setTimeout(() => { try { startWakeListening(); } catch (err) {} }, 100); };
 
   setVoiceStatus('Sleeping — say a wake word...');
   try { wakeRecognition.start(); } catch (e) {}
@@ -766,9 +767,6 @@ function exitAwakeMode() {
   startWakeListening();
 }
 
-// ---- Continuous listener for the whole awake session — this is what enables barge-in interruption.
-// It runs the entire time RAYVEN is awake, including while RAYVEN is talking, so you can just
-// start speaking to cut it off and it'll immediately stop and respond to the new thing you said. ----
 function startContinuousAwakeListening() {
   if (!awake) return;
   convoRecognition = new SpeechRecognitionCtor();
@@ -781,7 +779,6 @@ function startContinuousAwakeListening() {
     const transcript = lastResult && lastResult[0] ? lastResult[0].transcript.trim() : '';
     if (!transcript) return;
 
-    // Interrupt: if RAYVEN is currently talking, cut it off immediately
     if (window.speechSynthesis.speaking) {
       window.speechSynthesis.cancel();
     }
@@ -794,8 +791,8 @@ function startContinuousAwakeListening() {
     sendMessage(transcript, null);
   };
 
-  convoRecognition.onend = () => { if (awake) { try { startContinuousAwakeListening(); } catch (e) { setTimeout(() => { if (awake) startContinuousAwakeListening(); }, 200); } } };
-  convoRecognition.onerror = () => { if (awake) setTimeout(() => { if (awake) startContinuousAwakeListening(); }, 200); };
+  convoRecognition.onend = () => { if (awake) { try { startContinuousAwakeListening(); } catch (e) { setTimeout(() => { if (awake) startContinuousAwakeListening(); }, 100); } } };
+  convoRecognition.onerror = () => { if (awake) setTimeout(() => { if (awake) startContinuousAwakeListening(); }, 100); };
 
   try { convoRecognition.start(); } catch (e) {}
 }
