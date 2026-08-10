@@ -3,48 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RAYVEN Sphere Test — Stage 2</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<title>RAYVEN — Fullscreen Sphere — Stage 1</title>
 <style>
-  :root {
-    --storm-dark: #070c16;
-    --storm-mid: #121b2c;
-    --lightning: #cfe8ff;
-    --lightning-glow: #7ec8ff;
-    --gold: #e8c468;
-    --gold-glow: #ffdd88;
-  }
-  body {
-    margin: 0;
-    background:
-      radial-gradient(ellipse at 50% 30%, var(--storm-mid) 0%, var(--storm-dark) 70%);
-    overflow: hidden;
-  }
-  canvas { display: block; }
-  #label { position: fixed; top: 16px; left: 16px; color: var(--lightning-glow); font-family: monospace; font-size: 12px; letter-spacing: 2px; z-index: 5; }
-  #wordmark {
-    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    font-family: 'Orbitron', sans-serif; font-weight: 900;
-    font-size: 34px; letter-spacing: 10px;
-    color: var(--lightning);
-    text-shadow: 0 0 10px var(--lightning-glow), 0 0 24px var(--lightning-glow), 0 0 3px var(--gold-glow);
-    pointer-events: none; z-index: 4;
-    animation: wordFlicker 5s infinite;
-  }
-  @keyframes wordFlicker { 0%,94%,100% { opacity: 1; } 95% { opacity: 0.5; } 96% { opacity: 1; } 97% { opacity: 0.3; } 98% { opacity: 1; } }
-
-  .lightning-line {
-    position: fixed; top: -5vh; width: 2px; background: linear-gradient(180deg, var(--lightning), var(--lightning-glow), transparent);
-    filter: drop-shadow(0 0 6px var(--lightning-glow)) drop-shadow(0 0 14px var(--lightning-glow));
-    opacity: 0; z-index: 3; pointer-events: none;
-  }
-  .lightning-line.strike { animation: lightningFlicker 0.4s ease-out forwards; }
-  @keyframes lightningFlicker { 0% { opacity: 0; } 8% { opacity: 1; } 15% { opacity: 0.1; } 22% { opacity: 0.9; } 35% { opacity: 0.15; } 100% { opacity: 0; } }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #050505; }
+  canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; }
+  #label { position: fixed; top: 16px; left: 16px; color: #aaa; font-family: monospace; font-size: 12px; letter-spacing: 2px; z-index: 5; }
 </style>
 </head>
 <body>
-<div id="label">STAGE 2 — THOR/ASGARDIAN THEME</div>
-<div id="wordmark">RAYVEN</div>
+<div id="label">STAGE 1 — FULLSCREEN SPHERE (geometry check, no theme yet)</div>
 <canvas id="sphereCanvas"></canvas>
 <script>
 const canvas = document.getElementById('sphereCanvas');
@@ -57,9 +24,16 @@ function resize() {
 resize();
 window.addEventListener('resize', resize);
 
-const SEED_COUNT = 260;
-const SUBDOTS_PER_SEED = 6;
-const SPHERE_RADIUS = 160;
+const SEED_COUNT = 320;
+const SUBDOTS_PER_SEED = 7;
+
+// Sphere radius scales with the screen so it always fills a good portion of the view
+function getSphereRadius() {
+  return Math.min(window.innerWidth, window.innerHeight) * 0.28;
+}
+
+let SPHERE_RADIUS = getSphereRadius();
+window.addEventListener('resize', () => { SPHERE_RADIUS = getSphereRadius(); });
 
 const points = [];
 const goldenAngle = Math.PI * (3 - Math.sqrt(5));
@@ -72,15 +46,12 @@ for (let i = 0; i < SEED_COUNT; i++) {
   const sz = Math.sin(theta) * radiusAtY;
   const sy = y;
 
-  const isGold = Math.random() < 0.18; // ~18% of points are warm gold, rest electric blue-white
-
   for (let k = 0; k < SUBDOTS_PER_SEED; k++) {
     const jitter = 0.035;
     points.push({
-      x: (sx + (Math.random() - 0.5) * jitter) * SPHERE_RADIUS,
-      y: (sy + (Math.random() - 0.5) * jitter) * SPHERE_RADIUS,
-      z: (sz + (Math.random() - 0.5) * jitter) * SPHERE_RADIUS,
-      gold: isGold
+      ux: sx + (Math.random() - 0.5) * jitter,
+      uy: sy + (Math.random() - 0.5) * jitter,
+      uz: sz + (Math.random() - 0.5) * jitter
     });
   }
 }
@@ -88,42 +59,45 @@ for (let i = 0; i < SEED_COUNT; i++) {
 let angleY = 0;
 let angleX = 0.3;
 
-function rotateY(p, angle) {
+function rotateY(x, y, z, angle) {
   const cos = Math.cos(angle), sin = Math.sin(angle);
-  return { x: p.x * cos - p.z * sin, y: p.y, z: p.x * sin + p.z * cos, gold: p.gold };
+  return { x: x * cos - z * sin, y: y, z: x * sin + z * cos };
 }
-function rotateX(p, angle) {
+function rotateX(x, y, z, angle) {
   const cos = Math.cos(angle), sin = Math.sin(angle);
-  return { x: p.x, y: p.y * cos - p.z * sin, z: p.y * sin + p.z * cos, gold: p.gold };
+  return { x: x, y: y * cos - z * sin, z: y * sin + z * cos };
 }
 
 function render() {
-  ctx.fillStyle = 'rgba(7,12,22,0.35)';
+  ctx.fillStyle = 'rgba(5,5,5,0.35)';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const centerX = canvas.width / 2;
   const centerY = canvas.height / 2;
-  const perspective = 420;
+  const perspective = SPHERE_RADIUS * 2.6;
 
   const projected = points.map(p => {
-    let r = rotateY(p, angleY);
-    r = rotateX(r, angleX);
+    const px = p.ux * SPHERE_RADIUS;
+    const py = p.uy * SPHERE_RADIUS;
+    const pz = p.uz * SPHERE_RADIUS;
+
+    let r = rotateY(px, py, pz, angleY);
+    r = rotateX(r.x, r.y, r.z, angleX);
+
     const scale = perspective / (perspective + r.z);
-    return { x: centerX + r.x * scale, y: centerY + r.y * scale, z: r.z, scale: scale, gold: p.gold };
+    return { x: centerX + r.x * scale, y: centerY + r.y * scale, z: r.z, scale: scale };
   });
 
   projected.sort((a, b) => a.z - b.z);
 
   projected.forEach(p => {
-    const size = Math.max(0.6, 1.8 * p.scale);
+    const size = Math.max(0.6, 1.9 * p.scale);
     const brightness = Math.min(1, Math.max(0.15, (p.scale - 0.7) * 2));
-    const rgb = p.gold ? '232,196,104' : '190,220,255';
-    const glow = p.gold ? '255,221,136' : '126,200,255';
 
     ctx.save();
-    ctx.shadowBlur = 9 * p.scale;
-    ctx.shadowColor = `rgba(${glow},${brightness})`;
-    ctx.fillStyle = `rgba(${rgb},${brightness})`;
+    ctx.shadowBlur = 8 * p.scale;
+    ctx.shadowColor = `rgba(220,220,220,${brightness})`;
+    ctx.fillStyle = `rgba(230,230,230,${brightness})`;
     ctx.beginPath();
     ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
     ctx.fill();
@@ -134,27 +108,6 @@ function render() {
   requestAnimationFrame(render);
 }
 render();
-
-// ---- Ambient lightning flashes across the screen, even at rest ----
-function spawnLightning() {
-  const line = document.createElement('div');
-  line.className = 'lightning-line';
-  const height = 20 + Math.random() * 55;
-  line.style.height = height + 'vh';
-  line.style.left = Math.random() * 100 + 'vw';
-  line.style.top = (Math.random() * 40) + 'vh';
-  line.style.transform = `rotate(${(Math.random() * 16 - 8)}deg)`;
-  document.body.appendChild(line);
-  requestAnimationFrame(() => line.classList.add('strike'));
-  setTimeout(() => line.remove(), 500);
-}
-
-function ambientLightningLoop() {
-  const count = 1 + Math.floor(Math.random() * 2);
-  for (let i = 0; i < count; i++) setTimeout(spawnLightning, i * 80);
-  setTimeout(ambientLightningLoop, 4000 + Math.random() * 6000);
-}
-setTimeout(ambientLightningLoop, 2000);
 </script>
 </body>
 </html>
