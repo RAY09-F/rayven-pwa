@@ -157,6 +157,8 @@
   #activateBtn { display: block; margin: 0 auto 16px; border-color: var(--purple); color: var(--purple); }
   #activateBtn:hover { background: var(--purple); color: #0a0714; box-shadow: 0 0 14px var(--purple); }
   #activateBtn.hidden { display: none; }
+  #clearMemoryBtn { border-color: var(--steel); color: var(--steel); font-size: 9px; padding: 4px 10px; }
+  #clearMemoryBtn:hover { background: var(--steel); color: #0a0714; }
 </style>
 </head>
 <body>
@@ -239,6 +241,7 @@
         <label><input type="checkbox" id="voiceToggle" checked> VOICE OUTPUT</label>
         <select id="voiceSelect"></select>
         <button id="testVoiceBtn" onclick="testVoice()" style="padding:5px 10px;font-size:10px;">TEST</button>
+        <button id="clearMemoryBtn" onclick="clearMemory()">CLEAR MEMORY</button>
       </div>
     </div>
   </div>
@@ -262,6 +265,36 @@ const WAKE_PHRASES = [
   "raven"
 ];
 const SLEEP_PHRASES = ["go to sleep", "sleep now", "power down", "goodnight raven"];
+
+// ---- Conversation memory (same-session + persisted in this browser) ----
+let conversationHistory = [];
+try {
+  const saved = localStorage.getItem('rayvenConversation');
+  if (saved) conversationHistory = JSON.parse(saved);
+} catch (e) {
+  conversationHistory = [];
+}
+
+function saveConversation() {
+  try { localStorage.setItem('rayvenConversation', JSON.stringify(conversationHistory)); } catch (e) {}
+}
+
+function renderSavedConversation() {
+  const messages = document.getElementById('messages');
+  conversationHistory.forEach(m => {
+    const cls = m.role === 'user' ? 'user' : 'rayven';
+    const label = m.role === 'user' ? 'YOU' : 'RAYVEN';
+    messages.innerHTML += `<div class="msg ${cls}"><span class="label">${label}</span>${m.content}</div>`;
+  });
+  messages.scrollTop = messages.scrollHeight;
+}
+renderSavedConversation();
+
+function clearMemory() {
+  conversationHistory = [];
+  localStorage.removeItem('rayvenConversation');
+  document.getElementById('messages').innerHTML = '';
+}
 
 function updateClock() {
   const now = new Date();
@@ -317,7 +350,6 @@ function triggerWakeVisual() {
   setTimeout(() => overlay.classList.remove('active'), 2300);
 }
 
-// ---- VOICE OUTPUT: clearer + faster, less choppy on punctuation ----
 let allVoices = [];
 const voiceSelect = document.getElementById('voiceSelect');
 
@@ -344,7 +376,7 @@ if ('speechSynthesis' in window) {
 voiceSelect.addEventListener('change', () => localStorage.setItem('rayvenVoiceIndex', voiceSelect.value));
 
 function testVoice() {
-  speak("Systems online. Voice calibration complete, sir. This is how I sound now.");
+  speak("Systems online. Voice calibration complete, sir.");
 }
 
 function speak(text) {
@@ -354,8 +386,6 @@ function speak(text) {
   window.speechSynthesis.cancel();
   const ring = document.getElementById('coreRing3');
   const chosen = allVoices[voiceSelect.value];
-
-  // Split into sentences, strip commas so it doesn't over-pause on them
   const sentences = (text.match(/[^.!?]+[.!?]*/g) || [text]).map(s => s.replace(/,/g, '').trim());
   let i = 0;
 
@@ -372,7 +402,6 @@ function speak(text) {
   speakNext();
 }
 
-// ---- WAKE WORD VOICE INPUT: more reliable restart + broader matching ----
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 let wakeRecognition = null;
 let commandRecognition = null;
@@ -425,7 +454,7 @@ function startWakeListening() {
     }
   };
 
-  wakeRecognition.onerror = (e) => {
+  wakeRecognition.onerror = () => {
     if (voiceActive && !awake) {
       setTimeout(() => { try { startWakeListening(); } catch (err) {} }, 300);
     }
@@ -486,6 +515,8 @@ async function sendMessage() {
   status.textContent = "PROCESSING...";
   messages.scrollTop = messages.scrollHeight;
 
+  conversationHistory.push({ role: 'user', content: text });
+
   const typingId = 'typing-' + Date.now();
   messages.innerHTML += `<div class="msg rayven" id="${typingId}"><span class="label">RAYVEN</span><div class="typing"><span></span><span></span><span></span></div></div>`;
   messages.scrollTop = messages.scrollHeight;
@@ -494,11 +525,13 @@ async function sendMessage() {
     const response = await fetch(BACKEND_URL, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ message: text })
+      body: JSON.stringify({ history: conversationHistory })
     });
     const data = await response.json();
     const replyText = data.reply || data.error;
     document.getElementById(typingId).innerHTML = `<span class="label">RAYVEN</span>${replyText}`;
+    conversationHistory.push({ role: 'assistant', content: replyText });
+    saveConversation();
     speak(replyText);
   } catch (err) {
     document.getElementById(typingId).innerHTML = `<span class="label">RAYVEN</span>Connection error: ${err.message}`;
