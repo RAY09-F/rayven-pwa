@@ -5,45 +5,218 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RAYVEN</title>
 <style>
-  body { background: #0a0a0a; color: #e0e0e0; font-family: sans-serif; margin: 0; padding: 20px; }
-  h1 { color: #4da6ff; }
-  #chat { max-width: 600px; margin: 0 auto; }
-  #messages { min-height: 300px; border: 1px solid #333; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
-  .msg { margin-bottom: 10px; }
-  .user { color: #4da6ff; }
-  .rayven { color: #e0e0e0; }
-  input { width: 75%; padding: 10px; border-radius: 6px; border: 1px solid #333; background: #1a1a1a; color: white; }
-  button { padding: 10px 15px; border-radius: 6px; border: none; background: #4da6ff; color: white; cursor: pointer; }
+  :root {
+    --core: #35e0e8;
+    --core-dim: #1c7a80;
+    --bg: #050b10;
+    --panel: #0a1620;
+    --line: #1e3a42;
+    --text: #cdeef0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: radial-gradient(circle at 50% 35%, #0c1d24 0%, var(--bg) 75%);
+    color: var(--text);
+    font-family: 'Courier New', monospace;
+    margin: 0;
+    min-height: 100vh;
+    padding: 20px;
+    overflow-x: hidden;
+  }
+
+  .top-bar { display: flex; justify-content: space-between; align-items: center; max-width: 1100px; margin: 0 auto 20px; font-size: 11px; letter-spacing: 2px; color: var(--core-dim); }
+  .top-bar .brand { font-size: 16px; letter-spacing: 8px; color: var(--core); text-shadow: 0 0 8px var(--core); }
+  .status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #35e88a; box-shadow: 0 0 6px #35e88a; margin-right: 6px; animation: blink 1.5s infinite; }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .hud-grid {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 200px 1fr 200px;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .hud-grid { grid-template-columns: 1fr; }
+    .side-panel { display: none; }
+  }
+
+  .side-panel { display: flex; flex-direction: column; gap: 10px; }
+  .data-card {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    border-radius: 3px;
+    padding: 10px 12px;
+    font-size: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  .data-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; width: 2px; height: 100%;
+    background: var(--core); box-shadow: 0 0 6px var(--core);
+  }
+  .data-card .num { color: var(--core); font-size: 11px; letter-spacing: 1px; margin-bottom: 4px; }
+  .data-card .val { color: var(--text); opacity: 0.75; }
+  .bar { height: 3px; background: var(--line); margin-top: 6px; border-radius: 2px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--core); box-shadow: 0 0 6px var(--core); animation: fill 3s ease-in-out infinite alternate; }
+  @keyframes fill { from { width: 20%; } to { width: 85%; } }
+
+  .center-col { display: flex; flex-direction: column; align-items: center; }
+
+  .core-wrap { position: relative; width: 260px; height: 260px; margin: 10px 0 20px; }
+  .ring { position: absolute; border-radius: 50%; border: 1px solid var(--core-dim); top: 50%; left: 50%; transform: translate(-50%, -50%); }
+  .ring1 { width: 260px; height: 260px; border-style: dashed; animation: spin 50s linear infinite; }
+  .ring2 { width: 205px; height: 205px; animation: spin 30s linear infinite reverse; border-color: var(--core); opacity: 0.6; }
+  .ring3 { width: 150px; height: 150px; border: 2px solid var(--core); box-shadow: 0 0 20px var(--core), inset 0 0 20px var(--core-dim); }
+  .tick-ring { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 230px; height: 230px; border-radius: 50%; animation: spin 20s linear infinite; }
+  .tick { position: absolute; width: 1px; height: 8px; background: var(--core-dim); left: 50%; top: 0; transform-origin: 50% 115px; }
+  .core-center {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 70px; height: 70px; border-radius: 50%;
+    background: radial-gradient(circle, var(--core) 0%, var(--core-dim) 70%, transparent 100%);
+    box-shadow: 0 0 35px var(--core);
+    animation: pulse 2.2s ease-in-out infinite;
+  }
+  .scan-line {
+    position: absolute; top: 50%; left: 50%; width: 130px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--core), transparent);
+    transform-origin: 0 0;
+    animation: sweep 3s linear infinite;
+    opacity: 0.7;
+  }
+  @keyframes spin { from { transform: translate(-50%,-50%) rotate(0deg); } to { transform: translate(-50%,-50%) rotate(360deg); } }
+  @keyframes sweep { from { transform: translate(0,0) rotate(0deg); } to { transform: translate(0,0) rotate(360deg); } }
+  @keyframes pulse { 0%,100% { opacity: 0.7; transform: translate(-50%,-50%) scale(0.9); } 50% { opacity: 1; transform: translate(-50%,-50%) scale(1.05); } }
+
+  .readout { font-size: 10px; letter-spacing: 3px; color: var(--core-dim); margin-bottom: 20px; text-align: center; }
+  .readout span { color: var(--core); }
+
+  #chat { width: 100%; max-width: 560px; }
+  #messages {
+    min-height: 260px; max-height: 380px; overflow-y: auto;
+    border: 1px solid var(--line); background: var(--panel); border-radius: 4px;
+    padding: 16px; margin-bottom: 14px;
+    box-shadow: 0 0 15px rgba(53,224,232,0.08), inset 0 0 20px rgba(0,0,0,0.4);
+  }
+  .msg { margin-bottom: 12px; font-size: 14px; line-height: 1.5; }
+  .label { font-size: 11px; letter-spacing: 2px; opacity: 0.7; display: block; margin-bottom: 2px; }
+  .user .label { color: #7fa8ac; }
+  .rayven .label { color: var(--core); }
+  .rayven { text-shadow: 0 0 4px rgba(53,224,232,0.3); }
+  .typing { display: inline-block; }
+  .typing span { display: inline-block; width: 5px; height: 5px; background: var(--core); border-radius: 50%; margin-right: 3px; animation: bounce 1s infinite; }
+  .typing span:nth-child(2) { animation-delay: 0.15s; }
+  .typing span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce { 0%,60%,100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+  .input-row { display: flex; gap: 10px; }
+  input {
+    flex: 1; padding: 12px 14px; border-radius: 4px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--text); font-family: inherit; font-size: 14px;
+  }
+  input:focus { outline: none; border-color: var(--core); box-shadow: 0 0 8px rgba(53,224,232,0.4); }
+  button {
+    padding: 12px 20px; border-radius: 4px; border: 1px solid var(--core); background: transparent;
+    color: var(--core); letter-spacing: 2px; font-size: 12px; cursor: pointer; transition: all 0.2s;
+  }
+  button:hover { background: var(--core); color: #001014; box-shadow: 0 0 12px var(--core); }
 </style>
 </head>
 <body>
-<div id="chat">
-  <h1>RAYVEN</h1>
-  <div id="messages"></div>
-  <input type="text" id="userInput" placeholder="Type a message...">
-  <button onclick="sendMessage()">Send</button>
+
+<div class="top-bar">
+  <div><span class="status-dot"></span>SYSTEM ONLINE</div>
+  <div class="brand">R A Y V E N</div>
+  <div id="clock">00:00:00</div>
+</div>
+
+<div class="hud-grid">
+  <div class="side-panel">
+    <div class="data-card"><div class="num">01 · CORE</div><div class="val">Neural link active</div><div class="bar"><div class="bar-fill"></div></div></div>
+    <div class="data-card"><div class="num">02 · MEMORY</div><div class="val">Context buffer nominal</div><div class="bar"><div class="bar-fill" style="animation-delay:0.5s"></div></div></div>
+    <div class="data-card"><div class="num">03 · UPLINK</div><div class="val">Cloudflare Worker</div><div class="bar"><div class="bar-fill" style="animation-delay:1s"></div></div></div>
+    <div class="data-card"><div class="num">04 · SIGNAL</div><div class="val">Encrypted / stable</div><div class="bar"><div class="bar-fill" style="animation-delay:1.5s"></div></div></div>
+  </div>
+
+  <div class="center-col">
+    <div class="core-wrap">
+      <div class="ring ring1"></div>
+      <div class="ring ring2"></div>
+      <div class="ring ring3"></div>
+      <div class="scan-line"></div>
+      <div class="core-center"></div>
+    </div>
+    <div class="readout">STATUS: <span id="statusText">STANDING BY</span></div>
+
+    <div id="chat">
+      <div id="messages"></div>
+      <div class="input-row">
+        <input type="text" id="userInput" placeholder="Transmit a message..." onkeydown="if(event.key==='Enter')sendMessage()">
+        <button onclick="sendMessage()">SEND</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="side-panel">
+    <div class="data-card"><div class="num">05 · SUPERVISOR</div><div class="val">JARVIS link pending</div><div class="bar"><div class="bar-fill" style="animation-delay:0.3s"></div></div></div>
+    <div class="data-card"><div class="num">06 · OWNER</div><div class="val">Rayan Fahil</div><div class="bar"><div class="bar-fill" style="animation-delay:0.8s"></div></div></div>
+    <div class="data-card"><div class="num">07 · MODEL</div><div class="val">Claude Sonnet</div><div class="bar"><div class="bar-fill" style="animation-delay:1.3s"></div></div></div>
+    <div class="data-card"><div class="num">08 · NETWORK</div><div class="val">JARVIS · KEVOS · RAYVEN</div><div class="bar"><div class="bar-fill" style="animation-delay:1.8s"></div></div></div>
+  </div>
 </div>
 
 <script>
 const BACKEND_URL = "https://rayven-backend.rayanfahil2.workers.dev";
 
+// Live clock
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toTimeString().split(' ')[0];
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// Build the tick marks around the core ring
+const tickRing = document.createElement('div');
+tickRing.className = 'tick-ring';
+for (let i = 0; i < 36; i++) {
+  const tick = document.createElement('div');
+  tick.className = 'tick';
+  tick.style.transform = `rotate(${i * 10}deg)`;
+  tickRing.appendChild(tick);
+}
+document.querySelector('.core-wrap').appendChild(tickRing);
+
 async function sendMessage() {
   const input = document.getElementById("userInput");
   const messages = document.getElementById("messages");
+  const status = document.getElementById("statusText");
   const text = input.value.trim();
   if (!text) return;
 
-  messages.innerHTML += `<div class="msg user"><b>You:</b> ${text}</div>`;
+  messages.innerHTML += `<div class="msg user"><span class="label">YOU</span>${text}</div>`;
   input.value = "";
+  status.textContent = "PROCESSING...";
+  messages.scrollTop = messages.scrollHeight;
 
-  const response = await fetch(BACKEND_URL, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ message: text })
-  });
-  const data = await response.json();
+  const typingId = 'typing-' + Date.now();
+  messages.innerHTML += `<div class="msg rayven" id="${typingId}"><span class="label">RAYVEN</span><div class="typing"><span></span><span></span><span></span></div></div>`;
+  messages.scrollTop = messages.scrollHeight;
 
-  messages.innerHTML += `<div class="msg rayven"><b>RAYVEN:</b> ${data.reply || data.error}</div>`;
+  try {
+    const response = await fetch(BACKEND_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ message: text })
+    });
+    const data = await response.json();
+    document.getElementById(typingId).innerHTML = `<span class="label">RAYVEN</span>${data.reply || data.error}`;
+  } catch (err) {
+    document.getElementById(typingId).innerHTML = `<span class="label">RAYVEN</span>Connection error: ${err.message}`;
+  }
+  status.textContent = "STANDING BY";
   messages.scrollTop = messages.scrollHeight;
 }
 </script>
