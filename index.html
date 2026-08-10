@@ -24,10 +24,13 @@
     overflow-x: hidden;
   }
 
-  .top-bar { display: flex; justify-content: space-between; align-items: center; max-width: 1100px; margin: 0 auto 20px; font-size: 11px; letter-spacing: 2px; color: var(--core-dim); }
+  .top-bar { display: flex; justify-content: space-between; align-items: center; max-width: 1100px; margin: 0 auto 8px; font-size: 11px; letter-spacing: 2px; color: var(--core-dim); }
   .top-bar .brand { font-size: 16px; letter-spacing: 8px; color: var(--core); text-shadow: 0 0 8px var(--core); }
   .status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #35e88a; box-shadow: 0 0 6px #35e88a; margin-right: 6px; animation: blink 1.5s infinite; }
   @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .acronym { text-align: center; font-size: 9px; letter-spacing: 2px; color: var(--core-dim); max-width: 1100px; margin: 0 auto 20px; }
+  .acronym span { color: var(--core); }
 
   .hud-grid {
     max-width: 1100px;
@@ -70,6 +73,8 @@
   .ring1 { width: 260px; height: 260px; border-style: dashed; animation: spin 50s linear infinite; }
   .ring2 { width: 205px; height: 205px; animation: spin 30s linear infinite reverse; border-color: var(--core); opacity: 0.6; }
   .ring3 { width: 150px; height: 150px; border: 2px solid var(--core); box-shadow: 0 0 20px var(--core), inset 0 0 20px var(--core-dim); }
+  .ring3.speaking { animation: speakPulse 0.5s ease-in-out infinite; }
+  @keyframes speakPulse { 0%,100% { box-shadow: 0 0 20px var(--core), inset 0 0 20px var(--core-dim); } 50% { box-shadow: 0 0 45px var(--core), inset 0 0 35px var(--core); } }
   .tick-ring { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 230px; height: 230px; border-radius: 50%; animation: spin 20s linear infinite; }
   .tick { position: absolute; width: 1px; height: 8px; background: var(--core-dim); left: 50%; top: 0; transform-origin: 50% 115px; }
   .core-center {
@@ -111,17 +116,21 @@
   .typing span:nth-child(3) { animation-delay: 0.3s; }
   @keyframes bounce { 0%,60%,100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-4px); opacity: 1; } }
 
-  .input-row { display: flex; gap: 10px; }
+  .input-row { display: flex; gap: 8px; }
   input {
     flex: 1; padding: 12px 14px; border-radius: 4px; border: 1px solid var(--line);
     background: var(--panel); color: var(--text); font-family: inherit; font-size: 14px;
   }
   input:focus { outline: none; border-color: var(--core); box-shadow: 0 0 8px rgba(53,224,232,0.4); }
   button {
-    padding: 12px 20px; border-radius: 4px; border: 1px solid var(--core); background: transparent;
-    color: var(--core); letter-spacing: 2px; font-size: 12px; cursor: pointer; transition: all 0.2s;
+    padding: 12px 16px; border-radius: 4px; border: 1px solid var(--core); background: transparent;
+    color: var(--core); letter-spacing: 1px; font-size: 12px; cursor: pointer; transition: all 0.2s;
+    white-space: nowrap;
   }
   button:hover { background: var(--core); color: #001014; box-shadow: 0 0 12px var(--core); }
+  #micBtn.listening { background: #e83535; border-color: #e83535; color: white; box-shadow: 0 0 12px #e83535; }
+  .toggle-row { display: flex; justify-content: center; gap: 16px; margin-top: 10px; font-size: 10px; letter-spacing: 1px; color: var(--core-dim); }
+  .toggle-row label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -131,6 +140,7 @@
   <div class="brand">R A Y V E N</div>
   <div id="clock">00:00:00</div>
 </div>
+<div class="acronym"><span>R</span>ayan's <span>A</span>I for <span>Y</span>ield <span>V</span>entures <span>E</span>xecution and <span>N</span>etworking</div>
 
 <div class="hud-grid">
   <div class="side-panel">
@@ -144,7 +154,7 @@
     <div class="core-wrap">
       <div class="ring ring1"></div>
       <div class="ring ring2"></div>
-      <div class="ring ring3"></div>
+      <div class="ring ring3" id="coreRing3"></div>
       <div class="scan-line"></div>
       <div class="core-center"></div>
     </div>
@@ -154,7 +164,11 @@
       <div id="messages"></div>
       <div class="input-row">
         <input type="text" id="userInput" placeholder="Transmit a message..." onkeydown="if(event.key==='Enter')sendMessage()">
+        <button id="micBtn" onclick="toggleListening()">🎤</button>
         <button onclick="sendMessage()">SEND</button>
+      </div>
+      <div class="toggle-row">
+        <label><input type="checkbox" id="voiceToggle" checked> VOICE OUTPUT</label>
       </div>
     </div>
   </div>
@@ -178,7 +192,7 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
-// Build the tick marks around the core ring
+// Tick marks around core ring
 const tickRing = document.createElement('div');
 tickRing.className = 'tick-ring';
 for (let i = 0; i < 36; i++) {
@@ -188,6 +202,63 @@ for (let i = 0; i < 36; i++) {
   tickRing.appendChild(tick);
 }
 document.querySelector('.core-wrap').appendChild(tickRing);
+
+// ---- VOICE OUTPUT (RAYVEN speaking) ----
+function speak(text) {
+  if (!document.getElementById('voiceToggle').checked) return;
+  if (!('speechSynthesis' in window)) return;
+
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 1.0;
+  utterance.pitch = 0.8;
+
+  const voices = window.speechSynthesis.getVoices();
+  const preferred = voices.find(v => /male|david|daniel|google uk english male/i.test(v.name)) || voices[0];
+  if (preferred) utterance.voice = preferred;
+
+  const ring = document.getElementById('coreRing3');
+  utterance.onstart = () => ring.classList.add('speaking');
+  utterance.onend = () => ring.classList.remove('speaking');
+
+  window.speechSynthesis.speak(utterance);
+}
+
+// ---- VOICE INPUT (mic button) ----
+let recognition = null;
+let listening = false;
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if (SpeechRecognition) {
+  recognition = new SpeechRecognition();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = 'en-US';
+
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    document.getElementById('userInput').value = transcript;
+    sendMessage();
+  };
+  recognition.onend = () => {
+    listening = false;
+    document.getElementById('micBtn').classList.remove('listening');
+  };
+}
+
+function toggleListening() {
+  if (!recognition) {
+    alert('Voice input is not supported in this browser. Try Chrome.');
+    return;
+  }
+  if (listening) {
+    recognition.stop();
+  } else {
+    recognition.start();
+    listening = true;
+    document.getElementById('micBtn').classList.add('listening');
+  }
+}
 
 async function sendMessage() {
   const input = document.getElementById("userInput");
@@ -212,12 +283,19 @@ async function sendMessage() {
       body: JSON.stringify({ message: text })
     });
     const data = await response.json();
-    document.getElementById(typingId).innerHTML = `<span class="label">RAYVEN</span>${data.reply || data.error}`;
+    const replyText = data.reply || data.error;
+    document.getElementById(typingId).innerHTML = `<span class="label">RAYVEN</span>${replyText}`;
+    speak(replyText);
   } catch (err) {
     document.getElementById(typingId).innerHTML = `<span class="label">RAYVEN</span>Connection error: ${err.message}`;
   }
   status.textContent = "STANDING BY";
   messages.scrollTop = messages.scrollHeight;
+}
+
+// Preload voices (some browsers load async)
+if ('speechSynthesis' in window) {
+  window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
 }
 </script>
 </body>
