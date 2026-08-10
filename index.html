@@ -95,6 +95,7 @@
   #wordmark {
     position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
     text-align: center; pointer-events: none; z-index: 2;
+    transition: opacity 0.3s ease;
   }
   #wordTitle {
     font-family: 'Orbitron', sans-serif; font-weight: 900;
@@ -112,7 +113,21 @@
   }
   #wordmark.sleeping #wordTitle { animation: none; color: var(--steel); opacity: 0.75; }
   #wordmark.sleeping #wordSubtitle { opacity: 0.4; }
+  #wordmark.dimmed { opacity: 0; }
   @keyframes wordFlicker { 0%,94%,100% { opacity: 1; } 95% { opacity: 0.5; } 96% { opacity: 1; } 97% { opacity: 0.3; } 98% { opacity: 1; } }
+
+  /* The "brain" — welcome message that pops up in the center when the hammer lands */
+  #welcomeText {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.6);
+    font-family: 'Orbitron', sans-serif; font-weight: 900;
+    font-size: clamp(20px, 4.2vw, 38px); letter-spacing: 4px;
+    color: var(--gold);
+    text-shadow: 0 0 12px var(--gold-glow), 0 0 28px var(--gold), 0 0 50px var(--gold-glow);
+    text-align: center; pointer-events: none; z-index: 5;
+    opacity: 0;
+    transition: opacity 0.35s ease, transform 0.5s cubic-bezier(.22,1.6,.36,1);
+  }
+  #welcomeText.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 
   .corner-box {
     position: fixed; z-index: 10;
@@ -163,6 +178,7 @@
   <div id="wordTitle"></div>
   <div id="wordSubtitle">RAYAN'S AI ASSISTANT</div>
 </div>
+<div id="welcomeText">WELCOME HOME,<br>SIR</div>
 <canvas id="sphereCanvas"></canvas>
 
 <div id="wakeOverlay">
@@ -210,6 +226,7 @@
 <script>
 const wordmarkEl = document.getElementById('wordmark');
 const wordTitleEl = document.getElementById('wordTitle');
+const welcomeTextEl = document.getElementById('welcomeText');
 
 function setTitleText(text) {
   wordTitleEl.innerHTML = '';
@@ -292,10 +309,11 @@ let target = STATES.idle;
 function setSphereState(name) { target = STATES[name] || STATES.idle; }
 function lerp(a, b, t) { return a + (b - a) * t; }
 
+// The "brain" (particle sphere) vanish effect: offset snaps deeply negative so the brain nearly disappears,
+// then it eases itself back to normal size on its own — no separate animation loop needed.
 let explosionOffset = 0;
-function triggerHomecoming() {
-  explosionOffset = 2.2;
-  setTimeout(() => { explosionOffset = -0.28; }, 520);
+function triggerVanish() {
+  explosionOffset = -0.97;
 }
 
 let angleY = 0;
@@ -339,14 +357,14 @@ function render() {
   current.speed = lerp(current.speed, target.speed, 0.04);
   current.colorMix = lerp(current.colorMix, target.colorMix, 0.04);
   current.lightningRate = lerp(current.lightningRate, target.lightningRate, 0.04);
-  explosionOffset = lerp(explosionOffset, 0, 0.055);
+  explosionOffset = lerp(explosionOffset, 0, 0.045);
 
   ctx.fillStyle = 'rgba(10,5,16,0.32)';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const centerX = canvas.width / 2;
   const centerY = canvas.height / 2;
-  const radius = baseSphereRadius() * current.scale * userZoom * (1 + explosionOffset);
+  const radius = Math.max(0, baseSphereRadius() * current.scale * userZoom * (1 + explosionOffset));
   const perspective = baseSphereRadius() * current.scale * userZoom * 2.6;
 
   if (!dragging) angleY += current.speed;
@@ -431,7 +449,24 @@ function impactCrackle(count) {
   for (let i = 0; i < count; i++) setTimeout(spawnImpactBolt, i * 30);
 }
 
+// Lightning circling the whole screen for the duration the welcome text is showing
+function lightningFlurry(durationMs) {
+  const interval = 160;
+  let elapsed = 0;
+  const timer = setInterval(() => {
+    spawnLightning();
+    if (Math.random() > 0.5) spawnImpactBolt();
+    elapsed += interval;
+    if (elapsed >= durationMs) clearInterval(timer);
+  }, interval);
+}
+
+let wakeSequenceRunning = false;
+
 function wakeBurst() {
+  if (wakeSequenceRunning) return;
+  wakeSequenceRunning = true;
+
   const overlay = document.getElementById('wakeOverlay');
   overlay.classList.remove('active');
   void overlay.offsetWidth;
@@ -441,11 +476,30 @@ function wakeBurst() {
   setSphereState('burst');
 
   setTimeout(() => {
-    triggerHomecoming();
-    scatterLetters();
+    // hammer lands: the brain's particles vanish, "WELCOME HOME, SIR" appears in gold, lightning circles the screen
+    triggerVanish();
+    wordmarkEl.classList.add('dimmed');
+    welcomeTextEl.classList.add('show');
     impactCrackle(10);
-    speak("Welcome home, Rayan.", () => startConvoListening());
+    lightningFlurry(1300);
+
+    const greeting = "Welcome home, sir.";
+    const log = document.getElementById('chatLog');
+    log.innerHTML += `<div class="msg rayven"><span class="label">RAYVEN</span>${greeting}</div>`;
+    log.scrollTop = log.scrollHeight;
+    conversationHistory.push({ role: 'assistant', content: greeting });
+    saveConversation();
+
+    speak(greeting, () => {
+      wakeSequenceRunning = false;
+      startConvoListening();
+    });
   }, 680);
+
+  setTimeout(() => {
+    welcomeTextEl.classList.remove('show');
+    wordmarkEl.classList.remove('dimmed');
+  }, 680 + 1300);
 
   setTimeout(() => {
     overlay.classList.remove('active');
@@ -537,7 +591,6 @@ voiceSelect.addEventListener('change', () => localStorage.setItem('rayvenVoiceIn
 
 function testVoice() { speak("Systems online. Voice calibration complete, sir.", null); }
 
-// ---- FIXED: give the speech engine a brief moment after cancel() before speaking, and retry once if it silently fails ----
 function speak(text, onDone) {
   if (!document.getElementById('voiceToggle').checked) { if (onDone) onDone(); return; }
   if (!('speechSynthesis' in window)) { if (onDone) onDone(); return; }
@@ -554,23 +607,11 @@ function speak(text, onDone) {
     utter.rate = 1.15;
     utter.pitch = 1.0;
     if (chosen) utter.voice = chosen;
-
-    let started = false;
-    utter.onstart = () => { started = true; };
     utter.onend = () => { i++; setTimeout(speakNext, 50); };
     utter.onerror = () => { i++; setTimeout(speakNext, 50); };
-
     window.speechSynthesis.speak(utter);
-
-    // Safety net: some browsers silently drop a speak() call right after cancel(); if nothing started within 400ms, retry once
-    setTimeout(() => {
-      if (!started && window.speechSynthesis.pending === false && !window.speechSynthesis.speaking) {
-        try { window.speechSynthesis.speak(utter); } catch (e) {}
-      }
-    }, 400);
   }
 
-  // small buffer after cancel() before the first utterance — fixes the "visuals play but no voice" issue
   setTimeout(speakNext, 90);
 }
 
@@ -601,9 +642,11 @@ function startWakeListening() {
   wakeRecognition.maxAlternatives = 5;
 
   wakeRecognition.onresult = (event) => {
+    if (awake) return;
     for (let r = event.resultIndex; r < event.results.length; r++) {
       for (let alt = 0; alt < event.results[r].length; alt++) {
         if (matchesAny(event.results[r][alt].transcript, WAKE_PHRASES)) {
+          awake = true;
           try { wakeRecognition.stop(); } catch (e) {}
           enterAwakeMode();
           return;
@@ -619,7 +662,6 @@ function startWakeListening() {
 }
 
 function enterAwakeMode() {
-  awake = true;
   speakingNow = true;
   wakeBurst();
   setVoiceStatus('Awake — listening...');
