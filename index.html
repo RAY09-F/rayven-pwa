@@ -170,6 +170,7 @@
     color: var(--gold); font-size: 10px; letter-spacing: 1px; cursor: pointer; white-space: nowrap;
   }
   .mini-btn:hover { background: var(--gold); color: #0a0510; }
+  .mini-btn.muted { background: #c0392b; border-color: #c0392b; color: white; }
 
   #settingsBox { bottom: 16px; left: 16px; width: 250px; max-width: 88vw; font-size: 10px; }
   #settingsBox .status-line { letter-spacing: 2px; color: var(--steel); margin-bottom: 8px; }
@@ -183,6 +184,7 @@
   #activateBtn { width: 100%; margin-bottom: 8px; border-color: var(--purple); color: var(--purple); }
   #activateBtn:hover { background: var(--purple); color: #0a0510; }
   #activateBtn.hidden { display: none; }
+  #muteBtn { width: 100%; margin-bottom: 8px; }
 
   .holo-box {
     position: fixed; z-index: 10; width: 210px; max-width: 78vw;
@@ -251,6 +253,7 @@
 
 <div id="settingsBox" class="corner-box">
   <button id="activateBtn" class="mini-btn" onclick="activateVoice()">🎙 ACTIVATE VOICE — SAY "HEY RAYVEN"</button>
+  <button id="muteBtn" class="mini-btn" onclick="toggleMute()">🎙 MUTE MIC</button>
   <div class="status-line">STATUS: <span id="statusText">STANDING BY</span></div>
   <div class="status-line" id="voiceStatus" style="font-size:9px;">Voice activation not started</div>
   <div class="row">
@@ -715,6 +718,7 @@ let wakeRecognition = null;
 let convoRecognition = null;
 let voiceActive = false;
 let awake = false;
+let micMuted = false;
 
 function setVoiceStatus(msg) { document.getElementById('voiceStatus').textContent = msg; }
 
@@ -725,8 +729,25 @@ function activateVoice() {
   startWakeListening();
 }
 
+// ---- Mute: fully stops RAYVEN from listening until unmuted ----
+function toggleMute() {
+  micMuted = !micMuted;
+  const btn = document.getElementById('muteBtn');
+  btn.textContent = micMuted ? '🔇 UNMUTE MIC' : '🎙 MUTE MIC';
+  btn.classList.toggle('muted', micMuted);
+
+  if (micMuted) {
+    if (wakeRecognition) { try { wakeRecognition.stop(); } catch (e) {} }
+    if (convoRecognition) { try { convoRecognition.stop(); } catch (e) {} }
+    setVoiceStatus('Microphone muted — RAYVEN cannot hear you.');
+  } else {
+    if (!voiceActive) return;
+    if (awake) { startContinuousAwakeListening(); } else { startWakeListening(); }
+  }
+}
+
 function startWakeListening() {
-  if (!voiceActive || awake) return;
+  if (!voiceActive || awake || micMuted) return;
   setSleepingVisual(false);
   setSphereState('idle');
   wakeRecognition = new SpeechRecognitionCtor();
@@ -736,7 +757,7 @@ function startWakeListening() {
   wakeRecognition.maxAlternatives = 5;
 
   wakeRecognition.onresult = (event) => {
-    if (awake) return;
+    if (awake || micMuted) return;
     for (let r = event.resultIndex; r < event.results.length; r++) {
       for (let alt = 0; alt < event.results[r].length; alt++) {
         if (matchesAny(event.results[r][alt].transcript, WAKE_PHRASES)) {
@@ -748,8 +769,8 @@ function startWakeListening() {
       }
     }
   };
-  wakeRecognition.onend = () => { if (voiceActive && !awake) { try { startWakeListening(); } catch (e) { setTimeout(startWakeListening, 100); } } };
-  wakeRecognition.onerror = () => { if (voiceActive && !awake) setTimeout(() => { try { startWakeListening(); } catch (err) {} }, 100); };
+  wakeRecognition.onend = () => { if (voiceActive && !awake && !micMuted) { try { startWakeListening(); } catch (e) { setTimeout(startWakeListening, 100); } } };
+  wakeRecognition.onerror = () => { if (voiceActive && !awake && !micMuted) setTimeout(() => { try { startWakeListening(); } catch (err) {} }, 100); };
 
   setVoiceStatus('Sleeping — say a wake word...');
   try { wakeRecognition.start(); } catch (e) {}
@@ -764,17 +785,18 @@ function enterAwakeMode() {
 function exitAwakeMode() {
   awake = false;
   if (convoRecognition) { try { convoRecognition.stop(); } catch (e) {} }
-  startWakeListening();
+  if (!micMuted) startWakeListening();
 }
 
 function startContinuousAwakeListening() {
-  if (!awake) return;
+  if (!awake || micMuted) return;
   convoRecognition = new SpeechRecognitionCtor();
   convoRecognition.continuous = true;
   convoRecognition.interimResults = false;
   convoRecognition.lang = 'en-US';
 
   convoRecognition.onresult = (event) => {
+    if (micMuted) return;
     const lastResult = event.results[event.results.length - 1];
     const transcript = lastResult && lastResult[0] ? lastResult[0].transcript.trim() : '';
     if (!transcript) return;
@@ -791,8 +813,8 @@ function startContinuousAwakeListening() {
     sendMessage(transcript, null);
   };
 
-  convoRecognition.onend = () => { if (awake) { try { startContinuousAwakeListening(); } catch (e) { setTimeout(() => { if (awake) startContinuousAwakeListening(); }, 100); } } };
-  convoRecognition.onerror = () => { if (awake) setTimeout(() => { if (awake) startContinuousAwakeListening(); }, 100); };
+  convoRecognition.onend = () => { if (awake && !micMuted) { try { startContinuousAwakeListening(); } catch (e) { setTimeout(() => { if (awake && !micMuted) startContinuousAwakeListening(); }, 100); } } };
+  convoRecognition.onerror = () => { if (awake && !micMuted) setTimeout(() => { if (awake && !micMuted) startContinuousAwakeListening(); }, 100); };
 
   try { convoRecognition.start(); } catch (e) {}
 }
