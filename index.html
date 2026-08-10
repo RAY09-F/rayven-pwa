@@ -3,17 +3,126 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RAYVEN — Fullscreen Sphere — Stage 1</title>
+<title>RAYVEN</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #050505; }
-  canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; }
-  #label { position: fixed; top: 16px; left: 16px; color: #aaa; font-family: monospace; font-size: 12px; letter-spacing: 2px; z-index: 5; }
+  :root {
+    --storm-dark: #0a0510;
+    --storm-mid: #170c26;
+    --purple: #9b6bff;
+    --purple-glow: #7a4fe0;
+    --gold: #e8c468;
+    --gold-glow: #ffdd88;
+    --text: #e8ddff;
+    --steel: #8a7ab0;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background: radial-gradient(ellipse at 50% 30%, var(--storm-mid) 0%, var(--storm-dark) 75%);
+    font-family: 'Courier New', monospace;
+    color: var(--text);
+  }
+  canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; cursor: grab; z-index: 0; }
+  canvas.dragging { cursor: grabbing; }
+
+  .lightning-line {
+    position: fixed; top: -5vh; width: 2px;
+    background: linear-gradient(180deg, var(--gold-glow), var(--purple-glow), transparent);
+    filter: drop-shadow(0 0 6px var(--gold-glow)) drop-shadow(0 0 16px var(--purple-glow));
+    opacity: 0; z-index: 1; pointer-events: none;
+  }
+  .lightning-line.strike { animation: lightningFlicker 0.4s ease-out forwards; }
+  @keyframes lightningFlicker { 0% { opacity: 0; } 8% { opacity: 1; } 15% { opacity: 0.1; } 22% { opacity: 0.9; } 35% { opacity: 0.15; } 100% { opacity: 0; } }
+
+  #wordmark {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-family: 'Orbitron', sans-serif; font-weight: 900;
+    font-size: clamp(20px, 4vw, 34px); letter-spacing: 10px;
+    color: var(--purple);
+    text-shadow: 0 0 10px var(--purple-glow), 0 0 24px var(--purple-glow), 0 0 4px var(--gold-glow);
+    pointer-events: none; z-index: 2;
+    animation: wordFlicker 6s infinite;
+  }
+  @keyframes wordFlicker { 0%,94%,100% { opacity: 1; } 95% { opacity: 0.5; } 96% { opacity: 1; } 97% { opacity: 0.3; } 98% { opacity: 1; } }
+
+  .corner-box {
+    position: fixed; z-index: 10;
+    background: rgba(20,10,35,0.45);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(232,196,104,0.25);
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.35);
+  }
+
+  #chatBox { top: 16px; left: 16px; width: 300px; max-width: 88vw; }
+  #chatLog {
+    max-height: 180px; overflow-y: auto; font-size: 11px; line-height: 1.4;
+    margin-bottom: 8px; padding-right: 4px;
+  }
+  #chatLog .msg { margin-bottom: 7px; }
+  #chatLog .label { font-size: 9px; letter-spacing: 1px; opacity: 0.7; display: block; }
+  #chatLog .user .label { color: var(--steel); }
+  #chatLog .rayven .label { color: var(--gold); }
+  .chat-input-row { display: flex; gap: 6px; }
+  #chatBox input {
+    flex: 1; min-width: 0; padding: 7px 9px; border-radius: 4px; border: 1px solid rgba(232,196,104,0.3);
+    background: rgba(10,5,16,0.6); color: var(--text); font-family: inherit; font-size: 11px;
+  }
+  #chatBox input:focus { outline: none; border-color: var(--gold); }
+  .mini-btn {
+    padding: 7px 10px; border-radius: 4px; border: 1px solid var(--gold); background: transparent;
+    color: var(--gold); font-size: 10px; letter-spacing: 1px; cursor: pointer; white-space: nowrap;
+  }
+  .mini-btn:hover { background: var(--gold); color: #0a0510; }
+
+  #settingsBox { bottom: 16px; left: 16px; width: 250px; max-width: 88vw; font-size: 10px; }
+  #settingsBox .status-line { letter-spacing: 2px; color: var(--steel); margin-bottom: 8px; }
+  #settingsBox .status-line span { color: var(--gold); }
+  #settingsBox .row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; flex-wrap: wrap; }
+  #settingsBox label { display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--steel); font-size: 9px; letter-spacing: 1px; }
+  #settingsBox select {
+    background: rgba(10,5,16,0.6); color: var(--text); border: 1px solid rgba(232,196,104,0.3);
+    border-radius: 4px; padding: 4px 6px; font-family: inherit; font-size: 9px; max-width: 140px;
+  }
+  #activateBtn { width: 100%; margin-bottom: 8px; border-color: var(--purple); color: var(--purple); }
+  #activateBtn:hover { background: var(--purple); color: #0a0510; }
+  #activateBtn.hidden { display: none; }
 </style>
 </head>
 <body>
-<div id="label">STAGE 1 — FULLSCREEN SPHERE (geometry check, no theme yet)</div>
+
+<div id="wordmark">RAYVEN</div>
 <canvas id="sphereCanvas"></canvas>
+
+<div id="chatBox" class="corner-box">
+  <div id="chatLog"></div>
+  <div class="chat-input-row">
+    <input type="text" id="userInput" placeholder="Message RAYVEN..." onkeydown="if(event.key==='Enter')handleTypedSend()">
+    <button class="mini-btn" onclick="handleTypedSend()">SEND</button>
+  </div>
+</div>
+
+<div id="settingsBox" class="corner-box">
+  <button id="activateBtn" class="mini-btn" onclick="activateVoice()">🎙 ACTIVATE VOICE — SAY "HEY RAYVEN"</button>
+  <div class="status-line">STATUS: <span id="statusText">STANDING BY</span></div>
+  <div class="status-line" id="voiceStatus" style="font-size:9px;">Voice activation not started</div>
+  <div class="row">
+    <label><input type="checkbox" id="voiceToggle" checked> VOICE OUT</label>
+    <select id="voiceSelect"></select>
+  </div>
+  <div class="row">
+    <button class="mini-btn" onclick="testVoice()">TEST</button>
+    <button class="mini-btn" onclick="clearMemory()">CLEAR MEMORY</button>
+  </div>
+</div>
+
 <script>
+/* =========================================================
+   PARTICLE SPHERE — full-screen canvas background
+   ========================================================= */
 const canvas = document.getElementById('sphereCanvas');
 const ctx = canvas.getContext('2d');
 
@@ -27,17 +136,12 @@ window.addEventListener('resize', resize);
 const SEED_COUNT = 320;
 const SUBDOTS_PER_SEED = 7;
 
-// Sphere radius scales with the screen so it always fills a good portion of the view
-function getSphereRadius() {
-  return Math.min(window.innerWidth, window.innerHeight) * 0.28;
+function baseSphereRadius() {
+  return Math.min(window.innerWidth, window.innerHeight) * 0.26;
 }
-
-let SPHERE_RADIUS = getSphereRadius();
-window.addEventListener('resize', () => { SPHERE_RADIUS = getSphereRadius(); });
 
 const points = [];
 const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-
 for (let i = 0; i < SEED_COUNT; i++) {
   const y = 1 - (i / (SEED_COUNT - 1)) * 2;
   const radiusAtY = Math.sqrt(1 - y * y);
@@ -45,47 +149,121 @@ for (let i = 0; i < SEED_COUNT; i++) {
   const sx = Math.cos(theta) * radiusAtY;
   const sz = Math.sin(theta) * radiusAtY;
   const sy = y;
+  const isGoldAccent = Math.random() < 0.16; // fixed minority of points always read as gold accents
 
   for (let k = 0; k < SUBDOTS_PER_SEED; k++) {
     const jitter = 0.035;
     points.push({
       ux: sx + (Math.random() - 0.5) * jitter,
       uy: sy + (Math.random() - 0.5) * jitter,
-      uz: sz + (Math.random() - 0.5) * jitter
+      uz: sz + (Math.random() - 0.5) * jitter,
+      goldAccent: isGoldAccent
     });
   }
 }
 
+// ---- Reactive state machine: idle / listening / thinking / talking / burst ----
+const STATES = {
+  idle:      { scale: 1.00, speed: 0.004, colorMix: 0.00, lightningRate: 1.0 },
+  listening: { scale: 1.18, speed: 0.010, colorMix: 0.15, lightningRate: 1.4 },
+  thinking:  { scale: 0.82, speed: 0.022, colorMix: 0.75, lightningRate: 1.8 },
+  talking:   { scale: 1.05, speed: 0.013, colorMix: 0.40, lightningRate: 2.4 },
+  burst:     { scale: 1.55, speed: 0.035, colorMix: 0.55, lightningRate: 4.0 }
+};
+
+let current = { scale: 1, speed: 0.004, colorMix: 0, lightningRate: 1 };
+let target = STATES.idle;
+
+function setSphereState(name) {
+  target = STATES[name] || STATES.idle;
+}
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+// ---- Manual drag / zoom interactivity ----
 let angleY = 0;
 let angleX = 0.3;
+let dragging = false;
+let lastPointer = { x: 0, y: 0 };
+let userZoom = 1;
+
+function pointerDown(x, y) {
+  dragging = true;
+  lastPointer = { x, y };
+  canvas.classList.add('dragging');
+}
+function pointerMove(x, y) {
+  if (!dragging) return;
+  const dx = x - lastPointer.x;
+  const dy = y - lastPointer.y;
+  angleY += dx * 0.005;
+  angleX += dy * 0.005;
+  angleX = Math.max(-1.3, Math.min(1.3, angleX));
+  lastPointer = { x, y };
+}
+function pointerUp() {
+  dragging = false;
+  canvas.classList.remove('dragging');
+}
+
+canvas.addEventListener('mousedown', e => pointerDown(e.clientX, e.clientY));
+window.addEventListener('mousemove', e => pointerMove(e.clientX, e.clientY));
+window.addEventListener('mouseup', pointerUp);
+
+canvas.addEventListener('touchstart', e => { const t = e.touches[0]; pointerDown(t.clientX, t.clientY); }, { passive: true });
+canvas.addEventListener('touchmove', e => { const t = e.touches[0]; pointerMove(t.clientX, t.clientY); }, { passive: true });
+canvas.addEventListener('touchend', pointerUp);
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  userZoom += e.deltaY * -0.001;
+  userZoom = Math.max(0.5, Math.min(2.2, userZoom));
+}, { passive: false });
 
 function rotateY(x, y, z, angle) {
   const cos = Math.cos(angle), sin = Math.sin(angle);
-  return { x: x * cos - z * sin, y: y, z: x * sin + z * cos };
+  return { x: x * cos - z * sin, y, z: x * sin + z * cos };
 }
 function rotateX(x, y, z, angle) {
   const cos = Math.cos(angle), sin = Math.sin(angle);
-  return { x: x, y: y * cos - z * sin, z: y * sin + z * cos };
+  return { x, y: y * cos - z * sin, z: y * sin + z * cos };
+}
+function mixColor(c1, c2, t) {
+  return [
+    Math.round(c1[0] + (c2[0] - c1[0]) * t),
+    Math.round(c1[1] + (c2[1] - c1[1]) * t),
+    Math.round(c1[2] + (c2[2] - c1[2]) * t)
+  ];
 }
 
+const PURPLE_RGB = [155, 107, 255];
+const GOLD_RGB = [232, 196, 104];
+
 function render() {
-  ctx.fillStyle = 'rgba(5,5,5,0.35)';
+  // smoothly lerp current visual state toward target every frame
+  current.scale = lerp(current.scale, target.scale, 0.04);
+  current.speed = lerp(current.speed, target.speed, 0.04);
+  current.colorMix = lerp(current.colorMix, target.colorMix, 0.04);
+  current.lightningRate = lerp(current.lightningRate, target.lightningRate, 0.04);
+
+  ctx.fillStyle = 'rgba(10,5,16,0.32)';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const centerX = canvas.width / 2;
   const centerY = canvas.height / 2;
-  const perspective = SPHERE_RADIUS * 2.6;
+  const radius = baseSphereRadius() * current.scale * userZoom;
+  const perspective = radius * 2.6;
+
+  if (!dragging) angleY += current.speed;
+
+  const baseMix = mixColor(PURPLE_RGB, GOLD_RGB, current.colorMix);
 
   const projected = points.map(p => {
-    const px = p.ux * SPHERE_RADIUS;
-    const py = p.uy * SPHERE_RADIUS;
-    const pz = p.uz * SPHERE_RADIUS;
-
+    const px = p.ux * radius, py = p.uy * radius, pz = p.uz * radius;
     let r = rotateY(px, py, pz, angleY);
     r = rotateX(r.x, r.y, r.z, angleX);
-
     const scale = perspective / (perspective + r.z);
-    return { x: centerX + r.x * scale, y: centerY + r.y * scale, z: r.z, scale: scale };
+    return { x: centerX + r.x * scale, y: centerY + r.y * scale, z: r.z, scale, goldAccent: p.goldAccent };
   });
 
   projected.sort((a, b) => a.z - b.z);
@@ -93,21 +271,288 @@ function render() {
   projected.forEach(p => {
     const size = Math.max(0.6, 1.9 * p.scale);
     const brightness = Math.min(1, Math.max(0.15, (p.scale - 0.7) * 2));
+    const rgb = p.goldAccent ? GOLD_RGB : baseMix;
 
     ctx.save();
-    ctx.shadowBlur = 8 * p.scale;
-    ctx.shadowColor = `rgba(220,220,220,${brightness})`;
-    ctx.fillStyle = `rgba(230,230,230,${brightness})`;
+    ctx.shadowBlur = 9 * p.scale;
+    ctx.shadowColor = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${brightness})`;
+    ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${brightness})`;
     ctx.beginPath();
     ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   });
 
-  angleY += 0.004;
   requestAnimationFrame(render);
 }
 render();
+
+// ---- Ambient lightning, frequency tied to current reactive state ----
+function spawnLightning() {
+  const line = document.createElement('div');
+  line.className = 'lightning-line';
+  const height = 20 + Math.random() * 55;
+  line.style.height = height + 'vh';
+  line.style.left = Math.random() * 100 + 'vw';
+  line.style.top = (Math.random() * 40) + 'vh';
+  line.style.transform = `rotate(${(Math.random() * 16 - 8)}deg)`;
+  document.body.appendChild(line);
+  requestAnimationFrame(() => line.classList.add('strike'));
+  setTimeout(() => line.remove(), 500);
+}
+function ambientLightningLoop() {
+  const count = 1 + Math.floor(Math.random() * 2);
+  for (let i = 0; i < count; i++) setTimeout(spawnLightning, i * 80);
+  const baseDelay = 5500 / Math.max(0.5, current.lightningRate);
+  setTimeout(ambientLightningLoop, baseDelay + Math.random() * 3000);
+}
+setTimeout(ambientLightningLoop, 1500);
+
+function wakeBurst() {
+  setSphereState('burst');
+  for (let i = 0; i < 6; i++) setTimeout(spawnLightning, i * 60);
+  setTimeout(() => setSphereState('listening'), 900);
+}
+
+/* =========================================================
+   RAYVEN LOGIC — memory, voice, wake word, backend calls
+   ========================================================= */
+const BACKEND_URL = "https://rayven-backend.rayanfahil2.workers.dev";
+const WAKE_PHRASES = [
+  "hey rayven", "hey raven", "hey ray ven",
+  "wake up raven", "wake up rayven", "wake raven",
+  "okay raven", "ok raven", "okay rayven",
+  "yo raven", "yo rayven",
+  "a raven", "ay raven",
+  "raven"
+];
+const SLEEP_PHRASES = ["go to sleep", "sleep now", "power down", "goodnight raven"];
+
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+  return dp[m][n];
+}
+function containsRavenLike(transcript) {
+  const words = transcript.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/);
+  return words.some(w => w.length >= 4 && levenshtein(w, 'raven') <= 1);
+}
+function matchesAny(transcript, list) {
+  const clean = transcript.toLowerCase().trim();
+  if (list.some(p => clean.includes(p))) return true;
+  if (list === WAKE_PHRASES && containsRavenLike(clean)) return true;
+  return false;
+}
+
+let conversationHistory = [];
+try {
+  const saved = localStorage.getItem('rayvenConversation');
+  if (saved) conversationHistory = JSON.parse(saved);
+} catch (e) { conversationHistory = []; }
+
+function saveConversation() {
+  try { localStorage.setItem('rayvenConversation', JSON.stringify(conversationHistory)); } catch (e) {}
+}
+function renderSavedConversation() {
+  const log = document.getElementById('chatLog');
+  conversationHistory.forEach(m => {
+    const cls = m.role === 'user' ? 'user' : 'rayven';
+    const label = m.role === 'user' ? 'YOU' : 'RAYVEN';
+    log.innerHTML += `<div class="msg ${cls}"><span class="label">${label}</span>${m.content}</div>`;
+  });
+  log.scrollTop = log.scrollHeight;
+}
+renderSavedConversation();
+
+function clearMemory() {
+  conversationHistory = [];
+  localStorage.removeItem('rayvenConversation');
+  document.getElementById('chatLog').innerHTML = '';
+}
+
+let allVoices = [];
+const voiceSelect = document.getElementById('voiceSelect');
+function loadVoiceOptions() {
+  allVoices = window.speechSynthesis.getVoices();
+  if (!allVoices.length) return;
+  voiceSelect.innerHTML = '';
+  allVoices.forEach((v, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `${v.name} (${v.lang})`;
+    voiceSelect.appendChild(opt);
+  });
+  let preferredIndex = allVoices.findIndex(v => /natural|neural|enhanced/i.test(v.name) && /en/i.test(v.lang));
+  if (preferredIndex === -1) preferredIndex = allVoices.findIndex(v => /male|david|daniel|guy|mark|fred|alex/i.test(v.name) && /en/i.test(v.lang));
+  voiceSelect.value = preferredIndex !== -1 ? preferredIndex : 0;
+  const saved = localStorage.getItem('rayvenVoiceIndex');
+  if (saved !== null && allVoices[saved]) voiceSelect.value = saved;
+}
+if ('speechSynthesis' in window) {
+  loadVoiceOptions();
+  window.speechSynthesis.onvoiceschanged = loadVoiceOptions;
+}
+voiceSelect.addEventListener('change', () => localStorage.setItem('rayvenVoiceIndex', voiceSelect.value));
+
+function testVoice() { speak("Systems online. Voice calibration complete, sir.", null); }
+
+function speak(text, onDone) {
+  if (!document.getElementById('voiceToggle').checked) { if (onDone) onDone(); return; }
+  if (!('speechSynthesis' in window)) { if (onDone) onDone(); return; }
+  window.speechSynthesis.cancel();
+  const chosen = allVoices[voiceSelect.value];
+  const sentences = (text.match(/[^.!?]+[.!?]*/g) || [text]).map(s => s.replace(/,/g, '').trim());
+  let i = 0;
+  setSphereState('talking');
+  function speakNext() {
+    if (i >= sentences.length) { if (onDone) onDone(); return; }
+    const utter = new SpeechSynthesisUtterance(sentences[i]);
+    utter.rate = 1.15;
+    utter.pitch = 1.0;
+    if (chosen) utter.voice = chosen;
+    utter.onend = () => { i++; setTimeout(speakNext, 50); };
+    window.speechSynthesis.speak(utter);
+  }
+  speakNext();
+}
+
+const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+let wakeRecognition = null;
+let convoRecognition = null;
+let voiceActive = false;
+let awake = false;
+let speakingNow = false;
+
+function setVoiceStatus(msg) { document.getElementById('voiceStatus').textContent = msg; }
+
+function activateVoice() {
+  if (!SpeechRecognitionCtor) { alert('Voice recognition is not supported in this browser. Try Chrome.'); return; }
+  voiceActive = true;
+  document.getElementById('activateBtn').classList.add('hidden');
+  startWakeListening();
+}
+
+function startWakeListening() {
+  if (!voiceActive || awake) return;
+  setSphereState('idle');
+  wakeRecognition = new SpeechRecognitionCtor();
+  wakeRecognition.continuous = true;
+  wakeRecognition.interimResults = true;
+  wakeRecognition.lang = 'en-US';
+  wakeRecognition.maxAlternatives = 5;
+
+  wakeRecognition.onresult = (event) => {
+    for (let r = event.resultIndex; r < event.results.length; r++) {
+      for (let alt = 0; alt < event.results[r].length; alt++) {
+        if (matchesAny(event.results[r][alt].transcript, WAKE_PHRASES)) {
+          try { wakeRecognition.stop(); } catch (e) {}
+          enterAwakeMode();
+          return;
+        }
+      }
+    }
+  };
+  wakeRecognition.onend = () => { if (voiceActive && !awake) { try { startWakeListening(); } catch (e) { setTimeout(startWakeListening, 200); } } };
+  wakeRecognition.onerror = () => { if (voiceActive && !awake) setTimeout(() => { try { startWakeListening(); } catch (err) {} }, 200); };
+
+  setVoiceStatus('Sleeping — say a wake word...');
+  try { wakeRecognition.start(); } catch (e) {}
+}
+
+function enterAwakeMode() {
+  awake = true;
+  wakeBurst();
+  setVoiceStatus('Awake — listening...');
+  speak("I'm here, sir. Go ahead.", () => startConvoListening());
+}
+
+function exitAwakeMode() {
+  awake = false;
+  setSphereState('idle');
+  if (convoRecognition) { try { convoRecognition.stop(); } catch (e) {} }
+  startWakeListening();
+}
+
+function startConvoListening() {
+  if (!awake || speakingNow) return;
+  setSphereState('listening');
+  convoRecognition = new SpeechRecognitionCtor();
+  convoRecognition.continuous = false;
+  convoRecognition.interimResults = false;
+  convoRecognition.lang = 'en-US';
+  convoRecognition.maxAlternatives = 3;
+
+  convoRecognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    if (matchesAny(transcript, SLEEP_PHRASES)) {
+      speakingNow = true;
+      speak("Powering down. I'll be here when you need me, sir.", () => { speakingNow = false; exitAwakeMode(); });
+      return;
+    }
+    sendMessage(transcript, () => { if (awake) startConvoListening(); });
+  };
+  convoRecognition.onend = () => { if (awake && !speakingNow) setTimeout(() => { if (awake && !speakingNow) startConvoListening(); }, 200); };
+  convoRecognition.onerror = () => { if (awake && !speakingNow) setTimeout(() => { if (awake && !speakingNow) startConvoListening(); }, 200); };
+
+  try { convoRecognition.start(); } catch (e) {}
+}
+
+function handleTypedSend() {
+  const input = document.getElementById('userInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  sendMessage(text, null);
+}
+
+async function sendMessage(text, onReplyDone) {
+  const log = document.getElementById('chatLog');
+  const status = document.getElementById('statusText');
+  if (!text || !text.trim()) { if (onReplyDone) onReplyDone(); return; }
+  text = text.trim();
+
+  log.innerHTML += `<div class="msg user"><span class="label">YOU</span>${text}</div>`;
+  status.textContent = "PROCESSING...";
+  setSphereState('thinking');
+  log.scrollTop = log.scrollHeight;
+
+  conversationHistory.push({ role: 'user', content: text });
+
+  const typingId = 'typing-' + Date.now();
+  log.innerHTML += `<div class="msg rayven" id="${typingId}"><span class="label">RAYVEN</span>...</div>`;
+  log.scrollTop = log.scrollHeight;
+
+  try {
+    const response = await fetch(BACKEND_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ history: conversationHistory })
+    });
+    const data = await response.json();
+    const replyText = data.reply || data.error;
+    document.getElementById(typingId).innerHTML = `<span class="label">RAYVEN</span>${replyText}`;
+    conversationHistory.push({ role: 'assistant', content: replyText });
+    saveConversation();
+
+    speakingNow = true;
+    speak(replyText, () => {
+      speakingNow = false;
+      setSphereState(awake ? 'listening' : 'idle');
+      if (onReplyDone) onReplyDone();
+    });
+  } catch (err) {
+    document.getElementById(typingId).innerHTML = `<span class="label">RAYVEN</span>Connection error: ${err.message}`;
+    setSphereState(awake ? 'listening' : 'idle');
+    if (onReplyDone) onReplyDone();
+  }
+  status.textContent = "STANDING BY";
+  log.scrollTop = log.scrollHeight;
+}
 </script>
 </body>
 </html>
