@@ -35,45 +35,38 @@
   .lightning-line.strike { animation: lightningFlicker 0.4s ease-out forwards; }
   @keyframes lightningFlicker { 0% { opacity: 0; } 8% { opacity: 1; } 15% { opacity: 0.1; } 22% { opacity: 0.9; } 35% { opacity: 0.15; } 100% { opacity: 0; } }
 
-  /* Shorter, thicker lightning bolts — left corner, right corner, dead-center — all same speed, land together */
+  /* Wide, thick, short bolts — sweeping left-to-right and right-to-left */
   .meteor {
-    position: fixed; top: -14vh; width: 17px; height: 230px;
+    position: fixed; top: -8vh; width: 46px; height: 88px;
     opacity: 0; pointer-events: none; z-index: 3;
-    background: linear-gradient(200deg, #fff2c8 0%, var(--gold) 18%, var(--gold-glow) 34%, var(--purple-glow) 58%, var(--purple) 100%);
-    clip-path: polygon(50% 0%, 22% 22%, 40% 22%, 12% 50%, 42% 50%, 18% 78%, 44% 78%, 30% 100%, 62% 60%, 40% 60%, 58% 32%, 38% 32%);
-    filter: drop-shadow(0 0 10px var(--gold-glow)) drop-shadow(0 0 20px var(--purple-glow)) drop-shadow(0 0 30px var(--purple));
+    background: linear-gradient(200deg, #fff2c8 0%, var(--gold) 20%, var(--gold-glow) 38%, var(--purple-glow) 62%, var(--purple) 100%);
+    clip-path: polygon(52% 0%, 20% 40%, 44% 40%, 14% 100%, 84% 46%, 50% 46%);
+    filter: drop-shadow(0 0 14px var(--gold-glow)) drop-shadow(0 0 26px var(--purple-glow)) drop-shadow(0 0 38px var(--purple));
   }
-  .meteor.fall-left { animation: fallLeft 1.6s linear forwards; }
-  .meteor.fall-right { animation: fallRight 1.6s linear forwards; }
-  .meteor.fall-mid { animation: fallMid 1.6s linear forwards; }
+  .meteor.sweep-right { animation: sweepRight 1.9s linear forwards; }
+  .meteor.sweep-left { animation: sweepLeft 1.9s linear forwards; }
 
-  @keyframes fallLeft {
-    0% { opacity: 0; transform: translate(0, -14vh) rotate(15deg) scale(0.9); }
+  /* starts on the left, travels down and to the RIGHT */
+  @keyframes sweepRight {
+    0% { opacity: 0; transform: translate(0, -8vh) rotate(28deg) scale(0.9); }
     8% { opacity: 1; }
-    20% { opacity: 0.3; }
+    20% { opacity: 0.35; }
     32% { opacity: 1; }
-    85% { opacity: 0.55; }
-    100% { opacity: 0; transform: translate(18vw, 118vh) rotate(15deg) scale(1.05); }
+    85% { opacity: 0.5; }
+    100% { opacity: 0; transform: translate(62vw, 116vh) rotate(28deg) scale(1.05); }
   }
-  @keyframes fallRight {
-    0% { opacity: 0; transform: translate(0, -14vh) rotate(-15deg) scale(0.9); }
+  /* starts on the right, travels down and to the LEFT */
+  @keyframes sweepLeft {
+    0% { opacity: 0; transform: translate(0, -8vh) rotate(-28deg) scale(0.9); }
     8% { opacity: 1; }
-    20% { opacity: 0.3; }
+    20% { opacity: 0.35; }
     32% { opacity: 1; }
-    85% { opacity: 0.55; }
-    100% { opacity: 0; transform: translate(-18vw, 118vh) rotate(-15deg) scale(1.05); }
-  }
-  @keyframes fallMid {
-    0% { opacity: 0; transform: translate(0, -14vh) rotate(2deg) scale(0.9); }
-    8% { opacity: 1; }
-    20% { opacity: 0.3; }
-    32% { opacity: 1; }
-    85% { opacity: 0.55; }
-    100% { opacity: 0; transform: translate(0, 118vh) rotate(2deg) scale(1.05); }
+    85% { opacity: 0.5; }
+    100% { opacity: 0; transform: translate(-62vw, 116vh) rotate(-28deg) scale(1.05); }
   }
 
   .bolt-spark {
-    position: fixed; width: 6px; height: 45px; pointer-events: none; z-index: 4;
+    position: fixed; width: 8px; height: 34px; pointer-events: none; z-index: 4;
     background: linear-gradient(200deg, #fff6d8, var(--gold-glow), var(--purple-glow));
     clip-path: polygon(50% 0%, 15% 45%, 42% 45%, 5% 100%, 85% 40%, 48% 40%);
     filter: drop-shadow(0 0 5px var(--gold-glow)) drop-shadow(0 0 12px var(--purple-glow));
@@ -324,7 +317,7 @@
   <div id="chatLog"></div>
   <div class="chat-input-row">
     <input type="text" id="userInput" placeholder="Message RAYVEN..." onkeydown="if(event.key==='Enter')handleTypedSend()">
-    <button class="mini-btn" onclick="handleTypedSend()" style="padding:7px 10px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);font-size:10px;letter-spacing:1px;cursor:pointer;">SEND</button>
+    <button onclick="handleTypedSend()" style="padding:7px 10px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);font-size:10px;letter-spacing:1px;cursor:pointer;">SEND</button>
   </div>
 </div>
 
@@ -586,7 +579,7 @@ function ambientLightningLoop() {
 }
 setTimeout(ambientLightningLoop, 1500);
 
-// ---- Three bolts: left corner, right corner, dead-center — all same speed, land together ----
+// ---- Wide/short bolts sweeping across, staggered so they don't drop in lockstep ----
 function spawnBoltSpark(pxX, pxY, rotBase) {
   const spark = document.createElement('div');
   spark.className = 'bolt-spark';
@@ -598,27 +591,29 @@ function spawnBoltSpark(pxX, pxY, rotBase) {
   setTimeout(() => spark.remove(), 500);
 }
 
-function spawnBolt(startLeftVw, fallClass, sparkAngle) {
+function spawnBolt(startLeftVw, sweepClass, sparkAngle) {
   const bolt = document.createElement('div');
-  bolt.className = 'meteor ' + fallClass;
+  bolt.className = 'meteor ' + sweepClass;
   bolt.style.left = startLeftVw + 'vw';
   document.body.appendChild(bolt);
-  requestAnimationFrame(() => bolt.classList.add(fallClass));
+  requestAnimationFrame(() => bolt.classList.add(sweepClass));
 
   const startPx = (startLeftVw / 100) * window.innerWidth;
-  setTimeout(() => spawnBoltSpark(startPx, window.innerHeight * 0.28, sparkAngle), 350);
-  setTimeout(() => spawnBoltSpark(startPx, window.innerHeight * 0.55, sparkAngle), 680);
+  setTimeout(() => spawnBoltSpark(startPx, window.innerHeight * 0.3, sparkAngle), 400);
+  setTimeout(() => spawnBoltSpark(startPx, window.innerHeight * 0.6, sparkAngle), 800);
 
-  setTimeout(() => bolt.remove(), 1650);
+  setTimeout(() => bolt.remove(), 1950);
 }
 
 function meteorLoop() {
-  spawnBolt(4, 'fall-left', 15);     // top-left corner, diagonal
-  spawnBolt(94, 'fall-right', -15);  // top-right corner, diagonal
-  spawnBolt(49, 'fall-mid', 2);      // dead-center, straight down
+  // staggered starts so they never fall in perfect sync
+  setTimeout(() => spawnBolt(-2, 'sweep-right', 28), 0);    // far left → sweeps right
+  setTimeout(() => spawnBolt(98, 'sweep-left', -28), 260);  // far right → sweeps left
+  setTimeout(() => spawnBolt(22, 'sweep-right', 28), 520);  // left-of-center → sweeps right
+  setTimeout(() => spawnBolt(74, 'sweep-left', -28), 780);  // right-of-center → sweeps left
   setTimeout(meteorLoop, 1000);
 }
-setTimeout(meteorLoop, 1000);
+setTimeout(meteorLoop, 800);
 
 function spawnRainBolt(delay) {
   setTimeout(() => {
