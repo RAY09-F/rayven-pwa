@@ -193,9 +193,9 @@
   @keyframes holoFlicker { 0%,92%,100% { opacity: 1; } 93% { opacity: 0.6; } 94% { opacity: 1; } 96% { opacity: 0.7; } 97% { opacity: 1; } }
   @media (max-width: 720px) { .holo-box { display: none; } }
 
-  /* ---- Always-visible voice controls, centered below the brain ---- */
+  /* ---- Always-visible voice controls, moved lower so they clear the brain ---- */
   #voiceCluster {
-    position: fixed; top: 68%; left: 50%; transform: translate(-50%, -50%);
+    position: fixed; top: 84%; left: 50%; transform: translate(-50%, -50%);
     display: flex; align-items: center; justify-content: center; gap: 22px;
     z-index: 12; pointer-events: none;
   }
@@ -236,7 +236,7 @@
   }
 
   #muteCircle {
-    position: fixed; top: calc(68% + 55px); left: 50%; transform: translate(-50%, 0);
+    position: fixed; top: calc(84% + 55px); left: 50%; transform: translate(-50%, 0);
     width: 40px; height: 40px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     background: rgba(20,10,35,0.55); border: 1.5px solid var(--gold);
@@ -247,7 +247,7 @@
   #muteCircle.muted { border-color: #c0392b; color: #c0392b; box-shadow: 0 0 12px rgba(192,57,43,0.4); }
 
   #voiceStatusSmall {
-    position: fixed; top: calc(68% + 105px); left: 50%; transform: translate(-50%, 0);
+    position: fixed; top: calc(84% + 105px); left: 50%; transform: translate(-50%, 0);
     font-size: 8px; letter-spacing: 1px; color: var(--steel); z-index: 12; text-align: center;
     max-width: 220px;
   }
@@ -894,7 +894,6 @@ function handleTypedSend() {
 
 async function sendMessage(text, onReplyDone) {
   const log = document.getElementById('chatLog');
-  const status = document.getElementById('voiceStatusSmall');
   if (!text || !text.trim()) { if (onReplyDone) onReplyDone(); return; }
   text = text.trim();
 
