@@ -35,29 +35,48 @@
   .lightning-line.strike { animation: lightningFlicker 0.4s ease-out forwards; }
   @keyframes lightningFlicker { 0% { opacity: 0; } 8% { opacity: 1; } 15% { opacity: 0.1; } 22% { opacity: 0.9; } 35% { opacity: 0.15; } 100% { opacity: 0; } }
 
-  /* Falling sky bolts — big, forked, purple+gold, with small branch sparks coming off them */
+  /* Big, long, skinny lightning bolts — three fixed positions: left corner, right corner, straight down the middle */
   .meteor {
-    position: fixed; top: -14vh; width: 12px; height: 170px;
+    position: fixed; top: -20vh; width: 10px; height: 420px;
     opacity: 0; pointer-events: none; z-index: 3;
-    background: linear-gradient(200deg, #fff2c8 0%, var(--gold) 22%, var(--gold-glow) 40%, var(--purple-glow) 65%, var(--purple) 100%);
-    clip-path: polygon(50% 0%, 20% 36%, 42% 36%, 6% 100%, 88% 38%, 46% 38%);
-    filter: drop-shadow(0 0 8px var(--gold-glow)) drop-shadow(0 0 16px var(--purple-glow)) drop-shadow(0 0 26px var(--purple));
+    background: linear-gradient(200deg, #fff2c8 0%, var(--gold) 18%, var(--gold-glow) 34%, var(--purple-glow) 58%, var(--purple) 100%);
+    clip-path: polygon(50% 0%, 22% 22%, 40% 22%, 12% 50%, 42% 50%, 18% 78%, 44% 78%, 30% 100%, 62% 60%, 40% 60%, 58% 32%, 38% 32%);
+    filter: drop-shadow(0 0 10px var(--gold-glow)) drop-shadow(0 0 20px var(--purple-glow)) drop-shadow(0 0 34px var(--purple));
   }
-  .meteor.fall { animation: meteorFall 1.5s linear forwards; }
-  @keyframes meteorFall {
-    0% { opacity: 0; transform: translate(0, -12vh) rotate(30deg) scale(0.85); }
+  .meteor.fall-left { animation: fallLeft 1.7s linear forwards; }
+  .meteor.fall-right { animation: fallRight 1.7s linear forwards; }
+  .meteor.fall-mid { animation: fallMid 1.7s linear forwards; }
+
+  @keyframes fallLeft {
+    0% { opacity: 0; transform: translate(0, -20vh) rotate(20deg) scale(0.9); }
     8% { opacity: 1; }
-    18% { opacity: 0.3; }
-    28% { opacity: 1; }
+    20% { opacity: 0.3; }
+    32% { opacity: 1; }
     85% { opacity: 0.55; }
-    100% { opacity: 0; transform: translate(-38vw, 115vh) rotate(30deg) scale(1); }
+    100% { opacity: 0; transform: translate(38vw, 120vh) rotate(20deg) scale(1.05); }
+  }
+  @keyframes fallRight {
+    0% { opacity: 0; transform: translate(0, -20vh) rotate(-20deg) scale(0.9); }
+    8% { opacity: 1; }
+    20% { opacity: 0.3; }
+    32% { opacity: 1; }
+    85% { opacity: 0.55; }
+    100% { opacity: 0; transform: translate(-38vw, 120vh) rotate(-20deg) scale(1.05); }
+  }
+  @keyframes fallMid {
+    0% { opacity: 0; transform: translate(0, -20vh) rotate(2deg) scale(0.9); }
+    8% { opacity: 1; }
+    20% { opacity: 0.3; }
+    32% { opacity: 1; }
+    85% { opacity: 0.55; }
+    100% { opacity: 0; transform: translate(0, 120vh) rotate(2deg) scale(1.05); }
   }
 
   .bolt-spark {
-    position: fixed; width: 4px; height: 45px; pointer-events: none; z-index: 4;
+    position: fixed; width: 5px; height: 60px; pointer-events: none; z-index: 4;
     background: linear-gradient(200deg, #fff6d8, var(--gold-glow), var(--purple-glow));
     clip-path: polygon(50% 0%, 15% 45%, 42% 45%, 5% 100%, 85% 40%, 48% 40%);
-    filter: drop-shadow(0 0 4px var(--gold-glow)) drop-shadow(0 0 10px var(--purple-glow));
+    filter: drop-shadow(0 0 5px var(--gold-glow)) drop-shadow(0 0 12px var(--purple-glow));
     opacity: 0;
   }
   .bolt-spark.flicker { animation: sparkFlicker 0.45s ease-out forwards; }
@@ -567,37 +586,36 @@ function ambientLightningLoop() {
 }
 setTimeout(ambientLightningLoop, 1500);
 
-// ---- Falling sky bolts: 2 every second, big, purple+gold, with small branch sparks off them ----
-function spawnBoltSpark(nearX, nearY, rotBase) {
+// ---- Three big fixed bolts: left corner, right corner, straight down the middle ----
+function spawnBoltSpark(pxX, pxY, rotBase) {
   const spark = document.createElement('div');
   spark.className = 'bolt-spark';
-  spark.style.left = (nearX + (Math.random() * 30 - 15)) + 'px';
-  spark.style.top = (nearY + (Math.random() * 30 - 15)) + 'px';
+  spark.style.left = (pxX + (Math.random() * 30 - 15)) + 'px';
+  spark.style.top = (pxY + (Math.random() * 30 - 15)) + 'px';
   spark.style.transform = `rotate(${rotBase + (Math.random() * 50 - 25)}deg)`;
   document.body.appendChild(spark);
   requestAnimationFrame(() => spark.classList.add('flicker'));
   setTimeout(() => spark.remove(), 500);
 }
 
-function spawnMeteor() {
-  const meteor = document.createElement('div');
-  meteor.className = 'meteor';
-  const startLeftVw = 40 + Math.random() * 55;
-  meteor.style.left = startLeftVw + 'vw';
-  meteor.style.transform = `rotate(${(Math.random() * 10 - 5) + 30}deg)`;
-  document.body.appendChild(meteor);
-  requestAnimationFrame(() => meteor.classList.add('fall'));
+function spawnBolt(startLeftVw, fallClass, sparkAngle) {
+  const bolt = document.createElement('div');
+  bolt.className = 'meteor ' + fallClass;
+  bolt.style.left = startLeftVw + 'vw';
+  document.body.appendChild(bolt);
+  requestAnimationFrame(() => bolt.classList.add(fallClass));
 
-  // small branch sparks flicker off the bolt partway through its fall, like reflecting energy
   const startPx = (startLeftVw / 100) * window.innerWidth;
-  setTimeout(() => spawnBoltSpark(startPx, window.innerHeight * 0.25, 30), 350);
-  setTimeout(() => spawnBoltSpark(startPx - window.innerWidth * 0.12, window.innerHeight * 0.5, 25), 650);
+  setTimeout(() => spawnBoltSpark(startPx, window.innerHeight * 0.28, sparkAngle), 380);
+  setTimeout(() => spawnBoltSpark(startPx, window.innerHeight * 0.55, sparkAngle), 720);
 
-  setTimeout(() => meteor.remove(), 1600);
+  setTimeout(() => bolt.remove(), 1750);
 }
+
 function meteorLoop() {
-  spawnMeteor();
-  spawnMeteor();
+  spawnBolt(2, 'fall-left', 20);    // from the left corner
+  spawnBolt(97, 'fall-right', -20); // from the right corner
+  spawnBolt(49, 'fall-mid', 2);     // straight down the middle
   setTimeout(meteorLoop, 1000);
 }
 setTimeout(meteorLoop, 1000);
