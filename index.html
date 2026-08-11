@@ -107,7 +107,7 @@
   @keyframes wakeFlashAnim { 0% { opacity: 0; } 68% { opacity: 0; } 74% { opacity: 1; } 100% { opacity: 0; } }
 
   #wordmark {
-    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    position: fixed; top: 42%; left: 50%; transform: translate(-50%, -50%);
     text-align: center; pointer-events: none; z-index: 2;
     transition: opacity 0.3s ease;
   }
@@ -131,7 +131,7 @@
   @keyframes wordFlicker { 0%,94%,100% { opacity: 1; } 95% { opacity: 0.5; } 96% { opacity: 1; } 97% { opacity: 0.3; } 98% { opacity: 1; } }
 
   #welcomeText {
-    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.6);
+    position: fixed; top: 42%; left: 50%; transform: translate(-50%, -50%) scale(0.6);
     font-family: 'Orbitron', sans-serif; font-weight: 900;
     font-size: clamp(20px, 4.2vw, 38px); letter-spacing: 4px;
     color: var(--gold);
@@ -165,12 +165,6 @@
     background: rgba(10,5,16,0.6); color: var(--text); font-family: inherit; font-size: 11px;
   }
   #chatBox input:focus { outline: none; border-color: var(--gold); }
-  .mini-btn {
-    padding: 7px 10px; border-radius: 4px; border: 1px solid var(--gold); background: transparent;
-    color: var(--gold); font-size: 10px; letter-spacing: 1px; cursor: pointer; white-space: nowrap;
-  }
-  .mini-btn:hover { background: var(--gold); color: #0a0510; }
-  .mini-btn.muted { background: #c0392b; border-color: #c0392b; color: white; }
 
   .holo-box {
     position: fixed; z-index: 10; width: 210px; max-width: 78vw;
@@ -199,88 +193,64 @@
   @keyframes holoFlicker { 0%,92%,100% { opacity: 1; } 93% { opacity: 0.6; } 94% { opacity: 1; } 96% { opacity: 0.7; } 97% { opacity: 1; } }
   @media (max-width: 720px) { .holo-box { display: none; } }
 
-  /* ---- Settings: centered, borderless, floating overlay ---- */
-  #settingsToggle {
-    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
-    z-index: 15;
-    background: transparent; border: 1px solid rgba(232,196,104,0.35);
-    color: var(--gold); font-size: 11px; letter-spacing: 2px;
-    padding: 6px 14px; border-radius: 20px; cursor: pointer;
-    backdrop-filter: blur(4px);
+  /* ---- Always-visible voice controls, centered below the brain ---- */
+  #voiceCluster {
+    position: fixed; top: 68%; left: 50%; transform: translate(-50%, -50%);
+    display: flex; align-items: center; justify-content: center; gap: 22px;
+    z-index: 12; pointer-events: none;
   }
-  #settingsToggle:hover { background: rgba(232,196,104,0.12); box-shadow: 0 0 12px var(--gold-glow); }
+  #voiceCluster > * { pointer-events: all; }
 
-  #settingsOverlay {
-    position: fixed; inset: 0; z-index: 40;
-    background: rgba(8,4,14,0.82);
-    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  .mic-circle {
+    width: 62px; height: 62px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    opacity: 0; pointer-events: none;
-    transition: opacity 0.3s ease;
+    background: rgba(20,10,35,0.55);
+    border: 2px solid var(--purple);
+    color: var(--purple);
+    font-size: 22px; cursor: pointer;
+    box-shadow: 0 0 14px rgba(155,107,255,0.3);
+    transition: border-color 0.3s, color 0.3s, box-shadow 0.3s;
   }
-  #settingsOverlay.open { opacity: 1; pointer-events: all; }
+  .mic-circle:hover { box-shadow: 0 0 20px var(--purple-glow); }
+  .mic-circle.mic-listening { animation: micPulsePurple 2.5s ease-in-out infinite; }
+  .mic-circle.mic-awake { border-color: var(--gold); color: var(--gold); animation: micPulseGold 1s ease-in-out infinite; }
+  .mic-circle.mic-muted { border-color: #c0392b; color: #c0392b; animation: none; box-shadow: 0 0 14px rgba(192,57,43,0.4); }
+  @keyframes micPulsePurple { 0%,100% { box-shadow: 0 0 14px rgba(155,107,255,0.3); } 50% { box-shadow: 0 0 26px var(--purple-glow); } }
+  @keyframes micPulseGold { 0%,100% { box-shadow: 0 0 16px var(--gold-glow); } 50% { box-shadow: 0 0 30px var(--gold-glow); } }
 
-  #settingsPanel {
-    display: flex; flex-direction: column; align-items: center;
-    gap: 22px; width: 300px; max-width: 88vw;
-    transform: translateY(10px);
-    transition: transform 0.3s ease;
-  }
-  #settingsOverlay.open #settingsPanel { transform: translateY(0); }
-
-  #settingsClose {
-    position: fixed; top: 20px; right: 24px; z-index: 41;
-    background: none; border: none; color: var(--gold);
-    font-size: 20px; cursor: pointer; line-height: 1;
-  }
-  #settingsClose:hover { text-shadow: 0 0 10px var(--gold-glow); }
-
-  .settings-title {
-    font-family: 'Orbitron', sans-serif; font-weight: 900;
-    letter-spacing: 6px; font-size: 16px; color: var(--purple);
-    text-shadow: 0 0 10px var(--purple-glow);
-  }
-  .settings-info {
-    font-size: 10px; letter-spacing: 2px; color: var(--steel); text-align: center;
-  }
-  .settings-info span { color: var(--gold); }
-  .settings-wide-btn {
-    width: 100%; text-align: center; padding: 10px 0;
-    border-radius: 4px; border: 1px solid var(--purple); background: transparent;
-    color: var(--purple); font-size: 11px; letter-spacing: 2px; cursor: pointer;
-  }
-  .settings-wide-btn:hover { background: var(--purple); color: #0a0510; box-shadow: 0 0 14px var(--purple-glow); }
-  .settings-wide-btn.mic-btn { border-color: var(--gold); color: var(--gold); }
-  .settings-wide-btn.mic-btn:hover { background: var(--gold); color: #0a0510; box-shadow: 0 0 14px var(--gold-glow); }
-  .settings-wide-btn.mic-btn.muted { background: #c0392b; border-color: #c0392b; color: white; }
-
-  .settings-check {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 10px; letter-spacing: 2px; color: var(--steel); cursor: pointer;
-  }
-
-  .settings-slider { width: 100%; }
-  .settings-slider .slider-label {
-    display: flex; justify-content: space-between;
-    font-size: 10px; letter-spacing: 2px; color: var(--steel); margin-bottom: 6px;
-  }
-  .settings-slider .slider-label span { color: var(--gold); }
-  .settings-slider input[type="range"] {
-    -webkit-appearance: none; width: 100%; height: 3px; border-radius: 2px;
+  .side-slider { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 90px; }
+  .side-slider .slider-label { font-size: 9px; letter-spacing: 2px; color: var(--steel); }
+  .side-slider .slider-label span { color: var(--gold); display: block; }
+  .side-slider input[type="range"] {
+    -webkit-appearance: none; width: 90px; height: 3px; border-radius: 2px;
     background: linear-gradient(90deg, var(--purple), var(--gold));
     outline: none;
   }
-  .settings-slider input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+  .side-slider input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
     background: var(--gold-glow); box-shadow: 0 0 8px var(--gold-glow); cursor: pointer;
   }
-  .settings-slider input[type="range"]::-moz-range-thumb {
-    width: 14px; height: 14px; border-radius: 50%; border: none;
+  .side-slider input[type="range"]::-moz-range-thumb {
+    width: 13px; height: 13px; border-radius: 50%; border: none;
     background: var(--gold-glow); box-shadow: 0 0 8px var(--gold-glow); cursor: pointer;
   }
 
-  .settings-row-pair { display: flex; gap: 10px; width: 100%; }
-  .settings-row-pair .settings-wide-btn { flex: 1; }
+  #muteCircle {
+    position: fixed; top: calc(68% + 55px); left: 50%; transform: translate(-50%, 0);
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(20,10,35,0.55); border: 1.5px solid var(--gold);
+    color: var(--gold); font-size: 14px; cursor: pointer;
+    z-index: 12; box-shadow: 0 0 10px rgba(232,196,104,0.25);
+  }
+  #muteCircle:hover { box-shadow: 0 0 16px var(--gold-glow); }
+  #muteCircle.muted { border-color: #c0392b; color: #c0392b; box-shadow: 0 0 12px rgba(192,57,43,0.4); }
+
+  #voiceStatusSmall {
+    position: fixed; top: calc(68% + 105px); left: 50%; transform: translate(-50%, 0);
+    font-size: 8px; letter-spacing: 1px; color: var(--steel); z-index: 12; text-align: center;
+    max-width: 220px;
+  }
 </style>
 </head>
 <body>
@@ -316,41 +286,26 @@
   <div id="chatLog"></div>
   <div class="chat-input-row">
     <input type="text" id="userInput" placeholder="Message RAYVEN..." onkeydown="if(event.key==='Enter')handleTypedSend()">
-    <button class="mini-btn" onclick="handleTypedSend()">SEND</button>
+    <button class="mini-btn" onclick="handleTypedSend()" style="padding:7px 10px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);font-size:10px;letter-spacing:1px;cursor:pointer;">SEND</button>
   </div>
 </div>
 
-<button id="settingsToggle" onclick="toggleSettings()">⚙ SETTINGS</button>
+<div id="voiceCluster">
+  <div class="side-slider">
+    <div class="slider-label">RATE<span id="rateVal">1.0x</span></div>
+    <input type="range" id="rateSlider" min="0.6" max="1.8" step="0.05" value="1.0">
+  </div>
 
-<div id="settingsOverlay">
-  <button id="settingsClose" onclick="toggleSettings()">✕</button>
-  <div id="settingsPanel">
-    <div class="settings-title">SETTINGS</div>
+  <button id="micCircle" class="mic-circle" onclick="handleMicClick()">🎤</button>
 
-    <button id="activateBtn" class="settings-wide-btn" onclick="activateVoice()">🎙 ACTIVATE VOICE — SAY "HEY RAYVEN"</button>
-    <button id="muteBtn" class="settings-wide-btn mic-btn" onclick="toggleMute()">🎙 MUTE MIC</button>
-
-    <div class="settings-info">WAKE WORD: <span>"HEY RAYVEN"</span></div>
-    <div class="settings-info">STATUS: <span id="statusText">STANDING BY</span></div>
-    <div class="settings-info" id="voiceStatus">Voice activation not started</div>
-
-    <label class="settings-check"><input type="checkbox" id="voiceToggle" checked> VOICE OUTPUT</label>
-
-    <div class="settings-slider">
-      <div class="slider-label">RATE <span id="rateVal">1.0x</span></div>
-      <input type="range" id="rateSlider" min="0.6" max="1.8" step="0.05" value="1.0">
-    </div>
-    <div class="settings-slider">
-      <div class="slider-label">PITCH <span id="pitchVal">0</span></div>
-      <input type="range" id="pitchSlider" min="-8" max="8" step="1" value="0">
-    </div>
-
-    <div class="settings-row-pair">
-      <button class="settings-wide-btn" onclick="testVoice()">TEST</button>
-      <button class="settings-wide-btn" onclick="clearMemory()">CLEAR MEMORY</button>
-    </div>
+  <div class="side-slider">
+    <div class="slider-label">PITCH<span id="pitchVal">0</span></div>
+    <input type="range" id="pitchSlider" min="-8" max="8" step="1" value="0">
   </div>
 </div>
+
+<button id="muteCircle" onclick="toggleMute()">🔇</button>
+<div id="voiceStatusSmall">Click the mic, then say "Hey RAYVEN"</div>
 
 <div id="holoTop" class="holo-box">
   <div class="holo-title">◈ SYSTEM STATUS</div>
@@ -369,10 +324,6 @@
 </div>
 
 <script>
-function toggleSettings() {
-  document.getElementById('settingsOverlay').classList.toggle('open');
-}
-
 const wordmarkEl = document.getElementById('wordmark');
 const wordTitleEl = document.getElementById('wordTitle');
 const welcomeTextEl = document.getElementById('welcomeText');
@@ -423,7 +374,7 @@ const SEED_COUNT = 320;
 const SUBDOTS_PER_SEED = 7;
 const N = SEED_COUNT * SUBDOTS_PER_SEED;
 
-function baseSphereRadius() { return Math.min(window.innerWidth, window.innerHeight) * 0.26; }
+function baseSphereRadius() { return Math.min(window.innerWidth, window.innerHeight) * 0.24; }
 
 const ux = new Float32Array(N);
 const uy = new Float32Array(N);
@@ -519,7 +470,7 @@ function render() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const centerX = canvas.width / 2;
-  const centerY = canvas.height / 2;
+  const centerY = canvas.height * 0.42;
   const baseR = baseSphereRadius();
   const radius = Math.max(0, baseR * current.scale * userZoom * (1 + explosionOffset));
   const perspective = baseR * current.scale * userZoom * 2.6;
@@ -634,7 +585,7 @@ function spawnImpactBolt() {
   bolt.className = 'impact-bolt';
   const angle = Math.random() * 360;
   bolt.style.setProperty('--ang', angle + 'deg');
-  bolt.style.top = '50%';
+  bolt.style.top = '42%';
   bolt.style.left = '50%';
   document.body.appendChild(bolt);
   requestAnimationFrame(() => bolt.classList.add('crackle'));
@@ -749,14 +700,6 @@ function renderSavedConversation() {
 }
 renderSavedConversation();
 
-function clearMemory() {
-  conversationHistory = [];
-  localStorage.removeItem('rayvenConversation');
-  document.getElementById('chatLog').innerHTML = '';
-}
-
-function testVoice() { speak("Systems online. Voice calibration complete, sir.", null); }
-
 const rateSlider = document.getElementById('rateSlider');
 const pitchSlider = document.getElementById('pitchSlider');
 const rateVal = document.getElementById('rateVal');
@@ -785,7 +728,6 @@ function getAudioCtx() {
 }
 
 function speak(text, onDone) {
-  if (!document.getElementById('voiceToggle').checked) { if (onDone) onDone(); return; }
   const cleaned = text.replace(/,/g, '').trim();
   setSphereState('talking');
 
@@ -834,25 +776,36 @@ let voiceActive = false;
 let awake = false;
 let micMuted = false;
 
-function setVoiceStatus(msg) { document.getElementById('voiceStatus').textContent = msg; }
+const micCircle = document.getElementById('micCircle');
+const muteCircle = document.getElementById('muteCircle');
 
-function activateVoice() {
+function setVoiceStatus(msg) { document.getElementById('voiceStatusSmall').textContent = msg; }
+
+function updateMicVisual() {
+  micCircle.classList.remove('mic-listening', 'mic-awake', 'mic-muted');
+  if (micMuted) { micCircle.classList.add('mic-muted'); return; }
+  if (awake) { micCircle.classList.add('mic-awake'); return; }
+  if (voiceActive) { micCircle.classList.add('mic-listening'); }
+}
+
+function handleMicClick() {
   if (!SpeechRecognitionCtor) { alert('Voice recognition is not supported in this browser. Try Chrome.'); return; }
-  voiceActive = true;
-  document.getElementById('activateBtn').classList.add('hidden');
-  startWakeListening();
+  if (!voiceActive) {
+    voiceActive = true;
+    startWakeListening();
+  }
 }
 
 function toggleMute() {
   micMuted = !micMuted;
-  const btn = document.getElementById('muteBtn');
-  btn.textContent = micMuted ? '🔇 UNMUTE MIC' : '🎙 MUTE MIC';
-  btn.classList.toggle('muted', micMuted);
+  muteCircle.textContent = micMuted ? '🔇' : '🎙';
+  muteCircle.classList.toggle('muted', micMuted);
+  updateMicVisual();
 
   if (micMuted) {
     if (wakeRecognition) { try { wakeRecognition.stop(); } catch (e) {} }
     if (convoRecognition) { try { convoRecognition.stop(); } catch (e) {} }
-    setVoiceStatus('Microphone muted — RAYVEN cannot hear you.');
+    setVoiceStatus('Microphone muted.');
   } else {
     if (!voiceActive) return;
     if (awake) { startContinuousAwakeListening(); } else { startWakeListening(); }
@@ -863,6 +816,7 @@ function startWakeListening() {
   if (!voiceActive || awake || micMuted) return;
   setSleepingVisual(false);
   setSphereState('idle');
+  updateMicVisual();
   wakeRecognition = new SpeechRecognitionCtor();
   wakeRecognition.continuous = true;
   wakeRecognition.interimResults = true;
@@ -875,6 +829,7 @@ function startWakeListening() {
       for (let alt = 0; alt < event.results[r].length; alt++) {
         if (matchesAny(event.results[r][alt].transcript, WAKE_PHRASES)) {
           awake = true;
+          updateMicVisual();
           try { wakeRecognition.stop(); } catch (e) {}
           enterAwakeMode();
           return;
@@ -885,7 +840,7 @@ function startWakeListening() {
   wakeRecognition.onend = () => { if (voiceActive && !awake && !micMuted) { try { startWakeListening(); } catch (e) { setTimeout(startWakeListening, 100); } } };
   wakeRecognition.onerror = () => { if (voiceActive && !awake && !micMuted) setTimeout(() => { try { startWakeListening(); } catch (err) {} }, 100); };
 
-  setVoiceStatus('Sleeping — say a wake word...');
+  setVoiceStatus('Listening for "Hey RAYVEN"...');
   try { wakeRecognition.start(); } catch (e) {}
 }
 
@@ -897,6 +852,7 @@ function enterAwakeMode() {
 
 function exitAwakeMode() {
   awake = false;
+  updateMicVisual();
   if (convoRecognition) { try { convoRecognition.stop(); } catch (e) {} }
   if (!micMuted) startWakeListening();
 }
@@ -938,12 +894,11 @@ function handleTypedSend() {
 
 async function sendMessage(text, onReplyDone) {
   const log = document.getElementById('chatLog');
-  const status = document.getElementById('statusText');
+  const status = document.getElementById('voiceStatusSmall');
   if (!text || !text.trim()) { if (onReplyDone) onReplyDone(); return; }
   text = text.trim();
 
   log.innerHTML += `<div class="msg user"><span class="label">YOU</span>${text}</div>`;
-  status.textContent = "PROCESSING...";
   setSphereState('thinking');
   log.scrollTop = log.scrollHeight;
 
@@ -974,7 +929,6 @@ async function sendMessage(text, onReplyDone) {
     setSphereState(awake ? 'listening' : 'idle');
     if (onReplyDone) onReplyDone();
   }
-  status.textContent = "STANDING BY";
   log.scrollTop = log.scrollHeight;
 }
 </script>
