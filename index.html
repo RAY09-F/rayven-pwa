@@ -258,7 +258,6 @@
   <div class="status-line" id="voiceStatus" style="font-size:9px;">Voice activation not started</div>
   <div class="row">
     <label><input type="checkbox" id="voiceToggle" checked> VOICE OUT</label>
-    <select id="voiceSelect"></select>
   </div>
   <div class="row">
     <button class="mini-btn" onclick="testVoice()">TEST</button>
@@ -665,52 +664,31 @@ function clearMemory() {
   document.getElementById('chatLog').innerHTML = '';
 }
 
-let allVoices = [];
-const voiceSelect = document.getElementById('voiceSelect');
-function loadVoiceOptions() {
-  allVoices = window.speechSynthesis.getVoices();
-  if (!allVoices.length) return;
-  voiceSelect.innerHTML = '';
-  allVoices.forEach((v, i) => {
-    const opt = document.createElement('option');
-    opt.value = i;
-    opt.textContent = `${v.name} (${v.lang})`;
-    voiceSelect.appendChild(opt);
-  });
-  let preferredIndex = allVoices.findIndex(v => /natural|neural|enhanced/i.test(v.name) && /en/i.test(v.lang));
-  if (preferredIndex === -1) preferredIndex = allVoices.findIndex(v => /male|david|daniel|guy|mark|fred|alex/i.test(v.name) && /en/i.test(v.lang));
-  voiceSelect.value = preferredIndex !== -1 ? preferredIndex : 0;
-  const saved = localStorage.getItem('rayvenVoiceIndex');
-  if (saved !== null && allVoices[saved]) voiceSelect.value = saved;
-}
-if ('speechSynthesis' in window) {
-  loadVoiceOptions();
-  window.speechSynthesis.onvoiceschanged = loadVoiceOptions;
-}
-voiceSelect.addEventListener('change', () => localStorage.setItem('rayvenVoiceIndex', voiceSelect.value));
-
 function testVoice() { speak("Systems online. Voice calibration complete, sir.", null); }
 
+// ---- Voice output via ElevenLabs (real, natural speech, generated on the backend) ----
 function speak(text, onDone) {
   if (!document.getElementById('voiceToggle').checked) { if (onDone) onDone(); return; }
-  if (!('speechSynthesis' in window)) { if (onDone) onDone(); return; }
-
-  window.speechSynthesis.cancel();
-
-  const chosen = allVoices[voiceSelect.value];
   const cleaned = text.replace(/,/g, '').trim();
 
-  function speakNow() {
-    const utter = new SpeechSynthesisUtterance(cleaned);
-    utter.rate = 1.35;
-    utter.pitch = 1.0;
-    if (chosen) utter.voice = chosen;
-    utter.onend = () => { if (onDone) onDone(); };
-    utter.onerror = () => { if (onDone) onDone(); };
-    window.speechSynthesis.speak(utter);
-  }
+  setSphereState('talking');
 
-  setTimeout(speakNow, 40);
+  fetch(`${BACKEND_URL}/tts`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: cleaned })
+  })
+    .then(res => {
+      if (!res.ok) throw new Error('TTS request failed');
+      return res.blob();
+    })
+    .then(blob => {
+      const audio = new Audio(URL.createObjectURL(blob));
+      audio.onended = () => { if (onDone) onDone(); };
+      audio.onerror = () => { if (onDone) onDone(); };
+      audio.play();
+    })
+    .catch(() => { if (onDone) onDone(); });
 }
 
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -729,7 +707,6 @@ function activateVoice() {
   startWakeListening();
 }
 
-// ---- Mute: fully stops RAYVEN from listening until unmuted ----
 function toggleMute() {
   micMuted = !micMuted;
   const btn = document.getElementById('muteBtn');
@@ -801,16 +778,12 @@ function startContinuousAwakeListening() {
     const transcript = lastResult && lastResult[0] ? lastResult[0].transcript.trim() : '';
     if (!transcript) return;
 
-    if (window.speechSynthesis.speaking) {
-      window.speechSynthesis.cancel();
-    }
+    sendMessage(transcript, null);
 
     if (matchesAny(transcript, SLEEP_PHRASES)) {
       speak("Powering down. I'll be here when you need me, sir.", () => exitAwakeMode());
       return;
     }
-
-    sendMessage(transcript, null);
   };
 
   convoRecognition.onend = () => { if (awake && !micMuted) { try { startContinuousAwakeListening(); } catch (e) { setTimeout(() => { if (awake && !micMuted) startContinuousAwakeListening(); }, 100); } } };
