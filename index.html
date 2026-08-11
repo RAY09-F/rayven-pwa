@@ -177,14 +177,27 @@
   #settingsBox .status-line span { color: var(--gold); }
   #settingsBox .row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; flex-wrap: wrap; }
   #settingsBox label { display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--steel); font-size: 9px; letter-spacing: 1px; }
-  #settingsBox select {
-    background: rgba(10,5,16,0.6); color: var(--text); border: 1px solid rgba(232,196,104,0.3);
-    border-radius: 4px; padding: 4px 6px; font-family: inherit; font-size: 9px; max-width: 140px;
-  }
   #activateBtn { width: 100%; margin-bottom: 8px; border-color: var(--purple); color: var(--purple); }
   #activateBtn:hover { background: var(--purple); color: #0a0510; }
   #activateBtn.hidden { display: none; }
   #muteBtn { width: 100%; margin-bottom: 8px; }
+
+  .slider-row { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+  .slider-row .slider-label { display: flex; justify-content: space-between; color: var(--steel); font-size: 9px; letter-spacing: 1px; }
+  .slider-row .slider-label span { color: var(--gold); }
+  .slider-row input[type="range"] {
+    -webkit-appearance: none; width: 100%; height: 3px; border-radius: 2px;
+    background: linear-gradient(90deg, var(--purple), var(--gold));
+    outline: none;
+  }
+  .slider-row input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%;
+    background: var(--gold-glow); box-shadow: 0 0 6px var(--gold-glow); cursor: pointer;
+  }
+  .slider-row input[type="range"]::-moz-range-thumb {
+    width: 12px; height: 12px; border-radius: 50%; border: none;
+    background: var(--gold-glow); box-shadow: 0 0 6px var(--gold-glow); cursor: pointer;
+  }
 
   .holo-box {
     position: fixed; z-index: 10; width: 210px; max-width: 78vw;
@@ -258,6 +271,14 @@
   <div class="status-line" id="voiceStatus" style="font-size:9px;">Voice activation not started</div>
   <div class="row">
     <label><input type="checkbox" id="voiceToggle" checked> VOICE OUT</label>
+  </div>
+  <div class="slider-row">
+    <div class="slider-label">RATE <span id="rateVal">1.0x</span></div>
+    <input type="range" id="rateSlider" min="0.6" max="1.8" step="0.05" value="1.0">
+  </div>
+  <div class="slider-row">
+    <div class="slider-label">PITCH <span id="pitchVal">0</span></div>
+    <input type="range" id="pitchSlider" min="-8" max="8" step="1" value="0">
   </div>
   <div class="row">
     <button class="mini-btn" onclick="testVoice()">TEST</button>
@@ -666,11 +687,39 @@ function clearMemory() {
 
 function testVoice() { speak("Systems online. Voice calibration complete, sir.", null); }
 
-// ---- Voice output via ElevenLabs (real, natural speech, generated on the backend) ----
+// ---- Rate & pitch sliders ----
+const rateSlider = document.getElementById('rateSlider');
+const pitchSlider = document.getElementById('pitchSlider');
+const rateVal = document.getElementById('rateVal');
+const pitchVal = document.getElementById('pitchVal');
+
+const savedRate = localStorage.getItem('rayvenVoiceRate');
+const savedPitch = localStorage.getItem('rayvenVoicePitch');
+if (savedRate !== null) rateSlider.value = savedRate;
+if (savedPitch !== null) pitchSlider.value = savedPitch;
+rateVal.textContent = parseFloat(rateSlider.value).toFixed(2) + 'x';
+pitchVal.textContent = pitchSlider.value;
+
+rateSlider.addEventListener('input', () => {
+  rateVal.textContent = parseFloat(rateSlider.value).toFixed(2) + 'x';
+  localStorage.setItem('rayvenVoiceRate', rateSlider.value);
+});
+pitchSlider.addEventListener('input', () => {
+  pitchVal.textContent = pitchSlider.value;
+  localStorage.setItem('rayvenVoicePitch', pitchSlider.value);
+});
+
+// ---- Voice output via ElevenLabs, played through Web Audio API so rate and pitch
+// can be controlled fully independently of each other ----
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
 function speak(text, onDone) {
   if (!document.getElementById('voiceToggle').checked) { if (onDone) onDone(); return; }
   const cleaned = text.replace(/,/g, '').trim();
-
   setSphereState('talking');
 
   fetch(`${BACKEND_URL}/tts`, {
@@ -679,16 +728,36 @@ function speak(text, onDone) {
     body: JSON.stringify({ text: cleaned })
   })
     .then(res => {
-      if (!res.ok) throw new Error('TTS request failed');
-      return res.blob();
+      if (!res.ok) throw new Error('TTS request failed with status ' + res.status);
+      return res.arrayBuffer();
     })
-    .then(blob => {
-      const audio = new Audio(URL.createObjectURL(blob));
-      audio.onended = () => { if (onDone) onDone(); };
-      audio.onerror = () => { if (onDone) onDone(); };
-      audio.play();
+    .then(arrayBuffer => {
+      const ctxAudio = getAudioCtx();
+      return ctxAudio.decodeAudioData(arrayBuffer);
     })
-    .catch(() => { if (onDone) onDone(); });
+    .then(audioBuffer => {
+      const ctxAudio = getAudioCtx();
+      const source = ctxAudio.createBufferSource();
+      source.buffer = audioBuffer;
+      source.playbackRate.value = parseFloat(rateSlider.value);
+      source.detune.value = parseFloat(pitchSlider.value) * 100; // semitones -> cents, independent of rate
+      source.connect(ctxAudio.destination);
+      source.onended = () => { if (onDone) onDone(); };
+      source.start(0);
+    })
+    .catch(err => {
+      console.error('ElevenLabs TTS failed, falling back to browser voice:', err);
+      if ('speechSynthesis' in window) {
+        const utter = new SpeechSynthesisUtterance(cleaned);
+        utter.rate = parseFloat(rateSlider.value);
+        utter.pitch = Math.max(0, Math.min(2, 1 + parseFloat(pitchSlider.value) / 12));
+        utter.onend = () => { if (onDone) onDone(); };
+        utter.onerror = () => { if (onDone) onDone(); };
+        window.speechSynthesis.speak(utter);
+      } else {
+        if (onDone) onDone();
+      }
+    });
 }
 
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -778,12 +847,12 @@ function startContinuousAwakeListening() {
     const transcript = lastResult && lastResult[0] ? lastResult[0].transcript.trim() : '';
     if (!transcript) return;
 
-    sendMessage(transcript, null);
-
     if (matchesAny(transcript, SLEEP_PHRASES)) {
       speak("Powering down. I'll be here when you need me, sir.", () => exitAwakeMode());
       return;
     }
+
+    sendMessage(transcript, null);
   };
 
   convoRecognition.onend = () => { if (awake && !micMuted) { try { startContinuousAwakeListening(); } catch (e) { setTimeout(() => { if (awake && !micMuted) startContinuousAwakeListening(); }, 100); } } };
