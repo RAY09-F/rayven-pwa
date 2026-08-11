@@ -35,50 +35,73 @@
   .lightning-line.strike { animation: lightningFlicker 0.4s ease-out forwards; }
   @keyframes lightningFlicker { 0% { opacity: 0; } 8% { opacity: 1; } 15% { opacity: 0.1; } 22% { opacity: 0.9; } 35% { opacity: 0.15; } 100% { opacity: 0; } }
 
-  /* Wide, thick, short bolts — sweeping left-to-right and right-to-left */
-  .meteor {
-    position: fixed; top: -8vh; width: 46px; height: 88px;
+  /* ---- 3D-lit bolts with a glowing outline halo behind them ---- */
+  .bolt-wrap {
+    position: fixed; top: -10vh; width: 46px; height: 88px;
     opacity: 0; pointer-events: none; z-index: 3;
-    background: linear-gradient(200deg, #fff2c8 0%, var(--gold) 20%, var(--gold-glow) 38%, var(--purple-glow) 62%, var(--purple) 100%);
+    will-change: transform, opacity;
+  }
+  /* the halo sits behind and slightly larger — reads as a glowing outline */
+  .bolt-wrap .bolt-halo {
+    position: absolute; inset: -7px;
+    background: linear-gradient(200deg, #fff6d8, var(--gold-glow) 35%, var(--purple-glow) 70%, var(--purple));
     clip-path: polygon(52% 0%, 20% 40%, 44% 40%, 14% 100%, 84% 46%, 50% 46%);
-    filter: drop-shadow(0 0 14px var(--gold-glow)) drop-shadow(0 0 26px var(--purple-glow)) drop-shadow(0 0 38px var(--purple));
+    filter: blur(6px);
+    opacity: 0.85;
   }
-  .meteor.sweep-right { animation: sweepRight 1.9s linear forwards; }
-  .meteor.sweep-left { animation: sweepLeft 1.9s linear forwards; }
+  /* main body: multi-stop gradient across the width gives it a rounded, lit-from-one-side look */
+  .bolt-wrap .bolt-body {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(105deg,
+        rgba(90,40,160,0.95) 0%,
+        var(--purple) 16%,
+        var(--purple-glow) 30%,
+        var(--gold) 52%,
+        #fff6d8 64%,
+        var(--gold-glow) 76%,
+        var(--purple-glow) 92%,
+        rgba(70,30,130,0.95) 100%);
+    clip-path: polygon(52% 0%, 20% 40%, 44% 40%, 14% 100%, 84% 46%, 50% 46%);
+  }
+  /* thin bright specular streak — the "3D lit" highlight running down the face */
+  .bolt-wrap .bolt-shine {
+    position: absolute; inset: 0;
+    background: linear-gradient(102deg, transparent 44%, rgba(255,255,255,0.95) 56%, rgba(255,255,255,0.35) 62%, transparent 70%);
+    clip-path: polygon(52% 0%, 20% 40%, 44% 40%, 14% 100%, 84% 46%, 50% 46%);
+    mix-blend-mode: screen;
+  }
 
-  /* starts on the left, travels down and to the RIGHT */
+  .bolt-wrap.sweep-right { animation: sweepRight var(--dur, 2.4s) linear forwards; }
+  .bolt-wrap.sweep-left { animation: sweepLeft var(--dur, 2.4s) linear forwards; }
+
   @keyframes sweepRight {
-    0% { opacity: 0; transform: translate(0, -8vh) rotate(28deg) scale(0.9); }
-    8% { opacity: 1; }
-    20% { opacity: 0.35; }
-    32% { opacity: 1; }
-    85% { opacity: 0.5; }
-    100% { opacity: 0; transform: translate(62vw, 116vh) rotate(28deg) scale(1.05); }
+    0% { opacity: 0; transform: translate(0, -10vh) rotate(28deg) scale(0.88); }
+    9% { opacity: 1; }
+    22% { opacity: 0.45; }
+    34% { opacity: 1; }
+    88% { opacity: 0.5; }
+    100% { opacity: 0; transform: translate(58vw, 118vh) rotate(28deg) scale(1.06); }
   }
-  /* starts on the right, travels down and to the LEFT */
   @keyframes sweepLeft {
-    0% { opacity: 0; transform: translate(0, -8vh) rotate(-28deg) scale(0.9); }
-    8% { opacity: 1; }
-    20% { opacity: 0.35; }
-    32% { opacity: 1; }
-    85% { opacity: 0.5; }
-    100% { opacity: 0; transform: translate(-62vw, 116vh) rotate(-28deg) scale(1.05); }
+    0% { opacity: 0; transform: translate(0, -10vh) rotate(-28deg) scale(0.88); }
+    9% { opacity: 1; }
+    22% { opacity: 0.45; }
+    34% { opacity: 1; }
+    88% { opacity: 0.5; }
+    100% { opacity: 0; transform: translate(-58vw, 118vh) rotate(-28deg) scale(1.06); }
   }
 
   .bolt-spark {
     position: fixed; width: 8px; height: 34px; pointer-events: none; z-index: 4;
     background: linear-gradient(200deg, #fff6d8, var(--gold-glow), var(--purple-glow));
     clip-path: polygon(50% 0%, 15% 45%, 42% 45%, 5% 100%, 85% 40%, 48% 40%);
-    filter: drop-shadow(0 0 5px var(--gold-glow)) drop-shadow(0 0 12px var(--purple-glow));
+    filter: drop-shadow(0 0 6px var(--gold-glow)) drop-shadow(0 0 14px var(--purple-glow));
     opacity: 0;
   }
   .bolt-spark.flicker { animation: sparkFlicker 0.45s ease-out forwards; }
   @keyframes sparkFlicker {
-    0% { opacity: 0; }
-    15% { opacity: 1; }
-    35% { opacity: 0.2; }
-    55% { opacity: 0.9; }
-    100% { opacity: 0; }
+    0% { opacity: 0; } 15% { opacity: 1; } 35% { opacity: 0.2; } 55% { opacity: 0.9; } 100% { opacity: 0; }
   }
 
   .rain-bolt {
@@ -90,9 +113,7 @@
   .rain-bolt.fall { animation: rainFall 0.7s ease-in forwards; }
   @keyframes rainFall {
     0% { opacity: 0; transform: translateY(0); }
-    8% { opacity: 1; }
-    20% { opacity: 0.2; }
-    30% { opacity: 1; }
+    8% { opacity: 1; } 20% { opacity: 0.2; } 30% { opacity: 1; }
     100% { opacity: 0; transform: translateY(130vh); }
   }
 
@@ -100,15 +121,12 @@
     position: fixed; width: 3px; height: 22vh;
     background: linear-gradient(180deg, #d8c6ff, var(--purple), var(--purple-glow));
     filter: drop-shadow(0 0 2px var(--gold)) drop-shadow(0 0 4px var(--gold-glow)) drop-shadow(0 0 16px var(--purple));
-    opacity: 0; z-index: 8; pointer-events: none;
-    transform-origin: top center;
+    opacity: 0; z-index: 8; pointer-events: none; transform-origin: top center;
   }
   .impact-bolt.crackle { animation: crackleOut 0.55s ease-out forwards; }
   @keyframes crackleOut {
     0% { opacity: 0; transform: translate(-50%,-50%) rotate(var(--ang)) scaleY(0.2); }
-    12% { opacity: 1; }
-    30% { opacity: 0.3; }
-    45% { opacity: 1; }
+    12% { opacity: 1; } 30% { opacity: 0.3; } 45% { opacity: 1; }
     100% { opacity: 0; transform: translate(-50%,-50%) rotate(var(--ang)) scaleY(1.4); }
   }
 
@@ -140,16 +158,13 @@
 
   #wordmark {
     position: fixed; top: 42%; left: 50%; transform: translate(-50%, -50%);
-    text-align: center; pointer-events: none; z-index: 2;
-    transition: opacity 0.3s ease;
+    text-align: center; pointer-events: none; z-index: 2; transition: opacity 0.3s ease;
   }
   #wordTitle {
     font-family: 'Orbitron', sans-serif; font-weight: 900;
-    font-size: clamp(18px, 3.4vw, 30px); letter-spacing: 6px;
-    color: var(--purple);
+    font-size: clamp(18px, 3.4vw, 30px); letter-spacing: 6px; color: var(--purple);
     text-shadow: 0 0 10px var(--purple-glow), 0 0 24px var(--purple-glow), 0 0 4px var(--gold-glow);
-    display: flex; justify-content: center; gap: 8px;
-    animation: wordFlicker 6s infinite;
+    display: flex; justify-content: center; gap: 8px; animation: wordFlicker 6s infinite;
   }
   #wordTitle .letter { display: inline-block; transition: transform 1.1s cubic-bezier(.22,1.6,.36,1); }
   #wordSubtitle {
@@ -165,23 +180,17 @@
   #welcomeText {
     position: fixed; top: 42%; left: 50%; transform: translate(-50%, -50%) scale(0.6);
     font-family: 'Orbitron', sans-serif; font-weight: 900;
-    font-size: clamp(20px, 4.2vw, 38px); letter-spacing: 4px;
-    color: var(--gold);
+    font-size: clamp(20px, 4.2vw, 38px); letter-spacing: 4px; color: var(--gold);
     text-shadow: 0 0 12px var(--gold-glow), 0 0 28px var(--gold), 0 0 50px var(--gold-glow);
-    text-align: center; pointer-events: none; z-index: 5;
-    opacity: 0;
+    text-align: center; pointer-events: none; z-index: 5; opacity: 0;
     transition: opacity 0.35s ease, transform 0.5s cubic-bezier(.22,1.6,.36,1);
   }
   #welcomeText.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 
   .corner-box {
-    position: fixed; z-index: 10;
-    background: rgba(20,10,35,0.45);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(232,196,104,0.25);
-    border-radius: 8px;
-    padding: 10px;
+    position: fixed; z-index: 10; background: rgba(20,10,35,0.45);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(232,196,104,0.25); border-radius: 8px; padding: 10px;
     box-shadow: 0 0 20px rgba(0,0,0,0.35);
   }
 
@@ -200,13 +209,11 @@
 
   .holo-box {
     position: fixed; z-index: 10; width: 210px; max-width: 78vw;
-    background: rgba(20,10,35,0.35);
-    border: 1px solid rgba(155,107,255,0.35);
+    background: rgba(20,10,35,0.35); border: 1px solid rgba(155,107,255,0.35);
     border-radius: 6px; padding: 10px 12px;
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
     box-shadow: 0 0 20px rgba(155,107,255,0.15), inset 0 0 20px rgba(155,107,255,0.05);
-    overflow: hidden;
-    animation: holoFlicker 4.5s infinite;
+    overflow: hidden; animation: holoFlicker 4.5s infinite;
   }
   .holo-box::before {
     content: ''; position: absolute; inset: 0; pointer-events: none;
@@ -235,11 +242,8 @@
   .mic-circle {
     width: 62px; height: 62px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    background: rgba(20,10,35,0.55);
-    border: 2px solid var(--purple);
-    color: var(--purple);
-    font-size: 22px; cursor: pointer;
-    box-shadow: 0 0 14px rgba(155,107,255,0.3);
+    background: rgba(20,10,35,0.55); border: 2px solid var(--purple); color: var(--purple);
+    font-size: 22px; cursor: pointer; box-shadow: 0 0 14px rgba(155,107,255,0.3);
     transition: border-color 0.3s, color 0.3s, box-shadow 0.3s;
   }
   .mic-circle:hover { box-shadow: 0 0 20px var(--purple-glow); }
@@ -254,8 +258,7 @@
   .side-slider .slider-label span { color: var(--gold); display: block; }
   .side-slider input[type="range"] {
     -webkit-appearance: none; width: 90px; height: 3px; border-radius: 2px;
-    background: linear-gradient(90deg, var(--purple), var(--gold));
-    outline: none;
+    background: linear-gradient(90deg, var(--purple), var(--gold)); outline: none;
   }
   .side-slider input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
@@ -270,17 +273,15 @@
     position: fixed; top: calc(84% + 55px); left: 50%; transform: translate(-50%, 0);
     width: 40px; height: 40px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    background: rgba(20,10,35,0.55); border: 1.5px solid var(--gold);
-    color: var(--gold); font-size: 14px; cursor: pointer;
-    z-index: 12; box-shadow: 0 0 10px rgba(232,196,104,0.25);
+    background: rgba(20,10,35,0.55); border: 1.5px solid var(--gold); color: var(--gold);
+    font-size: 14px; cursor: pointer; z-index: 12; box-shadow: 0 0 10px rgba(232,196,104,0.25);
   }
   #muteCircle:hover { box-shadow: 0 0 16px var(--gold-glow); }
   #muteCircle.muted { border-color: #c0392b; color: #c0392b; box-shadow: 0 0 12px rgba(192,57,43,0.4); }
 
   #voiceStatusSmall {
     position: fixed; top: calc(84% + 105px); left: 50%; transform: translate(-50%, 0);
-    font-size: 8px; letter-spacing: 1px; color: var(--steel); z-index: 12; text-align: center;
-    max-width: 220px;
+    font-size: 8px; letter-spacing: 1px; color: var(--steel); z-index: 12; text-align: center; max-width: 220px;
   }
 </style>
 </head>
@@ -299,12 +300,10 @@
   <svg id="mjolnir" viewBox="0 0 100 160" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="headGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#ffd15c"/>
-        <stop offset="100%" stop-color="#9b6bff"/>
+        <stop offset="0%" stop-color="#ffd15c"/><stop offset="100%" stop-color="#9b6bff"/>
       </linearGradient>
       <linearGradient id="handleGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#3a2a5e"/>
-        <stop offset="100%" stop-color="#1a1030"/>
+        <stop offset="0%" stop-color="#3a2a5e"/><stop offset="100%" stop-color="#1a1030"/>
       </linearGradient>
     </defs>
     <rect x="18" y="2" width="64" height="46" rx="7" fill="url(#headGrad)" stroke="#fff2c8" stroke-width="1.5"/>
@@ -326,9 +325,7 @@
     <div class="slider-label">RATE<span id="rateVal">1.0x</span></div>
     <input type="range" id="rateSlider" min="0.6" max="1.8" step="0.05" value="1.0">
   </div>
-
   <button id="micCircle" class="mic-circle" onclick="handleMicClick()">🎤</button>
-
   <div class="side-slider">
     <div class="slider-label">PITCH<span id="pitchVal">0</span></div>
     <input type="range" id="pitchSlider" min="-8" max="8" step="1" value="0">
@@ -370,9 +367,7 @@ function setTitleText(text) {
 }
 setTitleText('RAYVEN');
 
-function setSleepingVisual(isSleeping) {
-  wordmarkEl.classList.toggle('sleeping', isSleeping);
-}
+function setSleepingVisual(isSleeping) { wordmarkEl.classList.toggle('sleeping', isSleeping); }
 
 function scatterLetters() {
   const letters = document.querySelectorAll('#wordTitle .letter');
@@ -396,7 +391,6 @@ function scatterLetters() {
 
 const canvas = document.getElementById('sphereCanvas');
 const ctx = canvas.getContext('2d');
-
 function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
 resize();
 window.addEventListener('resize', resize);
@@ -404,18 +398,11 @@ window.addEventListener('resize', resize);
 const SEED_COUNT = 320;
 const SUBDOTS_PER_SEED = 7;
 const N = SEED_COUNT * SUBDOTS_PER_SEED;
-
 function baseSphereRadius() { return Math.min(window.innerWidth, window.innerHeight) * 0.24; }
 
-const ux = new Float32Array(N);
-const uy = new Float32Array(N);
-const uz = new Float32Array(N);
+const ux = new Float32Array(N), uy = new Float32Array(N), uz = new Float32Array(N);
 const goldFlag = new Uint8Array(N);
-
-const sx = new Float32Array(N);
-const sy = new Float32Array(N);
-const sz = new Float32Array(N);
-const sscale = new Float32Array(N);
+const sx = new Float32Array(N), sy = new Float32Array(N), sz = new Float32Array(N), sscale = new Float32Array(N);
 const order = new Array(N);
 
 {
@@ -425,9 +412,7 @@ const order = new Array(N);
     const y = 1 - (i / (SEED_COUNT - 1)) * 2;
     const radiusAtY = Math.sqrt(1 - y * y);
     const theta = goldenAngle * i;
-    const sxv = Math.cos(theta) * radiusAtY;
-    const szv = Math.sin(theta) * radiusAtY;
-    const syv = y;
+    const sxv = Math.cos(theta) * radiusAtY, szv = Math.sin(theta) * radiusAtY, syv = y;
     const isGoldAccent = Math.random() < 0.16 ? 1 : 0;
     for (let k = 0; k < SUBDOTS_PER_SEED; k++) {
       const jitter = 0.035;
@@ -452,24 +437,21 @@ const STATES = {
 
 let current = { scale: 1, speed: 0.004, colorMix: 0, lightningRate: 1 };
 let target = STATES.idle;
-function setSphereState(name) { target = STATES[name] || STATES.idle; }
+let currentStateName = 'idle';
+function setSphereState(name) { target = STATES[name] || STATES.idle; currentStateName = name; }
 function lerp(a, b, t) { return a + (b - a) * t; }
 
 let explosionOffset = 0;
 function triggerVanish() { explosionOffset = -0.97; }
 
-let angleY = 0;
-let angleX = 0.3;
-let dragging = false;
+let angleY = 0, angleX = 0.3, dragging = false, userZoom = 1;
 let lastPointer = { x: 0, y: 0 };
-let userZoom = 1;
 
 function pointerDown(x, y) { dragging = true; lastPointer = { x, y }; canvas.classList.add('dragging'); }
 function pointerMove(x, y) {
   if (!dragging) return;
   const dx = x - lastPointer.x, dy = y - lastPointer.y;
-  angleY += dx * 0.005;
-  angleX += dy * 0.005;
+  angleY += dx * 0.005; angleX += dy * 0.005;
   angleX = Math.max(-1.3, Math.min(1.3, angleX));
   lastPointer = { x, y };
 }
@@ -522,7 +504,6 @@ function render() {
     let ry = py;
     const ry2 = ry * cosX - rz * sinX;
     const rz2 = ry * sinX + rz * cosX;
-
     const scale = perspective / (perspective + rz2);
     sx[i] = centerX + rx * scale;
     sy[i] = centerY + ry2 * scale;
@@ -538,23 +519,17 @@ function render() {
     const size = scale > 0.6 ? 1.9 * scale : 0.6;
     const brightness = Math.min(1, Math.max(0.15, (scale - 0.7) * 2));
     const isGold = goldFlag[i];
-    const r = isGold ? GOLD_R : mixR;
-    const g = isGold ? GOLD_G : mixG;
-    const b = isGold ? GOLD_B : mixB;
-
+    const r = isGold ? GOLD_R : mixR, g = isGold ? GOLD_G : mixG, b = isGold ? GOLD_B : mixB;
     if (scale > 1.05) {
       ctx.shadowBlur = 9 * scale;
       ctx.shadowColor = `rgba(${r},${g},${b},${brightness})`;
-    } else {
-      ctx.shadowBlur = 0;
-    }
+    } else { ctx.shadowBlur = 0; }
     ctx.fillStyle = `rgba(${r},${g},${b},${brightness})`;
     ctx.beginPath();
     ctx.arc(sx[i], sy[i], size, 0, 6.283185307);
     ctx.fill();
   }
   ctx.shadowBlur = 0;
-
   requestAnimationFrame(render);
 }
 render();
@@ -562,8 +537,7 @@ render();
 function spawnLightning() {
   const line = document.createElement('div');
   line.className = 'lightning-line';
-  const height = 20 + Math.random() * 55;
-  line.style.height = height + 'vh';
+  line.style.height = (20 + Math.random() * 55) + 'vh';
   line.style.left = Math.random() * 100 + 'vw';
   line.style.top = (Math.random() * 40) + 'vh';
   line.style.transform = `rotate(${(Math.random() * 16 - 8)}deg)`;
@@ -579,7 +553,7 @@ function ambientLightningLoop() {
 }
 setTimeout(ambientLightningLoop, 1500);
 
-// ---- Wide/short bolts sweeping across, staggered so they don't drop in lockstep ----
+/* ---- Bolts: 3D-lit, glowing outline, voice-reactive, staggered arrivals ---- */
 function spawnBoltSpark(pxX, pxY, rotBase) {
   const spark = document.createElement('div');
   spark.className = 'bolt-spark';
@@ -591,29 +565,57 @@ function spawnBoltSpark(pxX, pxY, rotBase) {
   setTimeout(() => spark.remove(), 500);
 }
 
+// Voice reactivity: how "hot" the bolts burn depends on what RAYVEN is doing
+function voiceIntensity() {
+  if (currentStateName === 'burst') return 1.9;
+  if (currentStateName === 'talking') return 1.55;
+  if (currentStateName === 'listening') return 1.2;
+  if (currentStateName === 'thinking') return 1.35;
+  if (currentStateName === 'sleeping') return 0.45;
+  return 1.0;
+}
+
 function spawnBolt(startLeftVw, sweepClass, sparkAngle) {
-  const bolt = document.createElement('div');
-  bolt.className = 'meteor ' + sweepClass;
-  bolt.style.left = startLeftVw + 'vw';
-  document.body.appendChild(bolt);
-  requestAnimationFrame(() => bolt.classList.add(sweepClass));
+  const heat = voiceIntensity();
+  const wrap = document.createElement('div');
+  wrap.className = 'bolt-wrap ' + sweepClass;
+
+  // each bolt gets its own duration so they land at different times
+  const dur = (2.6 - (heat - 1) * 0.45) + (Math.random() * 0.7 - 0.35);
+  wrap.style.setProperty('--dur', dur.toFixed(2) + 's');
+  wrap.style.left = startLeftVw + 'vw';
+
+  // size and glow scale with voice intensity
+  const w = 46 * (0.9 + heat * 0.18);
+  wrap.style.width = w.toFixed(0) + 'px';
+  wrap.style.height = (w * 1.9).toFixed(0) + 'px';
+  wrap.style.filter =
+    `drop-shadow(0 0 ${(10 * heat).toFixed(0)}px var(--gold-glow)) ` +
+    `drop-shadow(0 0 ${(22 * heat).toFixed(0)}px var(--purple-glow)) ` +
+    `drop-shadow(0 0 ${(38 * heat).toFixed(0)}px var(--purple))`;
+
+  wrap.innerHTML = '<div class="bolt-halo"></div><div class="bolt-body"></div><div class="bolt-shine"></div>';
+  document.body.appendChild(wrap);
+  requestAnimationFrame(() => wrap.classList.add(sweepClass));
 
   const startPx = (startLeftVw / 100) * window.innerWidth;
-  setTimeout(() => spawnBoltSpark(startPx, window.innerHeight * 0.3, sparkAngle), 400);
-  setTimeout(() => spawnBoltSpark(startPx, window.innerHeight * 0.6, sparkAngle), 800);
+  setTimeout(() => spawnBoltSpark(startPx, window.innerHeight * 0.3, sparkAngle), dur * 220);
+  setTimeout(() => spawnBoltSpark(startPx, window.innerHeight * 0.6, sparkAngle), dur * 480);
 
-  setTimeout(() => bolt.remove(), 1950);
+  setTimeout(() => wrap.remove(), dur * 1000 + 120);
 }
 
-function meteorLoop() {
-  // staggered starts so they never fall in perfect sync
-  setTimeout(() => spawnBolt(-2, 'sweep-right', 28), 0);    // far left → sweeps right
-  setTimeout(() => spawnBolt(98, 'sweep-left', -28), 260);  // far right → sweeps left
-  setTimeout(() => spawnBolt(22, 'sweep-right', 28), 520);  // left-of-center → sweeps right
-  setTimeout(() => spawnBolt(74, 'sweep-left', -28), 780);  // right-of-center → sweeps left
-  setTimeout(meteorLoop, 1000);
+function boltLoop() {
+  // two bolts per cycle, one each direction, offset so they never arrive together
+  spawnBolt(-2 + Math.random() * 26, 'sweep-right', 28);
+  setTimeout(() => spawnBolt(76 + Math.random() * 24, 'sweep-left', -28), 420 + Math.random() * 380);
+
+  // slower overall: 1.5–2s between cycles, tightening slightly when RAYVEN is active
+  const heat = voiceIntensity();
+  const gap = (1500 + Math.random() * 500) / (0.75 + heat * 0.25);
+  setTimeout(boltLoop, gap);
 }
-setTimeout(meteorLoop, 800);
+setTimeout(boltLoop, 900);
 
 function spawnRainBolt(delay) {
   setTimeout(() => {
@@ -626,28 +628,21 @@ function spawnRainBolt(delay) {
     setTimeout(() => bolt.remove(), 800);
   }, delay);
 }
-function rainLightning(count) {
-  for (let i = 0; i < count; i++) spawnRainBolt(i * 55);
-}
+function rainLightning(count) { for (let i = 0; i < count; i++) spawnRainBolt(i * 55); }
 
 function spawnImpactBolt() {
   const bolt = document.createElement('div');
   bolt.className = 'impact-bolt';
-  const angle = Math.random() * 360;
-  bolt.style.setProperty('--ang', angle + 'deg');
-  bolt.style.top = '42%';
-  bolt.style.left = '50%';
+  bolt.style.setProperty('--ang', (Math.random() * 360) + 'deg');
+  bolt.style.top = '42%'; bolt.style.left = '50%';
   document.body.appendChild(bolt);
   requestAnimationFrame(() => bolt.classList.add('crackle'));
   setTimeout(() => bolt.remove(), 700);
 }
-function impactCrackle(count) {
-  for (let i = 0; i < count; i++) setTimeout(spawnImpactBolt, i * 30);
-}
+function impactCrackle(count) { for (let i = 0; i < count; i++) setTimeout(spawnImpactBolt, i * 30); }
 
 function lightningFlurry(durationMs) {
-  const interval = 160;
-  let elapsed = 0;
+  const interval = 160; let elapsed = 0;
   const timer = setInterval(() => {
     spawnLightning();
     if (Math.random() > 0.5) spawnImpactBolt();
@@ -703,9 +698,7 @@ const WAKE_PHRASES = [
   "hey rayven", "hey raven", "hey ray ven",
   "wake up raven", "wake up rayven", "wake raven",
   "okay raven", "ok raven", "okay rayven",
-  "yo raven", "yo rayven",
-  "a raven", "ay raven",
-  "raven"
+  "yo raven", "yo rayven", "a raven", "ay raven", "raven"
 ];
 const SLEEP_PHRASES = ["go to sleep", "sleep now", "power down", "goodnight raven"];
 
@@ -790,10 +783,7 @@ function speak(text, onDone) {
       if (!res.ok) throw new Error('TTS request failed with status ' + res.status);
       return res.arrayBuffer();
     })
-    .then(arrayBuffer => {
-      const ctxAudio = getAudioCtx();
-      return ctxAudio.decodeAudioData(arrayBuffer);
-    })
+    .then(arrayBuffer => getAudioCtx().decodeAudioData(arrayBuffer))
     .then(audioBuffer => {
       const ctxAudio = getAudioCtx();
       const source = ctxAudio.createBufferSource();
@@ -813,18 +803,13 @@ function speak(text, onDone) {
         utter.onend = () => { if (onDone) onDone(); };
         utter.onerror = () => { if (onDone) onDone(); };
         window.speechSynthesis.speak(utter);
-      } else {
-        if (onDone) onDone();
-      }
+      } else { if (onDone) onDone(); }
     });
 }
 
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
-let wakeRecognition = null;
-let convoRecognition = null;
-let voiceActive = false;
-let awake = false;
-let micMuted = false;
+let wakeRecognition = null, convoRecognition = null;
+let voiceActive = false, awake = false, micMuted = false;
 
 const micCircle = document.getElementById('micCircle');
 const muteCircle = document.getElementById('muteCircle');
@@ -840,10 +825,7 @@ function updateMicVisual() {
 
 function handleMicClick() {
   if (!SpeechRecognitionCtor) { alert('Voice recognition is not supported in this browser. Try Chrome.'); return; }
-  if (!voiceActive) {
-    voiceActive = true;
-    startWakeListening();
-  }
+  if (!voiceActive) { voiceActive = true; startWakeListening(); }
 }
 
 function toggleMute() {
@@ -924,7 +906,6 @@ function startContinuousAwakeListening() {
       speak("Powering down. I'll be here when you need me, sir.", () => exitAwakeMode());
       return;
     }
-
     sendMessage(transcript, null);
   };
 
