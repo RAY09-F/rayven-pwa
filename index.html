@@ -172,33 +172,6 @@
   .mini-btn:hover { background: var(--gold); color: #0a0510; }
   .mini-btn.muted { background: #c0392b; border-color: #c0392b; color: white; }
 
-  #settingsBox { bottom: 16px; left: 16px; width: 250px; max-width: 88vw; font-size: 10px; }
-  #settingsBox .status-line { letter-spacing: 2px; color: var(--steel); margin-bottom: 8px; }
-  #settingsBox .status-line span { color: var(--gold); }
-  #settingsBox .row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; flex-wrap: wrap; }
-  #settingsBox label { display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--steel); font-size: 9px; letter-spacing: 1px; }
-  #activateBtn { width: 100%; margin-bottom: 8px; border-color: var(--purple); color: var(--purple); }
-  #activateBtn:hover { background: var(--purple); color: #0a0510; }
-  #activateBtn.hidden { display: none; }
-  #muteBtn { width: 100%; margin-bottom: 8px; }
-
-  .slider-row { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
-  .slider-row .slider-label { display: flex; justify-content: space-between; color: var(--steel); font-size: 9px; letter-spacing: 1px; }
-  .slider-row .slider-label span { color: var(--gold); }
-  .slider-row input[type="range"] {
-    -webkit-appearance: none; width: 100%; height: 3px; border-radius: 2px;
-    background: linear-gradient(90deg, var(--purple), var(--gold));
-    outline: none;
-  }
-  .slider-row input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%;
-    background: var(--gold-glow); box-shadow: 0 0 6px var(--gold-glow); cursor: pointer;
-  }
-  .slider-row input[type="range"]::-moz-range-thumb {
-    width: 12px; height: 12px; border-radius: 50%; border: none;
-    background: var(--gold-glow); box-shadow: 0 0 6px var(--gold-glow); cursor: pointer;
-  }
-
   .holo-box {
     position: fixed; z-index: 10; width: 210px; max-width: 78vw;
     background: rgba(20,10,35,0.35);
@@ -225,6 +198,89 @@
   @keyframes holoFill { from { width: 15%; } to { width: 90%; } }
   @keyframes holoFlicker { 0%,92%,100% { opacity: 1; } 93% { opacity: 0.6; } 94% { opacity: 1; } 96% { opacity: 0.7; } 97% { opacity: 1; } }
   @media (max-width: 720px) { .holo-box { display: none; } }
+
+  /* ---- Settings: centered, borderless, floating overlay ---- */
+  #settingsToggle {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+    z-index: 15;
+    background: transparent; border: 1px solid rgba(232,196,104,0.35);
+    color: var(--gold); font-size: 11px; letter-spacing: 2px;
+    padding: 6px 14px; border-radius: 20px; cursor: pointer;
+    backdrop-filter: blur(4px);
+  }
+  #settingsToggle:hover { background: rgba(232,196,104,0.12); box-shadow: 0 0 12px var(--gold-glow); }
+
+  #settingsOverlay {
+    position: fixed; inset: 0; z-index: 40;
+    background: rgba(8,4,14,0.82);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  #settingsOverlay.open { opacity: 1; pointer-events: all; }
+
+  #settingsPanel {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 22px; width: 300px; max-width: 88vw;
+    transform: translateY(10px);
+    transition: transform 0.3s ease;
+  }
+  #settingsOverlay.open #settingsPanel { transform: translateY(0); }
+
+  #settingsClose {
+    position: fixed; top: 20px; right: 24px; z-index: 41;
+    background: none; border: none; color: var(--gold);
+    font-size: 20px; cursor: pointer; line-height: 1;
+  }
+  #settingsClose:hover { text-shadow: 0 0 10px var(--gold-glow); }
+
+  .settings-title {
+    font-family: 'Orbitron', sans-serif; font-weight: 900;
+    letter-spacing: 6px; font-size: 16px; color: var(--purple);
+    text-shadow: 0 0 10px var(--purple-glow);
+  }
+  .settings-info {
+    font-size: 10px; letter-spacing: 2px; color: var(--steel); text-align: center;
+  }
+  .settings-info span { color: var(--gold); }
+  .settings-wide-btn {
+    width: 100%; text-align: center; padding: 10px 0;
+    border-radius: 4px; border: 1px solid var(--purple); background: transparent;
+    color: var(--purple); font-size: 11px; letter-spacing: 2px; cursor: pointer;
+  }
+  .settings-wide-btn:hover { background: var(--purple); color: #0a0510; box-shadow: 0 0 14px var(--purple-glow); }
+  .settings-wide-btn.mic-btn { border-color: var(--gold); color: var(--gold); }
+  .settings-wide-btn.mic-btn:hover { background: var(--gold); color: #0a0510; box-shadow: 0 0 14px var(--gold-glow); }
+  .settings-wide-btn.mic-btn.muted { background: #c0392b; border-color: #c0392b; color: white; }
+
+  .settings-check {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 10px; letter-spacing: 2px; color: var(--steel); cursor: pointer;
+  }
+
+  .settings-slider { width: 100%; }
+  .settings-slider .slider-label {
+    display: flex; justify-content: space-between;
+    font-size: 10px; letter-spacing: 2px; color: var(--steel); margin-bottom: 6px;
+  }
+  .settings-slider .slider-label span { color: var(--gold); }
+  .settings-slider input[type="range"] {
+    -webkit-appearance: none; width: 100%; height: 3px; border-radius: 2px;
+    background: linear-gradient(90deg, var(--purple), var(--gold));
+    outline: none;
+  }
+  .settings-slider input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--gold-glow); box-shadow: 0 0 8px var(--gold-glow); cursor: pointer;
+  }
+  .settings-slider input[type="range"]::-moz-range-thumb {
+    width: 14px; height: 14px; border-radius: 50%; border: none;
+    background: var(--gold-glow); box-shadow: 0 0 8px var(--gold-glow); cursor: pointer;
+  }
+
+  .settings-row-pair { display: flex; gap: 10px; width: 100%; }
+  .settings-row-pair .settings-wide-btn { flex: 1; }
 </style>
 </head>
 <body>
@@ -264,25 +320,35 @@
   </div>
 </div>
 
-<div id="settingsBox" class="corner-box">
-  <button id="activateBtn" class="mini-btn" onclick="activateVoice()">🎙 ACTIVATE VOICE — SAY "HEY RAYVEN"</button>
-  <button id="muteBtn" class="mini-btn" onclick="toggleMute()">🎙 MUTE MIC</button>
-  <div class="status-line">STATUS: <span id="statusText">STANDING BY</span></div>
-  <div class="status-line" id="voiceStatus" style="font-size:9px;">Voice activation not started</div>
-  <div class="row">
-    <label><input type="checkbox" id="voiceToggle" checked> VOICE OUT</label>
-  </div>
-  <div class="slider-row">
-    <div class="slider-label">RATE <span id="rateVal">1.0x</span></div>
-    <input type="range" id="rateSlider" min="0.6" max="1.8" step="0.05" value="1.0">
-  </div>
-  <div class="slider-row">
-    <div class="slider-label">PITCH <span id="pitchVal">0</span></div>
-    <input type="range" id="pitchSlider" min="-8" max="8" step="1" value="0">
-  </div>
-  <div class="row">
-    <button class="mini-btn" onclick="testVoice()">TEST</button>
-    <button class="mini-btn" onclick="clearMemory()">CLEAR MEMORY</button>
+<button id="settingsToggle" onclick="toggleSettings()">⚙ SETTINGS</button>
+
+<div id="settingsOverlay">
+  <button id="settingsClose" onclick="toggleSettings()">✕</button>
+  <div id="settingsPanel">
+    <div class="settings-title">SETTINGS</div>
+
+    <button id="activateBtn" class="settings-wide-btn" onclick="activateVoice()">🎙 ACTIVATE VOICE — SAY "HEY RAYVEN"</button>
+    <button id="muteBtn" class="settings-wide-btn mic-btn" onclick="toggleMute()">🎙 MUTE MIC</button>
+
+    <div class="settings-info">WAKE WORD: <span>"HEY RAYVEN"</span></div>
+    <div class="settings-info">STATUS: <span id="statusText">STANDING BY</span></div>
+    <div class="settings-info" id="voiceStatus">Voice activation not started</div>
+
+    <label class="settings-check"><input type="checkbox" id="voiceToggle" checked> VOICE OUTPUT</label>
+
+    <div class="settings-slider">
+      <div class="slider-label">RATE <span id="rateVal">1.0x</span></div>
+      <input type="range" id="rateSlider" min="0.6" max="1.8" step="0.05" value="1.0">
+    </div>
+    <div class="settings-slider">
+      <div class="slider-label">PITCH <span id="pitchVal">0</span></div>
+      <input type="range" id="pitchSlider" min="-8" max="8" step="1" value="0">
+    </div>
+
+    <div class="settings-row-pair">
+      <button class="settings-wide-btn" onclick="testVoice()">TEST</button>
+      <button class="settings-wide-btn" onclick="clearMemory()">CLEAR MEMORY</button>
+    </div>
   </div>
 </div>
 
@@ -303,6 +369,10 @@
 </div>
 
 <script>
+function toggleSettings() {
+  document.getElementById('settingsOverlay').classList.toggle('open');
+}
+
 const wordmarkEl = document.getElementById('wordmark');
 const wordTitleEl = document.getElementById('wordTitle');
 const welcomeTextEl = document.getElementById('welcomeText');
@@ -687,7 +757,6 @@ function clearMemory() {
 
 function testVoice() { speak("Systems online. Voice calibration complete, sir.", null); }
 
-// ---- Rate & pitch sliders ----
 const rateSlider = document.getElementById('rateSlider');
 const pitchSlider = document.getElementById('pitchSlider');
 const rateVal = document.getElementById('rateVal');
@@ -709,8 +778,6 @@ pitchSlider.addEventListener('input', () => {
   localStorage.setItem('rayvenVoicePitch', pitchSlider.value);
 });
 
-// ---- Voice output via ElevenLabs, played through Web Audio API so rate and pitch
-// can be controlled fully independently of each other ----
 let audioCtx = null;
 function getAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -740,7 +807,7 @@ function speak(text, onDone) {
       const source = ctxAudio.createBufferSource();
       source.buffer = audioBuffer;
       source.playbackRate.value = parseFloat(rateSlider.value);
-      source.detune.value = parseFloat(pitchSlider.value) * 100; // semitones -> cents, independent of rate
+      source.detune.value = parseFloat(pitchSlider.value) * 100;
       source.connect(ctxAudio.destination);
       source.onended = () => { if (onDone) onDone(); };
       source.start(0);
