@@ -335,7 +335,7 @@
 <div id="holoTop" class="holo-box">
   <div class="holo-title">◈ SYSTEM STATUS</div>
   <div class="holo-row"><span class="holo-label">01 · CORE</span><span class="holo-val">Neural link active</span><div class="holo-bar"><div class="holo-fill"></div></div></div>
-  <div class="holo-row"><span class="holo-label">02 · MEMORY</span><span class="holo-val">Context buffer nominal</span><div class="holo-bar"><div class="holo-fill" style="animation-delay:0.4s"></div></div></div>
+  <div class="holo-row"><span class="holo-label">02 · MEMORY</span><span class="holo-val">Long-term store active</span><div class="holo-bar"><div class="holo-fill" style="animation-delay:0.4s"></div></div></div>
   <div class="holo-row"><span class="holo-label">03 · UPLINK</span><span class="holo-val">Cloudflare Worker</span><div class="holo-bar"><div class="holo-fill" style="animation-delay:0.8s"></div></div></div>
   <div class="holo-row"><span class="holo-label">04 · SEARCH</span><span class="holo-val">Tavily + SerpAPI online</span><div class="holo-bar"><div class="holo-fill" style="animation-delay:1.2s"></div></div></div>
 </div>
@@ -900,7 +900,6 @@ function startWakeListening() {
   try { wakeRecognition.start(); } catch (e) {}
 }
 
-// ---- Clap detection: watches raw mic volume for TWO sharp spikes close together (a double clap) ----
 let clapAudioCtx = null;
 let clapAnalyser = null;
 let clapDataArray = null;
@@ -909,9 +908,8 @@ let clapBaseline = 0.02;
 let clapLastSpikeTime = 0;
 let clapFirstTime = 0;
 
-const CLAP_MIN_GAP_MS = 150;   // ignore spikes closer together than this — that's just the tail/echo of one clap
-const CLAP_MAX_GAP_MS = 700;   // the second clap must land within this window to count as a pair
-const CLAP_WAKE_COOLDOWN_MS = 1500;
+const CLAP_MIN_GAP_MS = 150;
+const CLAP_MAX_GAP_MS = 700;
 
 async function startClapDetection() {
   if (clapAnalyser) return;
@@ -951,29 +949,24 @@ function clapDetectionLoop() {
     const spikeThreshold = Math.max(0.14, clapBaseline * 6);
 
     if (vol > spikeThreshold) {
-      // ignore anything within the min-gap window — that's the decay tail of the same clap, not a new one
       if (now - clapLastSpikeTime >= CLAP_MIN_GAP_MS) {
         if (clapFirstTime === 0) {
-          // this is the first clap of a potential pair — start the window
           clapFirstTime = now;
         } else {
           const gap = now - clapFirstTime;
           if (gap <= CLAP_MAX_GAP_MS) {
-            // second clap landed in time — that's the double clap
             clapFirstTime = 0;
             clapLastSpikeTime = now;
             triggerWake();
             requestAnimationFrame(clapDetectionLoop);
             return;
           } else {
-            // too slow — treat this spike as a fresh first clap instead
             clapFirstTime = now;
           }
         }
         clapLastSpikeTime = now;
       }
     } else if (clapFirstTime !== 0 && now - clapFirstTime > CLAP_MAX_GAP_MS) {
-      // timed out waiting for a second clap — reset
       clapFirstTime = 0;
     }
   }
@@ -1089,7 +1082,7 @@ async function sendMessage(text, onReplyDone) {
     const response = await fetch(BACKEND_URL, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ history: conversationHistory })
+      body: JSON.stringify({ message: text })
     });
     const data = await response.json();
     const replyText = data.reply || data.error;
