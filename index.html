@@ -711,6 +711,13 @@ function stripWakeWord(transcript) {
   return clean;
 }
 
+// ---- Special shortcut phrase: "get litty RAYVEN" always plays this exact song instantly ----
+function isGetLittyCommand(transcript) {
+  const t = transcript.toLowerCase();
+  return t.includes('litty') && containsRavenLike(t);
+}
+const GET_LITTY_SONG_REQUEST = "Play Immigrant Song by Led Zeppelin on Spotify.";
+
 let conversationHistory = [];
 try {
   const saved = localStorage.getItem('rayvenConversation');
@@ -1025,6 +1032,14 @@ function startContinuousAwakeListening() {
     if (matchesAny(transcript, STOP_PHRASES)) {
       stopSpeaking();
       resumeListeningAfterSpeech();
+      return;
+    }
+
+    // "Get litty RAYVEN" — instant shortcut, skips wake-word stripping entirely so "raven" in
+    // the phrase doesn't get treated as just an attention-grab with nothing to send
+    if (isGetLittyCommand(transcript)) {
+      setVoiceStatus('RAYVEN is speaking...');
+      sendMessage(GET_LITTY_SONG_REQUEST, null);
       return;
     }
 
