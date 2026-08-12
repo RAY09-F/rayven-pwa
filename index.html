@@ -240,12 +240,13 @@
     display: flex; align-items: center; justify-content: center;
     background: rgba(20,10,35,0.55); border: 2px solid var(--purple); color: var(--purple);
     font-size: 22px; cursor: pointer; box-shadow: 0 0 14px rgba(155,107,255,0.3);
-    transition: border-color 0.3s, color 0.3s, box-shadow 0.3s;
+    transition: border-color 0.3s, color 0.3s, box-shadow 0.3s, opacity 0.3s;
   }
   .mic-circle:hover { box-shadow: 0 0 20px var(--purple-glow); }
   .mic-circle.mic-listening { animation: micPulsePurple 2.5s ease-in-out infinite; }
   .mic-circle.mic-awake { border-color: var(--gold); color: var(--gold); animation: micPulseGold 1s ease-in-out infinite; }
   .mic-circle.mic-muted { border-color: #c0392b; color: #c0392b; animation: none; box-shadow: 0 0 14px rgba(192,57,43,0.4); }
+  .mic-circle.mic-paused { border-color: var(--steel); color: var(--steel); animation: none; opacity: 0.4; box-shadow: none; }
   @keyframes micPulsePurple { 0%,100% { box-shadow: 0 0 14px rgba(155,107,255,0.3); } 50% { box-shadow: 0 0 26px var(--purple-glow); } }
   @keyframes micPulseGold { 0%,100% { box-shadow: 0 0 16px var(--gold-glow); } 50% { box-shadow: 0 0 30px var(--gold-glow); } }
 
@@ -648,7 +649,10 @@ function wakeBurst() {
     conversationHistory.push({ role: 'assistant', content: greeting });
     saveConversation();
 
-    speak(greeting, () => { wakeSequenceRunning = false; });
+    speak(greeting, () => {
+      wakeSequenceRunning = false;
+      resumeListeningAfterSpeech();
+    });
   }, 680);
 
   setTimeout(() => {
@@ -670,7 +674,6 @@ const WAKE_PHRASES = [
   "yo raven", "yo rayven", "a raven", "ay raven", "raven"
 ];
 const SLEEP_PHRASES = ["go to sleep", "sleep now", "power down", "goodnight raven"];
-// ---- New: explicit stop commands — silences RAYVEN immediately, never sent as a question ----
 const STOP_PHRASES = ["stop talking", "shut up", "be quiet", "quiet", "stop it", "hush", "silence", "stop"];
 
 function levenshtein(a, b) {
@@ -693,7 +696,6 @@ function matchesAny(transcript, list) {
   if (list === WAKE_PHRASES && containsRavenLike(clean)) return true;
   return false;
 }
-// Strips a leading wake phrase off a transcript, e.g. "hey rayven what's the weather" -> "what's the weather"
 function stripWakeWord(transcript) {
   let clean = transcript.trim();
   const lower = clean.toLowerCase();
@@ -702,7 +704,6 @@ function stripWakeWord(transcript) {
       return clean.slice(phrase.length).trim();
     }
   }
-  // handle a lone fuzzy "raven"-like word at the very start (e.g. misheard wake word)
   const words = clean.split(/\s+/);
   if (words.length && levenshtein(words[0].toLowerCase().replace(/[^a-z]/g, ''), 'raven') <= 1) {
     return words.slice(1).join(' ').trim();
@@ -757,7 +758,6 @@ function getAudioCtx() {
   return audioCtx;
 }
 
-// ---- Track the currently-playing audio source so we can stop it instantly from anywhere ----
 let currentAudioSource = null;
 let currentOnDone = null;
 
@@ -831,6 +831,8 @@ function speak(text, onDone) {
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 let wakeRecognition = null, convoRecognition = null;
 let voiceActive = false, awake = false, micMuted = false;
+// ---- New: while true, the mic stays off — set while RAYVEN is talking, cleared once it's done ----
+let listeningPaused = false;
 
 const micCircle = document.getElementById('micCircle');
 const muteCircle = document.getElementById('muteCircle');
@@ -838,8 +840,9 @@ const muteCircle = document.getElementById('muteCircle');
 function setVoiceStatus(msg) { document.getElementById('voiceStatusSmall').textContent = msg; }
 
 function updateMicVisual() {
-  micCircle.classList.remove('mic-listening', 'mic-awake', 'mic-muted');
+  micCircle.classList.remove('mic-listening', 'mic-awake', 'mic-muted', 'mic-paused');
   if (micMuted) { micCircle.classList.add('mic-muted'); return; }
+  if (listeningPaused) { micCircle.classList.add('mic-paused'); return; }
   if (awake) { micCircle.classList.add('mic-awake'); return; }
   if (voiceActive) { micCircle.classList.add('mic-listening'); }
 }
@@ -861,7 +864,7 @@ function toggleMute() {
     setVoiceStatus('Microphone muted.');
   } else {
     if (!voiceActive) return;
-    if (awake) { startContinuousAwakeListening(); } else { startWakeListening(); }
+    if (awake) { if (!listeningPaused) startContinuousAwakeListening(); } else { startWakeListening(); }
   }
 }
 
@@ -898,73 +901,81 @@ function startWakeListening() {
 }
 
 function enterAwakeMode() {
+  // Mic stays off through the greeting — resumeListeningAfterSpeech() turns it on once wakeBurst's speak() finishes
+  listeningPaused = true;
+  updateMicVisual();
   wakeBurst();
-  setVoiceStatus('Awake — talk anytime, say "stop" to interrupt me...');
-  startContinuousAwakeListening();
+  setVoiceStatus('RAYVEN is speaking...');
 }
 
 function exitAwakeMode() {
   awake = false;
+  listeningPaused = false;
   updateMicVisual();
   if (convoRecognition) { try { convoRecognition.stop(); } catch (e) {} }
   if (!micMuted) startWakeListening();
 }
 
+// ---- Called every time RAYVEN finishes talking — this is what turns the mic back on ----
+function resumeListeningAfterSpeech() {
+  listeningPaused = false;
+  updateMicVisual();
+  if (awake && !micMuted) {
+    setVoiceStatus('Awake — your turn, say "Hey RAYVEN" or just talk...');
+    startContinuousAwakeListening();
+  }
+}
+
 function startContinuousAwakeListening() {
-  if (!awake || micMuted) return;
+  if (!awake || micMuted || listeningPaused) return;
   convoRecognition = new SpeechRecognitionCtor();
   convoRecognition.continuous = true;
   convoRecognition.interimResults = false;
   convoRecognition.lang = 'en-US';
 
   convoRecognition.onresult = (event) => {
-    if (micMuted) return;
+    if (micMuted || listeningPaused) return;
     const lastResult = event.results[event.results.length - 1];
     const transcript = lastResult && lastResult[0] ? lastResult[0].transcript.trim() : '';
     if (!transcript) return;
 
-    const wasSpeaking = !!currentAudioSource || (window.speechSynthesis && window.speechSynthesis.speaking);
+    // The moment we have what you said, mic goes off — stays off until RAYVEN finishes responding
+    listeningPaused = true;
+    updateMicVisual();
+    try { convoRecognition.stop(); } catch (e) {}
 
-    // "stop talking" / "shut up" / etc — silence immediately, never treated as a question
     if (matchesAny(transcript, STOP_PHRASES)) {
       stopSpeaking();
-      setSphereState('listening');
+      resumeListeningAfterSpeech();
       return;
     }
 
-    // Someone said "hey rayven" again — always barge-in stop first, like interrupting by name
+    let toSend = transcript;
     if (matchesAny(transcript, WAKE_PHRASES)) {
-      if (wasSpeaking) stopSpeaking();
       const remainder = stripWakeWord(transcript);
       if (!remainder) {
-        // Just grabbing attention, nothing more said yet — stay listening, don't send anything
-        setSphereState('listening');
+        // Just grabbing attention with the wake word alone — resume listening right away, nothing to send
+        resumeListeningAfterSpeech();
         return;
       }
-      // Wake word plus an actual question in the same breath — send just the question part
-      if (matchesAny(remainder, SLEEP_PHRASES)) {
-        speak("Powering down. I'll be here when you need me, sir.", () => exitAwakeMode());
-        return;
-      }
-      sendMessage(remainder, null);
-      return;
+      toSend = remainder;
     }
 
-    // Any other speech while RAYVEN is talking is a normal barge-in — stop, then treat as the new message
-    if (wasSpeaking) stopSpeaking();
-
-    if (matchesAny(transcript, SLEEP_PHRASES)) {
+    if (matchesAny(toSend, SLEEP_PHRASES)) {
+      setVoiceStatus('RAYVEN is speaking...');
       speak("Powering down. I'll be here when you need me, sir.", () => exitAwakeMode());
       return;
     }
 
-    sendMessage(transcript, null);
+    setVoiceStatus('RAYVEN is speaking...');
+    sendMessage(toSend, null);
   };
 
-  convoRecognition.onend = () => { if (awake && !micMuted) { try { startContinuousAwakeListening(); } catch (e) { setTimeout(() => { if (awake && !micMuted) startContinuousAwakeListening(); }, 100); } } };
-  convoRecognition.onerror = () => { if (awake && !micMuted) setTimeout(() => { if (awake && !micMuted) startContinuousAwakeListening(); }, 100); };
+  convoRecognition.onend = () => { if (awake && !micMuted && !listeningPaused) { try { startContinuousAwakeListening(); } catch (e) { setTimeout(() => { if (awake && !micMuted && !listeningPaused) startContinuousAwakeListening(); }, 100); } } };
+  convoRecognition.onerror = () => { if (awake && !micMuted && !listeningPaused) setTimeout(() => { if (awake && !micMuted && !listeningPaused) startContinuousAwakeListening(); }, 100); };
 
   try { convoRecognition.start(); } catch (e) {}
+  updateMicVisual();
 }
 
 function handleTypedSend() {
@@ -1004,11 +1015,13 @@ async function sendMessage(text, onReplyDone) {
 
     speak(replyText, () => {
       setSphereState(awake ? 'listening' : 'idle');
+      resumeListeningAfterSpeech();
       if (onReplyDone) onReplyDone();
     });
   } catch (err) {
     document.getElementById(typingId).innerHTML = `<span class="label">RAYVEN</span>Connection error: ${err.message}`;
     setSphereState(awake ? 'listening' : 'idle');
+    resumeListeningAfterSpeech();
     if (onReplyDone) onReplyDone();
   }
   log.scrollTop = log.scrollHeight;
