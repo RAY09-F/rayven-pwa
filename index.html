@@ -330,7 +330,7 @@
 </div>
 
 <button id="muteCircle" onclick="toggleMute()">🔇</button>
-<div id="voiceStatusSmall">Click the mic, then say "Hey RAYVEN" or clap</div>
+<div id="voiceStatusSmall">Click the mic, then say "Hey RAYVEN" or double clap</div>
 
 <div id="holoTop" class="holo-box">
   <div class="holo-title">◈ SYSTEM STATUS</div>
@@ -896,20 +896,25 @@ function startWakeListening() {
   wakeRecognition.onend = () => { if (voiceActive && !awake && !micMuted) { try { startWakeListening(); } catch (e) { setTimeout(startWakeListening, 100); } } };
   wakeRecognition.onerror = () => { if (voiceActive && !awake && !micMuted) setTimeout(() => { try { startWakeListening(); } catch (err) {} }, 100); };
 
-  setVoiceStatus('Listening for "Hey RAYVEN" or a clap...');
+  setVoiceStatus('Listening for "Hey RAYVEN" or a double clap...');
   try { wakeRecognition.start(); } catch (e) {}
 }
 
-// ---- Clap detection: watches raw mic volume for a sudden sharp spike (a clap), separate from speech recognition ----
+// ---- Clap detection: watches raw mic volume for TWO sharp spikes close together (a double clap) ----
 let clapAudioCtx = null;
 let clapAnalyser = null;
 let clapDataArray = null;
 let clapStream = null;
 let clapBaseline = 0.02;
-let clapLastTriggerTime = 0;
+let clapLastSpikeTime = 0;
+let clapFirstTime = 0;
+
+const CLAP_MIN_GAP_MS = 150;   // ignore spikes closer together than this — that's just the tail/echo of one clap
+const CLAP_MAX_GAP_MS = 700;   // the second clap must land within this window to count as a pair
+const CLAP_WAKE_COOLDOWN_MS = 1500;
 
 async function startClapDetection() {
-  if (clapAnalyser) return; // already running
+  if (clapAnalyser) return;
   try {
     clapStream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (e) {
@@ -944,9 +949,32 @@ function clapDetectionLoop() {
     }
     const now = Date.now();
     const spikeThreshold = Math.max(0.14, clapBaseline * 6);
-    if (vol > spikeThreshold && now - clapLastTriggerTime > 1500) {
-      clapLastTriggerTime = now;
-      triggerWake();
+
+    if (vol > spikeThreshold) {
+      // ignore anything within the min-gap window — that's the decay tail of the same clap, not a new one
+      if (now - clapLastSpikeTime >= CLAP_MIN_GAP_MS) {
+        if (clapFirstTime === 0) {
+          // this is the first clap of a potential pair — start the window
+          clapFirstTime = now;
+        } else {
+          const gap = now - clapFirstTime;
+          if (gap <= CLAP_MAX_GAP_MS) {
+            // second clap landed in time — that's the double clap
+            clapFirstTime = 0;
+            clapLastSpikeTime = now;
+            triggerWake();
+            requestAnimationFrame(clapDetectionLoop);
+            return;
+          } else {
+            // too slow — treat this spike as a fresh first clap instead
+            clapFirstTime = now;
+          }
+        }
+        clapLastSpikeTime = now;
+      }
+    } else if (clapFirstTime !== 0 && now - clapFirstTime > CLAP_MAX_GAP_MS) {
+      // timed out waiting for a second clap — reset
+      clapFirstTime = 0;
     }
   }
   requestAnimationFrame(clapDetectionLoop);
