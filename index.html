@@ -330,7 +330,7 @@
 </div>
 
 <button id="muteCircle" onclick="toggleMute()">🔇</button>
-<div id="voiceStatusSmall">Click the mic, then say "Hey RAYVEN"</div>
+<div id="voiceStatusSmall">Click the mic, then say "Hey RAYVEN" or clap</div>
 
 <div id="holoTop" class="holo-box">
   <div class="holo-title">◈ SYSTEM STATUS</div>
@@ -831,7 +831,6 @@ function speak(text, onDone) {
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 let wakeRecognition = null, convoRecognition = null;
 let voiceActive = false, awake = false, micMuted = false;
-// ---- New: while true, the mic stays off — set while RAYVEN is talking, cleared once it's done ----
 let listeningPaused = false;
 
 const micCircle = document.getElementById('micCircle');
@@ -849,7 +848,11 @@ function updateMicVisual() {
 
 function handleMicClick() {
   if (!SpeechRecognitionCtor) { alert('Voice recognition is not supported in this browser. Try Chrome.'); return; }
-  if (!voiceActive) { voiceActive = true; startWakeListening(); }
+  if (!voiceActive) {
+    voiceActive = true;
+    startWakeListening();
+    startClapDetection();
+  }
 }
 
 function toggleMute() {
@@ -884,10 +887,7 @@ function startWakeListening() {
     for (let r = event.resultIndex; r < event.results.length; r++) {
       for (let alt = 0; alt < event.results[r].length; alt++) {
         if (matchesAny(event.results[r][alt].transcript, WAKE_PHRASES)) {
-          awake = true;
-          updateMicVisual();
-          try { wakeRecognition.stop(); } catch (e) {}
-          enterAwakeMode();
+          triggerWake();
           return;
         }
       }
@@ -896,12 +896,71 @@ function startWakeListening() {
   wakeRecognition.onend = () => { if (voiceActive && !awake && !micMuted) { try { startWakeListening(); } catch (e) { setTimeout(startWakeListening, 100); } } };
   wakeRecognition.onerror = () => { if (voiceActive && !awake && !micMuted) setTimeout(() => { try { startWakeListening(); } catch (err) {} }, 100); };
 
-  setVoiceStatus('Listening for "Hey RAYVEN"...');
+  setVoiceStatus('Listening for "Hey RAYVEN" or a clap...');
   try { wakeRecognition.start(); } catch (e) {}
 }
 
+// ---- Clap detection: watches raw mic volume for a sudden sharp spike (a clap), separate from speech recognition ----
+let clapAudioCtx = null;
+let clapAnalyser = null;
+let clapDataArray = null;
+let clapStream = null;
+let clapBaseline = 0.02;
+let clapLastTriggerTime = 0;
+
+async function startClapDetection() {
+  if (clapAnalyser) return; // already running
+  try {
+    clapStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    console.error('Clap detection: microphone access failed', e);
+    return;
+  }
+  clapAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const source = clapAudioCtx.createMediaStreamSource(clapStream);
+  clapAnalyser = clapAudioCtx.createAnalyser();
+  clapAnalyser.fftSize = 512;
+  clapAnalyser.smoothingTimeConstant = 0;
+  source.connect(clapAnalyser);
+  clapDataArray = new Uint8Array(clapAnalyser.fftSize);
+  requestAnimationFrame(clapDetectionLoop);
+}
+
+function getInstantVolume() {
+  clapAnalyser.getByteTimeDomainData(clapDataArray);
+  let sumSquares = 0;
+  for (let i = 0; i < clapDataArray.length; i++) {
+    const normalized = (clapDataArray[i] - 128) / 128;
+    sumSquares += normalized * normalized;
+  }
+  return Math.sqrt(sumSquares / clapDataArray.length);
+}
+
+function clapDetectionLoop() {
+  if (clapAnalyser && voiceActive && !awake && !micMuted) {
+    const vol = getInstantVolume();
+    if (vol < clapBaseline * 1.5) {
+      clapBaseline = clapBaseline * 0.98 + vol * 0.02;
+    }
+    const now = Date.now();
+    const spikeThreshold = Math.max(0.14, clapBaseline * 6);
+    if (vol > spikeThreshold && now - clapLastTriggerTime > 1500) {
+      clapLastTriggerTime = now;
+      triggerWake();
+    }
+  }
+  requestAnimationFrame(clapDetectionLoop);
+}
+
+function triggerWake() {
+  if (awake) return;
+  awake = true;
+  updateMicVisual();
+  if (wakeRecognition) { try { wakeRecognition.stop(); } catch (e) {} }
+  enterAwakeMode();
+}
+
 function enterAwakeMode() {
-  // Mic stays off through the greeting — resumeListeningAfterSpeech() turns it on once wakeBurst's speak() finishes
   listeningPaused = true;
   updateMicVisual();
   wakeBurst();
@@ -916,7 +975,6 @@ function exitAwakeMode() {
   if (!micMuted) startWakeListening();
 }
 
-// ---- Called every time RAYVEN finishes talking — this is what turns the mic back on ----
 function resumeListeningAfterSpeech() {
   listeningPaused = false;
   updateMicVisual();
@@ -939,7 +997,6 @@ function startContinuousAwakeListening() {
     const transcript = lastResult && lastResult[0] ? lastResult[0].transcript.trim() : '';
     if (!transcript) return;
 
-    // The moment we have what you said, mic goes off — stays off until RAYVEN finishes responding
     listeningPaused = true;
     updateMicVisual();
     try { convoRecognition.stop(); } catch (e) {}
@@ -954,7 +1011,6 @@ function startContinuousAwakeListening() {
     if (matchesAny(transcript, WAKE_PHRASES)) {
       const remainder = stripWakeWord(transcript);
       if (!remainder) {
-        // Just grabbing attention with the wake word alone — resume listening right away, nothing to send
         resumeListeningAfterSpeech();
         return;
       }
