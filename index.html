@@ -15,6 +15,8 @@
     --gold-glow: #ffdd88;
     --text: #e8ddff;
     --steel: #8a7ab0;
+    --danger: #e05c5c;
+    --danger-glow: #ff8080;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; overflow: hidden; }
@@ -266,15 +268,39 @@
     background: var(--gold-glow); box-shadow: 0 0 8px var(--gold-glow); cursor: pointer;
   }
 
-  #muteCircle {
-    position: fixed; top: calc(84% + 55px); left: 50%; transform: translate(-50%, 0);
+  /* ---- Secondary control row: mute (left) + stop (right), centered directly below the mic ---- */
+  #secondaryControls {
+    position: fixed; top: calc(84% + 55px); left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; justify-content: center; gap: 30px;
+    z-index: 12;
+  }
+
+  #muteCircle, #stopButton {
     width: 40px; height: 40px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    background: rgba(20,10,35,0.55); border: 1.5px solid var(--gold); color: var(--gold);
-    font-size: 14px; cursor: pointer; z-index: 12; box-shadow: 0 0 10px rgba(232,196,104,0.25);
+    background: rgba(20,10,35,0.55);
+    font-size: 14px; cursor: pointer;
+    transition: box-shadow 0.2s ease, transform 0.15s ease;
+  }
+  #muteCircle {
+    border: 1.5px solid var(--gold); color: var(--gold);
+    box-shadow: 0 0 10px rgba(232,196,104,0.25);
   }
   #muteCircle:hover { box-shadow: 0 0 16px var(--gold-glow); }
   #muteCircle.muted { border-color: #c0392b; color: #c0392b; box-shadow: 0 0 12px rgba(192,57,43,0.4); }
+
+  #stopButton {
+    border: 1.5px solid var(--danger); color: var(--danger);
+    box-shadow: 0 0 10px rgba(224,92,92,0.25);
+  }
+  #stopButton:hover { box-shadow: 0 0 18px var(--danger-glow); }
+  #stopButton:active { transform: scale(0.92); }
+  #stopButton.pressed { animation: stopFlash 0.3s ease-out; }
+  @keyframes stopFlash {
+    0% { box-shadow: 0 0 10px rgba(224,92,92,0.25); }
+    40% { box-shadow: 0 0 26px var(--danger-glow), 0 0 40px rgba(224,92,92,0.5); }
+    100% { box-shadow: 0 0 10px rgba(224,92,92,0.25); }
+  }
 
   #voiceStatusSmall {
     position: fixed; top: calc(84% + 105px); left: 50%; transform: translate(-50%, 0);
@@ -329,7 +355,10 @@
   </div>
 </div>
 
-<button id="muteCircle" onclick="toggleMute()">🔇</button>
+<div id="secondaryControls">
+  <button id="muteCircle" onclick="toggleMute()" title="Mute microphone">🔇</button>
+  <button id="stopButton" onclick="handleStopClick()" title="Stop RAYVEN from talking">⏹</button>
+</div>
 <div id="voiceStatusSmall">Click the mic, then say "Hey RAYVEN" or double clap</div>
 
 <div id="holoTop" class="holo-box">
@@ -777,12 +806,17 @@ pitchSlider.addEventListener('input', () => {
 });
 
 let audioCtx = null;
+
 function getAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
+  }
   return audioCtx;
 }
 
 let currentAudioSource = null;
+let currentGainNode = null;
 let currentOnDone = null;
 
 function stopSpeaking() {
@@ -790,14 +824,30 @@ function stopSpeaking() {
     try { currentAudioSource.onended = null; currentAudioSource.stop(); } catch (e) {}
     currentAudioSource = null;
   }
+  currentGainNode = null;
   if ('speechSynthesis' in window) {
     try { window.speechSynthesis.cancel(); } catch (e) {}
   }
   currentOnDone = null;
 }
 
+// ---- NEW: manual stop button handler — same effect as saying "stop talking," triggered by tap ----
+function handleStopClick() {
+  const btn = document.getElementById('stopButton');
+  btn.classList.remove('pressed');
+  void btn.offsetWidth;
+  btn.classList.add('pressed');
+
+  stopSpeaking();
+  setSphereState(awake ? 'listening' : 'idle');
+  if (awake) {
+    resumeListeningAfterSpeech();
+  }
+}
+
 function speak(text, onDone) {
   const cleaned = text.replace(/,/g, '').trim();
+  stopSpeaking();
   setSphereState('talking');
   currentOnDone = onDone;
 
@@ -813,14 +863,34 @@ function speak(text, onDone) {
     .then(arrayBuffer => getAudioCtx().decodeAudioData(arrayBuffer))
     .then(audioBuffer => {
       const ctxAudio = getAudioCtx();
+      const playbackRate = parseFloat(rateSlider.value);
+
       const source = ctxAudio.createBufferSource();
       source.buffer = audioBuffer;
-      source.playbackRate.value = parseFloat(rateSlider.value);
+      source.playbackRate.value = playbackRate;
       source.detune.value = parseFloat(pitchSlider.value) * 100;
-      source.connect(ctxAudio.destination);
+
+      const gainNode = ctxAudio.createGain();
+      source.connect(gainNode);
+      gainNode.connect(ctxAudio.destination);
+
+      const now = ctxAudio.currentTime;
+      const fade = 0.02;
+      const realDuration = audioBuffer.duration / playbackRate;
+
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(1, now + fade);
+      if (realDuration > fade * 2) {
+        gainNode.gain.setValueAtTime(1, now + realDuration - fade);
+        gainNode.gain.linearRampToValueAtTime(0, now + realDuration);
+      }
+
       currentAudioSource = source;
+      currentGainNode = gainNode;
+
       source.onended = () => {
         currentAudioSource = null;
+        currentGainNode = null;
         const cb = currentOnDone;
         currentOnDone = null;
         if (cb) cb();
