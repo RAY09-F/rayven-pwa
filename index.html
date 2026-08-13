@@ -268,7 +268,6 @@
     background: var(--gold-glow); box-shadow: 0 0 8px var(--gold-glow); cursor: pointer;
   }
 
-  /* ---- Secondary control row: mute (left) + stop (right), centered directly below the mic ---- */
   #secondaryControls {
     position: fixed; top: calc(84% + 55px); left: 50%; transform: translateX(-50%);
     display: flex; align-items: center; justify-content: center; gap: 30px;
@@ -652,20 +651,26 @@ function lightningFlurry(durationMs) {
 
 let wakeSequenceRunning = false;
 
+// ---- FIXED: hard 6-second timeout — the greeting NEVER blocks the interface for long,
+// no matter what happens on the backend ----
 async function fetchWakeGreeting() {
-  try {
-    const response = await fetch(BACKEND_URL, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        message: "[WAKE_TRIGGER] Rayan just said your wake word. Greet him briefly, then ask something proactive."
-      })
-    });
-    const data = await response.json();
-    return data.reply || "Welcome home, sir.";
-  } catch (err) {
-    return "Welcome home, sir.";
-  }
+  const timeout = new Promise(resolve => setTimeout(() => resolve("Welcome home, sir."), 6000));
+  const fetchPromise = (async () => {
+    try {
+      const response = await fetch(BACKEND_URL, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          message: "[WAKE_TRIGGER] Rayan just said your wake word. Greet him briefly, then ask something proactive."
+        })
+      });
+      const data = await response.json();
+      return data.reply || "Welcome home, sir.";
+    } catch (err) {
+      return "Welcome home, sir.";
+    }
+  })();
+  return Promise.race([fetchPromise, timeout]);
 }
 
 function wakeBurst() {
@@ -831,7 +836,6 @@ function stopSpeaking() {
   currentOnDone = null;
 }
 
-// ---- NEW: manual stop button handler — same effect as saying "stop talking," triggered by tap ----
 function handleStopClick() {
   const btn = document.getElementById('stopButton');
   btn.classList.remove('pressed');
