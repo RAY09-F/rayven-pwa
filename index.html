@@ -305,6 +305,68 @@
     position: fixed; top: calc(84% + 105px); left: 50%; transform: translate(-50%, 0);
     font-size: 8px; letter-spacing: 1px; color: var(--steel); z-index: 12; text-align: center; max-width: 220px;
   }
+
+  /* ---- NEW: 3D orbiting tool bolts around the sphere ---- */
+  #boltOrbitStage {
+    position: fixed; top: 42%; left: 50%; width: 0; height: 0;
+    perspective: 1000px; z-index: 4; pointer-events: none;
+  }
+  .tool-bolt {
+    position: absolute; top: 0; left: 0; width: 30px; height: 54px;
+    margin-left: -15px; margin-top: -27px;
+    transform-style: preserve-3d; pointer-events: all; cursor: pointer;
+    animation-name: toolBoltOrbit; animation-duration: 46s;
+    animation-timing-function: linear; animation-iteration-count: infinite;
+  }
+  .tool-bolt .tb-halo {
+    position: absolute; inset: -5px;
+    background: linear-gradient(200deg, #fff6d8, var(--gold-glow) 40%, var(--gold) 100%);
+    clip-path: polygon(52% 0%, 20% 40%, 44% 40%, 14% 100%, 84% 46%, 50% 46%);
+    filter: blur(4px); opacity: 0.7;
+  }
+  .tool-bolt .tb-body {
+    position: absolute; inset: 0;
+    background: linear-gradient(105deg, var(--gold) 0%, #fff6d8 45%, var(--gold-glow) 70%, var(--gold) 100%);
+    clip-path: polygon(52% 0%, 20% 40%, 44% 40%, 14% 100%, 84% 46%, 50% 46%);
+    filter: drop-shadow(0 0 6px var(--gold-glow)) drop-shadow(0 0 14px rgba(232,196,104,0.5));
+    transition: filter 0.2s ease;
+  }
+  .tool-bolt:hover .tb-body {
+    filter: drop-shadow(0 0 10px var(--gold-glow)) drop-shadow(0 0 24px var(--gold));
+  }
+  @keyframes toolBoltOrbit {
+    0%   { transform: rotateY(0deg) translateZ(230px) rotateY(0deg) scale(1); }
+    50%  { transform: rotateY(180deg) translateZ(230px) rotateY(-180deg) scale(0.72); }
+    100% { transform: rotateY(360deg) translateZ(230px) rotateY(-360deg) scale(1); }
+  }
+
+  #toolOverlay {
+    position: fixed; inset: 0; z-index: 20; display: none;
+    align-items: center; justify-content: center;
+    background: rgba(5,2,10,0.55); backdrop-filter: blur(3px);
+  }
+  #toolOverlay.show { display: flex; }
+  #toolPanel {
+    width: min(340px, 84vw); background: rgba(20,10,35,0.85);
+    border: 1px solid rgba(232,196,104,0.4); border-radius: 10px;
+    padding: 20px 22px; box-shadow: 0 0 40px rgba(232,196,104,0.15), 0 0 80px rgba(155,107,255,0.15);
+    position: relative;
+  }
+  #toolPanel .tp-close {
+    position: absolute; top: 10px; right: 12px; background: none; border: none;
+    color: var(--steel); font-size: 16px; cursor: pointer; line-height: 1;
+  }
+  #toolPanel .tp-close:hover { color: var(--gold); }
+  #toolPanel .tp-icon { font-size: 22px; margin-bottom: 6px; }
+  #toolPanel .tp-title {
+    font-family: 'Orbitron', sans-serif; font-weight: 900; letter-spacing: 2px;
+    color: var(--gold); font-size: 15px; text-shadow: 0 0 8px var(--gold-glow); margin-bottom: 10px;
+  }
+  #toolPanel .tp-desc { font-size: 12px; line-height: 1.6; color: var(--text); opacity: 0.9; }
+
+  @media (max-width: 720px) {
+    #boltOrbitStage { transform: scale(0.7); }
+  }
 </style>
 </head>
 <body>
@@ -315,6 +377,32 @@
 </div>
 <div id="welcomeText">WELCOME HOME,<br>SIR</div>
 <canvas id="sphereCanvas"></canvas>
+
+<!-- ---- NEW: 12 orbiting gold tool bolts around the sphere ---- -->
+<div id="boltOrbitStage">
+  <div class="tool-bolt" style="animation-delay: 0s;" onclick="showToolInfo('browser')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+  <div class="tool-bolt" style="animation-delay: -3.83s;" onclick="showToolInfo('vision')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+  <div class="tool-bolt" style="animation-delay: -7.67s;" onclick="showToolInfo('control')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+  <div class="tool-bolt" style="animation-delay: -11.5s;" onclick="showToolInfo('spotify')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+  <div class="tool-bolt" style="animation-delay: -15.33s;" onclick="showToolInfo('youtube')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+  <div class="tool-bolt" style="animation-delay: -19.17s;" onclick="showToolInfo('voice')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+  <div class="tool-bolt" style="animation-delay: -23s;" onclick="showToolInfo('maps')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+  <div class="tool-bolt" style="animation-delay: -26.83s;" onclick="showToolInfo('memory')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+  <div class="tool-bolt" style="animation-delay: -30.67s;" onclick="showToolInfo('todo')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+  <div class="tool-bolt" style="animation-delay: -34.5s;" onclick="showToolInfo('phone')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+  <div class="tool-bolt" style="animation-delay: -38.33s;" onclick="showToolInfo('research')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+  <div class="tool-bolt" style="animation-delay: -42.17s;" onclick="showToolInfo('network')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+</div>
+
+<!-- ---- NEW: tool info popup ---- -->
+<div id="toolOverlay" onclick="if(event.target===this)hideToolInfo()">
+  <div id="toolPanel">
+    <button class="tp-close" onclick="hideToolInfo()">✕</button>
+    <div class="tp-icon" id="tpIcon">⚡</div>
+    <div class="tp-title" id="tpTitle">TOOL</div>
+    <div class="tp-desc" id="tpDesc">Description.</div>
+  </div>
+</div>
 
 <div id="wakeOverlay">
   <div id="wakeFlash"></div>
@@ -377,6 +465,34 @@
 </div>
 
 <script>
+// ---- NEW: tool descriptions shown when a bolt is clicked ----
+const TOOL_INFO = {
+  browser:  { icon: '🌐', title: 'BROWSER CONTROL', desc: 'Navigates to websites, clicks things by their visible text, types into fields, and scrolls pages — all inside your actual Chrome browser.' },
+  vision:   { icon: '👁', title: 'SCREEN VISION', desc: 'Takes a real screenshot of whatever tab is currently open, so I can actually see what\'s on screen before acting.' },
+  control:  { icon: '🖱', title: 'PRECISION CLICK & TYPE', desc: 'Clicks and types at exact pixel coordinates — like a real mouse and keyboard — for anything that has no readable text to match, like icons.' },
+  spotify:  { icon: '🎵', title: 'SPOTIFY', desc: 'Searches and plays songs, shuffles your playlists, pauses, skips, and reports what\'s currently playing.' },
+  youtube:  { icon: '▶', title: 'YOUTUBE', desc: 'Finds and opens a specific video on command, including a creator\'s latest upload.' },
+  voice:    { icon: '🎤', title: 'VOICE & CLAP DETECTION', desc: 'Listens continuously for the wake phrase "Hey RAYVEN" or a double clap, and knows when to pause listening while I\'m speaking.' },
+  maps:     { icon: '📍', title: 'GOOGLE MAPS', desc: 'Searches places, finds every location of a business across an area, computes distances, spots geographic gaps in a market, and gives directions.' },
+  memory:   { icon: '🧠', title: 'LONG-TERM MEMORY', desc: 'Remembers facts, decisions, and preferences permanently — across every conversation, forever, not just this session.' },
+  todo:     { icon: '📝', title: 'TO-DO LIST', desc: 'Tracks open tasks you\'ve given me, and gently nags about the oldest one during scheduled check-ins.' },
+  phone:    { icon: '📞', title: 'TEXTING & CALLING', desc: 'Sends real SMS messages and places real phone calls from RAYVEN\'s own Twilio phone number.' },
+  research: { icon: '🔍', title: 'WEB RESEARCH', desc: 'Searches the web for quick facts, and can dig deeper into specific pages or crawl a whole site for real-time information.' },
+  network:  { icon: '🔗', title: 'AGENT NETWORK', desc: 'Talks directly to Jay\'s JARVIS and Kevin\'s KEVOS — sibling AI assistants — for genuine agent-to-agent conversation.' }
+};
+
+function showToolInfo(id) {
+  const info = TOOL_INFO[id];
+  if (!info) return;
+  document.getElementById('tpIcon').textContent = info.icon;
+  document.getElementById('tpTitle').textContent = info.title;
+  document.getElementById('tpDesc').textContent = info.desc;
+  document.getElementById('toolOverlay').classList.add('show');
+}
+function hideToolInfo() {
+  document.getElementById('toolOverlay').classList.remove('show');
+}
+
 const wordmarkEl = document.getElementById('wordmark');
 const wordTitleEl = document.getElementById('wordTitle');
 const welcomeTextEl = document.getElementById('welcomeText');
@@ -477,6 +593,41 @@ canvas.addEventListener('wheel', e => {
 const PURPLE_R = 155, PURPLE_G = 107, PURPLE_B = 255;
 const GOLD_R = 232, GOLD_G = 196, GOLD_B = 104;
 
+// ---- NEW: draws a persistent purple grid behind the sphere, redrawn every frame so the
+// canvas's own motion-trail fade never causes it to disappear ----
+let gridOffset = 0;
+function drawGrid() {
+  const spacing = 46;
+  gridOffset = (gridOffset + 0.06) % spacing;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(155,107,255,0.10)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = -spacing + gridOffset; x < canvas.width + spacing; x += spacing) {
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvas.height);
+  }
+  for (let y = -spacing + gridOffset; y < canvas.height + spacing; y += spacing) {
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+  }
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(232,196,104,0.045)';
+  ctx.beginPath();
+  const bigSpacing = spacing * 4;
+  for (let x = -bigSpacing + (gridOffset * 4 % bigSpacing); x < canvas.width + bigSpacing; x += bigSpacing) {
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvas.height);
+  }
+  for (let y = -bigSpacing + (gridOffset * 4 % bigSpacing); y < canvas.height + bigSpacing; y += bigSpacing) {
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
 function render() {
   current.scale = lerp(current.scale, target.scale, 0.04);
   current.speed = lerp(current.speed, target.speed, 0.04);
@@ -486,6 +637,8 @@ function render() {
 
   ctx.fillStyle = 'rgba(10,5,16,0.32)';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  drawGrid();
 
   const centerX = canvas.width / 2;
   const centerY = canvas.height * 0.42;
@@ -651,8 +804,6 @@ function lightningFlurry(durationMs) {
 
 let wakeSequenceRunning = false;
 
-// ---- FIXED: hard 6-second timeout — the greeting NEVER blocks the interface for long,
-// no matter what happens on the backend ----
 async function fetchWakeGreeting() {
   const timeout = new Promise(resolve => setTimeout(() => resolve("Welcome home, sir."), 6000));
   const fetchPromise = (async () => {
