@@ -306,7 +306,7 @@
     font-size: 8px; letter-spacing: 1px; color: var(--steel); z-index: 12; text-align: center; max-width: 220px;
   }
 
-  /* ---- NEW: 3D orbiting tool bolts around the sphere ---- */
+  /* ---- 3D orbiting tool bolts around the sphere ---- */
   #boltOrbitStage {
     position: fixed; top: 42%; left: 50%; width: 0; height: 0;
     perspective: 1000px; z-index: 4; pointer-events: none;
@@ -317,6 +317,13 @@
     transform-style: preserve-3d; pointer-events: all; cursor: pointer;
     animation-name: toolBoltOrbit; animation-duration: 46s;
     animation-timing-function: linear; animation-iteration-count: infinite;
+  }
+  /* NEW: independent bob layer nested inside the orbit, so each bolt floats up/down
+     while still travelling around the circle */
+  .tb-bob {
+    width: 100%; height: 100%;
+    animation-name: toolBoltBob; animation-duration: 2.6s;
+    animation-timing-function: ease-in-out; animation-iteration-count: infinite;
   }
   .tool-bolt .tb-halo {
     position: absolute; inset: -5px;
@@ -339,18 +346,34 @@
     50%  { transform: rotateY(180deg) translateZ(230px) rotateY(-180deg) scale(0.72); }
     100% { transform: rotateY(360deg) translateZ(230px) rotateY(-360deg) scale(1); }
   }
-
-  #toolOverlay {
-    position: fixed; inset: 0; z-index: 20; display: none;
-    align-items: center; justify-content: center;
-    background: rgba(5,2,10,0.55); backdrop-filter: blur(3px);
+  @keyframes toolBoltBob {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-11px); }
   }
-  #toolOverlay.show { display: flex; }
+
+  /* ---- Smoother, slower tool info popup: fades and slides up instead of snapping ---- */
+  #toolOverlay {
+    position: fixed; inset: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(5,2,10,0);
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transition: opacity 0.5s ease, background 0.5s ease, visibility 0s linear 0.5s;
+  }
+  #toolOverlay.show {
+    opacity: 1; visibility: visible; pointer-events: all;
+    background: rgba(5,2,10,0.55); backdrop-filter: blur(3px);
+    transition: opacity 0.5s ease, background 0.5s ease, visibility 0s linear 0s;
+  }
   #toolPanel {
     width: min(340px, 84vw); background: rgba(20,10,35,0.85);
     border: 1px solid rgba(232,196,104,0.4); border-radius: 10px;
     padding: 20px 22px; box-shadow: 0 0 40px rgba(232,196,104,0.15), 0 0 80px rgba(155,107,255,0.15);
     position: relative;
+    transform: translateY(36px) scale(0.94); opacity: 0;
+    transition: transform 0.5s cubic-bezier(.22,.9,.3,1), opacity 0.45s ease;
+  }
+  #toolOverlay.show #toolPanel {
+    transform: translateY(0) scale(1); opacity: 1;
   }
   #toolPanel .tp-close {
     position: absolute; top: 10px; right: 12px; background: none; border: none;
@@ -378,23 +401,23 @@
 <div id="welcomeText">WELCOME HOME,<br>SIR</div>
 <canvas id="sphereCanvas"></canvas>
 
-<!-- ---- NEW: 12 orbiting gold tool bolts around the sphere ---- -->
+<!-- 12 orbiting gold tool bolts around the sphere, each with an independent bob motion -->
 <div id="boltOrbitStage">
-  <div class="tool-bolt" style="animation-delay: 0s;" onclick="showToolInfo('browser')"><div class="tb-halo"></div><div class="tb-body"></div></div>
-  <div class="tool-bolt" style="animation-delay: -3.83s;" onclick="showToolInfo('vision')"><div class="tb-halo"></div><div class="tb-body"></div></div>
-  <div class="tool-bolt" style="animation-delay: -7.67s;" onclick="showToolInfo('control')"><div class="tb-halo"></div><div class="tb-body"></div></div>
-  <div class="tool-bolt" style="animation-delay: -11.5s;" onclick="showToolInfo('spotify')"><div class="tb-halo"></div><div class="tb-body"></div></div>
-  <div class="tool-bolt" style="animation-delay: -15.33s;" onclick="showToolInfo('youtube')"><div class="tb-halo"></div><div class="tb-body"></div></div>
-  <div class="tool-bolt" style="animation-delay: -19.17s;" onclick="showToolInfo('voice')"><div class="tb-halo"></div><div class="tb-body"></div></div>
-  <div class="tool-bolt" style="animation-delay: -23s;" onclick="showToolInfo('maps')"><div class="tb-halo"></div><div class="tb-body"></div></div>
-  <div class="tool-bolt" style="animation-delay: -26.83s;" onclick="showToolInfo('memory')"><div class="tb-halo"></div><div class="tb-body"></div></div>
-  <div class="tool-bolt" style="animation-delay: -30.67s;" onclick="showToolInfo('todo')"><div class="tb-halo"></div><div class="tb-body"></div></div>
-  <div class="tool-bolt" style="animation-delay: -34.5s;" onclick="showToolInfo('phone')"><div class="tb-halo"></div><div class="tb-body"></div></div>
-  <div class="tool-bolt" style="animation-delay: -38.33s;" onclick="showToolInfo('research')"><div class="tb-halo"></div><div class="tb-body"></div></div>
-  <div class="tool-bolt" style="animation-delay: -42.17s;" onclick="showToolInfo('network')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+  <div class="tool-bolt" style="animation-delay: 0s;" onclick="showToolInfo('browser')"><div class="tb-bob" style="animation-delay: 0s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
+  <div class="tool-bolt" style="animation-delay: -3.83s;" onclick="showToolInfo('vision')"><div class="tb-bob" style="animation-delay: -0.22s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
+  <div class="tool-bolt" style="animation-delay: -7.67s;" onclick="showToolInfo('control')"><div class="tb-bob" style="animation-delay: -0.44s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
+  <div class="tool-bolt" style="animation-delay: -11.5s;" onclick="showToolInfo('spotify')"><div class="tb-bob" style="animation-delay: -0.66s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
+  <div class="tool-bolt" style="animation-delay: -15.33s;" onclick="showToolInfo('youtube')"><div class="tb-bob" style="animation-delay: -0.88s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
+  <div class="tool-bolt" style="animation-delay: -19.17s;" onclick="showToolInfo('voice')"><div class="tb-bob" style="animation-delay: -1.10s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
+  <div class="tool-bolt" style="animation-delay: -23s;" onclick="showToolInfo('maps')"><div class="tb-bob" style="animation-delay: -1.32s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
+  <div class="tool-bolt" style="animation-delay: -26.83s;" onclick="showToolInfo('memory')"><div class="tb-bob" style="animation-delay: -1.54s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
+  <div class="tool-bolt" style="animation-delay: -30.67s;" onclick="showToolInfo('todo')"><div class="tb-bob" style="animation-delay: -1.76s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
+  <div class="tool-bolt" style="animation-delay: -34.5s;" onclick="showToolInfo('phone')"><div class="tb-bob" style="animation-delay: -1.98s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
+  <div class="tool-bolt" style="animation-delay: -38.33s;" onclick="showToolInfo('research')"><div class="tb-bob" style="animation-delay: -2.20s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
+  <div class="tool-bolt" style="animation-delay: -42.17s;" onclick="showToolInfo('network')"><div class="tb-bob" style="animation-delay: -2.42s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
 </div>
 
-<!-- ---- NEW: tool info popup ---- -->
+<!-- Tool info popup — fades and slides in smoothly now -->
 <div id="toolOverlay" onclick="if(event.target===this)hideToolInfo()">
   <div id="toolPanel">
     <button class="tp-close" onclick="hideToolInfo()">✕</button>
@@ -465,7 +488,6 @@
 </div>
 
 <script>
-// ---- NEW: tool descriptions shown when a bolt is clicked ----
 const TOOL_INFO = {
   browser:  { icon: '🌐', title: 'BROWSER CONTROL', desc: 'Navigates to websites, clicks things by their visible text, types into fields, and scrolls pages — all inside your actual Chrome browser.' },
   vision:   { icon: '👁', title: 'SCREEN VISION', desc: 'Takes a real screenshot of whatever tab is currently open, so I can actually see what\'s on screen before acting.' },
@@ -593,8 +615,8 @@ canvas.addEventListener('wheel', e => {
 const PURPLE_R = 155, PURPLE_G = 107, PURPLE_B = 255;
 const GOLD_R = 232, GOLD_G = 196, GOLD_B = 104;
 
-// ---- NEW: draws a persistent purple grid behind the sphere, redrawn every frame so the
-// canvas's own motion-trail fade never causes it to disappear ----
+// Draws a persistent grid behind the sphere every frame. Both layers now read as
+// clean, glowing purple/gold instead of the second layer looking like a muddy brown.
 let gridOffset = 0;
 function drawGrid() {
   const spacing = 46;
@@ -612,8 +634,13 @@ function drawGrid() {
     ctx.lineTo(canvas.width, y);
   }
   ctx.stroke();
+  ctx.restore();
 
-  ctx.strokeStyle = 'rgba(232,196,104,0.045)';
+  ctx.save();
+  ctx.strokeStyle = 'rgba(232,196,104,0.22)';
+  ctx.lineWidth = 1.1;
+  ctx.shadowColor = 'rgba(255,221,136,0.55)';
+  ctx.shadowBlur = 5;
   ctx.beginPath();
   const bigSpacing = spacing * 4;
   for (let x = -bigSpacing + (gridOffset * 4 % bigSpacing); x < canvas.width + bigSpacing; x += bigSpacing) {
