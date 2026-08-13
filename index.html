@@ -2,668 +2,341 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>RAYVEN</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --storm-dark: #0a0510;
-    --storm-mid: #170c26;
-    --purple: #9b6bff;
-    --purple-glow: #7a4fe0;
-    --gold: #e8c468;
-    --gold-glow: #ffdd88;
-    --text: #e8ddff;
-    --steel: #8a7ab0;
+    --bg: #06060a;
+    --bg2: #0d0b16;
+    --violet: #8b5cf6;
+    --violet-dim: #5b3fa0;
+    --gold: #e8b84b;
+    --gold-glow: #ffd77a;
+    --text: #eae6f5;
+    --steel: #7d7691;
+    --glass: rgba(20, 16, 32, 0.55);
+    --border: rgba(139, 92, 246, 0.22);
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; overflow: hidden; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); }
   body {
-    background: radial-gradient(ellipse at 50% 30%, var(--storm-mid) 0%, var(--storm-dark) 75%);
-    font-family: 'Courier New', monospace;
+    font-family: 'Space Grotesk', sans-serif;
     color: var(--text);
+    background: radial-gradient(ellipse 120% 80% at 50% -10%, var(--bg2) 0%, var(--bg) 60%);
   }
-  canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; cursor: grab; z-index: 0; }
-  canvas.dragging { cursor: grabbing; }
+  ::selection { background: var(--violet); color: #fff; }
 
-  .lightning-line {
-    position: fixed; top: -5vh; width: 2px;
-    background: linear-gradient(180deg, var(--gold-glow), var(--purple-glow), transparent);
-    filter: drop-shadow(0 0 6px var(--gold-glow)) drop-shadow(0 0 16px var(--purple-glow));
-    opacity: 0; z-index: 1; pointer-events: none;
+  /* ---- Core: the reactive centerpiece, built from CSS not canvas — cheap on Chromebook GPUs ---- */
+  #coreStage {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
   }
-  .lightning-line.strike { animation: lightningFlicker 0.4s ease-out forwards; }
-  @keyframes lightningFlicker { 0% { opacity: 0; } 8% { opacity: 1; } 15% { opacity: 0.1; } 22% { opacity: 0.9; } 35% { opacity: 0.15; } 100% { opacity: 0; } }
+  #core {
+    position: relative; width: min(46vw, 46vh, 340px); height: min(46vw, 46vh, 340px);
+    transition: filter 0.6s ease;
+  }
+  .ring {
+    position: absolute; inset: 0; border-radius: 50%;
+    border: 1.5px solid var(--border);
+  }
+  .ring--1 { animation: spin 22s linear infinite; }
+  .ring--2 { inset: 10%; border-color: rgba(232, 184, 75, 0.18); animation: spin 16s linear infinite reverse; }
+  .ring--3 { inset: 20%; border-style: dashed; animation: spin 30s linear infinite; opacity: 0.5; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
-  .bolt-wrap {
-    position: fixed; top: -10vh; width: 46px; height: 88px;
-    opacity: 0; pointer-events: none; z-index: 3;
-    will-change: transform, opacity;
+  #coreOrb {
+    position: absolute; inset: 28%; border-radius: 50%;
+    background: radial-gradient(circle at 38% 32%, var(--violet) 0%, var(--violet-dim) 45%, transparent 75%);
+    box-shadow:
+      0 0 40px 6px rgba(139, 92, 246, 0.35),
+      0 0 90px 20px rgba(139, 92, 246, 0.15),
+      inset 0 0 30px rgba(232, 184, 75, 0.15);
+    transition: box-shadow 0.5s ease, transform 0.6s cubic-bezier(.4,0,.2,1), background 0.6s ease;
+    animation: breathe 4.5s ease-in-out infinite;
   }
-  .bolt-wrap .bolt-halo {
-    position: absolute; inset: -7px;
-    background: linear-gradient(200deg, #fff6d8, var(--gold-glow) 35%, var(--purple-glow) 70%, var(--purple));
-    clip-path: polygon(52% 0%, 20% 40%, 44% 40%, 14% 100%, 84% 46%, 50% 46%);
-    filter: blur(6px);
-    opacity: 0.85;
-  }
-  .bolt-wrap .bolt-body {
-    position: absolute; inset: 0;
-    background:
-      linear-gradient(105deg,
-        rgba(90,40,160,0.95) 0%,
-        var(--purple) 16%,
-        var(--purple-glow) 30%,
-        var(--gold) 52%,
-        #fff6d8 64%,
-        var(--gold-glow) 76%,
-        var(--purple-glow) 92%,
-        rgba(70,30,130,0.95) 100%);
-    clip-path: polygon(52% 0%, 20% 40%, 44% 40%, 14% 100%, 84% 46%, 50% 46%);
-  }
-  .bolt-wrap .bolt-shine {
-    position: absolute; inset: 0;
-    background: linear-gradient(102deg, transparent 44%, rgba(255,255,255,0.95) 56%, rgba(255,255,255,0.35) 62%, transparent 70%);
-    clip-path: polygon(52% 0%, 20% 40%, 44% 40%, 14% 100%, 84% 46%, 50% 46%);
+  @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+
+  #coreOrb::after {
+    content: ''; position: absolute; inset: -18%; border-radius: 50%;
+    background: conic-gradient(from 0deg, transparent, var(--gold-glow) 8%, transparent 16%, transparent 50%, var(--violet) 58%, transparent 66%);
+    opacity: 0.35; animation: spin 8s linear infinite;
     mix-blend-mode: screen;
   }
 
-  .bolt-wrap.sweep-right { animation: sweepRight var(--dur, 2.4s) linear forwards; }
-  .bolt-wrap.sweep-left { animation: sweepLeft var(--dur, 2.4s) linear forwards; }
-
-  @keyframes sweepRight {
-    0% { opacity: 0; transform: translate(0, -10vh) rotate(28deg) scale(0.88); }
-    9% { opacity: 1; }
-    22% { opacity: 0.45; }
-    34% { opacity: 1; }
-    88% { opacity: 0.5; }
-    100% { opacity: 0; transform: translate(58vw, 118vh) rotate(28deg) scale(1.06); }
+  /* State-driven core appearance */
+  body.state-idle #coreOrb { animation-duration: 4.5s; }
+  body.state-listening #coreOrb {
+    box-shadow: 0 0 55px 10px rgba(232, 184, 75, 0.4), 0 0 110px 26px rgba(139, 92, 246, 0.2);
+    animation-duration: 2.2s;
   }
-  @keyframes sweepLeft {
-    0% { opacity: 0; transform: translate(0, -10vh) rotate(-28deg) scale(0.88); }
-    9% { opacity: 1; }
-    22% { opacity: 0.45; }
-    34% { opacity: 1; }
-    88% { opacity: 0.5; }
-    100% { opacity: 0; transform: translate(-58vw, 118vh) rotate(-28deg) scale(1.06); }
+  body.state-thinking #coreOrb {
+    background: radial-gradient(circle at 38% 32%, var(--gold) 0%, var(--violet-dim) 50%, transparent 75%);
+    animation: think-pulse 0.9s ease-in-out infinite;
+  }
+  @keyframes think-pulse { 0%, 100% { transform: scale(0.94); } 50% { transform: scale(1.02); } }
+  body.state-talking #coreOrb {
+    box-shadow: 0 0 60px 14px rgba(139, 92, 246, 0.5), 0 0 120px 30px rgba(232, 184, 75, 0.2);
+    animation: talk-pulse 0.35s ease-in-out infinite alternate;
+  }
+  @keyframes talk-pulse { from { transform: scale(0.98); } to { transform: scale(1.06); } }
+  body.state-sleeping #coreOrb {
+    box-shadow: 0 0 20px 2px rgba(139, 92, 246, 0.15);
+    opacity: 0.4; animation-duration: 7s;
+  }
+  body.state-sleeping .ring { opacity: 0.25; }
+  body.state-burst #coreOrb {
+    box-shadow: 0 0 90px 26px rgba(232, 184, 75, 0.6), 0 0 160px 50px rgba(139, 92, 246, 0.35);
+    animation: talk-pulse 0.18s ease-in-out infinite alternate;
   }
 
-  .bolt-spark {
-    position: fixed; width: 8px; height: 34px; pointer-events: none; z-index: 4;
-    background: linear-gradient(200deg, #fff6d8, var(--gold-glow), var(--purple-glow));
-    clip-path: polygon(50% 0%, 15% 45%, 42% 45%, 5% 100%, 85% 40%, 48% 40%);
-    filter: drop-shadow(0 0 6px var(--gold-glow)) drop-shadow(0 0 14px var(--purple-glow));
+  /* ---- Wake flash overlay (kept lightweight, no per-particle canvas math) ---- */
+  #wakeFlash {
+    position: fixed; inset: 0; pointer-events: none; z-index: 5;
+    background: radial-gradient(circle at 50% 44%, rgba(139,92,246,0.5), rgba(232,184,75,0.2) 45%, transparent 68%);
     opacity: 0;
   }
-  .bolt-spark.flicker { animation: sparkFlicker 0.45s ease-out forwards; }
-  @keyframes sparkFlicker {
-    0% { opacity: 0; } 15% { opacity: 1; } 35% { opacity: 0.2; } 55% { opacity: 0.9; } 100% { opacity: 0; }
-  }
-
-  .rain-bolt {
-    position: fixed; top: -15vh; width: 3px; height: 40vh;
-    background: linear-gradient(180deg, #fff6d8, var(--gold-glow), var(--gold));
-    filter: drop-shadow(0 0 8px var(--gold-glow)) drop-shadow(0 0 18px var(--gold));
-    opacity: 0; z-index: 6; pointer-events: none;
-  }
-  .rain-bolt.fall { animation: rainFall 0.7s ease-in forwards; }
-  @keyframes rainFall {
-    0% { opacity: 0; transform: translateY(0); }
-    8% { opacity: 1; } 20% { opacity: 0.2; } 30% { opacity: 1; }
-    100% { opacity: 0; transform: translateY(130vh); }
-  }
-
-  .impact-bolt {
-    position: fixed; width: 3px; height: 22vh;
-    background: linear-gradient(180deg, #d8c6ff, var(--purple), var(--purple-glow));
-    filter: drop-shadow(0 0 2px var(--gold)) drop-shadow(0 0 4px var(--gold-glow)) drop-shadow(0 0 16px var(--purple));
-    opacity: 0; z-index: 8; pointer-events: none; transform-origin: top center;
-  }
-  .impact-bolt.crackle { animation: crackleOut 0.55s ease-out forwards; }
-  @keyframes crackleOut {
-    0% { opacity: 0; transform: translate(-50%,-50%) rotate(var(--ang)) scaleY(0.2); }
-    12% { opacity: 1; } 30% { opacity: 0.3; } 45% { opacity: 1; }
-    100% { opacity: 0; transform: translate(-50%,-50%) rotate(var(--ang)) scaleY(1.4); }
-  }
-
-  #wakeOverlay { position: fixed; inset: 0; pointer-events: none; z-index: 7; }
-  #mjolnir {
-    position: fixed; top: 50%; left: 50%; width: 90px; height: 148px;
-    transform: translate(-50%, -180vh) rotate(-20deg); opacity: 0;
-    filter: drop-shadow(0 0 22px var(--gold)) drop-shadow(0 0 40px var(--purple));
-  }
-  #wakeOverlay.active #mjolnir { animation: hammerDrop 0.95s cubic-bezier(.5,1.8,.6,1) forwards; }
-  @keyframes hammerDrop {
-    0% { transform: translate(-50%, -180vh) rotate(-20deg); opacity: 0; }
-    70% { transform: translate(-50%, -50%) rotate(8deg); opacity: 1; }
-    78% { transform: translate(-50%, -46%) rotate(-4deg); }
-    86% { transform: translate(-50%, -50%) rotate(0deg); opacity: 1; }
-    100% { transform: translate(-50%, -50%) rotate(0deg); opacity: 0; }
-  }
-  #impactRing {
-    position: fixed; top: 50%; left: 50%; width: 30px; height: 30px; border-radius: 50%;
-    border: 3px solid var(--purple-glow); transform: translate(-50%,-50%) scale(0); opacity: 0;
-    box-shadow: 0 0 20px var(--gold), 0 0 40px var(--purple);
-  }
-  #wakeOverlay.active #impactRing { animation: impactExpand 0.8s ease-out 0.68s forwards; }
-  @keyframes impactExpand { 0% { transform: translate(-50%,-50%) scale(0); opacity: 1; } 100% { transform: translate(-50%,-50%) scale(16); opacity: 0; } }
-
-  #wakeFlash { position: fixed; inset: 0; background: radial-gradient(circle at 50% 50%, rgba(155,107,255,0.55), rgba(232,196,104,0.25) 45%, transparent 65%); opacity: 0; z-index: 6; pointer-events: none; }
-  #wakeOverlay.active #wakeFlash { animation: wakeFlashAnim 1.3s ease-out forwards; }
-  @keyframes wakeFlashAnim { 0% { opacity: 0; } 68% { opacity: 0; } 74% { opacity: 1; } 100% { opacity: 0; } }
-
-  #wordmark {
-    position: fixed; top: 42%; left: 50%; transform: translate(-50%, -50%);
-    text-align: center; pointer-events: none; z-index: 2; transition: opacity 0.3s ease;
-  }
-  #wordTitle {
-    font-family: 'Orbitron', sans-serif; font-weight: 900;
-    font-size: clamp(18px, 3.4vw, 30px); letter-spacing: 6px; color: var(--purple);
-    text-shadow: 0 0 10px var(--purple-glow), 0 0 24px var(--purple-glow), 0 0 4px var(--gold-glow);
-    display: flex; justify-content: center; gap: 8px; animation: wordFlicker 6s infinite;
-  }
-  #wordTitle .letter { display: inline-block; transition: transform 1.1s cubic-bezier(.22,1.6,.36,1); }
-  #wordSubtitle {
-    font-family: 'Courier New', monospace; font-size: clamp(8px, 1vw, 10px);
-    letter-spacing: 3px; color: var(--gold); opacity: 0.85; margin-top: 6px;
-    text-shadow: 0 0 6px var(--gold-glow);
-  }
-  #wordmark.sleeping #wordTitle { animation: none; color: var(--steel); opacity: 0.75; }
-  #wordmark.sleeping #wordSubtitle { opacity: 0.4; }
-  #wordmark.dimmed { opacity: 0; }
-  @keyframes wordFlicker { 0%,94%,100% { opacity: 1; } 95% { opacity: 0.5; } 96% { opacity: 1; } 97% { opacity: 0.3; } 98% { opacity: 1; } }
+  #wakeFlash.show { animation: flashPulse 1.1s ease-out forwards; }
+  @keyframes flashPulse { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
 
   #welcomeText {
-    position: fixed; top: 42%; left: 50%; transform: translate(-50%, -50%) scale(0.6);
-    font-family: 'Orbitron', sans-serif; font-weight: 900;
-    font-size: clamp(20px, 4.2vw, 38px); letter-spacing: 4px; color: var(--gold);
-    text-shadow: 0 0 12px var(--gold-glow), 0 0 28px var(--gold), 0 0 50px var(--gold-glow);
-    text-align: center; pointer-events: none; z-index: 5; opacity: 0;
-    transition: opacity 0.35s ease, transform 0.5s cubic-bezier(.22,1.6,.36,1);
+    position: fixed; top: 44%; left: 50%; transform: translate(-50%, -50%) scale(0.85);
+    font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+    font-size: clamp(20px, 4vw, 36px); letter-spacing: 2px; color: var(--gold-glow);
+    text-shadow: 0 0 20px rgba(232,184,75,0.5);
+    text-align: center; pointer-events: none; z-index: 6; opacity: 0;
+    transition: opacity 0.4s ease, transform 0.5s cubic-bezier(.22,1.6,.36,1);
   }
   #welcomeText.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 
-  .corner-box {
-    position: fixed; z-index: 10; background: rgba(20,10,35,0.45);
-    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(232,196,104,0.25); border-radius: 8px; padding: 10px;
-    box-shadow: 0 0 20px rgba(0,0,0,0.35);
+  /* ---- Wordmark ---- */
+  #wordmark {
+    position: fixed; top: 8%; left: 50%; transform: translateX(-50%);
+    text-align: center; pointer-events: none; z-index: 2; transition: opacity 0.4s ease;
   }
+  #wordTitle {
+    font-weight: 700; font-size: clamp(16px, 2.4vw, 22px); letter-spacing: 8px; color: var(--text);
+  }
+  #wordSubtitle {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 3px; color: var(--steel);
+    margin-top: 4px; text-transform: uppercase;
+  }
+  #wordmark.sleeping #wordTitle { color: var(--steel); }
+  #wordmark.dimmed { opacity: 0; }
 
-  #chatBox { top: 16px; left: 16px; width: 300px; max-width: 88vw; }
-  #chatLog { max-height: 180px; overflow-y: auto; font-size: 11px; line-height: 1.4; margin-bottom: 8px; padding-right: 4px; }
-  #chatLog .msg { margin-bottom: 7px; }
-  #chatLog .label { font-size: 9px; letter-spacing: 1px; opacity: 0.7; display: block; }
+  /* ---- Top status strip: replaces the two floating holo panels with one compact readout ---- */
+  #statusStrip {
+    position: fixed; top: 16px; right: 16px; z-index: 10;
+    display: flex; gap: 6px; flex-wrap: wrap; max-width: 260px; justify-content: flex-end;
+  }
+  .status-chip {
+    font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 0.5px;
+    padding: 5px 9px; border-radius: 20px; background: var(--glass); border: 1px solid var(--border);
+    color: var(--steel); display: flex; align-items: center; gap: 5px;
+  }
+  .status-chip .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 6px var(--gold-glow); }
+  @media (max-width: 720px) { #statusStrip { display: none; } }
+
+  /* ---- Chat: slide-out panel instead of always-visible box ---- */
+  #chatToggle {
+    position: fixed; top: 16px; left: 16px; z-index: 12;
+    width: 38px; height: 38px; border-radius: 12px; background: var(--glass); border: 1px solid var(--border);
+    color: var(--text); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  #chatPanel {
+    position: fixed; top: 0; left: 0; height: 100%; width: min(320px, 86vw); z-index: 11;
+    background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-right: 1px solid var(--border);
+    transform: translateX(-100%); transition: transform 0.32s cubic-bezier(.4,0,.2,1);
+    display: flex; flex-direction: column; padding: 64px 14px 14px;
+  }
+  #chatPanel.open { transform: translateX(0); }
+  #chatLog { flex: 1; overflow-y: auto; font-size: 12px; line-height: 1.5; padding-right: 4px; }
+  #chatLog .msg { margin-bottom: 10px; }
+  #chatLog .label { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 1px; opacity: 0.6; display: block; margin-bottom: 2px; }
   #chatLog .user .label { color: var(--steel); }
   #chatLog .rayven .label { color: var(--gold); }
-  .chat-input-row { display: flex; gap: 6px; }
-  #chatBox input {
-    flex: 1; min-width: 0; padding: 7px 9px; border-radius: 4px; border: 1px solid rgba(232,196,104,0.3);
-    background: rgba(10,5,16,0.6); color: var(--text); font-family: inherit; font-size: 11px;
+  .chat-input-row { display: flex; gap: 6px; margin-top: 10px; }
+  #chatPanel input {
+    flex: 1; min-width: 0; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--border);
+    background: rgba(0,0,0,0.35); color: var(--text); font-family: inherit; font-size: 12px;
   }
-  #chatBox input:focus { outline: none; border-color: var(--gold); }
+  #chatPanel input:focus { outline: none; border-color: var(--gold); }
+  #chatPanel button {
+    padding: 9px 13px; border-radius: 8px; border: 1px solid var(--gold); background: transparent;
+    color: var(--gold); font-size: 10px; letter-spacing: 1px; cursor: pointer; font-family: inherit;
+  }
 
-  .holo-box {
-    position: fixed; z-index: 10; width: 210px; max-width: 78vw;
-    background: rgba(20,10,35,0.35); border: 1px solid rgba(155,107,255,0.35);
-    border-radius: 6px; padding: 10px 12px;
-    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-    box-shadow: 0 0 20px rgba(155,107,255,0.15), inset 0 0 20px rgba(155,107,255,0.05);
-    overflow: hidden; animation: holoFlicker 4.5s infinite;
+  /* ---- Bottom command dock: unifies mic, sliders, and status into one bar ---- */
+  #dock {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 12;
+    display: flex; align-items: center; gap: 18px;
+    background: var(--glass); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border); border-radius: 999px; padding: 10px 18px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
   }
-  .holo-box::before {
-    content: ''; position: absolute; inset: 0; pointer-events: none;
-    background: repeating-linear-gradient(0deg, rgba(155,107,255,0.05) 0px, rgba(155,107,255,0.05) 1px, transparent 1px, transparent 3px);
+  .dock-slider { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 72px; }
+  .dock-slider label { font-family: 'JetBrains Mono', monospace; font-size: 7.5px; letter-spacing: 1.5px; color: var(--steel); }
+  .dock-slider label span { color: var(--gold); margin-left: 3px; }
+  .dock-slider input[type="range"] {
+    -webkit-appearance: none; width: 72px; height: 3px; border-radius: 2px;
+    background: linear-gradient(90deg, var(--violet), var(--gold)); outline: none;
   }
-  #holoTop { top: 16px; right: 16px; }
-  #holoBottom { bottom: 16px; right: 16px; }
-  .holo-title { font-size: 9px; letter-spacing: 2px; color: var(--gold); margin-bottom: 8px; text-shadow: 0 0 6px var(--gold-glow); }
-  .holo-row { margin-bottom: 8px; font-size: 9px; }
-  .holo-row:last-child { margin-bottom: 0; }
-  .holo-label { color: var(--purple); letter-spacing: 1px; display: block; text-shadow: 0 0 4px var(--purple-glow); }
-  .holo-val { color: var(--text); opacity: 0.75; font-size: 8px; }
-  .holo-bar { height: 2px; background: rgba(155,107,255,0.15); margin-top: 4px; border-radius: 2px; overflow: hidden; }
-  .holo-fill { height: 100%; background: var(--gold); box-shadow: 0 0 6px var(--gold-glow); animation: holoFill 3s ease-in-out infinite alternate; }
-  @keyframes holoFill { from { width: 15%; } to { width: 90%; } }
-  @keyframes holoFlicker { 0%,92%,100% { opacity: 1; } 93% { opacity: 0.6; } 94% { opacity: 1; } 96% { opacity: 0.7; } 97% { opacity: 1; } }
-  @media (max-width: 720px) { .holo-box { display: none; } }
-
-  #voiceCluster {
-    position: fixed; top: 84%; left: 50%; transform: translate(-50%, -50%);
-    display: flex; align-items: center; justify-content: center; gap: 22px;
-    z-index: 12; pointer-events: none;
+  .dock-slider input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%;
+    background: var(--gold-glow); box-shadow: 0 0 6px var(--gold-glow); cursor: pointer;
   }
-  #voiceCluster > * { pointer-events: all; }
+  .dock-slider input[type="range"]::-moz-range-thumb {
+    width: 12px; height: 12px; border-radius: 50%; border: none; background: var(--gold-glow); cursor: pointer;
+  }
 
   .mic-circle {
-    width: 62px; height: 62px; border-radius: 50%;
+    width: 54px; height: 54px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    background: rgba(20,10,35,0.55); border: 2px solid var(--purple); color: var(--purple);
-    font-size: 22px; cursor: pointer; box-shadow: 0 0 14px rgba(155,107,255,0.3);
-    transition: border-color 0.3s, color 0.3s, box-shadow 0.3s, opacity 0.3s;
+    background: rgba(139,92,246,0.12); border: 2px solid var(--violet); color: var(--violet);
+    font-size: 19px; cursor: pointer; transition: all 0.3s ease; flex-shrink: 0;
   }
-  .mic-circle:hover { box-shadow: 0 0 20px var(--purple-glow); }
-  .mic-circle.mic-listening { animation: micPulsePurple 2.5s ease-in-out infinite; }
-  .mic-circle.mic-awake { border-color: var(--gold); color: var(--gold); animation: micPulseGold 1s ease-in-out infinite; }
-  .mic-circle.mic-muted { border-color: #c0392b; color: #c0392b; animation: none; box-shadow: 0 0 14px rgba(192,57,43,0.4); }
-  .mic-circle.mic-paused { border-color: var(--steel); color: var(--steel); animation: none; opacity: 0.4; box-shadow: none; }
-  @keyframes micPulsePurple { 0%,100% { box-shadow: 0 0 14px rgba(155,107,255,0.3); } 50% { box-shadow: 0 0 26px var(--purple-glow); } }
-  @keyframes micPulseGold { 0%,100% { box-shadow: 0 0 16px var(--gold-glow); } 50% { box-shadow: 0 0 30px var(--gold-glow); } }
+  .mic-circle:hover { box-shadow: 0 0 16px rgba(139,92,246,0.5); }
+  .mic-circle.mic-listening { animation: micPulseV 2.4s ease-in-out infinite; }
+  .mic-circle.mic-awake { border-color: var(--gold); color: var(--gold); background: rgba(232,184,75,0.12); animation: micPulseG 1s ease-in-out infinite; }
+  .mic-circle.mic-muted { border-color: #d64545; color: #d64545; background: rgba(214,69,69,0.1); animation: none; }
+  .mic-circle.mic-paused { border-color: var(--steel); color: var(--steel); background: transparent; opacity: 0.4; }
+  @keyframes micPulseV { 0%,100% { box-shadow: 0 0 8px rgba(139,92,246,0.25); } 50% { box-shadow: 0 0 22px rgba(139,92,246,0.55); } }
+  @keyframes micPulseG { 0%,100% { box-shadow: 0 0 10px rgba(232,184,75,0.3); } 50% { box-shadow: 0 0 26px rgba(232,184,75,0.6); } }
 
-  .side-slider { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 90px; }
-  .side-slider .slider-label { font-size: 9px; letter-spacing: 2px; color: var(--steel); }
-  .side-slider .slider-label span { color: var(--gold); display: block; }
-  .side-slider input[type="range"] {
-    -webkit-appearance: none; width: 90px; height: 3px; border-radius: 2px;
-    background: linear-gradient(90deg, var(--purple), var(--gold)); outline: none;
-  }
-  .side-slider input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
-    background: var(--gold-glow); box-shadow: 0 0 8px var(--gold-glow); cursor: pointer;
-  }
-  .side-slider input[type="range"]::-moz-range-thumb {
-    width: 13px; height: 13px; border-radius: 50%; border: none;
-    background: var(--gold-glow); box-shadow: 0 0 8px var(--gold-glow); cursor: pointer;
-  }
-
-  #muteCircle {
-    position: fixed; top: calc(84% + 55px); left: 50%; transform: translate(-50%, 0);
-    width: 40px; height: 40px; border-radius: 50%;
+  #muteBtn {
+    width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
-    background: rgba(20,10,35,0.55); border: 1.5px solid var(--gold); color: var(--gold);
-    font-size: 14px; cursor: pointer; z-index: 12; box-shadow: 0 0 10px rgba(232,196,104,0.25);
+    background: transparent; border: 1.5px solid var(--gold); color: var(--gold);
+    font-size: 12px; cursor: pointer;
   }
-  #muteCircle:hover { box-shadow: 0 0 16px var(--gold-glow); }
-  #muteCircle.muted { border-color: #c0392b; color: #c0392b; box-shadow: 0 0 12px rgba(192,57,43,0.4); }
+  #muteBtn.muted { border-color: #d64545; color: #d64545; }
 
   #voiceStatusSmall {
-    position: fixed; top: calc(84% + 105px); left: 50%; transform: translate(-50%, 0);
-    font-size: 8px; letter-spacing: 1px; color: var(--steel); z-index: 12; text-align: center; max-width: 220px;
+    position: fixed; bottom: 88px; left: 50%; transform: translateX(-50%);
+    font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 1px; color: var(--steel);
+    z-index: 12; text-align: center; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  @media (max-width: 480px) {
+    #dock { gap: 10px; padding: 8px 12px; }
+    .dock-slider { width: 52px; }
+    .dock-slider input[type="range"] { width: 52px; }
   }
 </style>
 </head>
-<body>
+<body class="state-idle">
 
 <div id="wordmark">
-  <div id="wordTitle"></div>
-  <div id="wordSubtitle">RAYAN'S AI ASSISTANT</div>
+  <div id="wordTitle">RAYVEN</div>
+  <div id="wordSubtitle">Rayan's AI Assistant</div>
 </div>
+
+<div id="coreStage">
+  <div id="core">
+    <div class="ring ring--1"></div>
+    <div class="ring ring--2"></div>
+    <div class="ring ring--3"></div>
+    <div id="coreOrb"></div>
+  </div>
+</div>
+
+<div id="wakeFlash"></div>
 <div id="welcomeText">WELCOME HOME,<br>SIR</div>
-<canvas id="sphereCanvas"></canvas>
 
-<div id="wakeOverlay">
-  <div id="wakeFlash"></div>
-  <div id="impactRing"></div>
-  <svg id="mjolnir" viewBox="0 0 100 160" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="headGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#ffd15c"/><stop offset="100%" stop-color="#9b6bff"/>
-      </linearGradient>
-      <linearGradient id="handleGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#3a2a5e"/><stop offset="100%" stop-color="#1a1030"/>
-      </linearGradient>
-    </defs>
-    <rect x="18" y="2" width="64" height="46" rx="7" fill="url(#headGrad)" stroke="#fff2c8" stroke-width="1.5"/>
-    <rect x="18" y="18" width="64" height="5" fill="#fff2c8" opacity="0.7"/>
-    <rect x="42" y="48" width="16" height="105" rx="5" fill="url(#handleGrad)" stroke="#9b6bff" stroke-width="1"/>
-  </svg>
-</div>
-
-<div id="chatBox" class="corner-box">
+<button id="chatToggle" onclick="toggleChat()">☰</button>
+<div id="chatPanel">
   <div id="chatLog"></div>
   <div class="chat-input-row">
     <input type="text" id="userInput" placeholder="Message RAYVEN..." onkeydown="if(event.key==='Enter')handleTypedSend()">
-    <button onclick="handleTypedSend()" style="padding:7px 10px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);font-size:10px;letter-spacing:1px;cursor:pointer;">SEND</button>
+    <button onclick="handleTypedSend()">SEND</button>
   </div>
 </div>
 
-<div id="voiceCluster">
-  <div class="side-slider">
-    <div class="slider-label">RATE<span id="rateVal">1.0x</span></div>
+<div id="statusStrip">
+  <div class="status-chip"><span class="dot"></span>CORE</div>
+  <div class="status-chip"><span class="dot"></span>MEMORY</div>
+  <div class="status-chip"><span class="dot"></span>UPLINK</div>
+  <div class="status-chip"><span class="dot"></span>NETWORK</div>
+</div>
+
+<div id="dock">
+  <div class="dock-slider">
+    <label>RATE<span id="rateVal">1.0x</span></label>
     <input type="range" id="rateSlider" min="0.6" max="1.8" step="0.05" value="1.0">
   </div>
+  <button id="muteBtn" onclick="toggleMute()">🔇</button>
   <button id="micCircle" class="mic-circle" onclick="handleMicClick()">🎤</button>
-  <div class="side-slider">
-    <div class="slider-label">PITCH<span id="pitchVal">0</span></div>
+  <div class="dock-slider">
+    <label>PITCH<span id="pitchVal">0</span></label>
     <input type="range" id="pitchSlider" min="-8" max="8" step="1" value="0">
   </div>
 </div>
-
-<button id="muteCircle" onclick="toggleMute()">🔇</button>
 <div id="voiceStatusSmall">Click the mic, then say "Hey RAYVEN" or double clap</div>
-
-<div id="holoTop" class="holo-box">
-  <div class="holo-title">◈ SYSTEM STATUS</div>
-  <div class="holo-row"><span class="holo-label">01 · CORE</span><span class="holo-val">Neural link active</span><div class="holo-bar"><div class="holo-fill"></div></div></div>
-  <div class="holo-row"><span class="holo-label">02 · MEMORY</span><span class="holo-val">Long-term store active</span><div class="holo-bar"><div class="holo-fill" style="animation-delay:0.4s"></div></div></div>
-  <div class="holo-row"><span class="holo-label">03 · UPLINK</span><span class="holo-val">Cloudflare Worker</span><div class="holo-bar"><div class="holo-fill" style="animation-delay:0.8s"></div></div></div>
-  <div class="holo-row"><span class="holo-label">04 · SEARCH</span><span class="holo-val">Tavily + SerpAPI online</span><div class="holo-bar"><div class="holo-fill" style="animation-delay:1.2s"></div></div></div>
-</div>
-
-<div id="holoBottom" class="holo-box">
-  <div class="holo-title">◈ INTEGRATIONS</div>
-  <div class="holo-row"><span class="holo-label">05 · SUPERVISOR</span><span class="holo-val">JARVIS link active</span><div class="holo-bar"><div class="holo-fill" style="animation-delay:0.2s"></div></div></div>
-  <div class="holo-row"><span class="holo-label">06 · SPOTIFY</span><span class="holo-val">Playback connected</span><div class="holo-bar"><div class="holo-fill" style="animation-delay:0.6s"></div></div></div>
-  <div class="holo-row"><span class="holo-label">07 · BROWSER</span><span class="holo-val">Extension linked</span><div class="holo-bar"><div class="holo-fill" style="animation-delay:1.0s"></div></div></div>
-  <div class="holo-row"><span class="holo-label">08 · NETWORK</span><span class="holo-val">JARVIS · KEVOS · RAYVEN</span><div class="holo-bar"><div class="holo-fill" style="animation-delay:1.4s"></div></div></div>
-</div>
 
 <script>
 const wordmarkEl = document.getElementById('wordmark');
-const wordTitleEl = document.getElementById('wordTitle');
 const welcomeTextEl = document.getElementById('welcomeText');
-
-function setTitleText(text) {
-  wordTitleEl.innerHTML = '';
-  text.split('').forEach(ch => {
-    const span = document.createElement('span');
-    span.className = 'letter';
-    span.textContent = ch;
-    wordTitleEl.appendChild(span);
-  });
-}
-setTitleText('RAYVEN');
+const wakeFlashEl = document.getElementById('wakeFlash');
 
 function setSleepingVisual(isSleeping) { wordmarkEl.classList.toggle('sleeping', isSleeping); }
-
-const canvas = document.getElementById('sphereCanvas');
-const ctx = canvas.getContext('2d');
-function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-resize();
-window.addEventListener('resize', resize);
-
-const SEED_COUNT = 210;
-const SUBDOTS_PER_SEED = 5;
-const N = SEED_COUNT * SUBDOTS_PER_SEED;
-function baseSphereRadius() { return Math.min(window.innerWidth, window.innerHeight) * 0.24; }
-
-const ux = new Float32Array(N), uy = new Float32Array(N), uz = new Float32Array(N);
-const goldFlag = new Uint8Array(N);
-const sx = new Float32Array(N), sy = new Float32Array(N), sz = new Float32Array(N), sscale = new Float32Array(N);
-const order = new Array(N);
-
-{
-  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-  let idx = 0;
-  for (let i = 0; i < SEED_COUNT; i++) {
-    const y = 1 - (i / (SEED_COUNT - 1)) * 2;
-    const radiusAtY = Math.sqrt(1 - y * y);
-    const theta = goldenAngle * i;
-    const sxv = Math.cos(theta) * radiusAtY, szv = Math.sin(theta) * radiusAtY, syv = y;
-    const isGoldAccent = Math.random() < 0.16 ? 1 : 0;
-    for (let k = 0; k < SUBDOTS_PER_SEED; k++) {
-      const jitter = 0.035;
-      ux[idx] = sxv + (Math.random() - 0.5) * jitter;
-      uy[idx] = syv + (Math.random() - 0.5) * jitter;
-      uz[idx] = szv + (Math.random() - 0.5) * jitter;
-      goldFlag[idx] = isGoldAccent;
-      order[idx] = idx;
-      idx++;
-    }
-  }
+function setSphereState(name) {
+  document.body.className = 'state-' + name;
 }
 
-const STATES = {
-  idle:      { scale: 1.00, speed: 0.004, colorMix: 0.00, lightningRate: 1.0 },
-  listening: { scale: 1.18, speed: 0.010, colorMix: 0.15, lightningRate: 1.4 },
-  thinking:  { scale: 0.82, speed: 0.022, colorMix: 0.75, lightningRate: 1.8 },
-  talking:   { scale: 1.05, speed: 0.013, colorMix: 0.40, lightningRate: 2.4 },
-  burst:     { scale: 1.30, speed: 0.045, colorMix: 0.60, lightningRate: 5.0 },
-  sleeping:  { scale: 0.35, speed: 0.0015, colorMix: 0.00, lightningRate: 0.15 }
-};
-
-let current = { scale: 1, speed: 0.004, colorMix: 0, lightningRate: 1 };
-let target = STATES.idle;
-let currentStateName = 'idle';
-function setSphereState(name) { target = STATES[name] || STATES.idle; currentStateName = name; }
-function lerp(a, b, t) { return a + (b - a) * t; }
-
-let explosionOffset = 0;
-function triggerVanish() { explosionOffset = -0.97; }
-
-let angleY = 0, angleX = 0.3, dragging = false, userZoom = 1;
-let lastPointer = { x: 0, y: 0 };
-
-function pointerDown(x, y) { dragging = true; lastPointer = { x, y }; canvas.classList.add('dragging'); }
-function pointerMove(x, y) {
-  if (!dragging) return;
-  const dx = x - lastPointer.x, dy = y - lastPointer.y;
-  angleY += dx * 0.005; angleX += dy * 0.005;
-  angleX = Math.max(-1.3, Math.min(1.3, angleX));
-  lastPointer = { x, y };
-}
-function pointerUp() { dragging = false; canvas.classList.remove('dragging'); }
-
-canvas.addEventListener('mousedown', e => pointerDown(e.clientX, e.clientY));
-window.addEventListener('mousemove', e => pointerMove(e.clientX, e.clientY));
-window.addEventListener('mouseup', pointerUp);
-canvas.addEventListener('touchstart', e => { const t = e.touches[0]; pointerDown(t.clientX, t.clientY); }, { passive: true });
-canvas.addEventListener('touchmove', e => { const t = e.touches[0]; pointerMove(t.clientX, t.clientY); }, { passive: true });
-canvas.addEventListener('touchend', pointerUp);
-canvas.addEventListener('wheel', e => {
-  e.preventDefault();
-  userZoom += e.deltaY * -0.001;
-  userZoom = Math.max(0.5, Math.min(2.2, userZoom));
-}, { passive: false });
-
-const PURPLE_R = 155, PURPLE_G = 107, PURPLE_B = 255;
-const GOLD_R = 232, GOLD_G = 196, GOLD_B = 104;
-
-function render() {
-  current.scale = lerp(current.scale, target.scale, 0.04);
-  current.speed = lerp(current.speed, target.speed, 0.04);
-  current.colorMix = lerp(current.colorMix, target.colorMix, 0.04);
-  current.lightningRate = lerp(current.lightningRate, target.lightningRate, 0.04);
-  explosionOffset = lerp(explosionOffset, 0, 0.045);
-
-  ctx.fillStyle = 'rgba(10,5,16,0.32)';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  const centerX = canvas.width / 2;
-  const centerY = canvas.height * 0.42;
-  const baseR = baseSphereRadius();
-  const radius = Math.max(0, baseR * current.scale * userZoom * (1 + explosionOffset));
-  const perspective = baseR * current.scale * userZoom * 2.6;
-
-  if (!dragging) angleY += current.speed;
-
-  const cosY = Math.cos(angleY), sinY = Math.sin(angleY);
-  const cosX = Math.cos(angleX), sinX = Math.sin(angleX);
-
-  const mixR = PURPLE_R + (GOLD_R - PURPLE_R) * current.colorMix;
-  const mixG = PURPLE_G + (GOLD_G - PURPLE_G) * current.colorMix;
-  const mixB = PURPLE_B + (GOLD_B - PURPLE_B) * current.colorMix;
-
-  for (let i = 0; i < N; i++) {
-    const px = ux[i] * radius, py = uy[i] * radius, pz = uz[i] * radius;
-    let rx = px * cosY - pz * sinY;
-    let rz = px * sinY + pz * cosY;
-    let ry = py;
-    const ry2 = ry * cosX - rz * sinX;
-    const rz2 = ry * sinX + rz * cosX;
-    const scale = perspective / (perspective + rz2);
-    sx[i] = centerX + rx * scale;
-    sy[i] = centerY + ry2 * scale;
-    sz[i] = rz2;
-    sscale[i] = scale;
-  }
-
-  order.sort((a, b) => sz[a] - sz[b]);
-
-  for (let k = 0; k < N; k++) {
-    const i = order[k];
-    const scale = sscale[i];
-    const size = scale > 0.6 ? 1.9 * scale : 0.6;
-    const brightness = Math.min(1, Math.max(0.15, (scale - 0.7) * 2));
-    const isGold = goldFlag[i];
-    const r = isGold ? GOLD_R : mixR, g = isGold ? GOLD_G : mixG, b = isGold ? GOLD_B : mixB;
-    if (scale > 1.05) {
-      ctx.shadowBlur = 9 * scale;
-      ctx.shadowColor = `rgba(${r},${g},${b},${brightness})`;
-    } else { ctx.shadowBlur = 0; }
-    ctx.fillStyle = `rgba(${r},${g},${b},${brightness})`;
-    ctx.beginPath();
-    ctx.arc(sx[i], sy[i], size, 0, 6.283185307);
-    ctx.fill();
-  }
-  ctx.shadowBlur = 0;
-  requestAnimationFrame(render);
-}
-render();
-
-function spawnLightning() {
-  const line = document.createElement('div');
-  line.className = 'lightning-line';
-  line.style.height = (20 + Math.random() * 55) + 'vh';
-  line.style.left = Math.random() * 100 + 'vw';
-  line.style.top = (Math.random() * 40) + 'vh';
-  line.style.transform = `rotate(${(Math.random() * 16 - 8)}deg)`;
-  document.body.appendChild(line);
-  requestAnimationFrame(() => line.classList.add('strike'));
-  setTimeout(() => line.remove(), 500);
-}
-function ambientLightningLoop() {
-  const count = 1 + Math.floor(Math.random() * 2);
-  for (let i = 0; i < count; i++) setTimeout(spawnLightning, i * 80);
-  const baseDelay = 5500 / Math.max(0.5, current.lightningRate);
-  setTimeout(ambientLightningLoop, baseDelay + Math.random() * 3000);
-}
-setTimeout(ambientLightningLoop, 1500);
-
-function spawnBoltSpark(pxX, pxY, rotBase) {
-  const spark = document.createElement('div');
-  spark.className = 'bolt-spark';
-  spark.style.left = (pxX + (Math.random() * 30 - 15)) + 'px';
-  spark.style.top = (pxY + (Math.random() * 30 - 15)) + 'px';
-  spark.style.transform = `rotate(${rotBase + (Math.random() * 50 - 25)}deg)`;
-  document.body.appendChild(spark);
-  requestAnimationFrame(() => spark.classList.add('flicker'));
-  setTimeout(() => spark.remove(), 500);
-}
-
-function voiceIntensity() {
-  if (currentStateName === 'burst') return 1.9;
-  if (currentStateName === 'talking') return 1.55;
-  if (currentStateName === 'listening') return 1.2;
-  if (currentStateName === 'thinking') return 1.35;
-  if (currentStateName === 'sleeping') return 0.45;
-  return 1.0;
-}
-
-function spawnBolt(startLeftVw, sweepClass, sparkAngle) {
-  const heat = voiceIntensity();
-  const wrap = document.createElement('div');
-  wrap.className = 'bolt-wrap ' + sweepClass;
-
-  const dur = (2.6 - (heat - 1) * 0.45) + (Math.random() * 0.7 - 0.35);
-  wrap.style.setProperty('--dur', dur.toFixed(2) + 's');
-  wrap.style.left = startLeftVw + 'vw';
-
-  const w = 46 * (0.9 + heat * 0.18);
-  wrap.style.width = w.toFixed(0) + 'px';
-  wrap.style.height = (w * 1.9).toFixed(0) + 'px';
-  wrap.style.filter =
-    `drop-shadow(0 0 ${(10 * heat).toFixed(0)}px var(--gold-glow)) ` +
-    `drop-shadow(0 0 ${(22 * heat).toFixed(0)}px var(--purple-glow)) ` +
-    `drop-shadow(0 0 ${(38 * heat).toFixed(0)}px var(--purple))`;
-
-  wrap.innerHTML = '<div class="bolt-halo"></div><div class="bolt-body"></div><div class="bolt-shine"></div>';
-  document.body.appendChild(wrap);
-  requestAnimationFrame(() => wrap.classList.add(sweepClass));
-
-  const startPx = (startLeftVw / 100) * window.innerWidth;
-  setTimeout(() => spawnBoltSpark(startPx, window.innerHeight * 0.3, sparkAngle), dur * 220);
-  setTimeout(() => spawnBoltSpark(startPx, window.innerHeight * 0.6, sparkAngle), dur * 480);
-
-  setTimeout(() => wrap.remove(), dur * 1000 + 120);
-}
-
-function boltLoop() {
-  spawnBolt(-2 + Math.random() * 26, 'sweep-right', 28);
-  setTimeout(() => spawnBolt(76 + Math.random() * 24, 'sweep-left', -28), 420 + Math.random() * 380);
-  const heat = voiceIntensity();
-  const gap = (1500 + Math.random() * 500) / (0.75 + heat * 0.25);
-  setTimeout(boltLoop, gap);
-}
-setTimeout(boltLoop, 900);
-
-function spawnRainBolt(delay) {
-  setTimeout(() => {
-    const bolt = document.createElement('div');
-    bolt.className = 'rain-bolt';
-    bolt.style.left = Math.random() * 100 + 'vw';
-    bolt.style.transform = `rotate(${(Math.random() * 14 - 7)}deg)`;
-    document.body.appendChild(bolt);
-    requestAnimationFrame(() => bolt.classList.add('fall'));
-    setTimeout(() => bolt.remove(), 800);
-  }, delay);
-}
-function rainLightning(count) { for (let i = 0; i < count; i++) spawnRainBolt(i * 55); }
-
-function spawnImpactBolt() {
-  const bolt = document.createElement('div');
-  bolt.className = 'impact-bolt';
-  bolt.style.setProperty('--ang', (Math.random() * 360) + 'deg');
-  bolt.style.top = '42%'; bolt.style.left = '50%';
-  document.body.appendChild(bolt);
-  requestAnimationFrame(() => bolt.classList.add('crackle'));
-  setTimeout(() => bolt.remove(), 700);
-}
-function impactCrackle(count) { for (let i = 0; i < count; i++) setTimeout(spawnImpactBolt, i * 30); }
-
-function lightningFlurry(durationMs) {
-  const interval = 160; let elapsed = 0;
-  const timer = setInterval(() => {
-    spawnLightning();
-    if (Math.random() > 0.5) spawnImpactBolt();
-    elapsed += interval;
-    if (elapsed >= durationMs) clearInterval(timer);
-  }, interval);
-}
+function toggleChat() { document.getElementById('chatPanel').classList.toggle('open'); }
 
 let wakeSequenceRunning = false;
+
+async function fetchWakeGreeting() {
+  try {
+    const response = await fetch(BACKEND_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ message: "[WAKE_TRIGGER] Rayan just said your wake word. Greet him briefly, then ask something proactive." })
+    });
+    const data = await response.json();
+    return data.reply || "Welcome home, sir.";
+  } catch (err) {
+    return "Welcome home, sir.";
+  }
+}
 
 function wakeBurst() {
   if (wakeSequenceRunning) return;
   wakeSequenceRunning = true;
 
-  const overlay = document.getElementById('wakeOverlay');
-  overlay.classList.remove('active');
-  void overlay.offsetWidth;
-  overlay.classList.add('active');
+  wakeFlashEl.classList.remove('show');
+  void wakeFlashEl.offsetWidth;
+  wakeFlashEl.classList.add('show');
 
-  rainLightning(16);
   setSphereState('burst');
+  const greetingPromise = fetchWakeGreeting();
 
   setTimeout(() => {
-    triggerVanish();
     wordmarkEl.classList.add('dimmed');
     welcomeTextEl.classList.add('show');
-    impactCrackle(10);
-    lightningFlurry(1300);
 
-    const greeting = "Welcome home, sir.";
-    const log = document.getElementById('chatLog');
-    log.innerHTML += `<div class="msg rayven"><span class="label">RAYVEN</span>${greeting}</div>`;
-    log.scrollTop = log.scrollHeight;
-    conversationHistory.push({ role: 'assistant', content: greeting });
-    saveConversation();
+    greetingPromise.then(greeting => {
+      const log = document.getElementById('chatLog');
+      log.innerHTML += `<div class="msg rayven"><span class="label">RAYVEN</span>${greeting}</div>`;
+      log.scrollTop = log.scrollHeight;
+      conversationHistory.push({ role: 'assistant', content: greeting });
+      saveConversation();
 
-    speak(greeting, () => {
-      wakeSequenceRunning = false;
-      resumeListeningAfterSpeech();
+      speak(greeting, () => {
+        wakeSequenceRunning = false;
+        resumeListeningAfterSpeech();
+      });
     });
-  }, 680);
+  }, 400);
 
   setTimeout(() => {
     welcomeTextEl.classList.remove('show');
     wordmarkEl.classList.remove('dimmed');
-  }, 680 + 1300);
+  }, 400 + 1200);
 
-  setTimeout(() => {
-    overlay.classList.remove('active');
-    setSphereState('listening');
-  }, 1600);
+  setTimeout(() => { setSphereState('listening'); }, 900);
 }
 
 const BACKEND_URL = "https://rayven-backend.rayanfahil2.workers.dev";
@@ -700,9 +373,7 @@ function stripWakeWord(transcript) {
   let clean = transcript.trim();
   const lower = clean.toLowerCase();
   for (const phrase of WAKE_PHRASES) {
-    if (lower.startsWith(phrase)) {
-      return clean.slice(phrase.length).trim();
-    }
+    if (lower.startsWith(phrase)) return clean.slice(phrase.length).trim();
   }
   const words = clean.split(/\s+/);
   if (words.length && levenshtein(words[0].toLowerCase().replace(/[^a-z]/g, ''), 'raven') <= 1) {
@@ -710,8 +381,6 @@ function stripWakeWord(transcript) {
   }
   return clean;
 }
-
-// ---- Special shortcut phrase: "get litty RAYVEN" always plays this exact song instantly ----
 function isGetLittyCommand(transcript) {
   const t = transcript.toLowerCase();
   return t.includes('litty') && containsRavenLike(t);
@@ -773,9 +442,7 @@ function stopSpeaking() {
     try { currentAudioSource.onended = null; currentAudioSource.stop(); } catch (e) {}
     currentAudioSource = null;
   }
-  if ('speechSynthesis' in window) {
-    try { window.speechSynthesis.cancel(); } catch (e) {}
-  }
+  if ('speechSynthesis' in window) { try { window.speechSynthesis.cancel(); } catch (e) {} }
   currentOnDone = null;
 }
 
@@ -789,10 +456,7 @@ function speak(text, onDone) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ text: cleaned })
   })
-    .then(res => {
-      if (!res.ok) throw new Error('TTS request failed with status ' + res.status);
-      return res.arrayBuffer();
-    })
+    .then(res => { if (!res.ok) throw new Error('TTS failed ' + res.status); return res.arrayBuffer(); })
     .then(arrayBuffer => getAudioCtx().decodeAudioData(arrayBuffer))
     .then(audioBuffer => {
       const ctxAudio = getAudioCtx();
@@ -802,36 +466,19 @@ function speak(text, onDone) {
       source.detune.value = parseFloat(pitchSlider.value) * 100;
       source.connect(ctxAudio.destination);
       currentAudioSource = source;
-      source.onended = () => {
-        currentAudioSource = null;
-        const cb = currentOnDone;
-        currentOnDone = null;
-        if (cb) cb();
-      };
+      source.onended = () => { currentAudioSource = null; const cb = currentOnDone; currentOnDone = null; if (cb) cb(); };
       source.start(0);
     })
     .catch(err => {
-      console.error('ElevenLabs TTS failed, falling back to browser voice:', err);
+      console.error('TTS fallback:', err);
       if ('speechSynthesis' in window) {
         const utter = new SpeechSynthesisUtterance(cleaned);
         utter.rate = parseFloat(rateSlider.value);
         utter.pitch = Math.max(0, Math.min(2, 1 + parseFloat(pitchSlider.value) / 12));
-        utter.onend = () => {
-          const cb = currentOnDone;
-          currentOnDone = null;
-          if (cb) cb();
-        };
-        utter.onerror = () => {
-          const cb = currentOnDone;
-          currentOnDone = null;
-          if (cb) cb();
-        };
+        utter.onend = () => { const cb = currentOnDone; currentOnDone = null; if (cb) cb(); };
+        utter.onerror = () => { const cb = currentOnDone; currentOnDone = null; if (cb) cb(); };
         window.speechSynthesis.speak(utter);
-      } else {
-        const cb = currentOnDone;
-        currentOnDone = null;
-        if (cb) cb();
-      }
+      } else { const cb = currentOnDone; currentOnDone = null; if (cb) cb(); }
     });
 }
 
@@ -841,7 +488,7 @@ let voiceActive = false, awake = false, micMuted = false;
 let listeningPaused = false;
 
 const micCircle = document.getElementById('micCircle');
-const muteCircle = document.getElementById('muteCircle');
+const muteBtn = document.getElementById('muteBtn');
 
 function setVoiceStatus(msg) { document.getElementById('voiceStatusSmall').textContent = msg; }
 
@@ -855,19 +502,14 @@ function updateMicVisual() {
 
 function handleMicClick() {
   if (!SpeechRecognitionCtor) { alert('Voice recognition is not supported in this browser. Try Chrome.'); return; }
-  if (!voiceActive) {
-    voiceActive = true;
-    startWakeListening();
-    startClapDetection();
-  }
+  if (!voiceActive) { voiceActive = true; startWakeListening(); startClapDetection(); }
 }
 
 function toggleMute() {
   micMuted = !micMuted;
-  muteCircle.textContent = micMuted ? '🔇' : '🎙';
-  muteCircle.classList.toggle('muted', micMuted);
+  muteBtn.textContent = micMuted ? '🔇' : '🎙';
+  muteBtn.classList.toggle('muted', micMuted);
   updateMicVisual();
-
   if (micMuted) {
     if (wakeRecognition) { try { wakeRecognition.stop(); } catch (e) {} }
     if (convoRecognition) { try { convoRecognition.stop(); } catch (e) {} }
@@ -893,10 +535,7 @@ function startWakeListening() {
     if (awake || micMuted) return;
     for (let r = event.resultIndex; r < event.results.length; r++) {
       for (let alt = 0; alt < event.results[r].length; alt++) {
-        if (matchesAny(event.results[r][alt].transcript, WAKE_PHRASES)) {
-          triggerWake();
-          return;
-        }
+        if (matchesAny(event.results[r][alt].transcript, WAKE_PHRASES)) { triggerWake(); return; }
       }
     }
   };
@@ -907,25 +546,14 @@ function startWakeListening() {
   try { wakeRecognition.start(); } catch (e) {}
 }
 
-let clapAudioCtx = null;
-let clapAnalyser = null;
-let clapDataArray = null;
-let clapStream = null;
-let clapBaseline = 0.02;
-let clapLastSpikeTime = 0;
-let clapFirstTime = 0;
-
-const CLAP_MIN_GAP_MS = 150;
-const CLAP_MAX_GAP_MS = 700;
+let clapAudioCtx = null, clapAnalyser = null, clapDataArray = null, clapStream = null;
+let clapBaseline = 0.02, clapLastSpikeTime = 0, clapFirstTime = 0;
+const CLAP_MIN_GAP_MS = 150, CLAP_MAX_GAP_MS = 700;
 
 async function startClapDetection() {
   if (clapAnalyser) return;
-  try {
-    clapStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch (e) {
-    console.error('Clap detection: microphone access failed', e);
-    return;
-  }
+  try { clapStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch (e) { console.error('Clap detection: mic access failed', e); return; }
   clapAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
   const source = clapAudioCtx.createMediaStreamSource(clapStream);
   clapAnalyser = clapAudioCtx.createAnalyser();
@@ -935,47 +563,31 @@ async function startClapDetection() {
   clapDataArray = new Uint8Array(clapAnalyser.fftSize);
   requestAnimationFrame(clapDetectionLoop);
 }
-
 function getInstantVolume() {
   clapAnalyser.getByteTimeDomainData(clapDataArray);
   let sumSquares = 0;
-  for (let i = 0; i < clapDataArray.length; i++) {
-    const normalized = (clapDataArray[i] - 128) / 128;
-    sumSquares += normalized * normalized;
-  }
+  for (let i = 0; i < clapDataArray.length; i++) { const n = (clapDataArray[i] - 128) / 128; sumSquares += n * n; }
   return Math.sqrt(sumSquares / clapDataArray.length);
 }
-
 function clapDetectionLoop() {
   if (clapAnalyser && voiceActive && !awake && !micMuted) {
     const vol = getInstantVolume();
-    if (vol < clapBaseline * 1.5) {
-      clapBaseline = clapBaseline * 0.98 + vol * 0.02;
-    }
+    if (vol < clapBaseline * 1.5) clapBaseline = clapBaseline * 0.98 + vol * 0.02;
     const now = Date.now();
     const spikeThreshold = Math.max(0.14, clapBaseline * 6);
-
     if (vol > spikeThreshold) {
       if (now - clapLastSpikeTime >= CLAP_MIN_GAP_MS) {
-        if (clapFirstTime === 0) {
-          clapFirstTime = now;
-        } else {
+        if (clapFirstTime === 0) { clapFirstTime = now; }
+        else {
           const gap = now - clapFirstTime;
           if (gap <= CLAP_MAX_GAP_MS) {
-            clapFirstTime = 0;
-            clapLastSpikeTime = now;
-            triggerWake();
-            requestAnimationFrame(clapDetectionLoop);
-            return;
-          } else {
-            clapFirstTime = now;
-          }
+            clapFirstTime = 0; clapLastSpikeTime = now; triggerWake();
+            requestAnimationFrame(clapDetectionLoop); return;
+          } else { clapFirstTime = now; }
         }
         clapLastSpikeTime = now;
       }
-    } else if (clapFirstTime !== 0 && now - clapFirstTime > CLAP_MAX_GAP_MS) {
-      clapFirstTime = 0;
-    }
+    } else if (clapFirstTime !== 0 && now - clapFirstTime > CLAP_MAX_GAP_MS) { clapFirstTime = 0; }
   }
   requestAnimationFrame(clapDetectionLoop);
 }
@@ -987,25 +599,19 @@ function triggerWake() {
   if (wakeRecognition) { try { wakeRecognition.stop(); } catch (e) {} }
   enterAwakeMode();
 }
-
 function enterAwakeMode() {
   listeningPaused = true;
   updateMicVisual();
   wakeBurst();
   setVoiceStatus('RAYVEN is speaking...');
 }
-
 function exitAwakeMode() {
-  awake = false;
-  listeningPaused = false;
-  updateMicVisual();
+  awake = false; listeningPaused = false; updateMicVisual();
   if (convoRecognition) { try { convoRecognition.stop(); } catch (e) {} }
   if (!micMuted) startWakeListening();
 }
-
 function resumeListeningAfterSpeech() {
-  listeningPaused = false;
-  updateMicVisual();
+  listeningPaused = false; updateMicVisual();
   if (awake && !micMuted) {
     setVoiceStatus('Awake — your turn, say "Hey RAYVEN" or just talk...');
     startContinuousAwakeListening();
@@ -1029,36 +635,20 @@ function startContinuousAwakeListening() {
     updateMicVisual();
     try { convoRecognition.stop(); } catch (e) {}
 
-    if (matchesAny(transcript, STOP_PHRASES)) {
-      stopSpeaking();
-      resumeListeningAfterSpeech();
-      return;
-    }
-
-    // "Get litty RAYVEN" — instant shortcut, skips wake-word stripping entirely so "raven" in
-    // the phrase doesn't get treated as just an attention-grab with nothing to send
-    if (isGetLittyCommand(transcript)) {
-      setVoiceStatus('RAYVEN is speaking...');
-      sendMessage(GET_LITTY_SONG_REQUEST, null);
-      return;
-    }
+    if (matchesAny(transcript, STOP_PHRASES)) { stopSpeaking(); resumeListeningAfterSpeech(); return; }
+    if (isGetLittyCommand(transcript)) { setVoiceStatus('RAYVEN is speaking...'); sendMessage(GET_LITTY_SONG_REQUEST, null); return; }
 
     let toSend = transcript;
     if (matchesAny(transcript, WAKE_PHRASES)) {
       const remainder = stripWakeWord(transcript);
-      if (!remainder) {
-        resumeListeningAfterSpeech();
-        return;
-      }
+      if (!remainder) { resumeListeningAfterSpeech(); return; }
       toSend = remainder;
     }
-
     if (matchesAny(toSend, SLEEP_PHRASES)) {
       setVoiceStatus('RAYVEN is speaking...');
       speak("Powering down. I'll be here when you need me, sir.", () => exitAwakeMode());
       return;
     }
-
     setVoiceStatus('RAYVEN is speaking...');
     sendMessage(toSend, null);
   };
@@ -1086,7 +676,6 @@ async function sendMessage(text, onReplyDone) {
   log.innerHTML += `<div class="msg user"><span class="label">YOU</span>${text}</div>`;
   setSphereState('thinking');
   log.scrollTop = log.scrollHeight;
-
   conversationHistory.push({ role: 'user', content: text });
 
   const typingId = 'typing-' + Date.now();
@@ -1095,16 +684,13 @@ async function sendMessage(text, onReplyDone) {
 
   try {
     const response = await fetch(BACKEND_URL, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ message: text })
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: text })
     });
     const data = await response.json();
     const replyText = data.reply || data.error;
     document.getElementById(typingId).innerHTML = `<span class="label">RAYVEN</span>${replyText}`;
     conversationHistory.push({ role: 'assistant', content: replyText });
     saveConversation();
-
     speak(replyText, () => {
       setSphereState(awake ? 'listening' : 'idle');
       resumeListeningAfterSpeech();
