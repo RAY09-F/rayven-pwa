@@ -306,23 +306,20 @@
     font-size: 8px; letter-spacing: 1px; color: var(--steel); z-index: 12; text-align: center; max-width: 220px;
   }
 
-  /* ---- 3D orbiting tool bolts around the sphere ---- */
-  #boltOrbitStage {
+  /* ---- Tool bolts: now stationed at fixed spots scattered AROUND the sphere
+     (top, bottom, sides, corners) instead of all orbiting through one shared
+     central point — this is what was crossing over the RAYVEN lettering before.
+     Each one just hovers up/down in place now, with a much bigger, more visible
+     bob than before, plus a gentle 3D rock for continued depth/floating feel. ---- */
+  .tool-bolt-hub {
     position: fixed; top: 42%; left: 50%; width: 0; height: 0;
-    perspective: 1000px; z-index: 4; pointer-events: none;
+    perspective: 700px; z-index: 4; pointer-events: none;
   }
   .tool-bolt {
-    position: absolute; top: 0; left: 0; width: 30px; height: 54px;
+    position: absolute; width: 30px; height: 54px;
     margin-left: -15px; margin-top: -27px;
     transform-style: preserve-3d; pointer-events: all; cursor: pointer;
-    animation-name: toolBoltOrbit; animation-duration: 46s;
-    animation-timing-function: linear; animation-iteration-count: infinite;
-  }
-  /* NEW: independent bob layer nested inside the orbit, so each bolt floats up/down
-     while still travelling around the circle */
-  .tb-bob {
-    width: 100%; height: 100%;
-    animation-name: toolBoltBob; animation-duration: 2.6s;
+    animation-name: toolBoltHover; animation-duration: 3.4s;
     animation-timing-function: ease-in-out; animation-iteration-count: infinite;
   }
   .tool-bolt .tb-halo {
@@ -341,17 +338,13 @@
   .tool-bolt:hover .tb-body {
     filter: drop-shadow(0 0 10px var(--gold-glow)) drop-shadow(0 0 24px var(--gold));
   }
-  @keyframes toolBoltOrbit {
-    0%   { transform: rotateY(0deg) translateZ(230px) rotateY(0deg) scale(1); }
-    50%  { transform: rotateY(180deg) translateZ(230px) rotateY(-180deg) scale(0.72); }
-    100% { transform: rotateY(360deg) translateZ(230px) rotateY(-360deg) scale(1); }
-  }
-  @keyframes toolBoltBob {
-    0%, 100% { transform: translateY(0); }
-    50%      { transform: translateY(-11px); }
+  @keyframes toolBoltHover {
+    0%   { transform: translateY(0)     rotateY(-16deg) translateZ(0)   scale(1); }
+    50%  { transform: translateY(-28px) rotateY(16deg)  translateZ(24px) scale(1.1); }
+    100% { transform: translateY(0)     rotateY(-16deg) translateZ(0)   scale(1); }
   }
 
-  /* ---- Smoother, slower tool info popup: fades and slides up instead of snapping ---- */
+  /* ---- Tool info popup — fades and slides in smoothly ---- */
   #toolOverlay {
     position: fixed; inset: 0; z-index: 20;
     display: flex; align-items: center; justify-content: center;
@@ -388,7 +381,7 @@
   #toolPanel .tp-desc { font-size: 12px; line-height: 1.6; color: var(--text); opacity: 0.9; }
 
   @media (max-width: 720px) {
-    #boltOrbitStage { transform: scale(0.7); }
+    .tool-bolt-hub { transform: scale(0.62); }
   }
 </style>
 </head>
@@ -401,23 +394,47 @@
 <div id="welcomeText">WELCOME HOME,<br>SIR</div>
 <canvas id="sphereCanvas"></canvas>
 
-<!-- 12 orbiting gold tool bolts around the sphere, each with an independent bob motion -->
-<div id="boltOrbitStage">
-  <div class="tool-bolt" style="animation-delay: 0s;" onclick="showToolInfo('browser')"><div class="tb-bob" style="animation-delay: 0s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
-  <div class="tool-bolt" style="animation-delay: -3.83s;" onclick="showToolInfo('vision')"><div class="tb-bob" style="animation-delay: -0.22s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
-  <div class="tool-bolt" style="animation-delay: -7.67s;" onclick="showToolInfo('control')"><div class="tb-bob" style="animation-delay: -0.44s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
-  <div class="tool-bolt" style="animation-delay: -11.5s;" onclick="showToolInfo('spotify')"><div class="tb-bob" style="animation-delay: -0.66s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
-  <div class="tool-bolt" style="animation-delay: -15.33s;" onclick="showToolInfo('youtube')"><div class="tb-bob" style="animation-delay: -0.88s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
-  <div class="tool-bolt" style="animation-delay: -19.17s;" onclick="showToolInfo('voice')"><div class="tb-bob" style="animation-delay: -1.10s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
-  <div class="tool-bolt" style="animation-delay: -23s;" onclick="showToolInfo('maps')"><div class="tb-bob" style="animation-delay: -1.32s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
-  <div class="tool-bolt" style="animation-delay: -26.83s;" onclick="showToolInfo('memory')"><div class="tb-bob" style="animation-delay: -1.54s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
-  <div class="tool-bolt" style="animation-delay: -30.67s;" onclick="showToolInfo('todo')"><div class="tb-bob" style="animation-delay: -1.76s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
-  <div class="tool-bolt" style="animation-delay: -34.5s;" onclick="showToolInfo('phone')"><div class="tb-bob" style="animation-delay: -1.98s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
-  <div class="tool-bolt" style="animation-delay: -38.33s;" onclick="showToolInfo('research')"><div class="tb-bob" style="animation-delay: -2.20s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
-  <div class="tool-bolt" style="animation-delay: -42.17s;" onclick="showToolInfo('network')"><div class="tb-bob" style="animation-delay: -2.42s;"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
+<!-- 12 gold tool bolts, each stationed at its own fixed spot scattered around
+     the sphere (top/bottom/left/right/corners) — none of them cross the center
+     anymore, so the RAYVEN lettering stays clear. Each hovers up/down in place. -->
+<div class="tool-bolt-hub" style="top: calc(42% + -260px); left: calc(50% + 0px);">
+  <div class="tool-bolt" style="animation-delay: 0s;" onclick="showToolInfo('browser')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+</div>
+<div class="tool-bolt-hub" style="top: calc(42% + -242px); left: calc(50% + 140px);">
+  <div class="tool-bolt" style="animation-delay: -0.28s;" onclick="showToolInfo('vision')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+</div>
+<div class="tool-bolt-hub" style="top: calc(42% + -120px); left: calc(50% + 208px);">
+  <div class="tool-bolt" style="animation-delay: -0.56s;" onclick="showToolInfo('control')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+</div>
+<div class="tool-bolt-hub" style="top: calc(42% + 0px); left: calc(50% + 270px);">
+  <div class="tool-bolt" style="animation-delay: -0.85s;" onclick="showToolInfo('spotify')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+</div>
+<div class="tool-bolt-hub" style="top: calc(42% + 125px); left: calc(50% + 216px);">
+  <div class="tool-bolt" style="animation-delay: -1.13s;" onclick="showToolInfo('youtube')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+</div>
+<div class="tool-bolt-hub" style="top: calc(42% + 247px); left: calc(50% + 143px);">
+  <div class="tool-bolt" style="animation-delay: -1.42s;" onclick="showToolInfo('voice')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+</div>
+<div class="tool-bolt-hub" style="top: calc(42% + 260px); left: calc(50% + 0px);">
+  <div class="tool-bolt" style="animation-delay: -1.70s;" onclick="showToolInfo('maps')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+</div>
+<div class="tool-bolt-hub" style="top: calc(42% + 212px); left: calc(50% + -123px);">
+  <div class="tool-bolt" style="animation-delay: -1.98s;" onclick="showToolInfo('memory')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+</div>
+<div class="tool-bolt-hub" style="top: calc(42% + 138px); left: calc(50% + -238px);">
+  <div class="tool-bolt" style="animation-delay: -2.27s;" onclick="showToolInfo('todo')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+</div>
+<div class="tool-bolt-hub" style="top: calc(42% + 0px); left: calc(50% + -255px);">
+  <div class="tool-bolt" style="animation-delay: -2.55s;" onclick="showToolInfo('phone')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+</div>
+<div class="tool-bolt-hub" style="top: calc(42% + -145px); left: calc(50% + -251px);">
+  <div class="tool-bolt" style="animation-delay: -2.83s;" onclick="showToolInfo('research')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+</div>
+<div class="tool-bolt-hub" style="top: calc(42% + -217px); left: calc(50% + -125px);">
+  <div class="tool-bolt" style="animation-delay: -3.12s;" onclick="showToolInfo('network')"><div class="tb-halo"></div><div class="tb-body"></div></div>
 </div>
 
-<!-- Tool info popup — fades and slides in smoothly now -->
+<!-- Tool info popup — fades and slides in smoothly -->
 <div id="toolOverlay" onclick="if(event.target===this)hideToolInfo()">
   <div id="toolPanel">
     <button class="tp-close" onclick="hideToolInfo()">✕</button>
@@ -615,14 +632,15 @@ canvas.addEventListener('wheel', e => {
 const PURPLE_R = 155, PURPLE_G = 107, PURPLE_B = 255;
 const GOLD_R = 232, GOLD_G = 196, GOLD_B = 104;
 
-// Draws a persistent grid behind the sphere every frame. Both layers now read as
-// clean, glowing purple/gold instead of the second layer looking like a muddy brown.
+// Draws a persistent grid every frame, BEFORE the sphere is drawn, so it always
+// reads as background texture behind the sphere. Toned down and glow removed so
+// it recedes visually instead of competing with the sphere in front of it.
 let gridOffset = 0;
 function drawGrid() {
   const spacing = 46;
   gridOffset = (gridOffset + 0.06) % spacing;
   ctx.save();
-  ctx.strokeStyle = 'rgba(155,107,255,0.10)';
+  ctx.strokeStyle = 'rgba(155,107,255,0.07)';
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (let x = -spacing + gridOffset; x < canvas.width + spacing; x += spacing) {
@@ -637,10 +655,8 @@ function drawGrid() {
   ctx.restore();
 
   ctx.save();
-  ctx.strokeStyle = 'rgba(232,196,104,0.22)';
-  ctx.lineWidth = 1.1;
-  ctx.shadowColor = 'rgba(255,221,136,0.55)';
-  ctx.shadowBlur = 5;
+  ctx.strokeStyle = 'rgba(232,196,104,0.09)';
+  ctx.lineWidth = 1;
   ctx.beginPath();
   const bigSpacing = spacing * 4;
   for (let x = -bigSpacing + (gridOffset * 4 % bigSpacing); x < canvas.width + bigSpacing; x += bigSpacing) {
