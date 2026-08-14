@@ -306,11 +306,10 @@
     font-size: 8px; letter-spacing: 1px; color: var(--steel); z-index: 12; text-align: center; max-width: 220px;
   }
 
-  /* ---- Tool bolts: now stationed at fixed spots scattered AROUND the sphere
-     (top, bottom, sides, corners) instead of all orbiting through one shared
-     central point — this is what was crossing over the RAYVEN lettering before.
-     Each one just hovers up/down in place now, with a much bigger, more visible
-     bob than before, plus a gentle 3D rock for continued depth/floating feel. ---- */
+  /* ---- Tool bolts: each stationed at a fixed spot scattered around the sphere
+     (top, bottom, sides, corners, plus an outer ring for the newest tools) so
+     none of them ever cross over the RAYVEN lettering in the middle. Each one
+     hovers up/down in place with a gentle 3D rock for a floating feel. ---- */
   .tool-bolt-hub {
     position: fixed; top: 42%; left: 50%; width: 0; height: 0;
     perspective: 700px; z-index: 4; pointer-events: none;
@@ -381,7 +380,7 @@
   #toolPanel .tp-desc { font-size: 12px; line-height: 1.6; color: var(--text); opacity: 0.9; }
 
   @media (max-width: 720px) {
-    .tool-bolt-hub { transform: scale(0.62); }
+    .tool-bolt-hub { transform: scale(0.55); }
   }
 </style>
 </head>
@@ -394,9 +393,8 @@
 <div id="welcomeText">WELCOME HOME,<br>SIR</div>
 <canvas id="sphereCanvas"></canvas>
 
-<!-- 12 gold tool bolts, each stationed at its own fixed spot scattered around
-     the sphere (top/bottom/left/right/corners) — none of them cross the center
-     anymore, so the RAYVEN lettering stays clear. Each hovers up/down in place. -->
+<!-- 16 gold tool bolts, each stationed at its own fixed spot scattered around
+     the sphere. Inner ring = original 12 tools, outer ring = the 4 newest ones. -->
 <div class="tool-bolt-hub" style="top: calc(42% + -260px); left: calc(50% + 0px);">
   <div class="tool-bolt" style="animation-delay: 0s;" onclick="showToolInfo('browser')"><div class="tb-halo"></div><div class="tb-body"></div></div>
 </div>
@@ -432,6 +430,18 @@
 </div>
 <div class="tool-bolt-hub" style="top: calc(42% + -217px); left: calc(50% + -125px);">
   <div class="tool-bolt" style="animation-delay: -3.12s;" onclick="showToolInfo('network')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+</div>
+<div class="tool-bolt-hub" style="top: calc(42% + -251px); left: calc(50% + 251px);">
+  <div class="tool-bolt" style="animation-delay: -3.40s;" onclick="showToolInfo('webmonitor')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+</div>
+<div class="tool-bolt-hub" style="top: calc(42% + 247px); left: calc(50% + 247px);">
+  <div class="tool-bolt" style="animation-delay: -3.68s;" onclick="showToolInfo('email')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+</div>
+<div class="tool-bolt-hub" style="top: calc(42% + 254px); left: calc(50% + -254px);">
+  <div class="tool-bolt" style="animation-delay: -3.97s;" onclick="showToolInfo('calendar')"><div class="tb-halo"></div><div class="tb-body"></div></div>
+</div>
+<div class="tool-bolt-hub" style="top: calc(42% + -244px); left: calc(50% + -244px);">
+  <div class="tool-bolt" style="animation-delay: -4.25s;" onclick="showToolInfo('notify')"><div class="tb-halo"></div><div class="tb-body"></div></div>
 </div>
 
 <!-- Tool info popup — fades and slides in smoothly -->
@@ -506,18 +516,22 @@
 
 <script>
 const TOOL_INFO = {
-  browser:  { icon: '🌐', title: 'BROWSER CONTROL', desc: 'Navigates to websites, clicks things by their visible text, types into fields, and scrolls pages — all inside your actual Chrome browser.' },
-  vision:   { icon: '👁', title: 'SCREEN VISION', desc: 'Takes a real screenshot of whatever tab is currently open, so I can actually see what\'s on screen before acting.' },
-  control:  { icon: '🖱', title: 'PRECISION CLICK & TYPE', desc: 'Clicks and types at exact pixel coordinates — like a real mouse and keyboard — for anything that has no readable text to match, like icons.' },
-  spotify:  { icon: '🎵', title: 'SPOTIFY', desc: 'Searches and plays songs, shuffles your playlists, pauses, skips, and reports what\'s currently playing.' },
-  youtube:  { icon: '▶', title: 'YOUTUBE', desc: 'Finds and opens a specific video on command, including a creator\'s latest upload.' },
-  voice:    { icon: '🎤', title: 'VOICE & CLAP DETECTION', desc: 'Listens continuously for the wake phrase "Hey RAYVEN" or a double clap, and knows when to pause listening while I\'m speaking.' },
-  maps:     { icon: '📍', title: 'GOOGLE MAPS', desc: 'Searches places, finds every location of a business across an area, computes distances, spots geographic gaps in a market, and gives directions.' },
-  memory:   { icon: '🧠', title: 'LONG-TERM MEMORY', desc: 'Remembers facts, decisions, and preferences permanently — across every conversation, forever, not just this session.' },
-  todo:     { icon: '📝', title: 'TO-DO LIST', desc: 'Tracks open tasks you\'ve given me, and gently nags about the oldest one during scheduled check-ins.' },
-  phone:    { icon: '📞', title: 'TEXTING & CALLING', desc: 'Sends real SMS messages and places real phone calls from RAYVEN\'s own Twilio phone number.' },
-  research: { icon: '🔍', title: 'WEB RESEARCH', desc: 'Searches the web for quick facts, and can dig deeper into specific pages or crawl a whole site for real-time information.' },
-  network:  { icon: '🔗', title: 'AGENT NETWORK', desc: 'Talks directly to Jay\'s JARVIS and Kevin\'s KEVOS — sibling AI assistants — for genuine agent-to-agent conversation.' }
+  browser:    { icon: '🌐', title: 'BROWSER CONTROL', desc: 'Navigates to websites, clicks things by their visible text, types into fields, and scrolls pages — all inside your actual Chrome browser.' },
+  vision:     { icon: '👁', title: 'SCREEN VISION', desc: 'Takes a real screenshot of whatever tab is currently open, so I can actually see what\'s on screen before acting.' },
+  control:    { icon: '🖱', title: 'PRECISION CLICK & TYPE', desc: 'Clicks and types at exact pixel coordinates — like a real mouse and keyboard — for anything that has no readable text to match, like icons.' },
+  spotify:    { icon: '🎵', title: 'SPOTIFY', desc: 'Searches and plays songs, shuffles your playlists, pauses, skips, and reports what\'s currently playing.' },
+  youtube:    { icon: '▶', title: 'YOUTUBE', desc: 'Finds and opens a specific video on command, including a creator\'s latest upload.' },
+  voice:      { icon: '🎤', title: 'VOICE & CLAP DETECTION', desc: 'Listens continuously for the wake phrase "Hey RAYVEN" or a double clap, and knows when to pause listening while I\'m speaking.' },
+  maps:       { icon: '📍', title: 'GOOGLE MAPS', desc: 'Searches places, finds every location of a business across an area, computes distances, spots geographic gaps in a market, and gives directions.' },
+  memory:     { icon: '🧠', title: 'LONG-TERM MEMORY', desc: 'Remembers facts, decisions, and preferences permanently, and can now intelligently search its own memory by topic, person, date, or meaning — not just recent messages.' },
+  todo:       { icon: '📝', title: 'TO-DO LIST', desc: 'Tracks open tasks you\'ve given me, and gently nags about the oldest one during scheduled check-ins.' },
+  phone:      { icon: '📞', title: 'TEXTING & CALLING', desc: 'Sends real SMS messages and places real phone calls from RAYVEN\'s own Twilio phone number.' },
+  research:   { icon: '🔍', title: 'WEB RESEARCH', desc: 'Searches the web for quick facts, and can dig deeper into specific pages or crawl a whole site for real-time information.' },
+  network:    { icon: '🔗', title: 'AGENT NETWORK', desc: 'Talks directly to Jay\'s JARVIS and Kevin\'s KEVOS — sibling AI assistants — for genuine agent-to-agent conversation.' },
+  webmonitor: { icon: '📡', title: 'WEB MONITORING', desc: 'Continuously watches prices, websites, news, and topics you choose in the background, and proactively alerts you when something meaningful changes.' },
+  email:      { icon: '📧', title: 'EMAIL ACCESS', desc: 'Reads and searches your inbox, summarizes threads, drafts replies, and flags emails that need your attention — sending stays in your control.' },
+  calendar:   { icon: '📅', title: 'CALENDAR & DAY PLANNING', desc: 'Reads and manages your schedule, spots conflicts and free time, and proactively helps organize your day around what matters.' },
+  notify:     { icon: '🔔', title: 'NOTIFICATION TRIGGERS', desc: 'A centralized system that messages you through Telegram the moment a condition you\'ve set is actually met, with real context, not spam.' }
 };
 
 function showToolInfo(id) {
@@ -632,9 +646,6 @@ canvas.addEventListener('wheel', e => {
 const PURPLE_R = 155, PURPLE_G = 107, PURPLE_B = 255;
 const GOLD_R = 232, GOLD_G = 196, GOLD_B = 104;
 
-// Draws a persistent grid every frame, BEFORE the sphere is drawn, so it always
-// reads as background texture behind the sphere. Toned down and glow removed so
-// it recedes visually instead of competing with the sphere in front of it.
 let gridOffset = 0;
 function drawGrid() {
   const spacing = 46;
