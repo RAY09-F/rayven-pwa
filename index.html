@@ -11,7 +11,6 @@
     --storm-mid: #170c26;
     --purple: #9b6bff;
     --purple-glow: #7a4fe0;
-    --purple-dark: #5a3aa8;
     --gold: #e8c468;
     --gold-glow: #ffdd88;
     --text: #e8ddff;
@@ -27,6 +26,8 @@
     color: var(--text);
   }
   canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; }
+  #ravenCanvas { z-index: 2; cursor: grab; }
+  #ravenCanvas.dragging { cursor: grabbing; }
 
   .lightning-line {
     position: fixed; top: -5vh; width: 2px;
@@ -90,8 +91,8 @@
   @keyframes wakeFlashAnim { 0% { opacity: 0; } 68% { opacity: 0; } 74% { opacity: 1; } 100% { opacity: 0; } }
 
   #wordmark {
-    position: fixed; top: 78%; left: 50%; transform: translate(-50%, -50%);
-    text-align: center; pointer-events: none; z-index: 2; transition: opacity 0.3s ease;
+    position: fixed; top: 80%; left: 50%; transform: translate(-50%, -50%);
+    text-align: center; pointer-events: none; z-index: 3; transition: opacity 0.3s ease;
   }
   #wordTitle {
     font-family: 'Orbitron', sans-serif; font-weight: 900;
@@ -119,78 +120,6 @@
     transition: opacity 0.35s ease, transform 0.5s cubic-bezier(.22,1.6,.36,1);
   }
   #welcomeText.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-
-  /* ---- The branch — a real trunk rising from the bottom of the screen up to
-     the raven, with purple leaves that occasionally fall and regrow ---- */
-  #branchStage {
-    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-    width: min(12vw, 80px); height: 60vh; z-index: 1; pointer-events: none;
-  }
-  .leaf { transition: none; }
-  .leaf.falling { animation: leafFall 2.8s ease-in forwards; }
-  @keyframes leafFall {
-    0% { transform: translate(0,0) rotate(0deg); opacity: 1; }
-    100% { transform: translate(-18px, 240px) rotate(170deg); opacity: 0; }
-  }
-  .leaf.regrow { animation: leafRegrow 0.6s ease-out; }
-  @keyframes leafRegrow {
-    0% { opacity: 0; transform: scale(0.3); }
-    100% { opacity: 1; transform: scale(1); }
-  }
-
-  /* ---- The raven-on-a-branch logo ---- */
-  #ravenStage {
-    position: fixed; top: 42%; left: 50%; transform: translate(-50%, -50%);
-    width: min(46vw, 320px); z-index: 2;
-    transition: opacity 0.4s ease, transform 0.4s ease;
-  }
-  #ravenStage.vanish { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
-
-  #ravenSvg { width: 100%; height: auto; display: block; overflow: visible; }
-
-  #ravenBody {
-    animation: ravenBobIdle 3.6s ease-in-out infinite;
-    filter: drop-shadow(0 0 10px rgba(155,107,255,0.35));
-  }
-  @keyframes ravenBobIdle { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-
-  #ravenStage.listening #ravenBody { animation: ravenBobListen 1.6s ease-in-out infinite; filter: drop-shadow(0 0 18px rgba(155,107,255,0.6)); }
-  @keyframes ravenBobListen { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-10px) scale(1.03); } }
-
-  #ravenStage.thinking #ravenBody { animation: ravenThink 0.9s ease-in-out infinite; filter: drop-shadow(0 0 20px rgba(255,221,136,0.55)); }
-  @keyframes ravenThink { 0%,100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
-
-  #ravenStage.talking #ravenBody { animation: ravenBobTalk 0.5s ease-in-out infinite; filter: drop-shadow(0 0 20px rgba(255,221,136,0.6)); }
-  @keyframes ravenBobTalk { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
-
-  #ravenStage.sleeping #ravenBody { animation: none; transform: translateY(4px); filter: drop-shadow(0 0 4px rgba(155,107,255,0.15)); }
-  #ravenStage.sleeping { opacity: 0.55; }
-
-  #ravenStage.burst #ravenBody { animation: ravenPop 0.6s ease-out; }
-  @keyframes ravenPop { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
-
-  #beakLower {
-    transform-origin: 163px 116px;
-    transform: rotate(0deg);
-    transition: transform 0.15s ease;
-  }
-  #ravenStage.talking #beakLower {
-    animation: beakChatter 0.26s ease-in-out infinite;
-  }
-  @keyframes beakChatter { 0%,100% { transform: rotate(0deg); } 50% { transform: rotate(20deg); } }
-
-  #ravenEye { animation: eyeGlow 2.4s ease-in-out infinite; }
-  @keyframes eyeGlow { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
-
-  .wing { transform-origin: 120px 168px; animation: wingFlutterIdle 4s ease-in-out infinite; }
-  #wingRight { animation-delay: 0.15s; }
-  @keyframes wingFlutterIdle { 0%,100% { transform: rotate(0deg); } 50% { transform: rotate(-4deg); } }
-  #ravenStage.listening .wing { animation: wingFlutterActive 1.8s ease-in-out infinite; }
-  #ravenStage.talking .wing { animation: wingFlutterActive 1.2s ease-in-out infinite; }
-  @keyframes wingFlutterActive {
-    0%,100% { transform: rotate(0deg) scale(1); }
-    50% { transform: rotate(-9deg) scale(1.04); }
-  }
 
   .corner-box {
     position: fixed; z-index: 10; background: rgba(20,10,35,0.45);
@@ -313,7 +242,6 @@
     font-size: 8px; letter-spacing: 1px; color: var(--steel); z-index: 12; text-align: center; max-width: 220px;
   }
 
-  /* ---- Tool bolts: scattered across the whole screen, 32 total ---- */
   .tool-bolt-hub {
     position: fixed; width: 0; height: 0;
     perspective: 700px; z-index: 4; pointer-events: none;
@@ -347,7 +275,6 @@
     100% { transform: translateY(0)     rotateY(-16deg) translateZ(0)   scale(1); }
   }
 
-  /* ---- Tool info popup — fades and slides in smoothly ---- */
   #toolOverlay {
     position: fixed; inset: 0; z-index: 20;
     display: flex; align-items: center; justify-content: center;
@@ -386,7 +313,8 @@
 </head>
 <body>
 
-<canvas id="sphereCanvas"></canvas>
+<canvas id="gridCanvas"></canvas>
+<canvas id="ravenCanvas"></canvas>
 
 <div id="wordmark">
   <div id="wordTitle"></div>
@@ -394,87 +322,6 @@
 </div>
 <div id="welcomeText">WELCOME HOME,<br>SIR</div>
 
-<!-- The branch — a real trunk rising from the bottom of the screen up to the raven -->
-<div id="branchStage">
-  <svg viewBox="0 0 120 900" preserveAspectRatio="none" width="100%" height="100%">
-    <defs>
-      <linearGradient id="branchGold" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%" stop-color="#c9a24f"/>
-        <stop offset="50%" stop-color="#e8c468"/>
-        <stop offset="100%" stop-color="#ffdd88"/>
-      </linearGradient>
-      <linearGradient id="leafGrad2" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#c9a8ff"/>
-        <stop offset="100%" stop-color="#8a5fe0"/>
-      </linearGradient>
-    </defs>
-    <path d="M 44,900 C 38,700 54,500 46,300 C 42,180 52,100 50,50 L 70,50 C 68,100 78,180 74,300 C 66,500 82,700 76,900 Z" fill="url(#branchGold)" filter="drop-shadow(0 0 6px rgba(255,221,136,0.35))"/>
-    <line x1="20" y1="45" x2="100" y2="45" stroke="url(#branchGold)" stroke-width="10" stroke-linecap="round"/>
-    <line x1="60" y1="260" x2="90" y2="230" stroke="url(#branchGold)" stroke-width="6" stroke-linecap="round"/>
-    <line x1="55" y1="560" x2="25" y2="530" stroke="url(#branchGold)" stroke-width="6" stroke-linecap="round"/>
-    <g id="leaf1" class="leaf" style="transform-origin: 90px 230px;"><path d="M 90,230 Q 83,215 90,202 Q 97,215 90,230 Z" fill="url(#leafGrad2)"/></g>
-    <g id="leaf2" class="leaf" style="transform-origin: 25px 530px;"><path d="M 25,530 Q 18,515 25,502 Q 32,515 25,530 Z" fill="url(#leafGrad2)"/></g>
-    <g id="leaf3" class="leaf" style="transform-origin: 55px 400px;"><path d="M 55,400 Q 48,385 55,372 Q 62,385 55,400 Z" fill="url(#leafGrad2)"/></g>
-    <g id="leaf4" class="leaf" style="transform-origin: 65px 650px;"><path d="M 65,650 Q 58,635 65,622 Q 72,635 65,650 Z" fill="url(#leafGrad2)"/></g>
-    <g id="leaf5" class="leaf" style="transform-origin: 40px 150px;"><path d="M 40,150 Q 33,135 40,122 Q 47,135 40,150 Z" fill="url(#leafGrad2)"/></g>
-  </svg>
-</div>
-
-<!-- The raven-on-a-branch logo. Beak opens/closes and wings flutter automatically
-     based on RAYVEN's state (idle/listening/thinking/talking/sleeping/burst). -->
-<div id="ravenStage">
-  <svg id="ravenSvg" viewBox="0 0 240 300" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="goldGrad" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#fff6d8"/>
-        <stop offset="50%" stop-color="#ffdd88"/>
-        <stop offset="100%" stop-color="#e8c468"/>
-      </linearGradient>
-      <linearGradient id="purpleGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#b48bff"/>
-        <stop offset="60%" stop-color="#9b6bff"/>
-        <stop offset="100%" stop-color="#6a3fd6"/>
-      </linearGradient>
-    </defs>
-
-    <g id="ravenBody">
-      <!-- Tail feathers -->
-      <polygon points="72,188 34,244 78,214" fill="var(--purple-dark)"/>
-      <polygon points="168,188 206,244 162,214" fill="var(--purple-dark)"/>
-
-      <!-- Body -->
-      <ellipse cx="120" cy="168" rx="56" ry="66" fill="url(#purpleGrad)"/>
-
-      <!-- Wings — layered feathers, each with its own flutter animation -->
-      <g id="wingLeft" class="wing">
-        <path d="M 78,150 Q 58,178 74,222 Q 92,208 90,178 Z" fill="var(--purple-dark)" opacity="0.85"/>
-        <path d="M 82,158 Q 68,182 78,214 Q 92,202 90,180 Z" fill="#8a5fe0" opacity="0.6"/>
-        <path d="M 76,150 L 60,155" stroke="url(#goldGrad)" stroke-width="2" opacity="0.7"/>
-      </g>
-      <g id="wingRight" class="wing">
-        <path d="M 162,150 Q 182,178 166,222 Q 148,208 150,178 Z" fill="var(--purple-dark)" opacity="0.85"/>
-        <path d="M 158,158 Q 172,182 162,214 Q 148,202 150,180 Z" fill="#8a5fe0" opacity="0.6"/>
-        <path d="M 164,150 L 180,155" stroke="url(#goldGrad)" stroke-width="2" opacity="0.7"/>
-      </g>
-
-      <!-- Head -->
-      <circle cx="120" cy="96" r="44" fill="url(#purpleGrad)"/>
-
-      <!-- Eye -->
-      <circle id="ravenEye" cx="140" cy="88" r="7.5" fill="url(#goldGrad)"/>
-
-      <!-- Upper beak (fixed) -->
-      <polygon points="158,96 200,110 160,120" fill="url(#goldGrad)"/>
-      <!-- Lower beak (animated open/close) -->
-      <g id="beakLower">
-        <polygon points="158,116 196,120 160,126" fill="#d8a94f"/>
-      </g>
-    </g>
-  </svg>
-</div>
-
-<!-- 32 gold tool bolts scattered across the whole screen — every tool appears
-     twice, each hovering up/down in place. -->
 <div class="tool-bolt-hub" style="top: 8vh; left: 12vw;"><div class="tool-bolt" style="animation-delay: 0s;" onclick="showToolInfo('browser')"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
 <div class="tool-bolt-hub" style="top: 15vh; left: 82vw;"><div class="tool-bolt" style="animation-delay: -0.20s;" onclick="showToolInfo('vision')"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
 <div class="tool-bolt-hub" style="top: 28vh; left: 6vw;"><div class="tool-bolt" style="animation-delay: -0.40s;" onclick="showToolInfo('control')"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
@@ -491,7 +338,6 @@
 <div class="tool-bolt-hub" style="top: 45vh; left: 15vw;"><div class="tool-bolt" style="animation-delay: -2.60s;" onclick="showToolInfo('email')"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
 <div class="tool-bolt-hub" style="top: 55vh; left: 88vw;"><div class="tool-bolt" style="animation-delay: -2.80s;" onclick="showToolInfo('calendar')"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
 <div class="tool-bolt-hub" style="top: 85vh; left: 45vw;"><div class="tool-bolt" style="animation-delay: -3.00s;" onclick="showToolInfo('notify')"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
-
 <div class="tool-bolt-hub" style="top: 25vh; left: 70vw;"><div class="tool-bolt" style="animation-delay: -3.20s;" onclick="showToolInfo('browser')"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
 <div class="tool-bolt-hub" style="top: 5vh; left: 35vw;"><div class="tool-bolt" style="animation-delay: -3.40s;" onclick="showToolInfo('vision')"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
 <div class="tool-bolt-hub" style="top: 40vh; left: 78vw;"><div class="tool-bolt" style="animation-delay: -3.60s;" onclick="showToolInfo('control')"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
@@ -509,7 +355,6 @@
 <div class="tool-bolt-hub" style="top: 22vh; left: 92vw;"><div class="tool-bolt" style="animation-delay: -6.00s;" onclick="showToolInfo('calendar')"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
 <div class="tool-bolt-hub" style="top: 48vh; left: 25vw;"><div class="tool-bolt" style="animation-delay: -6.20s;" onclick="showToolInfo('notify')"><div class="tb-halo"></div><div class="tb-body"></div></div></div>
 
-<!-- Tool info popup — fades and slides in smoothly -->
 <div id="toolOverlay" onclick="if(event.target===this)hideToolInfo()">
   <div id="toolPanel">
     <button class="tp-close" onclick="hideToolInfo()">✕</button>
@@ -561,7 +406,7 @@
   <button id="muteCircle" onclick="toggleMute()" title="Mute microphone">🔇</button>
   <button id="stopButton" onclick="handleStopClick()" title="Stop RAYVEN from talking">⏹</button>
 </div>
-<div id="voiceStatusSmall">Click the mic, then say "Hey RAYVEN" or double clap</div>
+<div id="voiceStatusSmall">Click and drag to rotate RAYVEN, scroll to zoom. Click the mic, then say "Hey RAYVEN" or double clap</div>
 
 <div id="holoTop" class="holo-box">
   <div class="holo-title">◈ SYSTEM STATUS</div>
@@ -578,6 +423,174 @@
   <div class="holo-row"><span class="holo-label">07 · BROWSER</span><span class="holo-val">Extension linked</span><div class="holo-bar"><div class="holo-fill" style="animation-delay:1.0s"></div></div></div>
   <div class="holo-row"><span class="holo-label">08 · NETWORK</span><span class="holo-val">JARVIS · KEVOS · RAYVEN</span><div class="holo-bar"><div class="holo-fill" style="animation-delay:1.4s"></div></div></div>
 </div>
+
+<!-- ===== Real 3D raven, built with Three.js — genuine WebGL geometry, ===== -->
+<!-- ===== draggable/zoomable, reactive to RAYVEN's state.               ===== -->
+<script type="module">
+import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+
+const canvas = document.getElementById('ravenCanvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 0.3, 5.2);
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.enablePan = false;
+controls.minDistance = 3;
+controls.maxDistance = 9;
+controls.target.set(0, 0.4, 0);
+
+const ambient = new THREE.AmbientLight(0x6a4ab0, 0.7);
+scene.add(ambient);
+const purpleLight = new THREE.PointLight(0x9b6bff, 2.2, 12);
+purpleLight.position.set(-3, 2, 3);
+scene.add(purpleLight);
+const goldLight = new THREE.PointLight(0xffdd88, 1.6, 8);
+goldLight.position.set(2, 1, 2);
+scene.add(goldLight);
+
+const purpleMat = new THREE.MeshStandardMaterial({ color: 0x9b6bff, metalness: 0.35, roughness: 0.35, emissive: 0x2a1a55, emissiveIntensity: 0.25 });
+const purpleDarkMat = new THREE.MeshStandardMaterial({ color: 0x5a3aa8, metalness: 0.3, roughness: 0.45 });
+const goldMat = new THREE.MeshStandardMaterial({ color: 0xe8c468, metalness: 0.7, roughness: 0.25, emissive: 0x4a3814, emissiveIntensity: 0.3 });
+const goldEyeMat = new THREE.MeshStandardMaterial({ color: 0xffdd88, emissive: 0xffdd88, emissiveIntensity: 1.6 });
+
+const raven = new THREE.Group();
+scene.add(raven);
+
+const body = new THREE.Mesh(new THREE.SphereGeometry(0.62, 28, 22), purpleMat);
+body.scale.set(1, 1.25, 0.9);
+body.position.y = 0.15;
+raven.add(body);
+
+const head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 24, 20), purpleMat);
+head.position.set(0, 0.95, 0.15);
+raven.add(head);
+
+const eyeGeo = new THREE.SphereGeometry(0.055, 12, 10);
+const eyeL = new THREE.Mesh(eyeGeo, goldEyeMat);
+eyeL.position.set(-0.24, 1.02, 0.44);
+raven.add(eyeL);
+const eyeR = new THREE.Mesh(eyeGeo, goldEyeMat);
+eyeR.position.set(0.24, 1.02, 0.44);
+raven.add(eyeR);
+
+const beakUpper = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.42, 16), goldMat);
+beakUpper.rotation.x = Math.PI / 2.1;
+beakUpper.position.set(0, 0.92, 0.6);
+raven.add(beakUpper);
+
+const beakPivot = new THREE.Group();
+beakPivot.position.set(0, 0.85, 0.5);
+raven.add(beakPivot);
+const beakLower = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.32, 16), goldMat);
+beakLower.rotation.x = Math.PI / 1.9;
+beakLower.position.set(0, -0.02, 0.16);
+beakPivot.add(beakLower);
+
+function makeWing(side) {
+  const pivot = new THREE.Group();
+  pivot.position.set(side * 0.55, 0.35, -0.05);
+  const wing = new THREE.Mesh(new THREE.ConeGeometry(0.32, 1.05, 4), purpleDarkMat);
+  wing.rotation.z = side * Math.PI / 2.15;
+  wing.rotation.y = side * 0.25;
+  wing.position.set(side * 0.4, -0.1, 0);
+  pivot.add(wing);
+  raven.add(pivot);
+  return pivot;
+}
+const wingPivotL = makeWing(-1);
+const wingPivotR = makeWing(1);
+
+const tailGeo = new THREE.ConeGeometry(0.34, 0.95, 4);
+const tail = new THREE.Mesh(tailGeo, purpleDarkMat);
+tail.rotation.x = -Math.PI / 2.3;
+tail.position.set(0, -0.15, -0.75);
+raven.add(tail);
+
+const legGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.35, 8);
+const legL = new THREE.Mesh(legGeo, goldMat);
+legL.position.set(-0.18, -0.55, 0.05);
+raven.add(legL);
+const legR = new THREE.Mesh(legGeo, goldMat);
+legR.position.set(0.18, -0.55, 0.05);
+raven.add(legR);
+
+const branch = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 3.4, 12), goldMat);
+branch.rotation.z = Math.PI / 2;
+branch.position.set(0, -0.78, 0);
+scene.add(branch);
+const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.24, 3, 12), goldMat);
+trunk.position.set(0, -2.6, -0.3);
+scene.add(trunk);
+
+let currentRavenState = 'idle';
+let burstTimer = 0;
+window.setSphereState = function(name) {
+  currentRavenState = name;
+  if (name === 'burst') burstTimer = 0.6;
+};
+window.triggerVanish = function() { raven.userData.vanishing = true; };
+window.unVanish = function() { raven.userData.vanishing = false; };
+
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+  const dt = clock.getDelta();
+  controls.update();
+
+  let bobAmp = 0.03, bobSpeed = 1.4, wingAmp = 0.12, wingSpeed = 2.2, lightPulse = 0.5;
+
+  if (currentRavenState === 'listening') { bobAmp = 0.06; bobSpeed = 3.2; wingAmp = 0.22; wingSpeed = 4; lightPulse = 1.1; }
+  else if (currentRavenState === 'thinking') { bobAmp = 0.02; bobSpeed = 5; wingAmp = 0.15; wingSpeed = 5; lightPulse = 1.4; raven.rotation.z = Math.sin(t * 5) * 0.04; }
+  else if (currentRavenState === 'talking') {
+    bobAmp = 0.04; bobSpeed = 2.6; wingAmp = 0.28; wingSpeed = 6; lightPulse = 1.2;
+    beakPivot.rotation.x = Math.max(0, Math.sin(t * 14)) * 0.5;
+  } else {
+    beakPivot.rotation.x += (0 - beakPivot.rotation.x) * 0.2;
+    raven.rotation.z += (0 - raven.rotation.z) * 0.1;
+  }
+  if (currentRavenState === 'sleeping') { bobAmp = 0.01; wingAmp = 0.02; lightPulse = 0.2; }
+
+  raven.position.y = 0.4 + Math.sin(t * bobSpeed) * bobAmp;
+  wingPivotL.rotation.z = Math.sin(t * wingSpeed) * wingAmp;
+  wingPivotR.rotation.z = -Math.sin(t * wingSpeed + 0.3) * wingAmp;
+
+  purpleLight.intensity = 1.6 + Math.sin(t * 2) * 0.3 * lightPulse;
+  goldLight.intensity = 1.1 + Math.sin(t * 2.6 + 1) * 0.4 * lightPulse;
+
+  if (burstTimer > 0) {
+    burstTimer -= dt;
+    const scalePop = 1 + Math.sin((0.6 - burstTimer) * 8) * 0.15 * Math.max(0, burstTimer / 0.6);
+    raven.scale.setScalar(scalePop);
+  } else {
+    raven.scale.setScalar(1);
+  }
+
+  const targetScale = raven.userData.vanishing ? 0.0001 : 1;
+  raven.scale.multiplyScalar(1);
+  if (raven.userData.vanishing) raven.scale.setScalar(0.0001);
+
+  renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+canvas.addEventListener('mousedown', () => canvas.classList.add('dragging'));
+window.addEventListener('mouseup', () => canvas.classList.remove('dragging'));
+</script>
 
 <script>
 const TOOL_INFO = {
@@ -614,7 +627,6 @@ function hideToolInfo() {
 const wordmarkEl = document.getElementById('wordmark');
 const wordTitleEl = document.getElementById('wordTitle');
 const welcomeTextEl = document.getElementById('welcomeText');
-const ravenStageEl = document.getElementById('ravenStage');
 
 function setTitleText(text) {
   wordTitleEl.innerHTML = '';
@@ -629,87 +641,42 @@ setTitleText('RAYVEN');
 
 function setSleepingVisual(isSleeping) { wordmarkEl.classList.toggle('sleeping', isSleeping); }
 
-const RAVEN_STATE_NAMES = ['idle', 'listening', 'thinking', 'talking', 'burst', 'sleeping'];
-function setSphereState(name) {
-  RAVEN_STATE_NAMES.forEach(n => ravenStageEl.classList.remove(n));
-  if (RAVEN_STATE_NAMES.includes(name)) ravenStageEl.classList.add(name);
-  if (name === 'burst') {
-    ravenStageEl.classList.remove('burst');
-    void ravenStageEl.offsetWidth;
-    ravenStageEl.classList.add('burst');
-  }
-}
-function triggerVanish() {
-  ravenStageEl.classList.add('vanish');
-}
-function unVanish() {
-  ravenStageEl.classList.remove('vanish');
-}
-
-const canvas = document.getElementById('sphereCanvas');
-const ctx = canvas.getContext('2d');
-function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-resize();
-window.addEventListener('resize', resize);
+const gridCanvas = document.getElementById('gridCanvas');
+const gctx = gridCanvas.getContext('2d');
+function resizeGrid() { gridCanvas.width = window.innerWidth; gridCanvas.height = window.innerHeight; }
+resizeGrid();
+window.addEventListener('resize', resizeGrid);
 
 let gridOffset = 0;
 function drawGrid() {
   const spacing = 46;
   gridOffset = (gridOffset + 0.06) % spacing;
-  ctx.save();
-  ctx.strokeStyle = 'rgba(155,107,255,0.07)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let x = -spacing + gridOffset; x < canvas.width + spacing; x += spacing) {
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, canvas.height);
-  }
-  for (let y = -spacing + gridOffset; y < canvas.height + spacing; y += spacing) {
-    ctx.moveTo(0, y);
-    ctx.lineTo(canvas.width, y);
-  }
-  ctx.stroke();
-  ctx.restore();
+  gctx.save();
+  gctx.strokeStyle = 'rgba(155,107,255,0.07)';
+  gctx.lineWidth = 1;
+  gctx.beginPath();
+  for (let x = -spacing + gridOffset; x < gridCanvas.width + spacing; x += spacing) { gctx.moveTo(x, 0); gctx.lineTo(x, gridCanvas.height); }
+  for (let y = -spacing + gridOffset; y < gridCanvas.height + spacing; y += spacing) { gctx.moveTo(0, y); gctx.lineTo(gridCanvas.width, y); }
+  gctx.stroke();
+  gctx.restore();
 
-  ctx.save();
-  ctx.strokeStyle = 'rgba(232,196,104,0.09)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
+  gctx.save();
+  gctx.strokeStyle = 'rgba(232,196,104,0.09)';
+  gctx.lineWidth = 1;
+  gctx.beginPath();
   const bigSpacing = spacing * 4;
-  for (let x = -bigSpacing + (gridOffset * 4 % bigSpacing); x < canvas.width + bigSpacing; x += bigSpacing) {
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, canvas.height);
-  }
-  for (let y = -bigSpacing + (gridOffset * 4 % bigSpacing); y < canvas.height + bigSpacing; y += bigSpacing) {
-    ctx.moveTo(0, y);
-    ctx.lineTo(canvas.width, y);
-  }
-  ctx.stroke();
-  ctx.restore();
+  for (let x = -bigSpacing + (gridOffset * 4 % bigSpacing); x < gridCanvas.width + bigSpacing; x += bigSpacing) { gctx.moveTo(x, 0); gctx.lineTo(x, gridCanvas.height); }
+  for (let y = -bigSpacing + (gridOffset * 4 % bigSpacing); y < gridCanvas.height + bigSpacing; y += bigSpacing) { gctx.moveTo(0, y); gctx.lineTo(gridCanvas.width, y); }
+  gctx.stroke();
+  gctx.restore();
 }
-function render() {
-  ctx.fillStyle = 'rgba(10,5,16,0.32)';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+function renderGrid() {
+  gctx.fillStyle = 'rgba(10,5,16,0.32)';
+  gctx.fillRect(0, 0, gridCanvas.width, gridCanvas.height);
   drawGrid();
-  requestAnimationFrame(render);
+  requestAnimationFrame(renderGrid);
 }
-render();
-
-function leafFallCycle() {
-  const ids = ['leaf1','leaf2','leaf3','leaf4','leaf5'];
-  const pick = ids[Math.floor(Math.random() * ids.length)];
-  const el = document.getElementById(pick);
-  if (el && !el.classList.contains('falling')) {
-    el.classList.add('falling');
-    setTimeout(() => {
-      el.classList.remove('falling');
-      el.classList.add('regrow');
-      setTimeout(() => el.classList.remove('regrow'), 700);
-    }, 2800);
-  }
-  setTimeout(leafFallCycle, 3500 + Math.random() * 4500);
-}
-setTimeout(leafFallCycle, 4000);
+renderGrid();
 
 function spawnLightning() {
   const line = document.createElement('div');
