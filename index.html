@@ -464,19 +464,28 @@
 <!-- Pinned version — an upstream release must never break a live system silently. -->
 <script type="importmap">{"imports":{
   "three":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
-  "three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.webgpu.js",
-  "three/tsl":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.tsl.js",
   "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"
 }}</script>
 
 <script type="module">
 // ============================================================================
 // THE REACTOR — three atom-cluster forms on a turntable.
-// WebGPU renderer (falls back to WebGL2 internally); if init fails entirely,
-// initCanvas2DFallback() takes over so the reactor is never blank.
-// Exposes window.Reactor for the HUD layer. Three.js is imported DYNAMICALLY
-// inside initThreeReactor so a failed CDN load degrades to the 2D fallback
-// instead of killing this whole module.
+// Classic THREE.WebGLRenderer + a hand-written GLSL ShaderMaterial for the
+// point sprites — NOT THREE.WebGPURenderer/PointsMaterial. That combination
+// was tried first and is broken: when no WebGPU adapter is available (most
+// browsers today), WebGPURenderer silently falls back to an internal WebGL2
+// path, but its Node-material auto-compiler requires a per-vertex "uv"
+// attribute for textured Points that plain point sprites never carry — it
+// warns ("Vertex attribute 'uv' not found on geometry"), the shader graph
+// breaks, and the geometry renders completely invisible: draw calls happen,
+// vertex counts and FPS report fine, but zero pixels ever paint. A hand-written
+// ShaderMaterial sidesteps that auto-compiler entirely (gl_PointSize/
+// gl_PointCoord, verbatim GLSL, no node graph) — this is the exact technique
+// already proven working in this codebase before the WebGPU rewrite. If
+// WebGLRenderer itself fails to init (ancient/broken browser), initCanvas2DFallback()
+// takes over so the reactor is never blank. Exposes window.Reactor for the
+// HUD layer. Three.js is imported DYNAMICALLY so a failed CDN load also
+// degrades to the 2D fallback instead of killing this whole module.
 // ============================================================================
 
 // Frontend persona registry — mirror of the backend's (colors/forms/slots).
@@ -674,6 +683,44 @@ function makeGlowTexture(THREE) {
   return new THREE.CanvasTexture(c);
 }
 
+// One shared hand-written ShaderMaterial for all three persona clouds — plain
+// GLSL, no Node-material auto-compilation, so it just renders. gl_PointSize
+// scales with view-space distance (dist), gl_PointCoord samples the glow
+// texture per-fragment (point sprites don't carry a vertex UV attribute, and
+// don't need one). uTint drives the alert-mode red pull.
+function makeReactorMaterial(THREE, glowTex) {
+  return new THREE.ShaderMaterial({
+    uniforms: { map: { value: glowTex }, uSize: { value: 30 }, uTint: { value: new THREE.Color(1, 1, 1) } },
+    vertexShader: `
+      attribute vec3 color;
+      uniform float uSize;
+      uniform vec3 uTint;
+      varying vec3 vColor;
+      varying float vGlow;
+      void main() {
+        vColor = color * uTint;
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        float dist = max(0.1, -mvPosition.z);
+        vGlow = clamp(1.7 - dist * 0.10, 0.18, 1.3);
+        gl_PointSize = uSize / dist;
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D map;
+      varying vec3 vColor;
+      varying float vGlow;
+      void main() {
+        vec4 tex = texture2D(map, gl_PointCoord);
+        gl_FragColor = vec4(vColor * vGlow, tex.a * vGlow);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Reactor state (shared by WebGPU path and 2D fallback where sensible)
 // ---------------------------------------------------------------------------
@@ -766,42 +813,36 @@ window.addEventListener('mousemove', e => pointerMove(e.clientX, e.clientY));
 window.addEventListener('mouseup', e => pointerUp(e.clientX, e.clientY));
 
 // ---------------------------------------------------------------------------
-// WebGPU path
+// Render path — classic WebGL (see the block comment above for why WebGPU
+// was dropped)
 // ---------------------------------------------------------------------------
 let renderLoopToken = 0; // bumping this kills any previous render loop
+const CAM_Z = 8.2, SLOT_D = 3.0;
 
-async function initThreeReactor(opts = {}) {
+async function initThreeReactor() {
   const THREE = await import('three');
-  const { WebGPURenderer } = await import('three/webgpu');
   ensureFreshCanvas();
-  const renderer = new WebGPURenderer({ canvas, antialias: true, alpha: true, forceWebGL: !!opts.forceWebGL });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  await renderer.init();
   const myToken = ++renderLoopToken;
 
-  // Watchdog: if the WebGPU device is lost after init (flaky drivers, software
-  // adapters), fall back to the WebGL backend, then to Canvas 2D — the reactor
-  // must never go blank.
-  try {
-    const device = renderer.backend && renderer.backend.device;
-    if (device && device.lost) {
-      device.lost.then(() => {
-        if (renderLoopToken !== myToken) return;
-        console.warn(`${opts.forceWebGL ? 'WebGL' : 'WebGPU'} device lost — falling back.`);
-        try { renderer.dispose(); } catch (e) {}
-        if (opts.forceWebGL) initCanvas2DFallback();
-        else initThreeReactor({ forceWebGL: true }).catch(() => initCanvas2DFallback());
-      });
-    }
-  } catch (e) {}
+  // A real WebGL context loss (driver reset, GPU process crash) is rare but
+  // does happen — fall back to Canvas 2D rather than leaving a frozen/blank
+  // canvas on screen.
+  canvas.addEventListener('webglcontextlost', (e) => {
+    if (renderLoopToken !== myToken) return;
+    e.preventDefault();
+    console.warn('WebGL context lost — falling back to Canvas 2D.');
+    initCanvas2DFallback();
+  }, { once: true });
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-  const CAM_Z = 8.2, SLOT_D = 3.0;
   camera.position.set(0, 0.15, CAM_Z);
   camera.lookAt(0, 0, SLOT_D);
 
   const glowTex = makeGlowTexture(THREE);
+  const sharedMaterial = makeReactorMaterial(THREE, glowTex);
   const turntable = new THREE.Group();
   turntable.position.y = -0.35;
   scene.add(turntable);
@@ -813,24 +854,23 @@ async function initThreeReactor(opts = {}) {
     geometry.setAttribute('position', new THREE.BufferAttribute(built.positions.slice(), 3));
     geometry.setAttribute('color', new THREE.BufferAttribute(built.colors, 3));
     geometry.setDrawRange(0, built.tierPointCounts[R.qualityLevel]);
-    const material = new THREE.PointsMaterial({
-      size: 0.045, map: glowTex, vertexColors: true, transparent: true,
-      opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true
-    });
-    const points = new THREE.Points(geometry, material);
+    const points = new THREE.Points(geometry, sharedMaterial);
     const holder = new THREE.Group();
     const slot = PERSONA_SLOT_ANGLE[id];
     holder.position.set(Math.sin(slot) * SLOT_D, 0, Math.cos(slot) * SLOT_D);
     holder.add(points);
     turntable.add(holder);
-    clouds[id] = { points, geometry, material, base: built.positions, tierPointCounts: built.tierPointCounts, holder, spin: Math.random() * Math.PI * 2, vis: id === R.active ? 1 : 0 };
+    clouds[id] = { points, geometry, base: built.positions, tierPointCounts: built.tierPointCounts, holder, spin: Math.random() * Math.PI * 2, vis: id === R.active ? 1 : 0 };
   }
 
   // Hot-swap a cloud (used by Project H region for her denser form).
   window.Reactor._swapCloud = null;
 
   function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     renderer.setSize(window.innerWidth, window.innerHeight, false);
+    renderer.setPixelRatio(dpr);
+    sharedMaterial.uniforms.uSize.value = 3.4 * CAM_Z * dpr;
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
   }
@@ -917,18 +957,18 @@ async function initThreeReactor(opts = {}) {
     jitterPhase++;
     R.vertexCount = liveVerts;
 
-    // alert tint — pull every cloud toward red via material color multiply
-    for (const id of P_IDS) {
-      const m = clouds[id].material;
+    // alert tint — pull the shared material toward red (one uniform, one lerp,
+    // since all three clouds now share a single ShaderMaterial instance)
+    {
       const t = R.alertTint ? 1 : 0;
-      m.color.lerp(R.alertTint ? new THREE.Color(1.6, 0.35, 0.35) : new THREE.Color(1, 1, 1), 0.08 + t * 0.02);
+      sharedMaterial.uniforms.uTint.value.lerp(R.alertTint ? new THREE.Color(1.6, 0.35, 0.35) : new THREE.Color(1, 1, 1), 0.08 + t * 0.02);
     }
 
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
-  R.mode = opts.forceWebGL ? 'webgl' : 'webgpu';
+  R.mode = 'webgl';
 }
 
 // ---------------------------------------------------------------------------
@@ -1012,17 +1052,13 @@ function initCanvas2DFallback() {
   R.mode = '2d';
 }
 
-// ?reactor=webgl / ?reactor=2d force a specific render path (debugging aid).
-const forcedPath = new URLSearchParams(location.search).get('reactor');
-if (forcedPath === '2d') {
+// ?reactor=2d forces the Canvas 2D path (debugging aid).
+if (new URLSearchParams(location.search).get('reactor') === '2d') {
   initCanvas2DFallback();
 } else {
-  initThreeReactor({ forceWebGL: forcedPath === 'webgl' }).catch(err => {
-    console.warn('WebGPU reactor init failed — trying WebGL backend:', err);
-    initThreeReactor({ forceWebGL: true }).catch(err2 => {
-      console.warn('WebGL reactor init failed too — Canvas 2D fallback:', err2);
-      initCanvas2DFallback();
-    });
+  initThreeReactor().catch(err => {
+    console.warn('WebGL reactor init failed — Canvas 2D fallback:', err);
+    initCanvas2DFallback();
   });
 }
 </script>
@@ -1037,11 +1073,13 @@ if (forcedPath === '2d') {
 // The demo models go through the same spec path as assistant-authored ones.
 // Three.js loads dynamically on first open — never at page load.
 // ============================================================================
-let THREE = null, WebGPURenderer = null;
+// Classic WebGLRenderer here too — the bay's meshes have no texture map, so
+// they don't hit the WebGPU/Points UV bug, but the WebGPU render path is
+// still dropped throughout this file for one consistent, well-tested renderer.
+let THREE = null;
 async function loadThree() {
   if (THREE) return;
   THREE = await import('three');
-  ({ WebGPURenderer } = await import('three/webgpu'));
 }
 
 const MODEL_LIBRARY = [
@@ -1215,25 +1253,17 @@ async function initBay() {
     canvas = fresh;
   }
   canvas.__used = true;
-  const renderer = new WebGPURenderer({ canvas, antialias: true, alpha: true, forceWebGL: !!bay.forceWebGL });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  await renderer.init();
-  // device-loss watchdog: retry once on the WebGL backend
-  try {
-    const device = renderer.backend && renderer.backend.device;
-    if (device && device.lost && !bay.forceWebGL) {
-      device.lost.then(async () => {
-        console.warn('Bay GPU device lost — reinitializing on WebGL backend.');
-        bay.forceWebGL = true;
-        bay.inited = false;
-        try { renderer.dispose(); } catch (e) {}
-        if (bay.open) {
-          const model = bay.currentModel;
-          try { await initBay(); bayResize(); loadModel(model || MODEL_LIBRARY[0]); } catch (e) {}
-        }
-      });
+  canvas.addEventListener('webglcontextlost', async (e) => {
+    e.preventDefault();
+    console.warn('Bay WebGL context lost — reinitializing.');
+    bay.inited = false;
+    if (bay.open) {
+      const model = bay.currentModel;
+      try { await initBay(); bayResize(); loadModel(model || MODEL_LIBRARY[0]); } catch (err) {}
     }
-  } catch (e) {}
+  }, { once: true });
   bay.renderer = renderer;
   bay.scene = new THREE.Scene();
   bay.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
@@ -1317,10 +1347,10 @@ async function openBay(modelName) {
       bay.tintIdx = (bay.tintIdx + 1) % TINT_PALETTES.length;
       loadModel(bay.currentModel); // rebuild in new tint; modes re-applied inside
     };
-    document.getElementById('baySnap').onclick = async () => {
-      // WebGPU renders asynchronously — render(); toDataURL() in the same task
-      // captures a BLANK frame (a 170-byte empty PNG). renderAsync first.
-      await bay.renderer.renderAsync(bay.scene, bay.camera);
+    document.getElementById('baySnap').onclick = () => {
+      // Classic WebGLRenderer.render() is synchronous — toDataURL() right
+      // after it is safe (unlike WebGPU's async render pipeline).
+      bay.renderer.render(bay.scene, bay.camera);
       const a = document.createElement('a');
       a.href = document.getElementById('bayCanvas').toDataURL('image/png');
       a.download = (bay.currentModel ? bay.currentModel.name.toLowerCase().replace(/\s+/g, '-') : 'model') + '.png';
@@ -1378,9 +1408,8 @@ async function openProjection(spec) {
     try {
       await loadThree();
       const canvas = document.getElementById('projCanvas');
-      proj.renderer = new WebGPURenderer({ canvas, antialias: true, alpha: true });
+      proj.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
       proj.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      await proj.renderer.init();
       proj.scene = new THREE.Scene();
       proj.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 50);
       proj.camera.position.set(0, 0.5, 4.4);
