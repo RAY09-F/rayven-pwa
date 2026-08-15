@@ -32,7 +32,7 @@ export async function handleSpotifyCallback(env, url) {
     return new Response('Spotify login failed: ' + JSON.stringify(tokenData), { status: 400 });
   }
   await env.RAYVEN_KV.put('spotify:refresh_token', tokenData.refresh_token);
-  return new Response('RAYVEN is now connected to your Spotify. You can close this tab and go back to talking to RAYVEN, sir.', {
+  return new Response('THOR is now connected to your Spotify. You can close this tab and go back to talking to THOR, sir.', {
     headers: { 'content-type': 'text/plain' }
   });
 }

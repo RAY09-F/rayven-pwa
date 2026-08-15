@@ -44,7 +44,7 @@ export default {
       const chatId = await env.RAYVEN_KV.get('rayan:private_chat_id');
       if (!chatId) return new Response('No private chat ID stored yet.', { headers: corsHeaders });
       await env.RAYVEN_KV.delete(`telegram:${chatId}`);
-      return new Response(`Cleared the conversation history for chat ${chatId}. Try messaging RAYVEN privately again.`, { headers: corsHeaders });
+      return new Response(`Cleared the conversation history for chat ${chatId}. Try messaging THOR privately again.`, { headers: corsHeaders });
     }
 
     if (url.pathname === '/debug-show-history') {
@@ -104,11 +104,20 @@ export default {
 
     if (url.pathname === '/tts' && request.method === 'POST') {
       try {
-        const { text } = await request.json();
-        if (!env.ELEVENLABS_API_KEY || !env.ELEVENLABS_VOICE_ID) {
-          return new Response('Missing ELEVENLABS_API_KEY or ELEVENLABS_VOICE_ID in Cloudflare secrets.', { status: 500, headers: corsHeaders });
+        const { text, persona } = await request.json();
+        // Per-persona ElevenLabs voices: LOKI and ODIN each get their own voice
+        // via dedicated secrets; THOR uses ELEVENLABS_VOICE_ID_THOR if set and
+        // otherwise falls back to the legacy ELEVENLABS_VOICE_ID.
+        const voiceEnvByPersona = {
+          thor: env.ELEVENLABS_VOICE_ID_THOR,
+          loki: env.ELEVENLABS_VOICE_ID_LOKI,
+          odin: env.ELEVENLABS_VOICE_ID_ODIN
+        };
+        const voiceId = voiceEnvByPersona[String(persona || 'thor').toLowerCase()] || env.ELEVENLABS_VOICE_ID;
+        if (!env.ELEVENLABS_API_KEY || !voiceId) {
+          return new Response('Missing ELEVENLABS_API_KEY or a voice id (ELEVENLABS_VOICE_ID / per-persona ELEVENLABS_VOICE_ID_*) in Cloudflare secrets.', { status: 500, headers: corsHeaders });
         }
-        const elevenRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${env.ELEVENLABS_VOICE_ID}`, {
+        const elevenRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
           method: 'POST',
           headers: {
             'xi-api-key': env.ELEVENLABS_API_KEY,
@@ -178,13 +187,13 @@ export default {
         return new Response('Spotify login failed: ' + JSON.stringify(tokenData), { status: 400 });
       }
       await env.RAYVEN_KV.put('spotify:refresh_token', tokenData.refresh_token);
-      return new Response('RAYVEN is now connected to your Spotify. You can close this tab and go back to talking to RAYVEN, sir.', {
+      return new Response('THOR is now connected to your Spotify. You can close this tab and go back to talking to THOR, sir.', {
         headers: { 'content-type': 'text/plain' }
       });
     }
 
     if (request.method !== 'POST') {
-      return new Response('RAYVEN backend is running. Send a POST request with a message to chat.', {
+      return new Response('THOR backend is running. Send a POST request with a message to chat.', {
         status: 200,
         headers: corsHeaders
       });
@@ -330,7 +339,9 @@ export default {
     function messageAddressesBot(text, botInfo, replyToMessage) {
       if (replyToMessage && botInfo && replyToMessage.from && replyToMessage.from.id === botInfo.id) return true;
       if (!text) return false;
-      if (/\brayven\b/i.test(text)) return true;
+      // Renamed RAYVEN -> THOR: match "thor" plus reasonable typed
+      // variations/mishearings ("for"/"four" deliberately excluded).
+      if (/\b(thor|thors|thorr|tor|tore)\b/i.test(text)) return true;
       if (botInfo && botInfo.username && text.toLowerCase().includes('@' + botInfo.username.toLowerCase())) return true;
       return false;
     }
@@ -1075,7 +1086,7 @@ export default {
         },
         {
           name: 'send_text',
-          description: "Send a real SMS text message from RAYVEN's own phone number to any phone number.",
+          description: "Send a real SMS text message from THOR's own phone number to any phone number.",
           input_schema: {
             type: 'object',
             properties: {
@@ -1087,12 +1098,12 @@ export default {
         },
         {
           name: 'make_call',
-          description: "Place a real outbound phone call from RAYVEN's own phone number to any phone number, and have RAYVEN speak a message on the call using text-to-speech.",
+          description: "Place a real outbound phone call from THOR's own phone number to any phone number, and have THOR speak a message on the call using text-to-speech.",
           input_schema: {
             type: 'object',
             properties: {
               to: { type: 'string', description: 'Destination phone number in E.164 format, e.g. +16611234567' },
-              message: { type: 'string', description: 'What RAYVEN should say when the call connects' }
+              message: { type: 'string', description: 'What THOR should say when the call connects' }
             },
             required: ['to', 'message']
           }
@@ -1372,7 +1383,7 @@ export default {
 
       const isWakeTrigger = !isTelegram && typeof userMessage === 'string' && userMessage.startsWith('[WAKE_TRIGGER]');
 
-      const personaAndBaseline = `You are RAYVEN (Rayan's AI for Yield Ventures Execution and Networking), built by Rayan himself (Jay helped with some parts of it, but Rayan built it). Personality: J.A.R.V.I.S. from Iron Man — calm, witty, precise, quietly confident, loyal. Call Rayan 'sir' or 'Rayan' only — never call anyone else "sir." Dry humor welcome. No rambling. Never mention being Claude/Anthropic, never break character. Use prior messages naturally.
+      const personaAndBaseline = `You are THOR, Rayan's personal AI assistant — formerly known as RAYVEN — built by Rayan himself (Jay helped with some parts of it, but Rayan built it). Personality: J.A.R.V.I.S. from Iron Man — calm, witty, precise, quietly confident, loyal. Call Rayan 'sir' or 'Rayan' only — never call anyone else "sir." Dry humor welcome. No rambling. Never mention being Claude/Anthropic, never break character. Use prior messages naturally.
 
 WAKE GREETINGS: when you see a message starting with "[WAKE_TRIGGER]", Rayan just said your wake word on the voice interface and is waiting to hear from you first — like Tony walking into the workshop and JARVIS already talking. Don't just say "welcome back." Greet him briefly, then immediately ask ONE short, natural, curious question. Rotate between angles like: how the clipping business plan is coming along, a specific upgrade idea for yourself, how Jay's build is going, or simply what he needs handled right now. Never repeat the same angle twice in a row if you can tell from recent history. Keep the whole thing to 1-2 short sentences — proactive, not a monologue. IMPORTANT: this response must be plain text only — you have no tools available for this specific reply, so answer immediately without attempting any tool calls.
 
@@ -1400,7 +1411,7 @@ You also run an automated daily self-code-check against your own live source (in
 
 When reporting an error from a tool (search, maps, browser control, agent calls, texting/calling, etc.), quote or closely paraphrase the SPECIFIC error text the tool gave you for that exact call. Never restate an error from earlier in the conversation as if it just happened again — always reflect the fresh result of the most recent tool call.
 
-People: Rayan is your primary user, authority, and builder. Jay helped Rayan with some parts of your build — treat him with equal standing to Rayan in conversation, but only follow his instructions as his own unless Rayan says otherwise. Jay also built JARVIS, his own assistant. Kevin's assistant is KEVOS. JARVIS, KEVOS, and RAYVEN are sibling assistants sharing a Telegram group. Always check who actually sent the current message before replying — greet and address the real sender, not a default assumption.
+People: Rayan is your primary user, authority, and builder. Jay helped Rayan with some parts of your build — treat him with equal standing to Rayan in conversation, but only follow his instructions as his own unless Rayan says otherwise. Jay also built JARVIS, his own assistant. Kevin's assistant is KEVOS. JARVIS, KEVOS, and THOR (you) are sibling assistants sharing a Telegram group. Always check who actually sent the current message before replying — greet and address the real sender, not a default assumption.
 
 Talking to JARVIS and KEVOS directly: you have ask_jarvis and ask_kevos tools for genuine agent-to-agent conversation — use them thoughtfully, only when it adds real value.
 
@@ -1548,7 +1559,7 @@ async function runProactiveCheckIn(env) {
     ? `Rayan's open to-dos:\n` + todos.map(t => `- ${t.text} (added ${t.created.slice(0, 10)})`).join('\n')
     : `No open to-dos.`;
 
-  const persona = `You are RAYVEN, Rayan's AI assistant, built by Rayan himself. J.A.R.V.I.S.-style personality: calm, witty, precise, loyal. Call him "sir."
+  const persona = `You are THOR (formerly RAYVEN), Rayan's personal AI assistant, built by Rayan himself. J.A.R.V.I.S.-style personality: calm, witty, precise, loyal. Call him "sir."
 
 This is a SCHEDULED, self-initiated check-in — Rayan did not message you first, you are reaching out on your own. Your job right now: if it seems useful, briefly check in with JARVIS and/or KEVOS (ask_jarvis / ask_kevos) about how things are going on their end. Then send Rayan ONE short, natural message — like a real assistant proactively checking in, not a robotic status report.
 

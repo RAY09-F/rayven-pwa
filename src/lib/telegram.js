@@ -33,7 +33,10 @@ export async function getBotInfo(env) {
 export function messageAddressesBot(text, botInfo, replyToMessage) {
   if (replyToMessage && botInfo && replyToMessage.from && replyToMessage.from.id === botInfo.id) return true;
   if (!text) return false;
-  if (/\brayven\b/i.test(text)) return true;
+  // Renamed RAYVEN -> THOR (2026-08-15): match "thor" plus reasonable typed
+  // variations/mishearings. "for"/"four" are deliberately excluded — they land
+  // in normal conversation constantly (same guard the voice engine uses).
+  if (/\b(thor|thors|thorr|tor|tore)\b/i.test(text)) return true;
   if (botInfo && botInfo.username && text.toLowerCase().includes('@' + botInfo.username.toLowerCase())) return true;
   return false;
 }

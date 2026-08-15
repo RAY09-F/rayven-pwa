@@ -222,7 +222,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'send_text',
-    description: "Send a real SMS text message from RAYVEN's own phone number to any phone number.",
+    description: "Send a real SMS text message from THOR's own phone number to any phone number.",
     input_schema: {
       type: 'object',
       properties: {
@@ -234,12 +234,12 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'make_call',
-    description: "Place a real outbound phone call from RAYVEN's own phone number to any phone number, and have RAYVEN speak a message on the call using text-to-speech.",
+    description: "Place a real outbound phone call from THOR's own phone number to any phone number, and have THOR speak a message on the call using text-to-speech.",
     input_schema: {
       type: 'object',
       properties: {
         to: { type: 'string', description: 'Destination phone number in E.164 format, e.g. +16611234567' },
-        message: { type: 'string', description: 'What RAYVEN should say when the call connects' }
+        message: { type: 'string', description: 'What THOR should say when the call connects' }
       },
       required: ['to', 'message']
     }
@@ -393,7 +393,7 @@ export const TOOL_DEFINITIONS = [
       properties: {
         target: { type: 'string', description: 'A URL to watch a specific page, OR a search phrase (company name, topic, keyword) to watch broader web/news activity.' },
         label: { type: 'string', description: 'Short human name for this watch, e.g. "PS5 restock" or "Acme Corp news". Defaults to the target if omitted.' },
-        condition: { type: 'string', description: 'What specifically to alert on, in plain English, e.g. "price drops below $400", "back in stock", "any major news". If omitted, RAYVEN uses judgment on what counts as meaningful.' },
+        condition: { type: 'string', description: 'What specifically to alert on, in plain English, e.g. "price drops below $400", "back in stock", "any major news". If omitted, the assistant uses judgment on what counts as meaningful.' },
         intervalMinutes: { type: 'number', description: 'How often to check, in minutes. Defaults to 30.' }
       },
       required: ['target']
