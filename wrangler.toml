@@ -1,4 +1,15 @@
-name = "rayven-backend"
+# The live Worker is "asgrard-backend" (note the spelling — it is misspelled on
+# Cloudflare, and this name MUST match it exactly or nothing deploys where you
+# think it does). It was renamed from "rayven-backend" on 2026-08-15; that old
+# name no longer exists, and its URL now returns Cloudflare error 1042.
+#
+# This name must never be "fixed" casually: all 17 secrets, the workers.dev URL,
+# and the Telegram webhook are attached to the script NAME. Deploying under a
+# name that does not exist silently CREATES a second, empty Worker with no
+# secrets, while the real one keeps serving — a very confusing way to lose an
+# afternoon. Renaming for real means re-adding every secret, re-pointing the
+# Telegram webhook, and updating BACKEND_URL in the frontend pages.
+name = "asgrard-backend"
 main = "src/index.js"
 compatibility_date = "2026-08-13"
 

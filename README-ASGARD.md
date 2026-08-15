@@ -14,7 +14,7 @@ RAYVEN is now **ASGARD**: three assistants — **THOR** (personal, the default, 
 
 ## Where the app lives
 
-**The PWA is live at https://rayven-backend.rayanfahil2.workers.dev/** — served straight from the worker (`[assets]` in wrangler.toml, from `public/index.html`, a copy of the repo-root file). `run_worker_first = true` is required in that config: without it Cloudflare's static-asset handler claims `/` for every HTTP method, not just GET, which silently 405'd both web chat and the Telegram webhook the first time assets were turned on. All POST routes (chat, Telegram webhooks, `/agent/query`) are otherwise untouched by asset serving.
+**The PWA is live at https://asgrard-backend.rayanfahil2.workers.dev/** — served straight from the worker (`[assets]` in wrangler.toml, from `public/index.html`, a copy of the repo-root file). `run_worker_first = true` is required in that config: without it Cloudflare's static-asset handler claims `/` for every HTTP method, not just GET, which silently 405'd both web chat and the Telegram webhook the first time assets were turned on. All POST routes (chat, Telegram webhooks, `/agent/query`) are otherwise untouched by asset serving.
 
 Source of truth on GitHub: **https://github.com/RAY09-F/rayven-pwa** (public). The daily self-code-check in `src/lib/checkin.js` still points at the old placeholder `rayanfahil` account — update `fetchGitHubSource`'s URLs to `RAY09-F/rayven-pwa` when you want that check to actually run against real source instead of silently 404ing.
 
@@ -66,8 +66,8 @@ npx wrangler secret put ELEVENLABS_VOICE_ID_ODIN
 Then point each new bot's webhook at its persona route:
 
 ```
-curl "https://api.telegram.org/bot<LOKI_TOKEN>/setWebhook?url=https://rayven-backend.rayanfahil2.workers.dev/telegram/loki"
-curl "https://api.telegram.org/bot<ODIN_TOKEN>/setWebhook?url=https://rayven-backend.rayanfahil2.workers.dev/telegram/odin"
+curl "https://api.telegram.org/bot<LOKI_TOKEN>/setWebhook?url=https://asgrard-backend.rayanfahil2.workers.dev/telegram/loki"
+curl "https://api.telegram.org/bot<ODIN_TOKEN>/setWebhook?url=https://asgrard-backend.rayanfahil2.workers.dev/telegram/odin"
 ```
 
 **Do not change** the existing RAYVENN_RAYAN_BOT webhook — it stays on `POST /` where JARVIS expects the system to live.

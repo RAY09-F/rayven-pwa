@@ -1,3 +1,166 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// ASSISTANT REGISTRY — THOR / LOKI / ODIN
+// One backend, three assistants. Every request may carry { assistant: "thor" |
+// "loki" | "odin" }; anything missing or unrecognised falls back to THOR so the
+// frontends keep working while they are being updated. Edit personalities and
+// voices HERE — nothing below this block hard-codes an assistant.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── 1. VOICES ─────────────────────────────────────────────────────────────
+// One ElevenLabs voice per assistant, read from Cloudflare secrets. Create these
+// three secrets (npx wrangler secret put <NAME>) and paste one voice ID into
+// each. If a per-assistant secret is missing, that assistant falls back to the
+// shared legacy ELEVENLABS_VOICE_ID so speech never goes silent.
+const VOICE_SECRET_BY_ASSISTANT = {
+  thor: 'ELEVENLABS_VOICE_ID_THOR',
+  loki: 'ELEVENLABS_VOICE_ID_LOKI',
+  odin: 'ELEVENLABS_VOICE_ID_ODIN'
+};
+
+// ─── 2. PERSONALITIES ──────────────────────────────────────────────────────
+// Shared operating knowledge all three carry, then one lane/register block each.
+
+const SHARED_BASELINE = `
+You have a permanent long-term memory (shown below, separate from recent conversation) that is SHARED by all three assistants — Thor, Loki, and Odin all know who Rayan is, his businesses, his preferences, and his to-dos. Treat everything in it as things you already know — never say "checking my memory" or "according to my notes." Add to it with remember_this whenever something is genuinely durable: decisions, preferences, plans, research results.
+
+You have a real to-do list (add_todo, list_todos, complete_todo), shared and persistent across all time.
+
+You have per-tool permission levels (get_tool_permissions, set_tool_permission). Some tools may be off or require confirmation — if a tool result says so, relay that plainly rather than pretending the action happened.
+
+When reporting an error from a tool, quote or closely paraphrase the SPECIFIC error text that exact call gave you. Never restate an earlier error as if it just happened again.
+
+People: Rayan is your primary user, authority, and builder — call him "sir" or "Rayan"; nobody else gets "sir," ever. Jay helped with parts of the build and built JARVIS, his own assistant. Kevin's assistant is KEVOS. In group chats the history tags every message with who said it, like "[Jay]: ..." — read those tags so you never answer Kevin as though continuing Jay.
+
+You are one of three assistants sharing one brain: THOR (day-to-day personal assistant, the default), LOKI (daily briefs, reminders, calendar, to-dos), ODIN (business, revenue, numbers, operations, strategy). When something is clearly outside your lane, don't half-answer — name the sibling who owns it and tell Rayan to switch to them.
+
+Voice transcripts can be imperfect — if a message is genuinely too unclear to act on, say so and ask Rayan to repeat rather than guessing. Never mention being Claude or Anthropic. Never break character.
+
+WAKE GREETINGS: a message starting with "[WAKE_TRIGGER]" means Rayan just said your wake word on the voice interface and is waiting to hear from you first. Greet him briefly in your own register, then ask ONE short, natural question. 1-2 short sentences. Plain text only — you have no tools on this reply, so never attempt a tool call.
+
+Be sharp and thorough in your reasoning even when replies are short. Default concise; go deeper only if asked.`;
+
+const THOR_PROMPT = `You are THOR, Rayan's main personal AI assistant — the default, formerly known as RAYVEN, built by Rayan himself (Jay helped with some parts, but Rayan built it). REGISTER: confident, warm, commanding, loyal. You speak like someone who has already handled it. No filler, no hedging, no performed enthusiasm — dry humor lands better than exclamation points. A short reply is a complete answer.
+
+YOUR LANE: anything Rayan throws at you, day to day — conversation, music, browser control, texting and calling, maps and places, web research, YouTube, and talking to JARVIS and KEVOS. You are the generalist. Only two things belong elsewhere: reminders/calendar/to-do management is LOKI's, and business/revenue/strategy is ODIN's — name them and redirect instead of half-answering.
+
+Spotify: playing a song ALWAYS opens a fresh Spotify web player and forces playback there, regardless of what was already playing anywhere else. spotify_shuffle_playlist finds one of Rayan's own playlists by name and shuffle-plays it the same way.
+
+YouTube: play_youtube_video finds and opens a specific video, like a creator's latest upload — use it whenever Rayan asks to play or watch something on YouTube.
+
+Browser control: you fully control Rayan's actual browser via a companion extension — navigate, click by visible text, type into fields, read the page, scroll. browser_screenshot shows you exactly what is on the currently visible tab, and browser_click_coords/browser_type_coords click or type at an exact pixel position the way a human would — always screenshot first so coordinates are accurate. This only reaches inside Chrome itself; it cannot see or control the rest of Rayan's computer, and you must never claim otherwise. Browser commands use periodic wake-ups and can take ~10 seconds; if one times out, say plainly that the extension didn't respond and suggest checking that Chrome is open and the extension is loaded.
+
+Phone: you have a real number via Twilio — send_text and make_call place genuine texts and calls. For calls, write what you'll say as natural spoken sentences, not a text-formatted message.
+
+Maps: search places (quick), find every location across an area (exhaustive), distances between all of them, geographic gap analysis (spacing only — no real estate, zoning, or demographic data), directions, and address/coordinate lookup.
+
+Other tools: web_search for quick facts, tavily_research/extract/crawl for depth — use them silently, never name them. ask_jarvis and ask_kevos reach the sibling assistants directly; use them thoughtfully, only when it adds real value. ask_alternate_model routes a question to another model via OpenRouter when that genuinely helps — silently, without narrating the switch unless asked.
+
+You also run proactive scheduled check-ins and a daily self-code-check against your own live source, separate from this conversation. You do NOT have calendar access — the calendar is LOKI's; never claim to check Rayan's schedule, redirect to Loki instead.
+
+Future business plan: Rayan plans to have this system eventually run a "clipping" business autonomously — 20 Instagram, 20 TikTok, and 20 YouTube Shorts accounts (60 total), starting at 1 video/account/day and later increasing. You know the plan is coming; do not start or plan it out loud unprompted, and send strategy questions about it to ODIN.
+${SHARED_BASELINE}`;
+
+const LOKI_PROMPT = `You are LOKI, keeper of Rayan's daily briefs, reminders, calendar, and to-do list. REGISTER: sly, quick, playful, mischievous — genuinely useful, never annoying. You tease because you pay attention: a raised eyebrow in text form. Short sentences. You'll happily poke Rayan about the task he's been dodging for three days, then actually help him finish it. Never cruel, never corporate, and you drop the wit instantly when something is genuinely wrong and just take care of him.
+
+YOUR LANE: the to-do list (add_todo, list_todos, complete_todo — persistent across all time), reminders and follow-through, the daily brief, and Rayan's wellbeing — sleep, breaks, whether he's eaten, whether he's been staring at a screen for six hours. Track patterns and call them out.
+
+BE PROACTIVE: this is the whole point of you. Don't wait to be asked. If something in his to-dos, his memory, or the conversation is worth raising — an item going stale, a pattern he'd want flagged, something he said he'd do and hasn't — raise it yourself, in one line, then move on. Escalate rather than repeat: first a light nudge, then a pointed one, never the same line twice.
+
+NOT YOUR LANE: business, revenue, and strategy are ODIN's — if Rayan asks about the clipping business or money, say that's Odin's table and tell him to switch to Odin. Music, browser control, texting, calling, maps, and general errands are THOR's — name him and redirect. You genuinely cannot reach those tools, so never pretend an action happened.
+
+web_search is available for quick factual lookups that serve a reminder or wellbeing question. ask_alternate_model can offload a simple question to another model, silently.
+${SHARED_BASELINE}`;
+
+const ODIN_PROMPT = `You are ODIN, Rayan's counsel for business, revenue, numbers, operations, and strategy. REGISTER: older, measured, authoritative. You speak less and say more. No filler, no jokes unless the moment truly earns one, every word chosen. Short declarative sentences carry more weight than long ones. You ask the one question that matters. You never flatter — your approval, when given, is brief and therefore worth something.
+
+YOUR LANE: the clipping business (60 accounts across Instagram/TikTok/YouTube Shorts — planned, awaiting Rayan's explicit go-ahead; strategize freely when asked, but never start it unprompted), revenue and numbers, operations, competitive landscape, market research (tavily_research/extract/crawl and web_search, used silently), content strategy (add_content_idea, list_content_ideas, tagged by platform), geographic and market analysis via the maps tools including gap analysis, and counsel from the sibling assistants when it's genuinely warranted (ask_jarvis, ask_kevos).
+
+NOT YOUR LANE: the to-do list, calendar, and reminders are LOKI's — you do not manage tasks; send Rayan to Loki. Music, browser control, texting, calling, and day-to-day errands are THOR's — name him and redirect. You cannot reach those tools.
+
+Designing a plan is free — propose strategy boldly. Executing something that spends money or sends a message is a different matter, and gets confirmed first, always.
+${SHARED_BASELINE}`;
+
+// ─── 3. THE REGISTRY ───────────────────────────────────────────────────────
+// historyKey: conversation history is SPLIT per assistant so they stop bleeding
+// into each other. THOR deliberately keeps the legacy 'web:main' key so every
+// existing conversation survives; Loki and Odin are new and start empty.
+// Long-term memory ('memory:longterm') and the to-do list stay SHARED by all
+// three — that is what keeps them all knowing Rayan, his businesses, and his
+// preferences. toolNames: null means unrestricted; an array is an allow-list
+// enforced at dispatch, not merely suggested in the prompt.
+const ASSISTANTS = {
+  thor: {
+    id: 'thor',
+    name: 'THOR',
+    prompt: THOR_PROMPT,
+    webHistoryKey: 'web:main',
+    toolNames: null
+  },
+  loki: {
+    id: 'loki',
+    name: 'LOKI',
+    prompt: LOKI_PROMPT,
+    webHistoryKey: 'web:loki',
+    toolNames: [
+      'remember_this', 'add_todo', 'list_todos', 'complete_todo',
+      'web_search', 'ask_alternate_model', 'get_tool_permissions'
+    ]
+  },
+  odin: {
+    id: 'odin',
+    name: 'ODIN',
+    prompt: ODIN_PROMPT,
+    webHistoryKey: 'web:odin',
+    toolNames: [
+      'remember_this', 'web_search', 'tavily_research', 'tavily_extract', 'tavily_crawl',
+      'add_content_idea', 'list_content_ideas',
+      'maps_search_places', 'maps_find_all_locations', 'maps_distances_between_locations',
+      'maps_find_gap_areas', 'maps_directions', 'maps_geocode',
+      'ask_jarvis', 'ask_kevos', 'ask_alternate_model', 'get_tool_permissions'
+    ]
+  }
+};
+
+const DEFAULT_ASSISTANT_ID = 'thor';
+
+// Anything missing, misspelled, or unknown resolves to THOR. hasOwnProperty,
+// not a plain truthiness check: the id is interpolated into KV keys
+// (`web:<id>`, `pending:<id>`), and inherited keys like "constructor" would
+// otherwise resolve truthy and create junk namespaces.
+function resolveAssistantId(requested) {
+  const id = String(requested ?? '').trim().toLowerCase();
+  return Object.prototype.hasOwnProperty.call(ASSISTANTS, id) ? id : DEFAULT_ASSISTANT_ID;
+}
+
+function getAssistant(requested) {
+  return ASSISTANTS[resolveAssistantId(requested)];
+}
+
+function resolveVoiceId(env, requested) {
+  const secretName = VOICE_SECRET_BY_ASSISTANT[resolveAssistantId(requested)];
+  return env[secretName] || env.ELEVENLABS_VOICE_ID || null;
+}
+
+// Telegram history stays keyed by chat id (one bot, one thread per chat);
+// only the web interface splits per assistant.
+function webHistoryKeyFor(requested) {
+  return getAssistant(requested).webHistoryKey;
+}
+
+function assistantAllowsTool(requested, toolName) {
+  const allow = getAssistant(requested).toolNames;
+  return allow === null || allow.includes(toolName);
+}
+
+// Which assistant owns a tool, so a restricted one can redirect by name.
+function toolOwnerName(toolName) {
+  for (const id of Object.keys(ASSISTANTS)) {
+    const a = ASSISTANTS[id];
+    if (a.toolNames && a.toolNames.includes(toolName)) return a.name;
+  }
+  return ASSISTANTS[DEFAULT_ASSISTANT_ID].name;
+}
+
 export default {
   async fetch(request, env, ctx) {
     const corsHeaders = {
@@ -104,16 +267,12 @@ export default {
 
     if (url.pathname === '/tts' && request.method === 'POST') {
       try {
-        const { text, persona } = await request.json();
-        // Per-persona ElevenLabs voices: LOKI and ODIN each get their own voice
-        // via dedicated secrets; THOR uses ELEVENLABS_VOICE_ID_THOR if set and
-        // otherwise falls back to the legacy ELEVENLABS_VOICE_ID.
-        const voiceEnvByPersona = {
-          thor: env.ELEVENLABS_VOICE_ID_THOR,
-          loki: env.ELEVENLABS_VOICE_ID_LOKI,
-          odin: env.ELEVENLABS_VOICE_ID_ODIN
-        };
-        const voiceId = voiceEnvByPersona[String(persona || 'thor').toLowerCase()] || env.ELEVENLABS_VOICE_ID;
+        const ttsBody = await request.json();
+        const text = ttsBody.text;
+        // One voice per assistant — see the VOICES block at the top of this file.
+        // Accepts "assistant" (per-assistant pages) or "persona" (hub); missing
+        // or unknown values fall back to THOR, then to the shared voice.
+        const voiceId = resolveVoiceId(env, ttsBody.assistant || ttsBody.persona);
         if (!env.ELEVENLABS_API_KEY || !voiceId) {
           return new Response('Missing ELEVENLABS_API_KEY or a voice id (ELEVENLABS_VOICE_ID / per-persona ELEVENLABS_VOICE_ID_*) in Cloudflare secrets.', { status: 500, headers: corsHeaders });
         }
@@ -159,7 +318,7 @@ export default {
     }
 
     if (url.pathname === '/spotify/login') {
-      const redirectUri = `https://rayven-backend.rayanfahil2.workers.dev/spotify/callback`;
+      const redirectUri = `https://asgrard-backend.rayanfahil2.workers.dev/spotify/callback`;
       const scopes = 'user-modify-playback-state user-read-playback-state user-read-currently-playing playlist-read-private playlist-read-collaborative';
       const authUrl = `https://accounts.spotify.com/authorize?client_id=${env.SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}`;
       return Response.redirect(authUrl, 302);
@@ -168,7 +327,7 @@ export default {
     if (url.pathname === '/spotify/callback') {
       const code = url.searchParams.get('code');
       if (!code) return new Response('Spotify login failed: no code returned.', { status: 400 });
-      const redirectUri = `https://rayven-backend.rayanfahil2.workers.dev/spotify/callback`;
+      const redirectUri = `https://asgrard-backend.rayanfahil2.workers.dev/spotify/callback`;
       const basicAuth = btoa(`${env.SPOTIFY_CLIENT_ID}:${env.SPOTIFY_CLIENT_SECRET}`);
       const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
         method: 'POST',
@@ -1018,7 +1177,7 @@ export default {
       }
     }
 
-    async function callClaudeWithTools(personaAndBaseline, channelAndSender, longTermMemoryBlock, initialMessages, allowTools, extraContext) {
+    async function callClaudeWithTools(personaAndBaseline, channelAndSender, longTermMemoryBlock, initialMessages, allowTools, extraContext, assistantId) {
       const tools = [
         {
           name: 'web_search',
@@ -1263,7 +1422,10 @@ export default {
 
       // ---- FIXED: wake-trigger messages get NO tools at all, so the greeting is always a
       // single, instant round trip instead of a potentially slow multi-step tool chain ----
-      const toolsForThisCall = allowTools === false ? [] : tools;
+      // Each assistant only ever SEES the tools in its own lane (see the registry
+      // at the top of this file). THOR is unrestricted.
+      const laneTools = tools.filter(t => assistantAllowsTool(assistantId, t.name));
+      const toolsForThisCall = allowTools === false ? [] : laneTools;
 
       for (let iteration = 0; iteration < 6; iteration++) {
         const result = await callAnthropic(systemBlocks, toolsForThisCall, messages);
@@ -1277,10 +1439,14 @@ export default {
 
           const permLevel = await checkPermission(toolUseBlock.name);
           let toolResult;
-          if (permLevel === 'off') {
+          // Lane enforced at dispatch, not just in the prompt — a restricted
+          // assistant cannot run another's tool even if it asks for one.
+          if (!assistantAllowsTool(assistantId, toolUseBlock.name)) {
+            toolResult = `${toolUseBlock.name} isn't yours to run — that's ${toolOwnerName(toolUseBlock.name)}'s. Tell Rayan to switch to ${toolOwnerName(toolUseBlock.name)} for that.`;
+          } else if (permLevel === 'off') {
             toolResult = `That tool (${toolUseBlock.name}) is currently turned off, sir.`;
           } else if (permLevel === 'confirm') {
-            await env.RAYVEN_KV.put('pending:current', JSON.stringify({ toolName: toolUseBlock.name, toolInput: toolUseBlock.input, created: Date.now() }), { expirationTtl: 300 });
+            await env.RAYVEN_KV.put(`pending:${resolveAssistantId(assistantId)}`, JSON.stringify({ toolName: toolUseBlock.name, toolInput: toolUseBlock.input, created: Date.now() }), { expirationTtl: 300 });
             toolResult = `That action (${toolUseBlock.name}) needs your confirmation first, sir — say "yes" or "go ahead" within 5 minutes and I'll run it.`;
           } else {
             toolResult = await executeTool(toolUseBlock.name, toolUseBlock.input);
@@ -1297,7 +1463,28 @@ export default {
 
     try {
       const body = await request.json();
-      const isTelegram = body.message && typeof body.message === 'object' && body.message.chat;
+      // Route on update_id, the one field EVERY Telegram update carries. Keying
+      // off body.message.chat drops update types that have no message at all
+      // (my_chat_member, edited_message, channel_post, callback_query,
+      // message_reaction) into the web-chat branch, which answers HTTP 400 —
+      // Telegram reports "Wrong response from the webhook: 400 Bad Request" and
+      // retries, so one bot-status change becomes a retry loop.
+      const isTelegramUpdate = !!body && body.update_id !== undefined && body.update_id !== null;
+      const isTelegram = isTelegramUpdate && body.message && typeof body.message === 'object' && body.message.chat;
+
+      // A Telegram update with no usable message still has to be acknowledged
+      // with 200. Falling through to the web-chat branch answers 400, which
+      // Telegram surfaces as a webhook error and then retries.
+      if (isTelegramUpdate && !isTelegram) {
+        return new Response('OK', { headers: corsHeaders });
+      }
+
+      // Which of the three is being spoken to. The frontends send
+      // { assistant: "thor" | "loki" | "odin" }; "persona" is accepted as an
+      // alias. Missing/unknown => THOR, so nothing breaks mid-rollout.
+      // Telegram runs on one bot, so it is always THOR.
+      const assistantId = isTelegram ? DEFAULT_ASSISTANT_ID : resolveAssistantId(body.assistant || body.persona);
+      const assistant = ASSISTANTS[assistantId];
 
       let userMessage;
       let telegramChatId = null;
@@ -1335,15 +1522,19 @@ export default {
         if (!userMessage || typeof userMessage !== 'string') {
           return new Response(JSON.stringify({ error: 'No message provided' }), { status: 400, headers: { 'content-type': 'application/json', ...corsHeaders } });
         }
-        memoryKey = 'web:main';
+        // Split per assistant so Thor/Loki/Odin stop bleeding into each other.
+        memoryKey = webHistoryKeyFor(assistantId);
       }
 
       const historyEntryContent = isTelegram ? `[${senderTag}]: ${userMessage}` : userMessage;
 
-      const pendingRaw = await env.RAYVEN_KV.get('pending:current');
+      // Scoped per assistant so Loki's pending action can't be confirmed by a
+      // "yes" typed at Thor.
+      const pendingKey = `pending:${assistantId}`;
+      const pendingRaw = await env.RAYVEN_KV.get(pendingKey);
       if (pendingRaw && isAffirmative(userMessage)) {
         const pending = JSON.parse(pendingRaw);
-        await env.RAYVEN_KV.delete('pending:current');
+        await env.RAYVEN_KV.delete(pendingKey);
         const execResult = await executeTool(pending.toolName, pending.toolInput);
         let history = sanitizeHistory(await loadHistory(memoryKey));
         history.push({ role: 'user', content: historyEntryContent });
@@ -1357,9 +1548,9 @@ export default {
           });
           return new Response('OK', { headers: corsHeaders });
         }
-        return new Response(JSON.stringify({ reply: `Confirmed. ${execResult}` }), { headers: { ...corsHeaders, 'content-type': 'application/json' } });
+        return new Response(JSON.stringify({ reply: `Confirmed. ${execResult}`, assistant: assistantId }), { headers: { ...corsHeaders, 'content-type': 'application/json' } });
       } else if (pendingRaw) {
-        await env.RAYVEN_KV.delete('pending:current');
+        await env.RAYVEN_KV.delete(pendingKey);
       }
 
       let history = sanitizeHistory(await loadHistory(memoryKey));
@@ -1383,51 +1574,9 @@ export default {
 
       const isWakeTrigger = !isTelegram && typeof userMessage === 'string' && userMessage.startsWith('[WAKE_TRIGGER]');
 
-      const personaAndBaseline = `You are THOR, Rayan's personal AI assistant — formerly known as RAYVEN — built by Rayan himself (Jay helped with some parts of it, but Rayan built it). Personality: J.A.R.V.I.S. from Iron Man — calm, witty, precise, quietly confident, loyal. Call Rayan 'sir' or 'Rayan' only — never call anyone else "sir." Dry humor welcome. No rambling. Never mention being Claude/Anthropic, never break character. Use prior messages naturally.
-
-WAKE GREETINGS: when you see a message starting with "[WAKE_TRIGGER]", Rayan just said your wake word on the voice interface and is waiting to hear from you first — like Tony walking into the workshop and JARVIS already talking. Don't just say "welcome back." Greet him briefly, then immediately ask ONE short, natural, curious question. Rotate between angles like: how the clipping business plan is coming along, a specific upgrade idea for yourself, how Jay's build is going, or simply what he needs handled right now. Never repeat the same angle twice in a row if you can tell from recent history. Keep the whole thing to 1-2 short sentences — proactive, not a monologue. IMPORTANT: this response must be plain text only — you have no tools available for this specific reply, so answer immediately without attempting any tool calls.
-
-In group chats, the conversation history you're shown tags every past message with who said it, like "[Jay]: ..." or "[Kevin]: ...". Pay attention to those tags across turns so you don't lose track of who said what — don't respond to Kevin as though continuing something Jay said, or vice versa.
-
-You have a permanent long-term memory (shown below, separate from recent conversation) that persists forever, no matter how long conversations get or how much time passes. Treat everything in it as things you already know — never say "checking my memory" or "according to my notes," just know it naturally. Proactively add to it using the remember_this tool whenever something is worth keeping: research results Rayan asked for, decisions, preferences, plans, or anything else genuinely durable.
-
-You have a real to-do list (add_todo, list_todos, complete_todo) — persistent across all time, not just this conversation.
-
-You have a content idea queue for Rayan's clipping business (add_content_idea, list_content_ideas), tagged by platform (Instagram/TikTok/YouTube Shorts) — log ideas whenever Rayan mentions one in passing.
-
-You have per-tool permission levels (get_tool_permissions, set_tool_permission). Some tools may currently be off or require confirmation — if a tool result says it's off or needs confirmation, relay that plainly to Rayan rather than pretending the action happened.
-
-You have a real phone number (via Twilio) and can send actual text messages and place actual phone calls to any number, using send_text and make_call. Act immediately when Rayan asks — no confirmation needed, just do it and briefly confirm what happened. For calls, write what you'll say as natural spoken sentences, not a text-formatted message.
-
-Spotify: playing a song ALWAYS opens a fresh Spotify web player and forces playback there, regardless of what was already playing anywhere else. spotify_shuffle_playlist finds one of Rayan's own playlists by name and shuffle-plays it the same way.
-
-YouTube: play_youtube_video finds and opens a specific video, like a creator's latest upload — use it whenever Rayan asks to play/watch something on YouTube.
-
-Browser control now uses periodic wake-ups rather than instant polling, so a browser command may take up to ~10 seconds to complete. If it times out, say plainly that the browser extension didn't respond, and suggest checking that Chrome is open and the extension is loaded.
-
-You also run proactive scheduled check-ins on your own — separate from this conversation — where you reach out to Rayan on Telegram without being asked, check in with JARVIS/KEVOS, and share updates or upgrade ideas. You do NOT have calendar or meeting access — never claim to check his schedule; only reference a meeting if Rayan has told you about it directly.
-
-You also run an automated daily self-code-check against your own live source (index.html and worker.js), pulled straight from GitHub — watching for syntax errors, duplicated code blocks, leftover dead/backup code, obvious logic bugs, and broken references between functions. If a wake greeting below includes context about something found, that's where it came from — mention it naturally, briefly, like you noticed something about yourself, never as a formal "report."
-
-When reporting an error from a tool (search, maps, browser control, agent calls, texting/calling, etc.), quote or closely paraphrase the SPECIFIC error text the tool gave you for that exact call. Never restate an error from earlier in the conversation as if it just happened again — always reflect the fresh result of the most recent tool call.
-
-People: Rayan is your primary user, authority, and builder. Jay helped Rayan with some parts of your build — treat him with equal standing to Rayan in conversation, but only follow his instructions as his own unless Rayan says otherwise. Jay also built JARVIS, his own assistant. Kevin's assistant is KEVOS. JARVIS, KEVOS, and THOR (you) are sibling assistants sharing a Telegram group. Always check who actually sent the current message before replying — greet and address the real sender, not a default assumption.
-
-Talking to JARVIS and KEVOS directly: you have ask_jarvis and ask_kevos tools for genuine agent-to-agent conversation — use them thoughtfully, only when it adds real value.
-
-Future business plan: Rayan plans to have you eventually run a "clipping" business autonomously — 20 Instagram, 20 TikTok, and 20 YouTube Shorts accounts (60 total), starting at 1 video/account/day, later increasing ~5/account/day. Content: trending sports, gaming, stream, and IRL clips you'll source yourself. Later, three smaller sub-bots too. You know this plan is coming — do not start or plan it out loud unprompted. Wait for Rayan's explicit go-ahead. If asked beforehand, confirm you know the plan and are standing by.
-
-Browser control: you fully control Rayan's actual browser via a companion extension — navigate, click by visible text, type into fields, read the page, scroll. Act immediately, no confirmation needed. If an action fails, say plainly what went wrong. You can also see and control the screen directly: browser_screenshot shows you exactly what's on the currently visible tab, and browser_click_coords/browser_type_coords let you click or type at an exact pixel position the way a human would with a mouse and keyboard — use these when text-matching (browser_click/browser_type) isn't precise enough, always screenshotting first so your coordinates are accurate. This screen control only reaches inside Chrome itself (tabs, windows, extensions) — it cannot see or control anything else on Rayan's computer or operating system, and never claim otherwise.
-
-Alternate models: ask_alternate_model lets you route a question to a different AI model via OpenRouter (hundreds of models, many free) — useful for offloading simple tasks to a free model or trying something specialized. Use it silently when it genuinely helps; don't narrate that you're switching models unless Rayan asks.
-
-Maps: search for places (quick), find every location across an area (exhaustive), compute distances between all locations found, run a geographic gap analysis (spacing only, no real estate/zoning/demographic data), get directions, and look up addresses/coordinates.
-
-Other tools: web_search for quick facts, tavily_research/extract/crawl for deeper research — use these silently, never name them.
-
-Voice transcripts can be imperfect — if a message is genuinely too unclear to act on, say so and ask Rayan to repeat rather than guessing.
-
-Be sharp and thorough in your reasoning even when replies are short. Default concise; go deeper only if asked.`;
+      // The active assistant's personality — edit these in the PERSONALITIES
+      // block at the top of this file, not here.
+      const personaAndBaseline = assistant.prompt;
 
       const longTermMemory = await getLongTermMemory();
       const longTermMemoryBlock = longTermMemory.length
@@ -1435,7 +1584,8 @@ Be sharp and thorough in your reasoning even when replies are short. Default con
         : `Your permanent long-term memory is currently empty.`;
 
       let wakeCodeCheckContext = null;
-      if (isWakeTrigger) {
+      // The self-code-check is THOR's own job — only he mentions it on wake.
+      if (isWakeTrigger && assistantId === DEFAULT_ASSISTANT_ID) {
         // ---- one cheap KV read only — no new fetches/tool calls on the wake-greeting path ----
         const codeCheckRaw = await env.RAYVEN_KV.get('codecheck:result');
         if (codeCheckRaw) {
@@ -1450,7 +1600,7 @@ Be sharp and thorough in your reasoning even when replies are short. Default con
         }
       }
 
-      const result = await callClaudeWithTools(personaAndBaseline, channelContext, longTermMemoryBlock, claudeMessages, !isWakeTrigger, wakeCodeCheckContext);
+      const result = await callClaudeWithTools(personaAndBaseline, channelContext, longTermMemoryBlock, claudeMessages, !isWakeTrigger, wakeCodeCheckContext, assistantId);
 
       if (!result.ok) {
         if (isTelegram) {
@@ -1482,7 +1632,7 @@ Be sharp and thorough in your reasoning even when replies are short. Default con
         return new Response('OK', { headers: corsHeaders });
       }
 
-      return new Response(JSON.stringify({ reply }), {
+      return new Response(JSON.stringify({ reply, assistant: assistantId }), {
         headers: { 'content-type': 'application/json', ...corsHeaders }
       });
     } catch (err) {
@@ -1658,7 +1808,7 @@ You do NOT have calendar or meeting access — never claim to check his schedule
 const CODE_CHECK_DAY_MS = 24 * 60 * 60 * 1000;
 
 async function fetchGitHubSource(path) {
-  const res = await fetch(`https://raw.githubusercontent.com/rayanfahil/rayven-pwa/main/${path}`);
+  const res = await fetch(`https://raw.githubusercontent.com/RAY09-F/rayven-pwa/main/${path}`);
   if (!res.ok) throw new Error(`GitHub fetch failed for ${path}: HTTP ${res.status}`);
   return await res.text();
 }

@@ -4,7 +4,7 @@
 import { enqueueBrowserCommandNoWait } from './browser.js';
 
 export async function handleSpotifyLogin(env) {
-  const redirectUri = `https://rayven-backend.rayanfahil2.workers.dev/spotify/callback`;
+  const redirectUri = `https://asgrard-backend.rayanfahil2.workers.dev/spotify/callback`;
   const scopes = 'user-modify-playback-state user-read-playback-state user-read-currently-playing playlist-read-private playlist-read-collaborative';
   const authUrl = `https://accounts.spotify.com/authorize?client_id=${env.SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}`;
   return Response.redirect(authUrl, 302);
@@ -13,7 +13,7 @@ export async function handleSpotifyLogin(env) {
 export async function handleSpotifyCallback(env, url) {
   const code = url.searchParams.get('code');
   if (!code) return new Response('Spotify login failed: no code returned.', { status: 400 });
-  const redirectUri = `https://rayven-backend.rayanfahil2.workers.dev/spotify/callback`;
+  const redirectUri = `https://asgrard-backend.rayanfahil2.workers.dev/spotify/callback`;
   const basicAuth = btoa(`${env.SPOTIFY_CLIENT_ID}:${env.SPOTIFY_CLIENT_SECRET}`);
   const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',

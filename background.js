@@ -1,4 +1,41 @@
-const BACKEND_URL = "https://rayven-backend.rayanfahil2.workers.dev";
+// Backend hosts, in preference order. This is a LIST rather than a single
+// hardcoded const because one hardcoded URL took browser control down silently:
+// the Worker was renamed (rayven-backend -> asgrard-backend) on 2026-08-15, the
+// old hostname stopped resolving, and this extension went on polling a dead
+// address forever. Nothing surfaced the failure — the backend simply saw the
+// extension disappear, and the only fix was noticing and manually reloading.
+//
+// Trying each host in turn means a rename costs one failed request instead of an
+// outage. Keep the current host first; leave the old one in place as a fallback.
+const BACKEND_CANDIDATES = [
+  "https://asgrard-backend.rayanfahil2.workers.dev",
+  "https://rayven-backend.rayanfahil2.workers.dev"
+];
+
+// Whichever host last answered, so the healthy one is tried first every time and
+// the fallback costs nothing once we have settled on a working host.
+let activeBackend = BACKEND_CANDIDATES[0];
+
+// Tries the active host first, then the rest. Pins activeBackend to whatever
+// answered. Throws only if every candidate failed.
+async function backendFetch(path, init) {
+  const ordered = [activeBackend, ...BACKEND_CANDIDATES.filter(h => h !== activeBackend)];
+  let lastError = null;
+  for (const host of ordered) {
+    try {
+      const res = await fetch(`${host}${path}`, init);
+      // A 404 here is Cloudflare's "no such Worker" page for a released
+      // hostname, not a real answer from the backend — keep looking.
+      if (res.status === 404) { lastError = new Error(`${host} returned 404`); continue; }
+      if (host !== activeBackend) console.log('RAYVEN: backend switched to', host);
+      activeBackend = host;
+      return res;
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw lastError || new Error('No backend host reachable');
+}
 
 chrome.alarms.create('rayvenPoll', { periodInMinutes: 0.1 });
 
@@ -10,7 +47,7 @@ pollOnce();
 
 async function pollOnce() {
   try {
-    const res = await fetch(`${BACKEND_URL}/browser/poll`);
+    const res = await backendFetch('/browser/poll');
     const data = await res.json();
     if (data.command) await handleCommand(data.command);
   } catch (e) { console.error('Poll failed', e); }
@@ -18,7 +55,7 @@ async function pollOnce() {
 
 async function reportResult(id, success, resultData) {
   try {
-    await fetch(`${BACKEND_URL}/browser/result`, {
+    await backendFetch('/browser/result', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ id, success, data: resultData })

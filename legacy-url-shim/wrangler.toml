@@ -1,0 +1,10 @@
+# Reclaims the OLD Worker name so the old workers.dev hostname resolves again
+# and forwards to the real backend. This is deliberately a separate, minimal
+# Worker — it has no KV, no Vectorize, no AI, and no secrets, because it only
+# proxies. The real backend is `asgrard-backend`, configured in ../wrangler.toml.
+#
+# Deploy from THIS directory:  npx wrangler deploy
+# (running it from the repo root deploys the real backend instead)
+name = "rayven-backend"
+main = "src/index.js"
+compatibility_date = "2026-08-13"

@@ -21,7 +21,7 @@ import { getActivityLog } from './lib/activity.js';
 import { readCappedLog } from './lib/util.js';
 import { notify, flushNotificationDigestIfDue, getNotificationLog } from './lib/notifications.js';
 import { runMonitoringSweep, getWatchList } from './lib/monitoring.js';
-import { PERSONAS, ALL_PERSONA_IDS, DEFAULT_PERSONA_ID, getPersona, getPersonaBotToken, getPersonaVoiceId, historyKeyFor } from './lib/personas.js';
+import { PERSONAS, ALL_PERSONA_IDS, DEFAULT_PERSONA_ID, getPersona, getPersonaBotToken, getPersonaVoiceId, historyKeyFor, resolvePersonaId } from './lib/personas.js';
 import { runPersonaAutonomyIfDue, getAllStatuses, getAutonomyLog, setPersonaStatus, runThorSelfCheck } from './lib/autonomy.js';
 import { runRoundtable } from './lib/roundtable.js';
 
@@ -212,7 +212,13 @@ export default {
     // (The legacy bot also still lands on POST / and is treated as THOR below.)
     if (url.pathname.startsWith('/telegram/') && request.method === 'POST') {
       const personaId = url.pathname.slice('/telegram/'.length);
-      if (!PERSONAS[personaId]) return new Response('Unknown persona.', { status: 404, headers: corsHeaders });
+      // Own-property check, not truthiness: an unknown path segment must 404
+      // here rather than fall back to THOR (a stray webhook should never be
+      // answered by the wrong persona), and inherited keys like "constructor"
+      // would otherwise read as a valid persona.
+      if (!Object.prototype.hasOwnProperty.call(PERSONAS, personaId)) {
+        return new Response('Unknown persona.', { status: 404, headers: corsHeaders });
+      }
       const botToken = getPersonaBotToken(env, personaId);
       if (!botToken) return new Response('OK', { headers: corsHeaders }); // bot not provisioned yet — swallow quietly
       const body = await request.json().catch(() => null);
@@ -250,6 +256,44 @@ export default {
 
     if (url.pathname === '/debug-monitor-sweep') {
       return json(await runMonitoringSweep(env), corsHeaders);
+    }
+
+    // Telegram webhooks are registered against an absolute URL, so renaming the
+    // Worker silently kills every bot — Telegram keeps POSTing to a hostname
+    // that no longer resolves and nothing surfaces the failure. This reports
+    // where each bot currently delivers, and ?set=1 re-points them.
+    //
+    // It can only ever point a bot at THIS worker (the origin of the request
+    // being served), so it cannot be used to redirect a bot somewhere else, and
+    // the token never leaves Cloudflare — no pasting bot tokens into a shell.
+    if (url.pathname === '/debug-telegram-webhook') {
+      const doSet = url.searchParams.get('set') === '1';
+      const origin = new URL(request.url).origin;
+      const out = {};
+      for (const personaId of ALL_PERSONA_IDS) {
+        const token = getPersonaBotToken(env, personaId);
+        if (!token) { out[personaId] = { status: 'no bot token configured' }; continue; }
+        // THOR is the legacy RAYVENN_RAYAN_BOT and must stay on POST / — that
+        // exact path is the JARVIS federation contract. The others use /telegram/<id>.
+        const want = personaId === DEFAULT_PERSONA_ID ? `${origin}/` : `${origin}/telegram/${personaId}`;
+        try {
+          const info = await (await fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`)).json();
+          const current = (info.result && info.result.url) || '(none)';
+          const entry = { current, expected: want, matches: current === want };
+          if (doSet && !entry.matches) {
+            const res = await (await fetch(`https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(want)}`)).json();
+            entry.updated = !!res.ok;
+            entry.telegramSaid = res.description || null;
+          }
+          if (info.result && info.result.last_error_message) {
+            entry.lastError = `${info.result.last_error_message} (${info.result.pending_update_count || 0} pending)`;
+          }
+          out[personaId] = entry;
+        } catch (err) {
+          out[personaId] = { error: err.message };
+        }
+      }
+      return json({ origin, applied: doSet, bots: out }, corsHeaders);
     }
 
     if (url.pathname === '/debug-autonomy') {
@@ -292,7 +336,7 @@ export default {
     }
 
     if (url.pathname === '/memory' && request.method === 'GET') {
-      const personaId = url.searchParams.get('persona') || DEFAULT_PERSONA_ID;
+      const personaId = resolvePersonaId(url.searchParams.get('persona'));
       return json(await getLongTermMemory(env, personaId), corsHeaders);
     }
 
@@ -367,7 +411,7 @@ export default {
 
     // Per-persona web conversation history, for the searchable history panel.
     if (url.pathname === '/history' && request.method === 'GET') {
-      const personaId = PERSONAS[url.searchParams.get('persona')] ? url.searchParams.get('persona') : DEFAULT_PERSONA_ID;
+      const personaId = resolvePersonaId(url.searchParams.get('persona'));
       const history = sanitizeHistory(await loadHistory(env, historyKeyFor(personaId, 'web')));
       // Only plain text turns — tool_use/tool_result blocks are internal.
       const turns = history
@@ -552,8 +596,10 @@ export default {
 
     if (url.pathname === '/tts' && request.method === 'POST') {
       try {
-        const { text, persona } = await request.json();
-        const voiceId = getPersonaVoiceId(env, persona || DEFAULT_PERSONA_ID);
+        // Accepts "persona" (ASGARD hub) or "assistant" (per-assistant pages),
+        // same as POST / — unknown or missing falls back to THOR's voice.
+        const { text, persona, assistant } = await request.json();
+        const voiceId = getPersonaVoiceId(env, resolvePersonaId(persona || assistant));
         if (!env.ELEVENLABS_API_KEY || !voiceId) {
           return new Response('Missing ELEVENLABS_API_KEY or a voice id (ELEVENLABS_VOICE_ID / per-persona ELEVENLABS_VOICE_ID_*) in Cloudflare secrets.', { status: 500, headers: corsHeaders });
         }
@@ -639,7 +685,17 @@ export default {
 
     try {
       const body = await request.json();
-      const isTelegram = body.message && typeof body.message === 'object' && body.message.chat;
+      // Telegram stamps EVERY update with an update_id — including ones carrying
+      // no message at all: my_chat_member (bot added / blocked / unblocked, which
+      // commonly fires right after setWebhook), edited_message, channel_post,
+      // callback_query, message_reaction. Keying off body.message.chat instead
+      // sent all of those down the web-chat branch, which answers
+      // {"error":"No message provided"} with HTTP 400 — surfaced by Telegram as
+      // "Wrong response from the webhook: 400 Bad Request", and retried, so one
+      // bot-status change turns into a retry loop. ackTelegramAndProcess already
+      // tolerates every update shape and always answers 200, so route on the one
+      // field that is actually universal.
+      const isTelegram = !!body && body.update_id !== undefined && body.update_id !== null;
 
       if (isTelegram) {
         // Legacy webhook path — this is the original RAYVENN_RAYAN_BOT, which
@@ -650,8 +706,7 @@ export default {
       // Web chat — the frontend names the active persona ("persona" from the
       // ASGARD hub, "assistant" from the per-assistant pages); anything unknown
       // falls back to THOR so an old cached PWA still works.
-      const requestedPersona = body.persona || body.assistant;
-      const personaId = PERSONAS[requestedPersona] ? requestedPersona : DEFAULT_PERSONA_ID;
+      const personaId = resolvePersonaId(body.persona || body.assistant);
       const result = await handleChatTurn(env, ctx, { personaId, isTelegram: false, body, botToken: null });
       if (!result) return new Response('OK', { headers: corsHeaders });
       if (result.error) {

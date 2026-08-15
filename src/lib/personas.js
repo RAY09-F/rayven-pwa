@@ -133,6 +133,18 @@ export function getPersona(id) {
   return PERSONAS[id] || PERSONAS[DEFAULT_PERSONA_ID];
 }
 
+// Normalise a persona id that arrived off the wire (request body, query string)
+// into a real id from this registry. Case- and whitespace-tolerant, and it uses
+// hasOwnProperty so inherited keys like "constructor" or "toString" can never
+// slip through as an id — that id is interpolated into KV keys
+// (`web:<id>`, `pending:<id>`), so an unvalidated one would silently create junk
+// namespaces. Anything unknown or missing resolves to THOR, which is what keeps
+// an old cached frontend that sends no id at all working.
+export function resolvePersonaId(requested) {
+  const id = String(requested ?? '').trim().toLowerCase();
+  return Object.prototype.hasOwnProperty.call(PERSONAS, id) ? id : DEFAULT_PERSONA_ID;
+}
+
 // Which persona owns a tool — used by the dispatcher to redirect by name when a
 // restricted persona reaches for a tool outside its lane.
 export function toolOwnerName(toolName) {
