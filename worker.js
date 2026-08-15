@@ -1341,6 +1341,15 @@ export default {
           }
         }
       } else {
+        // Telegram POSTs every update type to this same webhook — my_chat_member,
+        // edited_message, channel_post, poll — and only some carry message.text.
+        // Any of those that fell through the isTelegram check above must still be
+        // acknowledged with a 200: Telegram reads a 400 as "Wrong response from
+        // the webhook" and redelivers the same update in a retry loop. An update_id
+        // is the reliable marker that this is Telegram and not the web frontend.
+        if (typeof body.update_id !== 'undefined') {
+          return new Response('OK', { headers: corsHeaders });
+        }
         userMessage = body.message;
         if (!userMessage || typeof userMessage !== 'string') {
           return new Response(JSON.stringify({ error: 'No message provided' }), { status: 400, headers: { 'content-type': 'application/json', ...corsHeaders } });
