@@ -271,7 +271,7 @@ You do NOT have calendar or meeting access — never claim to check his schedule
 const CODE_CHECK_DAY_MS = 24 * 60 * 60 * 1000;
 
 async function fetchGitHubSource(path) {
-  const res = await fetch(`https://raw.githubusercontent.com/rayanfahil/rayven-pwa/main/${path}`);
+  const res = await fetch(`https://raw.githubusercontent.com/RAY09-F/rayven-pwa/main/${path}`);
   if (!res.ok) throw new Error(`GitHub fetch failed for ${path}: HTTP ${res.status}`);
   return await res.text();
 }
