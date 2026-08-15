@@ -1,0 +1,1628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b0a14">
+<title>THOR — Storm Forge</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0b0a14;
+  --bg2: #12101f;
+  --panel: rgba(26, 22, 44, 0.78);
+  --panel-border: rgba(155, 107, 255, 0.22);
+  --purple: #9b6bff;
+  --purple-dim: rgba(155, 107, 255, 0.5);
+  --gold: #e8c468;
+  --gold-dim: rgba(232, 196, 104, 0.55);
+  --text: #e8e4f5;
+  --text-dim: #8d86a8;
+  --danger: #ff5d6c;
+  --ok: #58d68d;
+  --radius: 10px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  background: radial-gradient(ellipse at 50% -10%, #1c1533 0%, var(--bg) 55%), var(--bg);
+  color: var(--text);
+  font-family: 'Rajdhani', system-ui, sans-serif;
+  font-size: 15px;
+  user-select: none;
+  -webkit-user-select: none;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+input, textarea { user-select: text; -webkit-user-select: text; }
+
+/* ---------- lock screen ---------- */
+#lockScreen {
+  position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 18px;
+  background: radial-gradient(ellipse at 50% 30%, #1c1533 0%, #07060d 70%);
+  transition: opacity 0.7s ease, visibility 0.7s;
+}
+#lockScreen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+#lockScreen .sigil { font-family: 'Cinzel', serif; font-size: 42px; color: var(--gold); letter-spacing: 10px; text-shadow: 0 0 30px var(--purple-dim); }
+#lockScreen .subtitle { color: var(--text-dim); letter-spacing: 4px; font-size: 12px; text-transform: uppercase; }
+#lockInput {
+  background: rgba(155, 107, 255, 0.08); border: 1px solid var(--panel-border); border-radius: 8px;
+  color: var(--text); font-family: 'Rajdhani', sans-serif; font-size: 17px; letter-spacing: 3px;
+  padding: 10px 18px; text-align: center; outline: none; width: 230px;
+}
+#lockInput:focus { border-color: var(--purple); box-shadow: 0 0 18px rgba(155, 107, 255, 0.25); }
+#lockInput.shake { animation: shake 0.35s; }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+
+/* ---------- header ---------- */
+#topBar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 20; height: 52px;
+  display: flex; align-items: center; justify-content: space-between; padding: 0 16px;
+  background: linear-gradient(180deg, rgba(11,10,20,0.92), rgba(11,10,20,0));
+  padding-top: env(safe-area-inset-top);
+}
+#wordmark { font-family: 'Cinzel', serif; font-size: 19px; letter-spacing: 6px; color: var(--gold); display: flex; align-items: center; gap: 9px; }
+#wordmark .forge { font-size: 10px; letter-spacing: 3px; color: var(--purple-dim); font-family: 'Rajdhani'; }
+#statusStrip { display: flex; align-items: center; gap: 14px; font-size: 11px; letter-spacing: 1px; color: var(--text-dim); }
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #555; margin-right: 5px; vertical-align: 1px; transition: background .4s, box-shadow .4s; }
+.dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+.dot.warn { background: var(--gold); box-shadow: 0 0 8px var(--gold-dim); }
+.dot.off { background: var(--danger); }
+#switcher { position: relative; }
+#switcherBtn { font-size: 11px; letter-spacing: 2px; }
+#switcherMenu {
+  position: absolute; right: 0; top: 110%; background: var(--panel); border: 1px solid var(--panel-border);
+  border-radius: 8px; overflow: hidden; display: none; min-width: 150px; backdrop-filter: blur(12px); z-index: 30;
+}
+#switcherMenu.open { display: block; }
+#switcherMenu a { display: block; padding: 10px 16px; color: var(--text); text-decoration: none; font-size: 13px; letter-spacing: 2px; }
+#switcherMenu a:hover { background: rgba(155, 107, 255, 0.15); }
+
+/* ---------- main layout: symmetrical forge ---------- */
+#appGrid {
+  position: fixed; inset: 0; top: 52px; bottom: 58px;
+  display: grid; grid-template-columns: 300px 1fr 300px; gap: 12px; padding: 8px 12px;
+  max-width: 1500px; margin: 0 auto;
+}
+#colLeft, #colRight { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; scrollbar-width: thin; padding-bottom: 10px; }
+#colLeft::-webkit-scrollbar, #colRight::-webkit-scrollbar { width: 4px; }
+#colLeft::-webkit-scrollbar-thumb, #colRight::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 2px; }
+#centerStage { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; position: relative; min-width: 0; }
+#stageCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* ---------- the one-line text box ---------- */
+#textBox {
+  position: relative; z-index: 5; width: min(560px, 92%); height: 64px; margin-bottom: 10px;
+  background: linear-gradient(180deg, rgba(26,22,44,0.85), rgba(18,16,31,0.9));
+  border: 1px solid var(--panel-border); border-radius: 12px;
+  box-shadow: 0 4px 30px rgba(0,0,0,0.45), inset 0 0 24px rgba(155,107,255,0.05);
+  overflow: hidden; flex-shrink: 0;
+}
+.tbLayer {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  padding: 8px 18px; text-align: center; font-size: 16px; font-weight: 500; line-height: 1.25;
+  opacity: 0; transition: opacity 0.45s ease; overflow-y: auto; scrollbar-width: none;
+}
+.tbLayer::-webkit-scrollbar { display: none; }
+.tbLayer.visible { opacity: 1; }
+.tbLayer.user { color: var(--text-dim); font-style: italic; }
+.tbLayer.assistant { color: var(--text); }
+.tbLayer.small { font-size: 13px; align-items: flex-start; }
+.tbLayer .inner { max-height: 100%; width: 100%; }
+
+/* ---------- input row ---------- */
+#inputRow { position: relative; z-index: 5; display: flex; align-items: center; gap: 8px; width: min(560px, 92%); margin-bottom: 6px; flex-shrink: 0; }
+#userInput {
+  flex: 1; background: rgba(26,22,44,0.7); border: 1px solid var(--panel-border); border-radius: 20px;
+  color: var(--text); font-family: inherit; font-size: 14px; padding: 8px 16px; outline: none; min-width: 0;
+}
+#userInput:focus { border-color: var(--purple-dim); }
+.iconBtn {
+  width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--panel-border); flex-shrink: 0;
+  background: rgba(26,22,44,0.7); color: var(--text-dim); font-size: 16px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: all 0.18s ease;
+}
+.iconBtn:hover { border-color: var(--purple); color: var(--text); background: rgba(155,107,255,0.12); }
+.iconBtn:active { transform: scale(0.92); }
+.iconBtn:disabled { opacity: 0.35; cursor: default; transform: none; }
+.iconBtn.active { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 14px rgba(232,196,104,0.25); }
+.iconBtn.danger { border-color: var(--danger); color: var(--danger); }
+#micBtn.listening { border-color: var(--purple); color: var(--purple); animation: micPulse 1.6s ease-in-out infinite; }
+#micBtn.awake { border-color: var(--gold); color: var(--gold); animation: micPulse 1s ease-in-out infinite; }
+#micBtn.muted { border-color: var(--danger); color: var(--danger); animation: none; }
+#micBtn.paused { border-color: var(--text-dim); color: var(--text-dim); animation: none; }
+@keyframes micPulse { 0%,100% { box-shadow: 0 0 4px rgba(155,107,255,0.2); } 50% { box-shadow: 0 0 18px rgba(155,107,255,0.55); } }
+#pttBtn.held { border-color: var(--gold); color: var(--bg); background: var(--gold); }
+#voiceStatus { position: relative; z-index: 5; font-size: 11px; letter-spacing: 1.5px; color: var(--text-dim); margin-bottom: 8px; height: 15px; text-align: center; }
+
+/* ---------- panels ---------- */
+.panel {
+  background: var(--panel); border: 1px solid var(--panel-border); border-radius: var(--radius);
+  backdrop-filter: blur(10px); overflow: hidden; flex-shrink: 0;
+}
+.panel > header {
+  display: flex; align-items: center; justify-content: space-between; padding: 9px 13px; cursor: pointer;
+  font-size: 12px; font-weight: 700; letter-spacing: 2.5px; color: var(--gold); text-transform: uppercase;
+  border-bottom: 1px solid transparent; transition: border-color .3s;
+}
+.panel:not(.collapsed) > header { border-bottom-color: rgba(155,107,255,0.12); }
+.panel > header .chev { color: var(--text-dim); font-size: 11px; transition: transform 0.25s ease; }
+.panel.collapsed > header .chev { transform: rotate(-90deg); }
+.panel > .body { padding: 11px 13px; transition: opacity .25s; }
+.panel.collapsed > .body { display: none; }
+.panel h4 { font-size: 11px; letter-spacing: 1.5px; color: var(--text-dim); margin: 8px 0 4px; text-transform: uppercase; }
+.btn {
+  border: 1px solid var(--panel-border); background: rgba(155,107,255,0.08); color: var(--text);
+  font-family: inherit; font-size: 12.5px; font-weight: 600; letter-spacing: 0.8px; border-radius: 7px;
+  padding: 7px 12px; cursor: pointer; transition: all 0.16s ease;
+}
+.btn:hover { border-color: var(--purple); background: rgba(155,107,255,0.18); }
+.btn:active { transform: translateY(1px) scale(0.98); }
+.btn:disabled { opacity: 0.35; cursor: default; transform: none; }
+.btn.gold { border-color: var(--gold-dim); color: var(--gold); background: rgba(232,196,104,0.07); }
+.btn.gold:hover { background: rgba(232,196,104,0.15); border-color: var(--gold); }
+.btn.small { font-size: 11px; padding: 4px 9px; }
+.rowInput {
+  background: rgba(11,10,20,0.6); border: 1px solid var(--panel-border); border-radius: 6px;
+  color: var(--text); font-family: inherit; font-size: 13px; padding: 6px 10px; outline: none; width: 100%;
+}
+.rowInput:focus { border-color: var(--purple-dim); }
+.muted { color: var(--text-dim); font-size: 12.5px; }
+.emptyState { color: var(--text-dim); font-size: 12.5px; font-style: italic; padding: 4px 0; }
+
+/* Spotify */
+#spNow { display: flex; gap: 11px; align-items: center; min-height: 56px; }
+#spArt { width: 56px; height: 56px; border-radius: 6px; background: rgba(155,107,255,0.1); object-fit: cover; flex-shrink: 0; }
+#spMeta { min-width: 0; flex: 1; }
+#spTrack { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#spArtist { color: var(--text-dim); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#spProgressWrap { height: 3px; background: rgba(155,107,255,0.15); border-radius: 2px; margin-top: 7px; overflow: hidden; }
+#spProgress { height: 100%; width: 0%; background: linear-gradient(90deg, var(--purple), var(--gold)); transition: width 1s linear; }
+#spControls { display: flex; justify-content: center; gap: 10px; margin-top: 10px; }
+
+/* quick actions */
+#qaGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.qaBtn { position: relative; text-align: center; min-height: 40px; display: flex; align-items: center; justify-content: center; }
+.qaBtn .qaDel {
+  position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--danger); color: #fff; font-size: 11px; line-height: 18px; text-align: center; cursor: pointer; display: none;
+}
+#qaGrid.editing .qaDel { display: block; }
+#qaGrid.editing .qaBtn { animation: wiggle 0.4s infinite; }
+@keyframes wiggle { 0%,100%{transform:rotate(-0.6deg)} 50%{transform:rotate(0.6deg)} }
+
+/* timers */
+.timerRow { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; border-bottom: 1px dashed rgba(155,107,255,0.1); }
+.timerRow:last-child { border-bottom: none; }
+.timerRow .tTime { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--gold); }
+.timerRow.firing .tTime { color: var(--danger); animation: micPulse 0.6s infinite; }
+
+/* weather */
+#wxNow { display: flex; align-items: center; gap: 14px; }
+#wxTemp { font-size: 34px; font-weight: 700; color: var(--gold); font-family: 'Cinzel', serif; }
+#wxIcon { font-size: 30px; }
+#wxDays { display: flex; gap: 8px; margin-top: 10px; }
+.wxDay { flex: 1; text-align: center; background: rgba(155,107,255,0.06); border-radius: 7px; padding: 7px 3px; font-size: 11.5px; }
+.wxDay b { display: block; font-size: 13px; color: var(--text); }
+
+/* lists (todos etc.) */
+.listRow { display: flex; align-items: center; gap: 9px; padding: 5px 0; border-bottom: 1px dashed rgba(155,107,255,0.1); font-size: 13.5px; }
+.listRow:last-child { border-bottom: none; }
+.listRow .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.listRow.done .grow { text-decoration: line-through; color: var(--text-dim); }
+.tinyBtn { border: none; background: none; color: var(--text-dim); cursor: pointer; font-size: 13px; padding: 2px 5px; }
+.tinyBtn:hover { color: var(--text); }
+.tinyBtn.danger:hover { color: var(--danger); }
+
+/* ---------- bottom drawer bar ---------- */
+#drawerBar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; height: 58px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: linear-gradient(0deg, rgba(11,10,20,0.95), rgba(11,10,20,0));
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.drawerTab {
+  border: 1px solid var(--panel-border); background: rgba(26,22,44,0.8); color: var(--text-dim);
+  font-family: inherit; font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+  border-radius: 18px; padding: 8px 15px; cursor: pointer; transition: all 0.18s;
+}
+.drawerTab:hover { color: var(--text); border-color: var(--purple-dim); }
+.drawerTab.active { color: var(--gold); border-color: var(--gold-dim); background: rgba(232,196,104,0.08); }
+#drawerSheet {
+  position: fixed; left: 50%; transform: translate(-50%, 115%); bottom: 64px; z-index: 25;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: transform 0.35s cubic-bezier(.2,.9,.25,1), opacity 0.3s, visibility 0.35s;
+  width: min(680px, 94vw); max-height: 58vh; overflow-y: auto;
+  background: rgba(18,16,31,0.96); border: 1px solid var(--panel-border); border-radius: 14px;
+  backdrop-filter: blur(16px); padding: 16px; scrollbar-width: thin;
+}
+#drawerSheet.open { transform: translate(-50%, 0); opacity: 1; visibility: visible; pointer-events: auto; }
+#drawerSheet h3 { font-family: 'Cinzel', serif; font-size: 15px; letter-spacing: 3px; color: var(--gold); margin-bottom: 12px; }
+.setRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px dashed rgba(155,107,255,0.1); font-size: 13.5px; }
+.setRow:last-child { border-bottom: none; }
+.setRow label { color: var(--text); }
+.setRow .hint { display: block; font-size: 11px; color: var(--text-dim); }
+.setRow input[type=range] { width: 130px; accent-color: var(--purple); }
+.setRow select {
+  background: rgba(11,10,20,0.8); color: var(--text); border: 1px solid var(--panel-border);
+  border-radius: 6px; padding: 4px 8px; font-family: inherit; font-size: 12.5px; outline: none;
+}
+.toggle { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle .slider { position: absolute; inset: 0; background: rgba(155,107,255,0.15); border-radius: 12px; cursor: pointer; transition: background 0.25s; }
+.toggle .slider::before { content: ''; position: absolute; width: 16px; height: 16px; border-radius: 50%; background: var(--text-dim); top: 3px; left: 3px; transition: all 0.25s; }
+.toggle input:checked + .slider { background: rgba(232,196,104,0.35); }
+.toggle input:checked + .slider::before { background: var(--gold); transform: translateX(18px); }
+
+/* memory / history / activity rows */
+.memRow { padding: 7px 0; border-bottom: 1px dashed rgba(155,107,255,0.1); font-size: 13px; }
+.memRow .memDate { color: var(--text-dim); font-size: 11px; margin-right: 8px; }
+.memRow .memShared { color: var(--purple); font-size: 10.5px; letter-spacing: 1px; margin-left: 6px; }
+.memRow .memActions { float: right; }
+.histRow { padding: 6px 0; border-bottom: 1px dashed rgba(155,107,255,0.1); font-size: 13px; }
+.histRow .who { font-weight: 700; letter-spacing: 1px; font-size: 11px; margin-right: 7px; }
+.histRow .who.u { color: var(--purple); }
+.histRow .who.a { color: var(--gold); }
+.actRow { padding: 6px 0; border-bottom: 1px dashed rgba(155,107,255,0.1); font-size: 12.5px; display: flex; gap: 9px; }
+.actRow .when { color: var(--text-dim); font-size: 11px; white-space: nowrap; }
+.statGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.statCard { background: rgba(155,107,255,0.06); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; }
+.statCard b { display: block; font-size: 11px; letter-spacing: 1.5px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px; }
+
+/* wake flash overlay */
+#wakeFlash {
+  position: fixed; inset: 0; z-index: 15; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle at 50% 42%, rgba(210,190,255,0.85), rgba(155,107,255,0.35) 40%, transparent 70%);
+}
+#wakeFlash.fire { animation: flashAnim 0.9s ease-out forwards; }
+@keyframes flashAnim { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1080px) {
+  #appGrid { grid-template-columns: 260px 1fr 260px; }
+}
+@media (max-width: 860px) {
+  html, body { overflow: auto; }
+  #appGrid {
+    position: static; display: flex; flex-direction: column; gap: 10px;
+    margin-top: 52px; margin-bottom: 66px; padding: 0 10px; height: auto;
+  }
+  #centerStage { order: 0; height: 58vh; min-height: 400px; flex-shrink: 0; }
+  #colLeft { order: 1; } #colRight { order: 2; }
+  #colLeft, #colRight { overflow: visible; }
+  #statusStrip span.lbl { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div id="lockScreen">
+  <div class="sigil">THOR</div>
+  <div class="subtitle">The Storm Forge</div>
+  <input type="password" id="lockInput" autocomplete="off" placeholder="passphrase">
+</div>
+
+<div id="wakeFlash"></div>
+
+<header id="topBar">
+  <div id="wordmark">⚡ THOR <span class="forge">STORM FORGE</span></div>
+  <div id="statusStrip">
+    <span><i class="dot" id="dotBackend"></i><span class="lbl">CORE</span></span>
+    <span><i class="dot" id="dotVoice"></i><span class="lbl">VOICE</span></span>
+    <span><i class="dot" id="dotExt"></i><span class="lbl">BROWSER</span></span>
+    <span id="switcher">
+      <button class="btn small" id="switcherBtn">SWITCH ▾</button>
+      <div id="switcherMenu">
+        <a href="/loki/">🃏 LOKI</a>
+        <a href="/odin/">👁 ODIN</a>
+        <a href="/">🏰 ASGARD HUB</a>
+      </div>
+    </span>
+  </div>
+</header>
+
+<main id="appGrid">
+  <div id="colLeft">
+    <section class="panel" data-panel="spotify">
+      <header><span>♫ Spotify</span><span class="chev">▾</span></header>
+      <div class="body">
+        <div id="spNow">
+          <img id="spArt" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">
+          <div id="spMeta">
+            <div id="spTrack">—</div>
+            <div id="spArtist" class="muted">Checking player…</div>
+            <div id="spProgressWrap"><div id="spProgress"></div></div>
+          </div>
+        </div>
+        <div id="spControls">
+          <button class="iconBtn" id="spPrev" title="Previous">⏮</button>
+          <button class="iconBtn" id="spPlayPause" title="Play/Pause">⏯</button>
+          <button class="iconBtn" id="spNext" title="Next">⏭</button>
+        </div>
+        <div id="spConnectRow" style="display:none; text-align:center; margin-top:8px;">
+          <a class="btn gold small" id="spConnect" href="#" target="_blank">Connect Spotify</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="quickactions">
+      <header><span>⚡ Quick Actions</span><span class="chev">▾</span></header>
+      <div class="body">
+        <div id="qaGrid"></div>
+        <div style="display:flex; gap:7px; margin-top:9px;">
+          <input class="rowInput" id="qaNewInput" placeholder="New command…">
+          <button class="btn small" id="qaAdd">Add</button>
+          <button class="btn small" id="qaEdit">Edit</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="timers">
+      <header><span>⏱ Timers &amp; Alarms</span><span class="chev">▾</span></header>
+      <div class="body">
+        <div id="timerList"><div class="emptyState">No timers running.</div></div>
+        <div style="display:flex; gap:7px; margin-top:9px;">
+          <input class="rowInput" id="timerInput" placeholder='e.g. "10m tea" or "07:30 gym"'>
+          <button class="btn small" id="timerAdd">Set</button>
+        </div>
+        <div class="muted" style="margin-top:6px; font-size:11px;">Minutes ("15m label") or daily alarm ("HH:MM label").</div>
+      </div>
+    </section>
+  </div>
+
+  <div id="centerStage">
+    <canvas id="stageCanvas"></canvas>
+    <div id="textBox">
+      <div class="tbLayer user" id="tbUser"><div class="inner"></div></div>
+      <div class="tbLayer assistant" id="tbAssistant"><div class="inner"></div></div>
+    </div>
+    <div id="inputRow">
+      <button class="iconBtn" id="micBtn" title="Start voice">🎙</button>
+      <input id="userInput" placeholder="Type to Thor…" autocomplete="off">
+      <button class="iconBtn" id="sendBtn" title="Send">➤</button>
+      <button class="iconBtn" id="pttBtn" title="Hold to talk">🗣</button>
+      <button class="iconBtn" id="muteBtn" title="Mute">🔇</button>
+      <button class="iconBtn" id="sleepBtn" title="Sleep">🌙</button>
+    </div>
+    <div id="voiceStatus">Tap the mic, then say “Hey Thor” — or double clap.</div>
+  </div>
+
+  <div id="colRight">
+    <section class="panel" data-panel="weather">
+      <header><span>☈ Weather</span><span class="chev">▾</span></header>
+      <div class="body">
+        <div id="wxNow">
+          <span id="wxIcon">—</span>
+          <span id="wxTemp">--°</span>
+          <div>
+            <div id="wxDesc" class="muted">Loading…</div>
+            <div id="wxPlace" class="muted" style="font-size:11px;">—</div>
+          </div>
+        </div>
+        <div id="wxDays"></div>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="todos">
+      <header><span>☑ To-Dos</span><span class="chev">▾</span></header>
+      <div class="body">
+        <div id="todoList"><div class="emptyState">Loading…</div></div>
+        <div style="display:flex; gap:7px; margin-top:9px;">
+          <input class="rowInput" id="todoInput" placeholder="Add a to-do…">
+          <button class="btn small" id="todoAdd">Add</button>
+        </div>
+        <div class="muted" style="margin-top:6px; font-size:11px;">Loki keeps this list too — same list, shared brain.</div>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="browser">
+      <header><span>🖥 Browser Link</span><span class="chev">▾</span></header>
+      <div class="body">
+        <div class="listRow"><span class="grow">Extension</span><b id="extState" class="muted">checking…</b></div>
+        <div class="muted" style="font-size:11.5px; margin-top:5px;">Thor controls Chrome through the companion extension. If offline, open Chrome and check the extension is enabled.</div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<nav id="drawerBar">
+  <button class="drawerTab" data-sheet="settings">⚙ Settings</button>
+  <button class="drawerTab" data-sheet="memory">🧠 Memory</button>
+  <button class="drawerTab" data-sheet="history">🕘 History</button>
+  <button class="drawerTab" data-sheet="activity">📡 Activity</button>
+  <button class="drawerTab" data-sheet="status">🛰 Status</button>
+</nav>
+
+<div id="drawerSheet"></div>
+
+<script>
+/* ═════════════════════════════════════════════════════════════════
+   PAGE CONFIG — everything assistant-specific the engine reads.
+   ═════════════════════════════════════════════════════════════════ */
+const BACKEND_URL = "https://rayven-backend.rayanfahil2.workers.dev";
+const UNLOCK_PASSWORD = "bifrost";
+
+window.ASSISTANT = {
+  id: 'thor',
+  name: 'THOR',
+  // Speech recognition mishears — every variant wakes WITH a greeting word.
+  nameVariants: ['thor', 'thors', 'tor', 'tore', 'four', 'for', 'thaw', 'store'],
+  // Bare-name wake (when enabled in settings) only ever fires on these safe
+  // forms — never on "for"/"four", which land in normal conversation.
+  bareNameSafe: ['thor', 'thors'],
+  sleepLine: "Powering down. The storm holds.",
+  wakeGreeting: "[WAKE_TRIGGER] Rayan just said your wake word. Greet him briefly, then ask something proactive."
+};
+
+/* ═════════════════════════════════════════════════════════════════
+   SHELL ADAPTER — how the engine drives THIS page's visuals.
+   The engine below never touches the DOM directly.
+   ═════════════════════════════════════════════════════════════════ */
+const tbUser = document.getElementById('tbUser'), tbAssistant = document.getElementById('tbAssistant');
+function tbShow(layerEl, otherEl, text) {
+  layerEl.querySelector('.inner').textContent = text;
+  layerEl.classList.toggle('small', text.length > 130);
+  otherEl.classList.remove('visible');
+  layerEl.classList.add('visible');
+}
+window.SHELL = {
+  setState(s) { window.Scene && window.Scene.setState(s); },
+  wakeCinematic(done) {
+    document.getElementById('wakeFlash').classList.remove('fire');
+    if (window.Scene) window.Scene.wakeCinematic(done); else setTimeout(done, 400);
+    setTimeout(() => document.getElementById('wakeFlash').classList.add('fire'), 650);
+  },
+  showUserText(t) { tbShow(tbUser, tbAssistant, t); },
+  showAssistantText(t) { tbShow(tbAssistant, tbUser, t); },
+  setVoiceStatus(t) { document.getElementById('voiceStatus').textContent = t; },
+  setMicState(cls) {
+    const b = document.getElementById('micBtn');
+    b.classList.remove('listening', 'awake', 'muted', 'paused');
+    if (cls) b.classList.add(cls);
+  },
+  onLocalCommand(text) { return handleLocalCommand(text); }
+};
+
+/* ═══ ENGINE-BEGIN ═══ ASGARD VOICE ENGINE v2 ═══════════════════════
+   IDENTICAL across THOR / LOKI / ODIN pages — one engine, three shells.
+   Fix a bug here, copy the whole block to the other two files.
+   Wake words, mic handling, double-clap, barge-in, turn-taking,
+   ElevenLabs playback, backend chat. Reads window.ASSISTANT + window.SHELL.
+   ══════════════════════════════════════════════════════════════════ */
+(function () {
+  const A = window.ASSISTANT, S = window.SHELL;
+  const LS = k => `va:${A.id}:${k}`;
+  const store = {
+    get(k, d) { const v = localStorage.getItem(LS(k)); return v === null ? d : v; },
+    set(k, v) { localStorage.setItem(LS(k), String(v)); },
+    num(k, d) { const v = parseFloat(this.get(k, d)); return isNaN(v) ? d : v; },
+    bool(k, d) { return this.get(k, d ? '1' : '0') === '1'; }
+  };
+
+  const GREETINGS = ['hey', 'yo', 'okay', 'ok', 'hi', 'wake up', 'wakeup', 'wake-up'];
+  const STOP_PHRASES = ["stop talking", "shut up", "be quiet", "stop it", "hush", "silence", "stop"];
+  const SLEEP_PHRASES = ["go to sleep", "sleep now", "power down", "goodnight", "good night"];
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let wakeRec = null, convoRec = null, bargeRec = null;
+  let voiceActive = false, awake = false, micMuted = false, listeningPaused = false;
+  let speaking = false;
+
+  // -------- fuzzy wake matching: multi-variant + levenshtein, never one exact phrase --------
+  function levenshtein(a, b) {
+    const m = a.length, n = b.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 1; i <= m; i++)
+      for (let j = 1; j <= n; j++)
+        dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    return dp[m][n];
+  }
+  const WAKE_PHRASES = [];
+  for (const g of GREETINGS) for (const v of A.nameVariants) WAKE_PHRASES.push(`${g} ${v}`);
+  for (const v of A.nameVariants) WAKE_PHRASES.push(`${v} wake up`);
+
+  function wakeMatch(transcript) {
+    if (!store.bool('wakeEnabled', true)) return false;
+    const clean = transcript.toLowerCase().replace(/[^a-z\s-]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!clean) return false;
+    if (WAKE_PHRASES.some(p => clean.includes(p))) return true;
+    // fuzzy: greeting word followed by something within edit distance of the name
+    const maxDist = { strict: 0, normal: 1, loose: 2 }[store.get('wakeSensitivity', 'normal')] ?? 1;
+    const words = clean.split(' ');
+    const canonical = A.nameVariants[0];
+    for (let i = 0; i < words.length; i++) {
+      const isGreet = GREETINGS.includes(words[i]) || (words[i] === 'wake' && words[i + 1] === 'up');
+      if (!isGreet) continue;
+      const nextIdx = (words[i] === 'wake' && words[i + 1] === 'up') ? i + 2 : i + 1;
+      const next = words[nextIdx];
+      if (next && next.length >= 3 && levenshtein(next, canonical) <= maxDist) return true;
+    }
+    // bare-name wake — off by default, safe forms only, still fuzzy-checked
+    if (store.bool('bareNameWake', false)) {
+      for (const w of words) {
+        if (A.bareNameSafe.includes(w)) return true;
+        if (w.length >= canonical.length && levenshtein(w, canonical) <= Math.min(maxDist, 1)) return true;
+      }
+    }
+    return false;
+  }
+  function matchesAny(t, list) { const c = t.toLowerCase().trim(); return list.some(p => c.includes(p)); }
+
+  // -------- mic / clap shared audio graph --------
+  let micCtx = null, micAnalyser = null, micData = null, micStream = null;
+  async function ensureMicGraph() {
+    if (micAnalyser) return true;
+    try { micStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch (e) { S.setVoiceStatus('Microphone permission denied.'); return false; }
+    micCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = micCtx.createMediaStreamSource(micStream);
+    micAnalyser = micCtx.createAnalyser();
+    micAnalyser.fftSize = 512;
+    micAnalyser.smoothingTimeConstant = 0;
+    src.connect(micAnalyser);
+    micData = new Uint8Array(micAnalyser.fftSize);
+    startClapLoop();
+    return true;
+  }
+  function instantVolume() {
+    if (!micAnalyser) return 0;
+    micAnalyser.getByteTimeDomainData(micData);
+    let s = 0;
+    for (let i = 0; i < micData.length; i++) { const n = (micData[i] - 128) / 128; s += n * n; }
+    return Math.sqrt(s / micData.length);
+  }
+
+  // -------- double-clap wake (carried from the proven pre-ASGARD build) --------
+  let clapBaseline = 0.02, clapFirst = 0, clapLastSpike = 0;
+  const CLAP_MIN_GAP = 150, CLAP_MAX_GAP = 700;
+  function startClapLoop() {
+    function loop() {
+      if (micAnalyser && voiceActive && !awake && !micMuted && !speaking &&
+          store.bool('clapEnabled', true) && document.visibilityState === 'visible') {
+        const vol = instantVolume();
+        if (vol < clapBaseline * 1.5) clapBaseline = clapBaseline * 0.98 + vol * 0.02;
+        const sens = store.num('clapSensitivity', 1); // 0.5 = needs louder claps, 2 = hair trigger
+        const threshold = Math.max(0.14 / sens, (clapBaseline * 6) / sens);
+        const now = Date.now();
+        if (vol > threshold) {
+          if (now - clapLastSpike >= CLAP_MIN_GAP) {
+            if (clapFirst === 0) clapFirst = now;
+            else if (now - clapFirst <= CLAP_MAX_GAP) { clapFirst = 0; clapLastSpike = now; triggerWake(); }
+            else clapFirst = now;
+            clapLastSpike = now;
+          }
+        } else if (clapFirst !== 0 && now - clapFirst > CLAP_MAX_GAP) clapFirst = 0;
+      }
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  }
+
+  // -------- wake listening --------
+  function startWakeListening() {
+    if (!SR || !voiceActive || awake || micMuted) return;
+    S.setState('sleeping');
+    S.setMicState('listening');
+    S.setVoiceStatus(`Say “Hey ${A.name.charAt(0) + A.name.slice(1).toLowerCase()}” — or double clap.`);
+    wakeRec = new SR();
+    wakeRec.continuous = true;
+    wakeRec.interimResults = true;
+    wakeRec.lang = 'en-US';
+    wakeRec.maxAlternatives = 5;
+    wakeRec.onresult = (event) => {
+      if (awake || micMuted || document.visibilityState !== 'visible') return;
+      for (let r = event.resultIndex; r < event.results.length; r++)
+        for (let alt = 0; alt < event.results[r].length; alt++)
+          if (wakeMatch(event.results[r][alt].transcript)) { triggerWake(); return; }
+    };
+    wakeRec.onend = () => { if (voiceActive && !awake && !micMuted) setTimeout(() => { try { startWakeListening(); } catch (e) {} }, 120); };
+    wakeRec.onerror = () => { if (voiceActive && !awake && !micMuted) setTimeout(() => { try { startWakeListening(); } catch (e) {} }, 250); };
+    try { wakeRec.start(); } catch (e) {}
+  }
+
+  function triggerWake() {
+    if (awake || micMuted) return;
+    awake = true;
+    listeningPaused = true;
+    if (wakeRec) { try { wakeRec.stop(); } catch (e) {} }
+    S.setMicState('awake');
+    S.setVoiceStatus(`${A.name} is waking…`);
+    const greetingPromise = fetchWakeGreeting();
+    S.wakeCinematic(() => {
+      greetingPromise.then(greeting => {
+        S.showAssistantText(greeting);
+        speak(greeting, () => resumeListening());
+      });
+    });
+  }
+
+  async function fetchWakeGreeting() {
+    const timeout = new Promise(res => setTimeout(() => res("Welcome back, sir."), 6500));
+    const req = (async () => {
+      try {
+        const r = await fetch(BACKEND_URL, {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ assistant: A.id, message: A.wakeGreeting })
+        });
+        const d = await r.json();
+        return d.reply || "Welcome back, sir.";
+      } catch (e) { return "Welcome back, sir."; }
+    })();
+    return Promise.race([req, timeout]);
+  }
+
+  // -------- awake conversation loop --------
+  function resumeListening() {
+    listeningPaused = false;
+    if (awake && !micMuted) {
+      S.setMicState('awake');
+      S.setState('listening');
+      S.setVoiceStatus('Awake — your turn.');
+      startConvoListening();
+    }
+  }
+  function startConvoListening() {
+    if (!SR || !awake || micMuted || listeningPaused) return;
+    convoRec = new SR();
+    convoRec.continuous = true;
+    convoRec.interimResults = false;
+    convoRec.lang = 'en-US';
+    convoRec.onresult = (event) => {
+      if (micMuted || listeningPaused) return;
+      const last = event.results[event.results.length - 1];
+      const transcript = last && last[0] ? last[0].transcript.trim() : '';
+      if (!transcript) return;
+      listeningPaused = true;
+      S.setMicState('paused');
+      try { convoRec.stop(); } catch (e) {}
+      if (matchesAny(transcript, STOP_PHRASES)) { stopSpeaking(); resumeListening(); return; }
+      if (matchesAny(transcript, SLEEP_PHRASES)) { Engine.sleep(); return; }
+      sendMessage(transcript);
+    };
+    convoRec.onend = () => { if (awake && !micMuted && !listeningPaused) setTimeout(() => { if (awake && !micMuted && !listeningPaused) startConvoListening(); }, 120); };
+    convoRec.onerror = () => { if (awake && !micMuted && !listeningPaused) setTimeout(() => { if (awake && !micMuted && !listeningPaused) startConvoListening(); }, 250); };
+    try { convoRec.start(); } catch (e) {}
+  }
+
+  // -------- barge-in: while speaking, listen ONLY for stop phrases --------
+  function startBargeListening() {
+    if (!SR || micMuted) return;
+    stopBargeListening();
+    bargeRec = new SR();
+    bargeRec.continuous = true;
+    bargeRec.interimResults = true;
+    bargeRec.lang = 'en-US';
+    bargeRec.onresult = (event) => {
+      if (!speaking) return;
+      for (let r = event.resultIndex; r < event.results.length; r++) {
+        if (matchesAny(event.results[r][0].transcript, STOP_PHRASES)) {
+          stopSpeaking();
+          resumeListening();
+          return;
+        }
+      }
+    };
+    try { bargeRec.start(); } catch (e) {}
+  }
+  function stopBargeListening() { if (bargeRec) { try { bargeRec.onresult = null; bargeRec.stop(); } catch (e) {} bargeRec = null; } }
+
+  // -------- chat turn --------
+  async function sendMessage(text) {
+    if (!text || !text.trim()) return;
+    text = text.trim();
+    if (S.onLocalCommand && S.onLocalCommand(text)) { resumeListening(); return; }
+    S.showUserText(text);
+    S.setState('thinking');
+    S.setVoiceStatus(`${A.name} is thinking…`);
+    try {
+      const r = await fetch(BACKEND_URL, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ assistant: A.id, message: text })
+      });
+      const d = await r.json();
+      const reply = d.reply || d.error || '(no reply)';
+      S.showAssistantText(reply);
+      speak(reply, () => { if (awake) resumeListening(); else { S.setState('sleeping'); S.setMicState(voiceActive ? 'listening' : null); } });
+    } catch (err) {
+      S.showAssistantText(`Connection error: ${err.message}`);
+      S.setState(awake ? 'listening' : 'sleeping');
+      if (awake) resumeListening();
+    }
+  }
+
+  // -------- TTS: ElevenLabs via backend, tapped through an analyser --------
+  let ttsCtx = null, ttsAnalyser = null, ttsData = null, currentSource = null, currentOnDone = null;
+  let synthFallback = false;
+  function getTtsCtx() {
+    if (!ttsCtx) {
+      ttsCtx = new (window.AudioContext || window.webkitAudioContext)();
+      ttsAnalyser = ttsCtx.createAnalyser();
+      ttsAnalyser.fftSize = 256;
+      ttsAnalyser.smoothingTimeConstant = 0.72;
+      ttsAnalyser.connect(ttsCtx.destination); // must reach destination or audio is silent
+      ttsData = new Uint8Array(128);
+    }
+    if (ttsCtx.state === 'suspended') ttsCtx.resume().catch(() => {});
+    return ttsCtx;
+  }
+  function stopSpeaking() {
+    if (currentSource) { try { currentSource.onended = null; currentSource.stop(); } catch (e) {} currentSource = null; }
+    if ('speechSynthesis' in window) { try { window.speechSynthesis.cancel(); } catch (e) {} }
+    speaking = false; synthFallback = false;
+    stopBargeListening();
+    currentOnDone = null;
+  }
+  function speak(text, onDone) {
+    const cleaned = String(text).replace(/[*_#`]/g, '').trim();
+    stopSpeaking();
+    if (!cleaned) { if (onDone) onDone(); return; }
+    speaking = true;
+    S.setState('speaking');
+    S.setVoiceStatus(`${A.name} is speaking — say "stop" to cut in.`);
+    currentOnDone = onDone;
+    startBargeListening();
+    fetch(`${BACKEND_URL}/tts`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text: cleaned, persona: A.id })
+    })
+      .then(res => { if (!res.ok) throw new Error('TTS ' + res.status); return res.arrayBuffer(); })
+      .then(buf => getTtsCtx().decodeAudioData(buf))
+      .then(audioBuffer => {
+        if (!speaking) return; // barged before playback started
+        const ctx = getTtsCtx();
+        const source = ctx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.playbackRate.value = store.num('rate', 1);
+        source.detune.value = store.num('pitch', 0) * 100;
+        const gain = ctx.createGain();
+        source.connect(gain);
+        gain.connect(ttsAnalyser);
+        const now = ctx.currentTime, fade = 0.02;
+        const dur = audioBuffer.duration / source.playbackRate.value;
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(1, now + fade);
+        if (dur > fade * 2) { gain.gain.setValueAtTime(1, now + dur - fade); gain.gain.linearRampToValueAtTime(0, now + dur); }
+        currentSource = source;
+        source.onended = () => {
+          currentSource = null; speaking = false;
+          stopBargeListening();
+          const cb = currentOnDone; currentOnDone = null;
+          if (cb) cb();
+        };
+        source.start(0);
+      })
+      .catch(err => {
+        console.error('ElevenLabs TTS failed, browser voice fallback:', err);
+        if (!speaking) return;
+        if ('speechSynthesis' in window) {
+          synthFallback = true;
+          const u = new SpeechSynthesisUtterance(cleaned);
+          u.rate = store.num('rate', 1);
+          u.pitch = Math.max(0, Math.min(2, 1 + store.num('pitch', 0) / 12));
+          const finish = () => {
+            speaking = false; synthFallback = false;
+            stopBargeListening();
+            const cb = currentOnDone; currentOnDone = null;
+            if (cb) cb();
+          };
+          u.onend = finish; u.onerror = finish;
+          window.speechSynthesis.speak(u);
+        } else {
+          speaking = false;
+          const cb = currentOnDone; currentOnDone = null;
+          if (cb) cb();
+        }
+      });
+  }
+
+  // -------- levels the shell polls from its render loop (no engine rAF) --------
+  function getAudioLevel() {
+    if (speaking && synthFallback) return 0.25 + 0.35 * Math.abs(Math.sin(performance.now() / 170));
+    if (!speaking || !ttsAnalyser || !currentSource) return 0;
+    ttsAnalyser.getByteFrequencyData(ttsData);
+    let sum = 0;
+    for (let i = 2; i < 60; i++) sum += ttsData[i];
+    return Math.min(1, (sum / 58) / 150);
+  }
+  function getMicLevel() {
+    if (!awake || speaking || micMuted) return 0;
+    return Math.min(1, instantVolume() * 6);
+  }
+
+  // -------- public engine API --------
+  const Engine = {
+    async startVoice() {
+      if (!SR) { S.setVoiceStatus('Voice recognition unsupported here — try Chrome.'); return; }
+      if (voiceActive) return;
+      if (!(await ensureMicGraph())) return;
+      voiceActive = true;
+      startWakeListening();
+    },
+    wake() { if (voiceActive) triggerWake(); else this.startVoice().then(() => triggerWake()); },
+    sleep() {
+      const line = A.sleepLine;
+      const finish = () => {
+        awake = false; listeningPaused = false;
+        if (convoRec) { try { convoRec.stop(); } catch (e) {} }
+        S.setState('sleeping');
+        if (voiceActive && !micMuted) startWakeListening(); else S.setMicState(null);
+        S.setVoiceStatus(voiceActive ? `Asleep — “Hey ${A.name.charAt(0) + A.name.slice(1).toLowerCase()}” or double clap wakes me.` : 'Voice off.');
+      };
+      if (awake) { S.showAssistantText(line); speak(line, finish); } else finish();
+    },
+    toggleMute() {
+      micMuted = !micMuted;
+      if (micMuted) {
+        if (wakeRec) { try { wakeRec.stop(); } catch (e) {} }
+        if (convoRec) { try { convoRec.stop(); } catch (e) {} }
+        stopBargeListening();
+        S.setMicState('muted');
+        S.setVoiceStatus('Mic muted.');
+      } else {
+        S.setMicState(awake ? 'awake' : 'listening');
+        if (awake) { if (!listeningPaused && !speaking) startConvoListening(); } else if (voiceActive) startWakeListening();
+        S.setVoiceStatus(awake ? 'Awake — your turn.' : 'Listening for the wake word.');
+      }
+      return micMuted;
+    },
+    // Push-to-talk: press = wake if needed + listen for one utterance
+    pttDown() {
+      if (micMuted) return;
+      stopSpeaking();
+      if (!awake) { awake = true; if (wakeRec) { try { wakeRec.stop(); } catch (e) {} } S.setState('listening'); }
+      listeningPaused = false;
+      S.setMicState('awake');
+      S.setVoiceStatus('Push-to-talk — speak now.');
+      if (!voiceActive) { voiceActive = true; ensureMicGraph(); }
+      startConvoListening();
+    },
+    sendText(t) { stopSpeaking(); if (!awake) { awake = true; S.setState('listening'); } listeningPaused = true; sendMessage(t); },
+    speak, stopSpeaking, getAudioLevel, getMicLevel,
+    isAwake: () => awake, isSpeaking: () => speaking, isVoiceActive: () => voiceActive, isMuted: () => micMuted,
+    store
+  };
+  window.Engine = Engine;
+})();
+/* ═══ ENGINE-END ═══ */
+
+/* ═════════════════════════════════════════════════════════════════
+   SHELL LOGIC — lock, panels, drawer, wiring. Page-specific.
+   ═════════════════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const api = (path, opts) => fetch(BACKEND_URL + path, opts).then(r => r.json());
+
+// ---- lock screen (same passphrase as the hub) ----
+(function () {
+  const lock = $('lockScreen'), input = $('lockInput');
+  if (sessionStorage.getItem('asgard:unlocked') === '1') { lock.classList.add('hidden'); }
+  else setTimeout(() => input.focus(), 300);
+  input.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    if (input.value === UNLOCK_PASSWORD) {
+      sessionStorage.setItem('asgard:unlocked', '1');
+      lock.classList.add('hidden');
+    } else { input.classList.remove('shake'); void input.offsetWidth; input.classList.add('shake'); input.value = ''; }
+  });
+})();
+
+// ---- local commands intercepted before hitting the backend ----
+function handleLocalCommand(text) {
+  const t = text.toLowerCase().trim();
+  if (/^(go to )?(the )?(loki|trickster)/.test(t) && /switch|open|go to/.test(t)) { location.href = '/loki/'; return true; }
+  if (/^(go to )?(the )?odin/.test(t) && /switch|open|go to/.test(t)) { location.href = '/odin/'; return true; }
+  if (/^switch to loki$/.test(t)) { location.href = '/loki/'; return true; }
+  if (/^switch to odin$/.test(t)) { location.href = '/odin/'; return true; }
+  if (/^switch to thor$/.test(t)) return true; // already home
+  return false;
+}
+
+// ---- input row wiring ----
+$('micBtn').addEventListener('click', () => Engine.startVoice());
+$('sendBtn').addEventListener('click', () => { const v = $('userInput').value; if (v.trim()) { Engine.sendText(v); $('userInput').value = ''; } });
+$('userInput').addEventListener('keydown', e => { if (e.key === 'Enter') { const v = $('userInput').value; if (v.trim()) { Engine.sendText(v); $('userInput').value = ''; } } });
+$('muteBtn').addEventListener('click', () => { const muted = Engine.toggleMute(); $('muteBtn').classList.toggle('danger', muted); });
+$('sleepBtn').addEventListener('click', () => Engine.sleep());
+const pttBtn = $('pttBtn');
+const pttStart = e => { e.preventDefault(); pttBtn.classList.add('held'); Engine.pttDown(); };
+const pttEnd = () => pttBtn.classList.remove('held');
+pttBtn.addEventListener('mousedown', pttStart); pttBtn.addEventListener('touchstart', pttStart, { passive: false });
+pttBtn.addEventListener('mouseup', pttEnd); pttBtn.addEventListener('touchend', pttEnd);
+
+// ---- switcher menu ----
+$('switcherBtn').addEventListener('click', e => { e.stopPropagation(); $('switcherMenu').classList.toggle('open'); });
+document.addEventListener('click', () => $('switcherMenu').classList.remove('open'));
+
+// ---- collapsible panels that remember their state ----
+document.querySelectorAll('.panel').forEach(p => {
+  const key = `thor:panel:${p.dataset.panel}`;
+  if (localStorage.getItem(key) === 'collapsed') p.classList.add('collapsed');
+  p.querySelector('header').addEventListener('click', () => {
+    p.classList.toggle('collapsed');
+    localStorage.setItem(key, p.classList.contains('collapsed') ? 'collapsed' : 'open');
+  });
+});
+
+// ---- status dots ----
+async function refreshStatusDots() {
+  try { const t0 = performance.now(); await api('/ping'); window._pingMs = Math.round(performance.now() - t0); $('dotBackend').className = 'dot on'; }
+  catch (e) { $('dotBackend').className = 'dot off'; window._pingMs = null; }
+  $('dotVoice').className = 'dot ' + (Engine.isVoiceActive() ? (Engine.isMuted() ? 'warn' : 'on') : '');
+  try { const b = await api('/browser/status'); $('dotExt').className = 'dot ' + (b.connected ? 'on' : 'off'); window._extConnected = b.connected; }
+  catch (e) { $('dotExt').className = 'dot off'; }
+}
+refreshStatusDots(); setInterval(refreshStatusDots, 20000);
+
+// ---- Spotify panel ----
+let spIsPlaying = false;
+async function refreshSpotify() {
+  if (document.hidden || document.querySelector('[data-panel=spotify]').classList.contains('collapsed')) return;
+  try {
+    const d = await api('/spotify/now-playing');
+    if (!d.ok && d.reason === 'not_connected') {
+      $('spTrack').textContent = 'Not connected';
+      $('spArtist').textContent = 'Link your Spotify account to control playback here.';
+      $('spConnectRow').style.display = 'block';
+      $('spConnect').href = BACKEND_URL + '/spotify/login';
+      $('spProgress').style.width = '0%';
+      return;
+    }
+    $('spConnectRow').style.display = 'none';
+    if (!d.track) {
+      $('spTrack').textContent = 'Nothing playing';
+      $('spArtist').textContent = 'Ask Thor to play something.';
+      $('spProgress').style.width = '0%';
+      spIsPlaying = false;
+    } else {
+      $('spTrack').textContent = d.track;
+      $('spArtist').textContent = d.artists + (d.album ? ' — ' + d.album : '');
+      if (d.artUrl) $('spArt').src = d.artUrl;
+      $('spProgress').style.width = d.durationMs ? (100 * d.progressMs / d.durationMs) + '%' : '0%';
+      spIsPlaying = d.playing;
+    }
+    $('spPlayPause').textContent = spIsPlaying ? '⏸' : '▶';
+  } catch (e) { /* backend dot already reports outage */ }
+}
+async function spControl(action) {
+  try { await api('/spotify/control', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action }) }); }
+  catch (e) {}
+  setTimeout(refreshSpotify, 600);
+}
+$('spPrev').addEventListener('click', () => spControl('previous'));
+$('spNext').addEventListener('click', () => spControl('next'));
+$('spPlayPause').addEventListener('click', () => spControl(spIsPlaying ? 'pause' : 'resume'));
+refreshSpotify(); setInterval(refreshSpotify, 6000);
+
+// ---- quick actions ----
+const QA_KEY = 'thor:quickactions';
+const QA_DEFAULTS = ["What's the weather looking like?", "Shuffle my playlist", "What's on my watchlist?", "Give me a quick news check"];
+function qaLoad() { try { return JSON.parse(localStorage.getItem(QA_KEY)) || QA_DEFAULTS; } catch (e) { return QA_DEFAULTS; } }
+function qaSave(list) { localStorage.setItem(QA_KEY, JSON.stringify(list)); }
+function qaRender() {
+  const grid = $('qaGrid'); grid.innerHTML = '';
+  qaLoad().forEach((cmd, i) => {
+    const b = document.createElement('button');
+    b.className = 'btn qaBtn'; b.textContent = cmd;
+    b.addEventListener('click', () => { if (!grid.classList.contains('editing')) Engine.sendText(cmd); });
+    const del = document.createElement('span');
+    del.className = 'qaDel'; del.textContent = '×';
+    del.addEventListener('click', e => { e.stopPropagation(); const l = qaLoad(); l.splice(i, 1); qaSave(l); qaRender(); });
+    b.appendChild(del); grid.appendChild(b);
+  });
+}
+$('qaAdd').addEventListener('click', () => { const v = $('qaNewInput').value.trim(); if (v) { const l = qaLoad(); l.push(v); qaSave(l); $('qaNewInput').value = ''; qaRender(); } });
+$('qaEdit').addEventListener('click', () => { $('qaGrid').classList.toggle('editing'); $('qaEdit').textContent = $('qaGrid').classList.contains('editing') ? 'Done' : 'Edit'; });
+qaRender();
+
+// ---- timers & alarms (local, survive reload) ----
+const TIMER_KEY = 'thor:timers';
+function timersLoad() { try { return JSON.parse(localStorage.getItem(TIMER_KEY)) || []; } catch (e) { return []; } }
+function timersSave(l) { localStorage.setItem(TIMER_KEY, JSON.stringify(l)); }
+function chime() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [880, 1108, 1318].forEach((f, i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = f; o.connect(g); g.connect(ctx.destination);
+      const t = ctx.currentTime + i * 0.18;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.25, t + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+      o.start(t); o.stop(t + 0.55);
+    });
+  } catch (e) {}
+}
+$('timerAdd').addEventListener('click', () => {
+  const v = $('timerInput').value.trim(); if (!v) return;
+  const mMin = v.match(/^(\d+)\s*m(?:in(?:utes?)?)?\s*(.*)$/i);
+  const mClock = v.match(/^(\d{1,2}):(\d{2})\s*(.*)$/);
+  const list = timersLoad();
+  if (mMin) list.push({ id: Date.now(), type: 'timer', label: mMin[2] || 'Timer', target: Date.now() + parseInt(mMin[1], 10) * 60000 });
+  else if (mClock) list.push({ id: Date.now(), type: 'alarm', label: mClock[3] || 'Alarm', time: `${mClock[1].padStart(2, '0')}:${mClock[2]}`, lastFired: null });
+  else { $('timerInput').placeholder = 'Format: "10m tea" or "07:30 gym"'; return; }
+  timersSave(list); $('timerInput').value = ''; renderTimers();
+});
+function renderTimers() {
+  const list = timersLoad(), el = $('timerList');
+  if (!list.length) { el.innerHTML = '<div class="emptyState">No timers running.</div>'; return; }
+  el.innerHTML = '';
+  const now = Date.now(), nowHM = new Date().toTimeString().slice(0, 5), today = new Date().toDateString();
+  let changed = false;
+  for (const t of list) {
+    const row = document.createElement('div'); row.className = 'timerRow';
+    let timeText;
+    if (t.type === 'timer') {
+      const left = t.target - now;
+      if (left <= 0) { timeText = 'DONE'; row.classList.add('firing'); if (!t.fired) { t.fired = true; changed = true; chime(); Engine.speak(`Timer done: ${t.label}.`); } }
+      else timeText = `${Math.floor(left / 60000)}:${String(Math.floor((left % 60000) / 1000)).padStart(2, '0')}`;
+    } else {
+      timeText = t.time + ' daily';
+      if (t.time === nowHM && t.lastFired !== today) { t.lastFired = today; changed = true; chime(); Engine.speak(`Alarm: ${t.label}.`); row.classList.add('firing'); }
+    }
+    row.innerHTML = `<span class="grow">${t.type === 'alarm' ? '⏰ ' : '⏱ '}${t.label}</span><span class="tTime">${timeText}</span>`;
+    const del = document.createElement('button'); del.className = 'tinyBtn danger'; del.textContent = '✕';
+    del.addEventListener('click', () => { timersSave(timersLoad().filter(x => x.id !== t.id)); renderTimers(); });
+    row.appendChild(del); el.appendChild(row);
+  }
+  if (changed) timersSave(list);
+}
+renderTimers(); setInterval(renderTimers, 1000);
+
+// ---- weather (Open-Meteo — free, no key, real data) ----
+const WX_CODES = { 0: ['☀️', 'Clear'], 1: ['🌤', 'Mostly clear'], 2: ['⛅', 'Partly cloudy'], 3: ['☁️', 'Overcast'], 45: ['🌫', 'Fog'], 48: ['🌫', 'Rime fog'], 51: ['🌦', 'Drizzle'], 53: ['🌦', 'Drizzle'], 55: ['🌧', 'Heavy drizzle'], 61: ['🌧', 'Rain'], 63: ['🌧', 'Rain'], 65: ['🌧', 'Heavy rain'], 71: ['🌨', 'Snow'], 73: ['🌨', 'Snow'], 75: ['❄️', 'Heavy snow'], 80: ['🌦', 'Showers'], 81: ['🌧', 'Showers'], 82: ['⛈', 'Violent showers'], 95: ['⛈', 'Thunderstorm'], 96: ['⛈', 'Storm + hail'], 99: ['⛈', 'Storm + hail'] };
+function wxOf(code) { return WX_CODES[code] || ['🌡', '—']; }
+async function loadWeather(lat, lon, placeLabel) {
+  try {
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m&daily=temperature_2m_max,temperature_2m_min,weather_code&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=3`);
+    const d = await r.json();
+    const [icon, desc] = wxOf(d.current.weather_code);
+    $('wxIcon').textContent = icon;
+    $('wxTemp').textContent = Math.round(d.current.temperature_2m) + '°';
+    $('wxDesc').textContent = `${desc} · wind ${Math.round(d.current.wind_speed_10m)} mph · ${d.current.relative_humidity_2m}% hum`;
+    $('wxPlace').textContent = placeLabel;
+    const days = $('wxDays'); days.innerHTML = '';
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    d.daily.time.forEach((iso, i) => {
+      const [di, dd] = wxOf(d.daily.weather_code[i]);
+      const el = document.createElement('div');
+      el.className = 'wxDay';
+      el.innerHTML = `${i === 0 ? 'Today' : dayNames[new Date(iso + 'T12:00').getDay()]}<b>${di} ${Math.round(d.daily.temperature_2m_max[i])}°</b><span class="muted">${Math.round(d.daily.temperature_2m_min[i])}°</span>`;
+      days.appendChild(el);
+    });
+  } catch (e) { $('wxDesc').textContent = 'Weather unavailable right now.'; }
+}
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(
+    p => loadWeather(p.coords.latitude, p.coords.longitude, 'Your location'),
+    () => loadWeather(35.3733, -119.0187, 'Bakersfield (default)'),
+    { timeout: 6000 }
+  );
+} else loadWeather(35.3733, -119.0187, 'Bakersfield (default)');
+setInterval(() => { if (!document.hidden) { /* hourly refresh */ } }, 3600000);
+
+// ---- todos panel (shared backend list) ----
+async function refreshTodos() {
+  try {
+    const todos = await api('/todos');
+    const open = todos.filter(t => !t.done);
+    const el = $('todoList');
+    if (!open.length) { el.innerHTML = '<div class="emptyState">Nothing open. Rare sight.</div>'; return; }
+    el.innerHTML = '';
+    for (const t of open.slice(0, 8)) {
+      const row = document.createElement('div'); row.className = 'listRow';
+      const chk = document.createElement('button'); chk.className = 'tinyBtn'; chk.textContent = '◻';
+      chk.addEventListener('click', async () => { await api('/todos', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'complete', id: t.id }) }); refreshTodos(); });
+      const span = document.createElement('span'); span.className = 'grow'; span.textContent = t.text;
+      row.appendChild(chk); row.appendChild(span); el.appendChild(row);
+    }
+    if (open.length > 8) el.insertAdjacentHTML('beforeend', `<div class="muted" style="margin-top:5px;">+${open.length - 8} more — Loki has the full ledger.</div>`);
+  } catch (e) { $('todoList').innerHTML = '<div class="emptyState">Backend unreachable.</div>'; }
+}
+$('todoAdd').addEventListener('click', async () => {
+  const v = $('todoInput').value.trim(); if (!v) return;
+  await api('/todos', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'add', text: v }) });
+  $('todoInput').value = ''; refreshTodos();
+});
+refreshTodos(); setInterval(() => { if (!document.hidden) refreshTodos(); }, 30000);
+
+// ---- browser link panel ----
+async function refreshExt() {
+  try {
+    const b = await api('/browser/status');
+    $('extState').textContent = b.connected ? 'CONNECTED' : 'OFFLINE';
+    $('extState').style.color = b.connected ? 'var(--ok)' : 'var(--danger)';
+  } catch (e) { $('extState').textContent = 'UNKNOWN'; }
+}
+refreshExt(); setInterval(refreshExt, 30000);
+
+// ---- drawer sheets ----
+const SHEETS = {
+  settings: renderSettingsSheet,
+  memory: renderMemorySheet,
+  history: renderHistorySheet,
+  activity: renderActivitySheet,
+  status: renderStatusSheet
+};
+let openSheet = null;
+document.querySelectorAll('.drawerTab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const name = tab.dataset.sheet;
+    document.querySelectorAll('.drawerTab').forEach(t => t.classList.remove('active'));
+    if (openSheet === name) { openSheet = null; $('drawerSheet').classList.remove('open'); return; }
+    openSheet = name;
+    tab.classList.add('active');
+    SHEETS[name]();
+    $('drawerSheet').classList.add('open');
+  });
+});
+
+function setRow(labelHtml, controlEl) {
+  const row = document.createElement('div'); row.className = 'setRow';
+  const lab = document.createElement('label'); lab.innerHTML = labelHtml;
+  row.appendChild(lab); row.appendChild(controlEl);
+  return row;
+}
+function mkToggle(key, def, onChange) {
+  const wrap = document.createElement('label'); wrap.className = 'toggle';
+  const input = document.createElement('input'); input.type = 'checkbox';
+  input.checked = Engine.store.bool(key, def);
+  const slider = document.createElement('span'); slider.className = 'slider';
+  input.addEventListener('change', () => { Engine.store.set(key, input.checked ? '1' : '0'); if (onChange) onChange(input.checked); });
+  wrap.appendChild(input); wrap.appendChild(slider);
+  return wrap;
+}
+function mkRange(key, def, min, max, step) {
+  const input = document.createElement('input'); input.type = 'range';
+  input.min = min; input.max = max; input.step = step;
+  input.value = Engine.store.num(key, def);
+  input.addEventListener('input', () => Engine.store.set(key, input.value));
+  return input;
+}
+function mkSelect(key, def, options) {
+  const sel = document.createElement('select');
+  for (const [v, label] of options) { const o = document.createElement('option'); o.value = v; o.textContent = label; sel.appendChild(o); }
+  sel.value = Engine.store.get(key, def);
+  sel.addEventListener('change', () => Engine.store.set(key, sel.value));
+  return sel;
+}
+
+function renderSettingsSheet() {
+  const s = $('drawerSheet'); s.innerHTML = '<h3>⚙ SETTINGS</h3>';
+  s.appendChild(setRow('Voice speed<span class="hint">0.75× – 1.4×</span>', mkRange('rate', 1, 0.75, 1.4, 0.05)));
+  s.appendChild(setRow('Voice tone<span class="hint">semitones down/up</span>', mkRange('pitch', 0, -6, 6, 1)));
+  s.appendChild(setRow('Wake word<span class="hint">“Hey Thor” and variants</span>', mkToggle('wakeEnabled', true)));
+  s.appendChild(setRow('Wake sensitivity<span class="hint">loose hears more, strict fewer false wakes</span>', mkSelect('wakeSensitivity', 'normal', [['strict', 'Strict'], ['normal', 'Normal'], ['loose', 'Loose']])));
+  s.appendChild(setRow('Bare-name wake<span class="hint">wake on just “Thor” — off avoids false triggers</span>', mkToggle('bareNameWake', false)));
+  s.appendChild(setRow('Double-clap wake', mkToggle('clapEnabled', true)));
+  s.appendChild(setRow('Clap sensitivity<span class="hint">left = needs louder claps</span>', mkRange('clapSensitivity', 1, 0.5, 2, 0.1)));
+  s.appendChild(setRow('Effects intensity<span class="hint">lightning & glow density</span>', mkSelect('fx', 'high', [['low', 'Low'], ['med', 'Medium'], ['high', 'High']])));
+  s.appendChild(setRow('Performance mode<span class="hint">lite skips bloom — best for older devices</span>', mkSelect('perf', 'auto', [['auto', 'Auto'], ['lite', 'Lite'], ['full', 'Full']])));
+  const note = document.createElement('div'); note.className = 'muted'; note.style.marginTop = '10px';
+  note.textContent = 'Effects/performance changes apply on next page load. Voice changes apply immediately.';
+  s.appendChild(note);
+  appendPermissionsEditor(s);
+}
+
+// Per-tool permission levels (auto / notify / confirm / off) — backend-enforced.
+function appendPermissionsEditor(s) {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = '<h3 style="margin-top:18px;">🔐 TOOL PERMISSIONS</h3><div class="muted">Loading…</div>';
+  s.appendChild(wrap);
+  api('/permissions/all').then(d => {
+    wrap.innerHTML = '<h3 style="margin-top:18px;">🔐 TOOL PERMISSIONS</h3><div class="muted" style="margin-bottom:6px;">auto = just do it · notify = do it and tell you · confirm = ask first · off = disabled</div>';
+    for (const t of d.tools) {
+      const sel = document.createElement('select');
+      for (const lv of ['auto', 'notify', 'confirm', 'off']) { const o = document.createElement('option'); o.value = lv; o.textContent = lv; sel.appendChild(o); }
+      sel.value = t.level;
+      if (t.hardConfirm) [...sel.options].forEach(o => { if (o.value === 'auto' || o.value === 'notify') o.disabled = true; });
+      sel.addEventListener('change', () => api('/permissions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tool: t.tool, level: sel.value }) }));
+      wrap.appendChild(setRow(`${t.tool}${t.hardConfirm ? '<span class="hint">sends real messages — hardwired to confirm, can only be switched off</span>' : ''}`, sel));
+    }
+  }).catch(() => { wrap.innerHTML += '<div class="emptyState">Backend unreachable.</div>'; });
+}
+
+async function renderMemorySheet() {
+  const s = $('drawerSheet'); s.innerHTML = '<h3>🧠 MEMORY — what Thor knows</h3><div class="muted">Loading…</div>';
+  try {
+    const mem = await api('/memory?persona=thor');
+    s.innerHTML = '<h3>🧠 MEMORY — what Thor knows</h3>';
+    if (!mem.length) { s.insertAdjacentHTML('beforeend', '<div class="emptyState">No long-term memories saved yet.</div>'); return; }
+    for (const m of [...mem].reverse()) {
+      const row = document.createElement('div'); row.className = 'memRow';
+      const actions = document.createElement('span'); actions.className = 'memActions';
+      const edit = document.createElement('button'); edit.className = 'tinyBtn'; edit.textContent = '✎';
+      const del = document.createElement('button'); del.className = 'tinyBtn danger'; del.textContent = '✕';
+      edit.addEventListener('click', async () => {
+        const nv = prompt('Edit memory:', m.fact);
+        if (nv && nv.trim() && nv !== m.fact) {
+          await api('/memory/update', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ persona: 'thor', memId: m.id, fact: nv.trim() }) });
+          renderMemorySheet();
+        }
+      });
+      del.addEventListener('click', async () => {
+        if (confirm('Delete this memory permanently?')) {
+          await api('/memory/delete', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ persona: 'thor', memId: m.id }) });
+          renderMemorySheet();
+        }
+      });
+      actions.appendChild(edit); actions.appendChild(del);
+      row.appendChild(actions);
+      row.insertAdjacentHTML('beforeend', `<span class="memDate">${m.date}</span>${m.fact}${m.sharedFrom ? `<span class="memShared">via ${m.sharedFrom.toUpperCase()}</span>` : ''}${m.supersededBy ? '<span class="memShared">superseded</span>' : ''}`);
+      s.appendChild(row);
+    }
+  } catch (e) { s.innerHTML = '<h3>🧠 MEMORY</h3><div class="emptyState">Backend unreachable.</div>'; }
+}
+
+async function renderHistorySheet() {
+  const s = $('drawerSheet'); s.innerHTML = '<h3>🕘 CONVERSATION HISTORY</h3>';
+  const search = document.createElement('input'); search.className = 'rowInput'; search.placeholder = 'Search history…';
+  s.appendChild(search);
+  const listEl = document.createElement('div'); listEl.style.marginTop = '10px'; s.appendChild(listEl);
+  let turns = [];
+  try { const d = await api('/history?persona=thor'); turns = d.turns || []; }
+  catch (e) { listEl.innerHTML = '<div class="emptyState">Backend unreachable.</div>'; return; }
+  function render(filter) {
+    const f = (filter || '').toLowerCase();
+    const rows = turns.filter(t => !f || t.text.toLowerCase().includes(f));
+    listEl.innerHTML = rows.length ? '' : '<div class="emptyState">Nothing matches.</div>';
+    for (const t of [...rows].reverse()) {
+      listEl.insertAdjacentHTML('beforeend', `<div class="histRow"><span class="who ${t.role === 'user' ? 'u' : 'a'}">${t.role === 'user' ? 'YOU' : 'THOR'}</span>${t.text.replace(/</g, '&lt;')}</div>`);
+    }
+  }
+  search.addEventListener('input', () => render(search.value));
+  render('');
+}
+
+async function renderActivitySheet() {
+  const s = $('drawerSheet'); s.innerHTML = '<h3>📡 LIVE TOOL ACTIVITY</h3><div class="muted">Loading…</div>';
+  try {
+    const log = await api('/activity');
+    s.innerHTML = '<h3>📡 LIVE TOOL ACTIVITY</h3>';
+    const items = (Array.isArray(log) ? log : []).slice(-30).reverse();
+    if (!items.length) { s.insertAdjacentHTML('beforeend', '<div class="emptyState">No tool activity recorded yet.</div>'); return; }
+    for (const it of items) {
+      const when = it.at || it.time || it.timestamp || '';
+      const what = it.summary || it.action || it.tool || JSON.stringify(it).slice(0, 120);
+      s.insertAdjacentHTML('beforeend', `<div class="actRow"><span class="when">${String(when).replace('T', ' ').slice(5, 16)}</span><span>${String(what).replace(/</g, '&lt;')}</span></div>`);
+    }
+  } catch (e) { s.innerHTML = '<h3>📡 LIVE TOOL ACTIVITY</h3><div class="emptyState">Backend unreachable.</div>'; }
+}
+
+async function renderStatusSheet() {
+  const s = $('drawerSheet'); s.innerHTML = '<h3>🛰 SYSTEM STATUS</h3><div class="muted">Checking…</div>';
+  const cards = [];
+  cards.push(['Backend', window._pingMs != null ? `Online · ${window._pingMs}ms round-trip` : 'Unreachable']);
+  try { const b = await api('/browser/status'); cards.push(['Browser extension', b.connected ? 'Connected (polled within 60s)' : 'Offline']); }
+  catch (e) { cards.push(['Browser extension', 'Unknown — backend unreachable']); }
+  try { const sp = await api('/spotify/now-playing'); cards.push(['Spotify', sp.reason === 'not_connected' ? 'Not linked' : 'Linked']); }
+  catch (e) { cards.push(['Spotify', 'Unknown']); }
+  try {
+    const st = await api('/status');
+    for (const [id, p] of Object.entries(st.personas || {})) {
+      cards.push([p.name, (p.status && p.status.task) ? `${p.status.task}` : 'idle']);
+    }
+  } catch (e) { cards.push(['Personas', 'Status unavailable']); }
+  cards.push(['Voice engine', Engine.isVoiceActive() ? (Engine.isMuted() ? 'Active · muted' : 'Active') : 'Not started (tap the mic)']);
+  s.innerHTML = '<h3>🛰 SYSTEM STATUS</h3><div class="statGrid">' +
+    cards.map(([t, v]) => `<div class="statCard"><b>${t}</b>${String(v).replace(/</g, '&lt;')}</div>`).join('') + '</div>';
+}
+</script>
+
+<!-- ═══════════════ THREE.JS STORM FORGE SCENE ═══════════════ -->
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const canvas = document.getElementById('stageCanvas');
+const stage = document.getElementById('centerStage');
+const fxLevel = { low: 0.4, med: 0.7, high: 1 }[localStorage.getItem('va:thor:fx') || 'high'] || 1;
+const perfSetting = localStorage.getItem('va:thor:perf') || 'auto';
+const isSmall = Math.min(innerWidth, innerHeight) < 700;
+const lite = perfSetting === 'lite' || (perfSetting === 'auto' && isSmall);
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !lite, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, lite ? 1 : 1.5));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 60);
+camera.position.set(0, 0.75, 7.4);
+camera.lookAt(0, 0.9, 0);
+
+// Environment map — without one, high-metalness materials read as flat paper.
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.7;
+
+// ---- lighting: warm gold key, purple rim, faint fill ----
+const keyLight = new THREE.DirectionalLight(0xffe0b0, 2.2); keyLight.position.set(3, 4, 5); scene.add(keyLight);
+const rimLight = new THREE.PointLight(0x9b6bff, 14, 30); rimLight.position.set(-4, 2, -4); scene.add(rimLight);
+const underLight = new THREE.PointLight(0x6b48c8, 6, 20); underLight.position.set(0, -4, 2); scene.add(underLight);
+scene.add(new THREE.AmbientLight(0x2a2440, 1.4));
+
+// ---- Mjolnir ----
+function runeTexture() {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 256;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 512, 256);
+  const runes = 'ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗᛚᛜᛞᛟ';
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 46px serif'; ctx.textAlign = 'center';
+  for (let row = 0; row < 3; row++)
+    for (let col = 0; col < 8; col++)
+      ctx.fillText(runes[Math.floor(Math.random() * runes.length)], 40 + col * 62, 70 + row * 76);
+  const tex = new THREE.CanvasTexture(c);
+  return tex;
+}
+function leatherTexture() {
+  const c = document.createElement('canvas'); c.width = 64; c.height = 256;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#4a3120'; ctx.fillRect(0, 0, 64, 256);
+  ctx.strokeStyle = '#2e1d10'; ctx.lineWidth = 7;
+  for (let y = -64; y < 300; y += 26) { ctx.beginPath(); ctx.moveTo(-10, y); ctx.lineTo(80, y + 42); ctx.stroke(); }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+const hammer = new THREE.Group();
+const steel = new THREE.MeshStandardMaterial({ color: 0x9aa3b2, metalness: 0.95, roughness: 0.3 });
+const gold = new THREE.MeshStandardMaterial({ color: 0xe0b45f, metalness: 1.0, roughness: 0.2 });
+const runeMat = new THREE.MeshStandardMaterial({
+  color: 0x87909f, metalness: 0.92, roughness: 0.38,
+  emissive: 0x9b6bff, emissiveMap: runeTexture(), emissiveIntensity: 0.08
+});
+
+// head — squared block with gold end caps and engraved rune faces
+const headCore = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.06, 1.06), steel);
+hammer.add(headCore);
+for (const sx of [-1, 1]) {
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.18, 1.18), gold);
+  cap.position.x = sx * 1.12;
+  hammer.add(cap);
+}
+// engraved rune plates, inset into the steel faces
+const plateGeo = new THREE.PlaneGeometry(1.65, 0.78);
+const plateFront = new THREE.Mesh(plateGeo, runeMat); plateFront.position.z = 0.536; hammer.add(plateFront);
+const plateBack = new THREE.Mesh(plateGeo, runeMat); plateBack.position.z = -0.536; plateBack.rotation.y = Math.PI; hammer.add(plateBack);
+const plateTop = new THREE.Mesh(plateGeo.clone(), runeMat);
+plateTop.position.y = 0.536; plateTop.rotation.x = -Math.PI / 2; hammer.add(plateTop);
+
+// handle
+const handleMat = new THREE.MeshStandardMaterial({ map: leatherTexture(), color: 0xffffff, roughness: 0.85, metalness: 0.05 });
+const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.15, 1.75, 10), handleMat);
+handle.position.y = -1.35; hammer.add(handle);
+const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.14, 12), gold);
+collar.position.y = -0.6; hammer.add(collar);
+const pommel = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.16, 0.2, 10), gold);
+pommel.position.y = -2.26; hammer.add(pommel);
+const strapLoop = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.035, 8, 18), gold);
+strapLoop.position.y = -2.44; hammer.add(strapLoop);
+
+hammer.position.y = 1.1;
+hammer.scale.setScalar(0.74);
+hammer.rotation.z = 0.07;
+hammer.rotation.x = 0.12; // slight 3/4 tilt so facets catch the key light
+scene.add(hammer);
+
+// soft storm glow behind the hammer
+function glowSprite(colorInner, colorOuter) {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(128, 128, 10, 128, 128, 128);
+  g.addColorStop(0, colorInner); g.addColorStop(0.55, colorOuter); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 256, 256);
+  const mat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending });
+  return new THREE.Sprite(mat);
+}
+const backGlow = glowSprite('rgba(120,80,220,0.55)', 'rgba(60,40,140,0.18)');
+backGlow.scale.setScalar(9);
+backGlow.position.set(0, 1.0, -2.5);
+scene.add(backGlow);
+
+// ---- electric aura sparks (Points) ----
+const SPARKS = Math.floor(140 * fxLevel);
+const sparkGeo = new THREE.BufferGeometry();
+const sparkPos = new Float32Array(SPARKS * 3);
+const sparkSeed = new Float32Array(SPARKS);
+for (let i = 0; i < SPARKS; i++) {
+  sparkPos[i * 3] = (Math.random() - 0.5) * 3.4;
+  sparkPos[i * 3 + 1] = (Math.random() - 0.5) * 2.2 + 0.5;
+  sparkPos[i * 3 + 2] = (Math.random() - 0.5) * 2.4;
+  sparkSeed[i] = Math.random() * 100;
+}
+sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3));
+const sparkMat = new THREE.PointsMaterial({ color: 0xb99aff, size: 0.045, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+const sparks = new THREE.Points(sparkGeo, sparkMat);
+scene.add(sparks);
+
+// ---- lightning bolt pool ----
+const MAX_BOLTS = Math.max(6, Math.floor(14 * fxLevel));
+const boltPool = [];
+for (let i = 0; i < MAX_BOLTS; i++) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(16 * 3), 3));
+  const mat = new THREE.LineBasicMaterial({ color: 0xd8c8ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending });
+  const line = new THREE.Line(geo, mat);
+  line.visible = false;
+  scene.add(line);
+  boltPool.push({ line, life: 0, maxLife: 0 });
+}
+function fireBolt(from, to, thickness) {
+  const b = boltPool.find(x => x.life <= 0);
+  if (!b) return;
+  const pts = b.line.geometry.attributes.position.array;
+  const SEGS = 15;
+  for (let i = 0; i <= SEGS; i++) {
+    const t = i / SEGS;
+    const jag = (i > 0 && i < SEGS) ? 0.28 * Math.sin(t * Math.PI) : 0;
+    pts[i * 3] = from.x + (to.x - from.x) * t + (Math.random() - 0.5) * jag * 2;
+    pts[i * 3 + 1] = from.y + (to.y - from.y) * t + (Math.random() - 0.5) * jag * 2;
+    pts[i * 3 + 2] = from.z + (to.z - from.z) * t + (Math.random() - 0.5) * jag;
+  }
+  b.line.geometry.attributes.position.needsUpdate = true;
+  b.line.material.opacity = thickness;
+  b.life = b.maxLife = 0.13 + Math.random() * 0.1;
+  b.line.visible = true;
+}
+function hammerWorldPos() { return new THREE.Vector3(0, 1.0, 0); }
+function screenEdgePoint() {
+  // a random point on the frustum edge at the hammer's depth
+  const edge = Math.floor(Math.random() * 4);
+  const d = camera.position.z; // distance to z=0 plane
+  const h = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * d;
+  const w = h * camera.aspect;
+  const r = Math.random() * 2 - 1;
+  if (edge === 0) return new THREE.Vector3(r * w, h, 0);
+  if (edge === 1) return new THREE.Vector3(r * w, -h, 0);
+  if (edge === 2) return new THREE.Vector3(-w, r * h, 0);
+  return new THREE.Vector3(w, r * h, 0);
+}
+
+// ---- bloom composer ----
+let composer = null, bloomPass = null;
+if (!lite) {
+  composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  bloomPass = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.55, 0.7, 0.5);
+  composer.addPass(bloomPass);
+  composer.addPass(new OutputPass());
+}
+
+// ---- state machine ----
+const STATES = {
+  sleeping: { rot: 0.06, bob: 0.05, emissive: 0.14, spark: 0, arcRate: 0, bloom: 0.3, exposure: 0.8 },
+  listening: { rot: 0.28, bob: 0.1, emissive: 0.5, spark: 0.5, arcRate: 0.9, bloom: 0.65, exposure: 1.0 },
+  thinking: { rot: 1.5, bob: 0.14, emissive: 0.85, spark: 0.75, arcRate: 2.2, bloom: 0.8, exposure: 1.05 },
+  speaking: { rot: 0.45, bob: 0.1, emissive: 0.7, spark: 0.9, arcRate: 1.6, bloom: 0.75, exposure: 1.05 },
+  charging: { rot: 0.2, bob: 0.02, emissive: 1.6, spark: 1, arcRate: 8, bloom: 1.15, exposure: 1.15 }
+};
+let stateName = 'sleeping';
+let cur = { ...STATES.sleeping };
+let charge = 0; // wake cinematic progress
+let cinematic = null;
+
+window.Scene = {
+  setState(s) {
+    const map = { idle: 'sleeping', talking: 'speaking', powerup: 'charging' };
+    stateName = STATES[s] ? s : (map[s] || 'sleeping');
+  },
+  wakeCinematic(done) {
+    stateName = 'charging';
+    charge = 0;
+    cinematic = { t: 0, done, boltTimer: 0, wallStart: performance.now() };
+  }
+};
+
+// ---- resize ----
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false);
+  if (composer) composer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage);
+resize();
+
+// ---- the single render loop ----
+let last = performance.now();
+let arcAccum = 0;
+function loop(now) {
+  requestAnimationFrame(loop);
+  if (document.hidden) { last = now; return; }
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  const t = now / 1000;
+
+  const audio = window.Engine ? window.Engine.getAudioLevel() : 0;
+  const mic = window.Engine ? window.Engine.getMicLevel() : 0;
+
+  // lerp toward target state
+  const target = STATES[stateName];
+  const speed = stateName === 'charging' ? 6 : 2.2;
+  for (const k of Object.keys(cur)) cur[k] += (target[k] - cur[k]) * Math.min(1, dt * speed);
+
+  // cinematic: bolts converge from screen edges, hammer charges
+  if (cinematic) {
+    cinematic.t += dt;
+    cinematic.boltTimer -= dt;
+    charge = Math.min(1, cinematic.t / 1.45);
+    if (cinematic.boltTimer <= 0 && cinematic.t < 1.5) {
+      cinematic.boltTimer = 0.07;
+      fireBolt(screenEdgePoint(), hammerWorldPos(), 0.95);
+      if (Math.random() < 0.5) fireBolt(screenEdgePoint(), hammerWorldPos(), 0.7);
+    }
+    hammer.position.x = (Math.random() - 0.5) * 0.04 * charge;
+    if (cinematic.t >= 1.9 || now - cinematic.wallStart > 3200) {
+      hammer.position.x = 0;
+      const cb = cinematic.done; cinematic = null;
+      stateName = 'listening';
+      if (cb) cb();
+    }
+  }
+
+  // ambient arcs while awake
+  arcAccum += dt * cur.arcRate;
+  if (arcAccum >= 1 && !cinematic) {
+    arcAccum = 0;
+    const hp = hammerWorldPos();
+    const a = Math.random() * Math.PI * 2;
+    const start = new THREE.Vector3(hp.x + Math.cos(a) * 1.6, hp.y + (Math.random() - 0.5) * 1.6, hp.z + Math.sin(a) * 1.2);
+    fireBolt(start, new THREE.Vector3(hp.x + (Math.random() - 0.5) * 1.4, hp.y + (Math.random() - 0.5) * 0.8, hp.z), 0.5 + audio * 0.4);
+    if (Math.random() < 0.12 * fxLevel) fireBolt(screenEdgePoint(), hammerWorldPos(), 0.55); // occasional big arc
+  }
+
+  // decay bolts
+  for (const b of boltPool) {
+    if (b.life > 0) {
+      b.life -= dt;
+      b.line.material.opacity = Math.max(0, (b.life / b.maxLife)) * 0.9;
+      if (b.life <= 0) b.line.visible = false;
+    }
+  }
+
+  // hammer motion + glow
+  hammer.rotation.y += dt * cur.rot * (1 + mic * 1.5);
+  hammer.position.y = 1.1 + Math.sin(t * 1.1) * cur.bob;
+  backGlow.material.opacity = 0.2 + cur.emissive * 0.35 + audio * 0.25;
+  const pulse = stateName === 'thinking' ? 0.25 * Math.sin(t * 7) : 0;
+  runeMat.emissiveIntensity = Math.max(0.03, cur.emissive + pulse + audio * 1.1 + mic * 0.5 + charge * 1.4);
+  rimLight.intensity = 8 + cur.emissive * 10 + audio * 22 + charge * 30;
+  renderer.toneMappingExposure = cur.exposure + audio * 0.12;
+
+  // sparks
+  sparkMat.opacity = cur.spark * 0.75 * fxLevel;
+  const sp = sparkGeo.attributes.position.array;
+  for (let i = 0; i < SPARKS; i++) {
+    sp[i * 3 + 1] += Math.sin(t * 3 + sparkSeed[i]) * 0.0022;
+    sp[i * 3] += Math.cos(t * 2.2 + sparkSeed[i]) * 0.0016;
+  }
+  sparkGeo.attributes.position.needsUpdate = cur.spark > 0.02;
+
+  if (composer && bloomPass) {
+    bloomPass.strength = (cur.bloom + audio * 0.5 + charge * 0.7) * fxLevel;
+    composer.render();
+  } else {
+    renderer.render(scene, camera);
+  }
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

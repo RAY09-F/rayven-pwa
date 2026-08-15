@@ -1,0 +1,37 @@
+name = "rayven-backend"
+main = "src/index.js"
+compatibility_date = "2026-08-13"
+
+# The ASGARD PWA is served straight from the worker: GET / (and /index.html)
+# return public/index.html; every other route — all POSTs, /ping, /status,
+# /agent/query, Telegram webhooks — still hits the worker code. public/ holds a
+# COPY of the repo-root index.html: after editing index.html, re-copy it into
+# public/ before `wrangler deploy`.
+#
+# run_worker_first is REQUIRED here: without it, Cloudflare's static-asset
+# handler claims the "/" route for every HTTP method (not just GET), so
+# POST / — the web chat endpoint AND the legacy Telegram webhook — starts
+# returning a flat 405 the moment assets are enabled. With this on, fetch()
+# in src/index.js runs first for every request and explicitly calls
+# env.ASSETS.fetch() only for the GET/HEAD fallthrough case.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+
+[[kv_namespaces]]
+binding = "RAYVEN_KV"
+id = "ee3cce96335249a9a4cc990cdfd8a2a5"
+
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "rayven-memory"
+
+[ai]
+binding = "AI"
+
+[triggers]
+# Runs every 5 minutes; each background subsystem (proactive check-in, code
+# check, and later monitoring/email/calendar sweeps) tracks its own "last run"
+# state in KV and decides internally whether it's actually due this tick.
+crons = ["*/5 * * * *"]

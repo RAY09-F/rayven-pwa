@@ -1,0 +1,10 @@
+# personal working notes — never publish
+prompt*.txt
+chatgpt.txt
+New folder/
+
+# local state and backups
+backups/
+.wrangler/
+.claude/
+node_modules/
