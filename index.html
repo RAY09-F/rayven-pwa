@@ -106,7 +106,8 @@
     color: var(--text);
   }
   .panel-title { font-size: 9px; letter-spacing: 3px; color: rgb(var(--accent-2)); margin-bottom: 8px; }
-  .hud-hidden .panel, .hud-hidden #wordmark, .hud-hidden #statusStrip, .hud-hidden #telemetryBar, .hud-hidden #voiceCluster { display: none !important; }
+  .hud-hidden .panel, .hud-hidden #wordmark, .hud-hidden #statusStrip, .hud-hidden #telemetryBar, .hud-hidden #voiceCluster,
+  .hud-hidden .bay-overlay, .hud-hidden #projPanel, .hud-hidden #gesturePanel, .hud-hidden #palette { display: none !important; }
 
   /* Panel materialization — panels are rebuilt on persona switch, so this
      re-fires for free every switch. Brightness overshoot sells "projected". */
@@ -338,6 +339,31 @@
   #projLabel { position: absolute; top: 6px; left: 8px; font-size: 8px; letter-spacing: 2px; color: rgb(var(--accent-2)); }
   #projClose { position: absolute; top: 4px; right: 6px; font-size: 11px; color: var(--steel); cursor: pointer; }
 
+  /* ---------------- gesture control panel ---------------- */
+  #gesturePanel {
+    position: fixed; right: 20px; bottom: 120px; width: 300px; z-index: 30; display: none;
+    background: rgba(6,10,20,0.85); border: 1px solid rgba(var(--accent-rgb),0.6);
+    box-shadow: 0 0 26px rgba(var(--accent-rgb),0.25); padding: 8px;
+  }
+  #gesturePanel.open { display: block; }
+  #gestureHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  #gestureLabel { font-size: 9px; letter-spacing: 2px; color: rgb(var(--accent-2)); }
+  #gestureClose { font-size: 11px; color: var(--steel); cursor: pointer; }
+  #gestureVideoWrap { position: relative; width: 100%; height: 168px; background: #000; overflow: hidden; }
+  #gestureVideo, #gestureCanvas { position: absolute; inset: 0; width: 100%; height: 100%; transform: scaleX(-1); }
+  #gestureVideo { object-fit: cover; }
+  #gestureStatus { font-size: 8px; letter-spacing: 1px; color: var(--steel); margin-top: 6px; min-height: 11px; }
+  #gestureStatus b { color: rgb(var(--accent-2)); font-weight: normal; }
+  .gesture-btns { display: flex; gap: 6px; margin-top: 6px; }
+  .gesture-btn {
+    flex: 1; font-family: inherit; font-size: 9px; letter-spacing: 1px; padding: 6px 4px;
+    background: transparent; border: 1px solid rgba(var(--accent-rgb),0.5); color: var(--text); cursor: pointer;
+  }
+  .gesture-btn.on { background: rgba(var(--accent-rgb),0.28); color: rgb(var(--accent-2)); }
+  .gesture-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  #gestureLegend { margin-top: 8px; font-size: 8px; line-height: 1.9; color: var(--steel); }
+  #gestureLegend b { color: rgb(var(--accent-2)); font-weight: normal; display: inline-block; width: 74px; }
+
   ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-thumb { background: rgba(var(--accent-rgb),0.4); }
 </style>
 </head>
@@ -459,6 +485,31 @@
   <div id="projLabel">LIVE PROJECTION</div>
   <div id="projClose">✕</div>
   <canvas id="projCanvas"></canvas>
+</div>
+
+<div id="gesturePanel">
+  <div id="gestureHead">
+    <span id="gestureLabel">◈ GESTURE CONTROL</span>
+    <span id="gestureClose">✕</span>
+  </div>
+  <div id="gestureVideoWrap">
+    <video id="gestureVideo" autoplay playsinline muted></video>
+    <canvas id="gestureCanvas"></canvas>
+  </div>
+  <div class="gesture-btns">
+    <button class="gesture-btn" id="gestureCamBtn">ENABLE CAMERA</button>
+    <button class="gesture-btn" id="gestureArmBtn" disabled>ARM GESTURES</button>
+  </div>
+  <div id="gestureStatus">Camera off. Enable it to see yourself framed before anything can act.</div>
+  <div id="gestureLegend">
+    <div><b>✋ OPEN PALM</b>wake the active persona</div>
+    <div><b>✊ FIST</b>stop speaking</div>
+    <div><b>✌️ PEACE</b>open command palette</div>
+    <div><b>☝️ POINT UP</b>next persona</div>
+    <div><b>👍 THUMBS UP</b>confirm a pending action</div>
+    <div><b>👎 THUMBS DOWN</b>cancel a pending action</div>
+    <div><b>🤟 I LOVE YOU</b>toggle mic mute</div>
+  </div>
 </div>
 
 <!-- Pinned version — an upstream release must never break a live system silently. -->
@@ -1454,6 +1505,294 @@ window.ModelBay = {
 
 <script type="module">
 // ============================================================================
+// GESTURE CONTROL — MediaPipe GestureRecognizer (Tasks Vision), fully
+// on-device: the camera stream and every inference pass stay in this browser
+// tab, nothing is ever uploaded. Pinned CDN version — an upstream release
+// must never break a live system silently, same rule as the three.js pin.
+//
+// Camera and gestures are deliberately TWO SEPARATE steps: "Enable Camera"
+// only starts the feed and draws the live hand skeleton so Rayan can see
+// himself framed and confirm tracking looks right; a second, separate "Arm
+// Gestures" toggle (disabled until the camera is actually running) is what
+// lets a recognized gesture actually DO anything. Nothing acts on camera
+// input until both steps are deliberately taken.
+//
+// Actions are dispatched through the SAME funnels every other input channel
+// already uses — clicking real buttons (#stopButton, #muteCircle,
+// #paletteHint) or driving #userInput + #sendBtn exactly like typing — so a
+// gesture gets identical Project H gating, confirm/decline semantics, and
+// persona-switch handling for free, with zero new bridge surface except the
+// one action (waking a sleeping persona) that has no typed-command
+// equivalent at all.
+// ============================================================================
+const MP_VERSION = '0.10.17';
+const WASM_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}/wasm`;
+const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task';
+const CONFIDENCE_THRESHOLD = 0.62;
+const STABLE_FRAMES_REQUIRED = 3; // debounce flicker before treating a pose as real
+
+// 21-point hand connections (MediaPipe's standard skeleton wiring) for the
+// preview overlay.
+const HAND_CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4], [0,5],[5,6],[6,7],[7,8], [5,9],[9,10],[10,11],[11,12],
+  [9,13],[13,14],[14,15],[15,16], [13,17],[17,18],[18,19],[19,20], [0,17]
+];
+
+const gs = {
+  open: false, cameraOn: false, armed: false,
+  stream: null, recognizer: null, rafId: 0, sessionToken: 0,
+  video: null, canvas: null,
+  lastCategory: 'None', stableCount: 0, firedCategory: null
+};
+
+// A tiny self-contained blip so this module stays independently removable —
+// no dependency on the HUD module's sound system.
+let sfxCtx = null;
+function blip(freq, dur) {
+  try {
+    if (!sfxCtx) sfxCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (sfxCtx.state === 'suspended') sfxCtx.resume().catch(() => {});
+    const t0 = sfxCtx.currentTime;
+    const osc = sfxCtx.createOscillator(), g = sfxCtx.createGain();
+    osc.type = 'square'; osc.frequency.setValueAtTime(freq, t0);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.04, t0 + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g); g.connect(sfxCtx.destination);
+    osc.start(t0); osc.stop(t0 + dur + 0.03);
+  } catch (e) {}
+}
+
+function setStatus(text) { const el = document.getElementById('gestureStatus'); if (el) el.innerHTML = text; }
+
+async function loadRecognizer() {
+  if (gs.recognizer) return gs.recognizer;
+  const { GestureRecognizer, FilesetResolver } = await import(
+    `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}`
+  );
+  const vision = await FilesetResolver.forVisionTasks(WASM_BASE);
+  gs.recognizer = await GestureRecognizer.createFromOptions(vision, {
+    baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
+    runningMode: 'VIDEO',
+    numHands: 1
+  });
+  return gs.recognizer;
+}
+
+function drawLandmarks(ctx, landmarks, w, h) {
+  ctx.clearRect(0, 0, w, h);
+  if (!landmarks || !landmarks.length) return;
+  ctx.strokeStyle = 'rgba(120,220,255,0.85)';
+  ctx.lineWidth = 2;
+  for (const [a, b] of HAND_CONNECTIONS) {
+    const pa = landmarks[a], pb = landmarks[b];
+    ctx.beginPath();
+    ctx.moveTo(pa.x * w, pa.y * h);
+    ctx.lineTo(pb.x * w, pb.y * h);
+    ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  for (const p of landmarks) {
+    ctx.beginPath();
+    ctx.arc(p.x * w, p.y * h, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// Nothing else is reachable while Project H holds the room — gestures must
+// go silent exactly like wake-word recognition and the typed send handler do.
+function sealed() {
+  return !!(window.ASGARD && window.ASGARD.sealed && window.ASGARD.sealed());
+}
+
+function runTypedCommand(text) {
+  const input = document.getElementById('userInput');
+  const btn = document.getElementById('sendBtn');
+  if (!input || !btn) return;
+  input.value = text;
+  btn.click();
+}
+
+const GESTURE_LABELS = {
+  Open_Palm: '✋ OPEN PALM', Closed_Fist: '✊ FIST', Victory: '✌️ PEACE',
+  Pointing_Up: '☝️ POINT UP', Thumb_Up: '👍 THUMBS UP', Thumb_Down: '👎 THUMBS DOWN',
+  ILoveYou: '🤟 I LOVE YOU'
+};
+
+function fireGesture(category) {
+  blip(880, 0.06);
+  const label = GESTURE_LABELS[category] || category;
+  setStatus(`Recognized: <b>${label}</b>`);
+  if (sealed()) return; // camera preview stays alive; actions do not
+
+  switch (category) {
+    case 'Open_Palm':
+      window.ASGARD && window.ASGARD.gestureWake && window.ASGARD.gestureWake();
+      break;
+    case 'Closed_Fist': {
+      const stopBtn = document.getElementById('stopButton');
+      if (stopBtn) stopBtn.click();
+      break;
+    }
+    case 'Victory': {
+      const hint = document.getElementById('paletteHint');
+      if (hint) hint.click();
+      break;
+    }
+    case 'Pointing_Up': {
+      const ids = ['thor', 'loki', 'odin'];
+      const current = document.documentElement.getAttribute('data-persona') || 'thor';
+      const next = ids[(ids.indexOf(current) + 1) % ids.length];
+      runTypedCommand('switch to ' + next);
+      break;
+    }
+    case 'Thumb_Up':
+      runTypedCommand('yes');
+      break;
+    case 'Thumb_Down':
+      runTypedCommand('no, cancel that');
+      break;
+    case 'ILoveYou': {
+      const muteBtn = document.getElementById('muteCircle');
+      if (muteBtn) muteBtn.click();
+      break;
+    }
+  }
+}
+
+const INFERENCE_INTERVAL_MS = 80; // ~12.5fps — discrete hand poses don't need 60fps tracking,
+                                   // and this meaningfully cuts CPU/memory load for real users
+let lastInferenceAt = 0;
+
+function detectionLoop(myToken) {
+  if (gs.sessionToken !== myToken || !gs.cameraOn) return;
+  const now = performance.now();
+  if (now - lastInferenceAt < INFERENCE_INTERVAL_MS) {
+    gs.rafId = requestAnimationFrame(() => detectionLoop(myToken));
+    return;
+  }
+  lastInferenceAt = now;
+  const video = gs.video;
+  if (video.readyState >= 2) {
+    const w = gs.canvas.width = video.videoWidth || 320;
+    const h = gs.canvas.height = video.videoHeight || 240;
+    const ctx = gs.canvas.getContext('2d');
+    try {
+      const result = gs.recognizer.recognizeForVideo(video, now);
+      const hand = result.landmarks && result.landmarks[0];
+      drawLandmarks(ctx, hand, w, h);
+
+      const top = result.gestures && result.gestures[0] && result.gestures[0][0];
+      const category = (top && top.score >= CONFIDENCE_THRESHOLD) ? top.categoryName : 'None';
+
+      if (category === gs.lastCategory) {
+        gs.stableCount++;
+      } else {
+        gs.lastCategory = category;
+        gs.stableCount = 1;
+      }
+
+      if (category === 'None') {
+        gs.firedCategory = null; // hand relaxed — the next real pose can fire again
+        if (gs.armed) setStatus('Watching for a gesture...');
+      } else if (gs.stableCount === STABLE_FRAMES_REQUIRED && category !== gs.firedCategory) {
+        gs.firedCategory = category;
+        if (gs.armed) {
+          fireGesture(category);
+        } else {
+          setStatus(`Would recognize: <b>${GESTURE_LABELS[category] || category}</b> — arm gestures to act on it`);
+        }
+      }
+    } catch (e) { /* a dropped frame is not worth surfacing */ }
+  }
+  gs.rafId = requestAnimationFrame(() => detectionLoop(myToken));
+}
+
+async function enableCamera() {
+  const camBtn = document.getElementById('gestureCamBtn');
+  const armBtn = document.getElementById('gestureArmBtn');
+  camBtn.disabled = true;
+  setStatus('Requesting camera access...');
+  try {
+    gs.stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240, facingMode: 'user' }, audio: false });
+  } catch (err) {
+    setStatus(`Camera access failed: ${err.message}`);
+    camBtn.disabled = false;
+    return;
+  }
+  gs.video = document.getElementById('gestureVideo');
+  gs.canvas = document.getElementById('gestureCanvas');
+  gs.video.srcObject = gs.stream;
+  await gs.video.play().catch(() => {});
+
+  setStatus('Loading hand-tracking model (on-device, one-time download)...');
+  try {
+    await loadRecognizer();
+  } catch (err) {
+    setStatus(`Model load failed: ${err.message}`);
+    camBtn.disabled = false;
+    return;
+  }
+
+  gs.cameraOn = true;
+  const myToken = ++gs.sessionToken;
+  camBtn.textContent = 'DISABLE CAMERA';
+  camBtn.classList.add('on');
+  camBtn.disabled = false;
+  armBtn.disabled = false;
+  setStatus('Camera live — this is what tracking sees. Arm gestures when it looks right.');
+  detectionLoop(myToken);
+}
+
+function disableCamera() {
+  gs.sessionToken++; // kills the running detection loop
+  gs.cameraOn = false;
+  setArmed(false);
+  if (gs.stream) { gs.stream.getTracks().forEach(t => t.stop()); gs.stream = null; }
+  if (gs.video) gs.video.srcObject = null;
+  if (gs.canvas) gs.canvas.getContext('2d').clearRect(0, 0, gs.canvas.width, gs.canvas.height);
+  const camBtn = document.getElementById('gestureCamBtn');
+  const armBtn = document.getElementById('gestureArmBtn');
+  camBtn.textContent = 'ENABLE CAMERA';
+  camBtn.classList.remove('on');
+  armBtn.disabled = true;
+  setStatus('Camera off. Enable it to see yourself framed before anything can act.');
+}
+
+function setArmed(on) {
+  gs.armed = on;
+  const armBtn = document.getElementById('gestureArmBtn');
+  armBtn.textContent = on ? 'DISARM GESTURES' : 'ARM GESTURES';
+  armBtn.classList.toggle('on', on);
+  if (on) setStatus('Gestures ARMED — recognized poses now act.');
+  else if (gs.cameraOn) setStatus('Gestures disarmed. Camera still live for preview only.');
+}
+
+document.getElementById('gestureCamBtn').addEventListener('click', () => {
+  if (gs.cameraOn) disableCamera(); else enableCamera();
+});
+document.getElementById('gestureArmBtn').addEventListener('click', () => setArmed(!gs.armed));
+document.getElementById('gestureClose').addEventListener('click', () => closeGesturePanel());
+
+function openGesturePanel() {
+  document.getElementById('gesturePanel').classList.add('open');
+  gs.open = true;
+}
+function closeGesturePanel() {
+  document.getElementById('gesturePanel').classList.remove('open');
+  gs.open = false;
+  if (gs.cameraOn) disableCamera(); // never leave the webcam light on with the panel hidden
+}
+
+window.GestureControl = {
+  open: openGesturePanel,
+  close: closeGesturePanel,
+  isOpen: () => gs.open
+};
+</script>
+
+<script type="module">
+// ============================================================================
 // ASGARD HUD LAYER — personas, show layer, voice, chat, palette, overlays.
 // The show layer holds no application state: deleting it degrades to the
 // plain working app.
@@ -1998,6 +2337,7 @@ const PALETTE_COMMANDS = [
   { group: 'VIEWS', label: 'Open inspection bay', hint: '3D models', run: () => window.ModelBay && window.ModelBay.open() },
   { group: 'VIEWS', label: 'Open memory map', hint: 'shared brain', run: openMemMap },
   { group: 'VIEWS', label: 'Open ops floor', hint: 'live status', run: openOpsFloor },
+  { group: 'VIEWS', label: 'Open gesture control', hint: 'hand tracking', run: () => window.GestureControl && window.GestureControl.open() },
   { group: 'VIEWS', label: 'Project the hammer', hint: 'live projection', run: () => window.ModelBay && window.ModelBay.tryProjection('show me the hammer') },
   { group: 'SHOW', label: 'Showtime', hint: 'scripted tour', run: () => startShowtime() },
   { group: 'SHOW', label: 'Ragnarok (alert mode)', hint: 'auto-clears in 18s', run: enterAlertMode },
@@ -2567,6 +2907,7 @@ function _h9Enter() {
   // the other three visibly power down and crumble away
   window.Reactor && window.Reactor.setPowered(false);
   document.body.classList.add('hud-hidden');
+  window.GestureControl && window.GestureControl.close(); // camera fully stops — not just hidden
   stopSpeaking();
   blip(180, 60, 1.4, 'sine', 0.06);
   if (!_h9.pts) _h9Build();
@@ -2720,6 +3061,7 @@ async function sendMessage(text) {
   if (/^(open|show) (the )?(model )?bay$/i.test(text)) { window.ModelBay && window.ModelBay.open(); $('userInput').value = ''; return; }
   if (/^(open|show) (the )?memory map$/i.test(text)) { openMemMap(); $('userInput').value = ''; return; }
   if (/^(open|show) (the )?ops floor$/i.test(text)) { openOpsFloor(); $('userInput').value = ''; return; }
+  if (/^(open|show) (the )?(gesture|hand|camera)( control| tracking)?$/i.test(text)) { window.GestureControl && window.GestureControl.open(); $('userInput').value = ''; return; }
 
   // live projection — conservative match; everything else falls through to chat
   if (/^show me\b|^project\b/i.test(text) && window.ModelBay && window.ModelBay.tryProjection(text)) {
@@ -2768,6 +3110,19 @@ window.Reactor && window.Reactor.onTap(() => {
   if (window.Reactor.getState() === 'sleeping') { wakeFromSleep(); return; }
   if (!awake && voiceActive) triggerWake(activePersona);
 });
+
+// Bridge for the gesture-control module (see the separate GESTURE CONTROL
+// script block). Every other gesture action reuses an existing button click
+// or the real #userInput/#sendBtn funnel, but waking a sleeping persona has
+// no typed-command equivalent — this is the one piece of surface it needs.
+window.ASGARD = {
+  gestureWake() {
+    if (hIsActive()) return;
+    if (!voiceActive) { voiceActive = true; startWakeListening(); }
+    if (!awake) triggerWake(activePersona);
+  },
+  sealed: () => hIsActive()
+};
 
 // ---------------------------------------------------------------------------
 // LOCK SCREEN + BOOT CINEMATIC — the ignition sequence plays on real password
