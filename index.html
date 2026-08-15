@@ -36,20 +36,62 @@
   #reactorCanvas.dragging { cursor: grabbing; }
   #spectrumCanvas { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 2; pointer-events: none; }
 
-  /* Backdrop grid — a different geometry per persona (square / diagonal / rings). */
-  #backdrop { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.5; }
+  /* Backdrop — each persona gets its own weather, not just a different grid. */
+  #backdrop { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.55; overflow: hidden; }
+
+  /* THOR — a storm you are standing inside: grid, driving rain, distant strike. */
   html[data-persona="thor"] #backdrop {
     background:
-      repeating-linear-gradient(0deg, rgba(var(--accent-rgb),0.045) 0 1px, transparent 1px 46px),
-      repeating-linear-gradient(90deg, rgba(var(--accent-rgb),0.045) 0 1px, transparent 1px 46px);
+      repeating-linear-gradient(0deg, rgba(var(--accent-rgb),0.05) 0 1px, transparent 1px 46px),
+      repeating-linear-gradient(90deg, rgba(var(--accent-rgb),0.05) 0 1px, transparent 1px 46px);
   }
+  html[data-persona="thor"] #backdrop::before {
+    content: ''; position: absolute; inset: -35%; opacity: 0.45;
+    background: repeating-linear-gradient(74deg, rgba(var(--accent-rgb),0.11) 0 2px, transparent 2px 22px);
+    animation: thorRain 1.7s linear infinite;
+  }
+  @keyframes thorRain { to { transform: translate(-24px, 84px); } }
+  html[data-persona="thor"] #backdrop::after {
+    content: ''; position: absolute; inset: 0; opacity: 0;
+    background: radial-gradient(ellipse at 50% 16%, rgba(196,228,255,0.5), transparent 62%);
+    animation: thorFlash 11s ease-out infinite;
+  }
+  @keyframes thorFlash { 0%,86%,100%{opacity:0} 87%{opacity:.5} 88.4%{opacity:.06} 89.6%{opacity:.34} 93%{opacity:0} }
+
+  /* LOKI — nothing sits straight: two off-axis rules drifting against a slow rake. */
   html[data-persona="loki"] #backdrop {
     background:
-      repeating-linear-gradient(38deg, rgba(var(--accent-rgb),0.05) 0 1px, transparent 1px 40px),
-      repeating-linear-gradient(-52deg, rgba(var(--accent-rgb),0.035) 0 1px, transparent 1px 64px);
+      repeating-linear-gradient(38deg, rgba(var(--accent-rgb),0.06) 0 1px, transparent 1px 40px),
+      repeating-linear-gradient(-52deg, rgba(var(--accent-rgb),0.04) 0 1px, transparent 1px 64px);
+    animation: lokiDrift 28s linear infinite;
   }
+  @keyframes lokiDrift { to { background-position: 210px -150px, -170px 130px; } }
+  html[data-persona="loki"] #backdrop::before {
+    content: ''; position: absolute; inset: -25%; opacity: 0.5;
+    background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(var(--accent-rgb),0.05) 0 2deg, transparent 2deg 9deg);
+    animation: lokiRake 110s linear infinite;
+  }
+  @keyframes lokiRake { to { transform: rotate(360deg); } }
+
+  /* ODIN — a hall: concentric rings, a gold halo sweeping the room, light off the floor. */
   html[data-persona="odin"] #backdrop {
-    background: repeating-radial-gradient(circle at 50% 44%, rgba(var(--accent-rgb),0.05) 0 1px, transparent 1px 60px);
+    background: repeating-radial-gradient(circle at 50% 44%, rgba(var(--accent-rgb),0.055) 0 1px, transparent 1px 60px);
+  }
+  html[data-persona="odin"] #backdrop::before {
+    content: ''; position: absolute; inset: -45%;
+    background: conic-gradient(from 0deg at 50% 50%,
+      transparent 0 76deg, rgba(var(--accent-rgb),0.11) 90deg, transparent 104deg 186deg,
+      rgba(var(--accent-rgb),0.06) 198deg, transparent 212deg 360deg);
+    animation: odinHalo 150s linear infinite;
+  }
+  @keyframes odinHalo { to { transform: rotate(360deg); } }
+  html[data-persona="odin"] #backdrop::after {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 104%, rgba(var(--accent-2),0.16), transparent 56%);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #backdrop, #backdrop::before, #backdrop::after { animation: none !important; }
   }
 
   /* ---------------- lock screen ---------------- */
@@ -364,6 +406,73 @@
   #gestureLegend { margin-top: 8px; font-size: 8px; line-height: 1.9; color: var(--steel); }
   #gestureLegend b { color: rgb(var(--accent-2)); font-weight: normal; display: inline-block; width: 74px; }
 
+  /* ---------------- reactor frame — corner clamps + tick ring, per persona ---------------- */
+  #hudFrame { position: fixed; inset: 0; z-index: 11; pointer-events: none; }
+  .hud-hidden #hudFrame { display: none; }
+  #hudFrame .clamp {
+    position: absolute; width: 74px; height: 74px;
+    border: 1px solid rgba(var(--accent-rgb),0.55);
+    transition: border-color 0.4s ease;
+  }
+  #hudFrame .clamp.tl { top: 52px; left: 52px; border-right: none; border-bottom: none; }
+  #hudFrame .clamp.tr { top: 52px; right: 52px; border-left: none; border-bottom: none; }
+  #hudFrame .clamp.bl { bottom: 52px; left: 52px; border-right: none; border-top: none; }
+  #hudFrame .clamp.br { bottom: 52px; right: 52px; border-left: none; border-top: none; }
+  /* Thor squares off, Loki skews, Odin bevels — same part, three dialects. */
+  html[data-persona="loki"] #hudFrame .clamp { transform: skewY(-2deg); }
+  html[data-persona="odin"] #hudFrame .clamp { width: 92px; height: 92px; border-style: double; border-width: 3px; }
+
+  #hudRing {
+    position: absolute; top: 47%; left: 50%; width: 62vmin; height: 62vmin;
+    transform: translate(-50%,-50%); border-radius: 50%;
+    border: 1px dashed rgba(var(--accent-rgb),0.16);
+  }
+  #hudRing::after {
+    content: ''; position: absolute; inset: -22px; border-radius: 50%;
+    border-top: 1px solid rgba(var(--accent-2),0.30);
+    border-left: 1px solid rgba(var(--accent-rgb),0.16);
+    animation: ringSweep 24s linear infinite;
+  }
+  @keyframes ringSweep { to { transform: rotate(360deg); } }
+  html[data-persona="odin"] #hudRing { border-style: solid; border-color: rgba(var(--accent-2),0.20); }
+  html[data-persona="loki"] #hudRing { animation: lokiRing 6s ease-in-out infinite; }
+  @keyframes lokiRing { 0%,100%{transform:translate(-50%,-50%) rotate(0)} 50%{transform:translate(-50%,-50%) rotate(1.4deg)} }
+
+  /* faint scanlines — the whole thing should read as projected, not printed */
+  #scanlines {
+    position: fixed; inset: 0; z-index: 13; pointer-events: none; opacity: 0.35;
+    background: repeating-linear-gradient(0deg, rgba(255,255,255,0.028) 0 1px, transparent 1px 3px);
+  }
+  .hud-hidden #scanlines { display: none; }
+
+  /* ---------------- caption plate — speech, rendered on the form itself ---------------- */
+  #captionPlate {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    width: min(430px, 62vw); z-index: 14; pointer-events: none;
+    text-align: center; opacity: 0; transition: opacity 0.35s ease;
+    padding: 9px 14px;
+  }
+  #captionPlate.on { opacity: 1; }
+  #captionText {
+    font-size: clamp(10px, 1.25vw, 13px); line-height: 1.65; letter-spacing: 1.5px;
+    color: rgb(var(--accent-2));
+    text-shadow: 0 0 10px rgba(var(--accent-2),0.55), 0 0 26px rgba(var(--accent-rgb),0.35);
+  }
+  #captionPlate .cap-rule { height: 1px; margin: 7px auto 0; width: 46%; background: linear-gradient(90deg, transparent, rgba(var(--accent-2),0.7), transparent); }
+  .hud-hidden #captionPlate { display: none; }
+
+  /* Thor: dead centre of the hammer head. Loki: under the gem. Odin: across the throne back. */
+  html[data-persona="thor"] #captionPlate { top: 40.5%; }
+  html[data-persona="thor"] #captionText { font-family: 'Orbitron', sans-serif; font-weight: 500; letter-spacing: 2.5px; }
+  html[data-persona="loki"] #captionPlate { top: 55%; width: min(360px, 58vw); }
+  html[data-persona="loki"] #captionText { font-style: italic; letter-spacing: 2px; }
+  html[data-persona="odin"] #captionPlate { top: 36%; }
+  html[data-persona="odin"] #captionText { font-family: 'Cinzel', serif; letter-spacing: 4px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #hudRing::after, html[data-persona="loki"] #hudRing { animation: none; }
+  }
+
   ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-thumb { background: rgba(var(--accent-rgb),0.4); }
 </style>
 </head>
@@ -389,6 +498,14 @@
 </div>
 
 <div id="shockwave"></div>
+
+<div id="hudFrame">
+  <span class="clamp tl"></span><span class="clamp tr"></span>
+  <span class="clamp bl"></span><span class="clamp br"></span>
+  <div id="hudRing"></div>
+</div>
+<div id="scanlines"></div>
+<div id="captionPlate"><div id="captionText"></div><div class="cap-rule"></div></div>
 
 <div id="telemetryBar">
   <span>FPS <b id="tmFps">—</b></span>
@@ -520,23 +637,23 @@
 
 <script type="module">
 // ============================================================================
-// THE REACTOR — three atom-cluster forms on a turntable.
-// Classic THREE.WebGLRenderer + a hand-written GLSL ShaderMaterial for the
-// point sprites — NOT THREE.WebGPURenderer/PointsMaterial. That combination
-// was tried first and is broken: when no WebGPU adapter is available (most
-// browsers today), WebGPURenderer silently falls back to an internal WebGL2
-// path, but its Node-material auto-compiler requires a per-vertex "uv"
-// attribute for textured Points that plain point sprites never carry — it
-// warns ("Vertex attribute 'uv' not found on geometry"), the shader graph
-// breaks, and the geometry renders completely invisible: draw calls happen,
-// vertex counts and FPS report fine, but zero pixels ever paint. A hand-written
-// ShaderMaterial sidesteps that auto-compiler entirely (gl_PointSize/
-// gl_PointCoord, verbatim GLSL, no node graph) — this is the exact technique
-// already proven working in this codebase before the WebGPU rewrite. If
-// WebGLRenderer itself fails to init (ancient/broken browser), initCanvas2DFallback()
-// takes over so the reactor is never blank. Exposes window.Reactor for the
-// HUD layer. Three.js is imported DYNAMICALLY so a failed CDN load also
-// degrades to the 2D fallback instead of killing this whole module.
+// THE REACTOR — three forged forms on a turntable: Mjolnir, the scepter, and
+// the high seat. Classic THREE.WebGLRenderer + a hand-written GLSL
+// ShaderMaterial for the point sprites — NOT THREE.WebGPURenderer/
+// PointsMaterial. That combination was tried first and is broken: when no
+// WebGPU adapter is available (most browsers today), WebGPURenderer silently
+// falls back to an internal WebGL2 path, but its Node-material auto-compiler
+// requires a per-vertex "uv" attribute for textured Points that plain point
+// sprites never carry — it warns ("Vertex attribute 'uv' not found on
+// geometry"), the shader graph breaks, and the geometry renders completely
+// invisible: draw calls happen, vertex counts and FPS report fine, but zero
+// pixels ever paint. A hand-written ShaderMaterial sidesteps that
+// auto-compiler entirely (gl_PointSize/gl_PointCoord, verbatim GLSL, no node
+// graph). If WebGLRenderer itself fails to init (ancient/broken browser),
+// initCanvas2DFallback() takes over so the reactor is never blank. Exposes
+// window.Reactor for the HUD layer. Three.js is imported DYNAMICALLY so a
+// failed CDN load also degrades to the 2D fallback instead of killing this
+// whole module.
 // ============================================================================
 
 // Frontend persona registry — mirror of the backend's (colors/forms/slots).
@@ -575,150 +692,271 @@ function volumetricSphere(rad) {
   return { x: r * Math.cos(th) * rr, y: u * rr, z: r * Math.sin(th) * rr };
 }
 
-// THOR — sphere in an orbiting arc-ring: core, off-axis ring torus, lightning
-// arcs ring→core, crackle outside the ring, dense base glow. 6 subsystems.
-function sampleThor() {
-  const roll = Math.random();
-  if (roll < 0.58) return volumetricSphere(0.62);                    // core sphere, volumetric
-  if (roll < 0.76) {                                                  // orbiting ring torus, off-axis
-    const a = Math.random() * Math.PI * 2, tr = 0.05;
-    const v = Math.random() * Math.PI * 2, R = 0.95;
-    const p = { x: (R + tr * Math.cos(v)) * Math.cos(a), y: tr * Math.sin(v), z: (R + tr * Math.cos(v)) * Math.sin(a) };
-    // tilt the ring off-axis ~18°
-    const t = 0.32, y2 = p.y * Math.cos(t) - p.z * Math.sin(t), z2 = p.y * Math.sin(t) + p.z * Math.cos(t);
-    return { x: p.x, y: y2 + 0.1, z: z2 };
+// ---------------------------------------------------------------------------
+// Deterministic subsystem assignment. Each sampler takes the anchor INDEX and
+// derives its subsystem from a golden-ratio sequence rather than Math.random().
+// That matters: adaptive quality shrinks the draw range to a prefix of the
+// buffer, and a random roll means a low tier can starve one subsystem while
+// over-drawing another. An equidistributed sequence guarantees every prefix
+// carries all subsystems in proportion — the hammer never loses its handle on
+// a slow machine. Positions WITHIN a subsystem still use Math.random(); only
+// the choice of subsystem is deterministic.
+// ---------------------------------------------------------------------------
+const PHI_INV = 0.6180339887498949;
+const rollOf = i => (i * PHI_INV) % 1;
+
+// Where each persona's reactive core sits, in form units — the gem pulse
+// scales points away from this point, so it must match the sampler.
+const GEM_CENTER = {
+  thor: [0, 0.55, 0],
+  loki: [0, 0.86, 0],
+  odin: [0, -0.02, 0]
+};
+const GEM_COLOR = {
+  thor: [190, 226, 255],
+  loki: [120, 255, 190],
+  odin: [255, 240, 200]
+};
+
+// Sample a point on the shell of a box, optionally punching a rectangular
+// window through the two flat faces (that window is where the caption sits).
+function boxShell(hx, hy, hz, cy, win) {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const face = Math.floor(Math.random() * 6);
+    let x, y, z;
+    if (face < 2) {                       // ±x end caps
+      x = (face ? 1 : -1) * hx; y = (Math.random() * 2 - 1) * hy; z = (Math.random() * 2 - 1) * hz;
+    } else if (face < 4) {                // ±z flat faces — the struck faces
+      z = (face === 2 ? 1 : -1) * hz; x = (Math.random() * 2 - 1) * hx; y = (Math.random() * 2 - 1) * hy;
+      if (win && Math.abs(x) < win[0] && Math.abs(y) < win[1]) continue; // caption window
+    } else {                              // ±y top and bottom
+      y = (face === 4 ? 1 : -1) * hy; x = (Math.random() * 2 - 1) * hx; z = (Math.random() * 2 - 1) * hz;
+    }
+    return { x, y: y + cy, z };
   }
-  if (roll < 0.88) {                                                  // lightning arcs: jagged polylines ring→core
-    const a = Math.random() * Math.PI * 2;                            // pick an arc root on the ring
-    const t = Math.random();                                          // parameter along the arc
-    const R = 0.95 * (1 - t) + 0.3 * t;
-    const jag = (Math.random() - 0.5) * 0.16 * Math.sin(t * Math.PI * 5);
-    return { x: (R + jag) * Math.cos(a + t * 0.7), y: (Math.random() - 0.5) * 0.14 + jag, z: (R + jag) * Math.sin(a + t * 0.7) };
-  }
-  if (roll < 0.95) {                                                  // crackle: sparse bright points just outside the ring
-    const a = Math.random() * Math.PI * 2, R = 1.02 + Math.random() * 0.14;
-    return { x: R * Math.cos(a), y: (Math.random() - 0.5) * 0.22, z: R * Math.sin(a) };
-  }
-  return volumetricSphere(0.16);                                      // base glow: tight center cluster
+  return { x: hx, y: cy, z: 0 };
 }
 
-// LOKI — twin intertwined helices with rungs, node beads, a drifting mist
-// sheath, and a thin spine. 6 subsystems.
-function sampleLoki() {
-  const roll = Math.random();
-  const TURNS = 2.6, H = 1.55, R = 0.52;
-  if (roll < 0.56) {                                                  // the two helices
-    const strand = Math.random() < 0.5 ? 0 : Math.PI;
+// THOR — MJOLNIR. Head shell with a caption window punched through both struck
+// faces, a bound haft, a pommel loop, a runic band on the head edges, storm
+// lashes cracking off the corners, and a contained core inside the head.
+// 8 subsystems.
+const THOR_HEAD = { hx: 0.64, hy: 0.31, hz: 0.31, cy: 0.55 };
+function sampleThor(i) {
+  const r = rollOf(i);
+  const H = THOR_HEAD;
+
+  if (r < 0.34) return boxShell(H.hx, H.hy, H.hz, H.cy, [0.45, 0.155]);  // 1 head shell + window
+
+  if (r < 0.44) {                                                        // 2 runic band on head edges
+    const along = Math.random() * 2 - 1;
+    const pick = Math.floor(Math.random() * 4);
+    const yEdge = (pick < 2 ? 1 : -1) * H.hy;
+    const zEdge = (pick % 2 ? 1 : -1) * H.hz;
+    return { x: along * H.hx, y: yEdge + H.cy, z: zEdge, flag: 'edge' };
+  }
+
+  if (r < 0.52) {                                                        // 3 cheek plates — inset detail
+    const side = Math.random() < 0.5 ? 1 : -1;
+    return {
+      x: side * (H.hx * 0.72), y: H.cy + (Math.random() - 0.5) * H.hy * 1.1,
+      z: (Math.random() - 0.5) * H.hz * 1.5, flag: 'accent'
+    };
+  }
+
+  if (r < 0.70) {                                                        // 4 haft
     const t = Math.random();
-    const a = t * Math.PI * 2 * TURNS + strand;
-    return { x: R * Math.cos(a), y: (t - 0.5) * H, z: R * Math.sin(a) };
+    const rad = 0.075 + t * 0.012;
+    const a = Math.random() * Math.PI * 2;
+    return { x: Math.cos(a) * rad, y: 0.26 - t * 1.30, z: Math.sin(a) * rad };
   }
-  if (roll < 0.72) {                                                  // rungs bridging the strands
-    const t = Math.floor(Math.random() * 12) / 12 + 0.02;
-    const a = t * Math.PI * 2 * TURNS;
-    const k = Math.random();                                          // walk across the rung
-    const a2 = a + Math.PI;
+
+  if (r < 0.77) {                                                        // 5 leather binding rings
+    const band = Math.floor(Math.random() * 7) / 7;
+    const a = Math.random() * Math.PI * 2, rad = 0.093;
+    return { x: Math.cos(a) * rad, y: 0.18 - band * 1.10, z: Math.sin(a) * rad, flag: 'accent' };
+  }
+
+  if (r < 0.84) {                                                        // 6 pommel loop
+    const a = Math.random() * Math.PI * 2, v = Math.random() * Math.PI * 2;
+    const R = 0.15, tr = 0.028;
+    return { x: (R + tr * Math.cos(v)) * Math.cos(a), y: -1.10 + tr * Math.sin(v), z: (R + tr * Math.cos(v)) * Math.sin(a), flag: 'accent' };
+  }
+
+  if (r < 0.94) {                                                        // 7 storm lashes off the corners
+    const cx = (Math.random() < 0.5 ? 1 : -1) * H.hx;
+    const cyy = (Math.random() < 0.5 ? 1 : -1) * H.hy + H.cy;
+    const t = Math.random();
+    const spread = 0.55 * t;
+    const jag = (Math.random() - 0.5) * 0.19 * Math.sin(t * Math.PI * 6);
     return {
-      x: R * (Math.cos(a) * (1 - k) + Math.cos(a2) * k),
-      y: (t - 0.5) * H + (Math.random() - 0.5) * 0.02,
-      z: R * (Math.sin(a) * (1 - k) + Math.sin(a2) * k)
+      x: cx * (1 + t * 0.5) + jag,
+      y: cyy + (Math.random() - 0.5) * 0.5 * t + jag * 0.6,
+      z: (Math.random() - 0.5) * spread * 2 + jag
     };
   }
-  if (roll < 0.84) {                                                  // node beads at regular intervals
-    const t = Math.floor(Math.random() * 14) / 14;
-    const strand = Math.random() < 0.5 ? 0 : Math.PI;
-    const a = t * Math.PI * 2 * TURNS + strand;
-    const b = volumetricSphere(0.07);
-    return { x: R * Math.cos(a) + b.x, y: (t - 0.5) * H + b.y, z: R * Math.sin(a) + b.z };
-  }
-  if (roll < 0.95) {                                                  // drifting mist sheath
-    const t = Math.random(), a = Math.random() * Math.PI * 2;
-    const rr = R * (1.15 + Math.random() * 0.5);
-    return { x: rr * Math.cos(a), y: (t - 0.5) * H * 1.1, z: rr * Math.sin(a) };
-  }
-  return { x: (Math.random() - 0.5) * 0.05, y: (Math.random() - 0.5) * 1.5, z: (Math.random() - 0.5) * 0.05 }; // spine
+
+  const p = volumetricSphere(0.15);                                      // 8 contained core
+  return { x: p.x, y: H.cy + p.y, z: p.z, flag: 'gem', tight: true };
 }
 
-// ODIN — faceted icosahedron (edges + faces), ONE dark facet (the traded eye),
-// an inner core, a crown ring above, and a vertical seeing-beam. 6 subsystems.
-const ICO = (() => {
-  const t = (1 + Math.sqrt(5)) / 2;
-  let v = [[-1,t,0],[1,t,0],[-1,-t,0],[1,-t,0],[0,-1,t],[0,1,t],[0,-1,-t],[0,1,-t],[t,0,-1],[t,0,1],[-t,0,-1],[-t,0,1]];
-  const len = Math.hypot(1, t);
-  v = v.map(p => p.map(c => c / len));
-  const f = [[0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],[1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],[3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],[4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1]];
-  const edges = new Set();
-  for (const [a,b,c] of f) for (const [i,j] of [[a,b],[b,c],[c,a]]) edges.add(i < j ? `${i},${j}` : `${j},${i}`);
-  return { v, f, e: [...edges].map(s => s.split(',').map(Number)) };
-})();
-const ODIN_DARK_FACET = 7; // the one dark facet — flagged via color, sampled sparsely
-function sampleOdin() {
-  const roll = Math.random();
-  const S = 0.82;
-  if (roll < 0.42) {                                                  // edge frame
-    const [i, j] = ICO.e[Math.floor(Math.random() * ICO.e.length)];
-    const k = Math.random();
+// LOKI — SCEPTER. A long haft, a collar, two curved prongs opening into a
+// cradle, an original faceted stone suspended between them, a corona bleeding
+// off it, and a mist helix twisting up the shaft. 7 subsystems.
+function sampleLoki(i) {
+  const r = rollOf(i);
+  const GEMY = 0.86;
+
+  if (r < 0.26) {                                                        // 1 haft
+    const t = Math.random();
+    const a = Math.random() * Math.PI * 2, rad = 0.048 + t * 0.02;
+    return { x: Math.cos(a) * rad, y: 0.44 - t * 1.62, z: Math.sin(a) * rad };
+  }
+
+  if (r < 0.34) {                                                        // 2 collar below the cradle
+    const a = Math.random() * Math.PI * 2, v = Math.random() * Math.PI * 2;
+    const R = 0.13, tr = 0.035;
+    return { x: (R + tr * Math.cos(v)) * Math.cos(a), y: 0.46 + tr * Math.sin(v), z: (R + tr * Math.cos(v)) * Math.sin(a), flag: 'accent' };
+  }
+
+  if (r < 0.58) {                                                        // 3 the two curved prongs
+    const side = Math.random() < 0.5 ? 1 : -1;
+    const t = Math.random();                                             // 0 at the collar, 1 at the tip
+    const bow = Math.sin(t * Math.PI) * 0.30;                            // prongs bow outward then close
     return {
-      x: (ICO.v[i][0] * (1 - k) + ICO.v[j][0] * k) * S,
-      y: (ICO.v[i][1] * (1 - k) + ICO.v[j][1] * k) * S,
-      z: (ICO.v[i][2] * (1 - k) + ICO.v[j][2] * k) * S,
-      flag: 'edge'
+      x: side * (0.05 + bow),
+      y: 0.50 + t * 0.68,
+      z: (Math.random() - 0.5) * 0.045,
+      flag: t > 0.86 ? 'accent' : null
     };
   }
-  if (roll < 0.72) {                                                  // faces (barycentric), one kept dark
-    const fi = Math.floor(Math.random() * ICO.f.length);
-    if (fi === ODIN_DARK_FACET && Math.random() < 0.75) return sampleOdin(); // dark facet stays sparse
-    const [a, b, c] = ICO.f[fi];
-    let u = Math.random(), w = Math.random();
-    if (u + w > 1) { u = 1 - u; w = 1 - w; }
-    const q = 1 - u - w;
+
+  if (r < 0.66) {                                                        // 4 prong barbs
+    const side = Math.random() < 0.5 ? 1 : -1;
+    const t = 0.3 + Math.random() * 0.5;
     return {
-      x: (ICO.v[a][0] * u + ICO.v[b][0] * w + ICO.v[c][0] * q) * S,
-      y: (ICO.v[a][1] * u + ICO.v[b][1] * w + ICO.v[c][1] * q) * S,
-      z: (ICO.v[a][2] * u + ICO.v[b][2] * w + ICO.v[c][2] * q) * S,
-      flag: fi === ODIN_DARK_FACET ? 'dark' : 'face'
+      x: side * (0.05 + Math.sin(t * Math.PI) * 0.30 + Math.random() * 0.09),
+      y: 0.50 + t * 0.68 - Math.random() * 0.07,
+      z: (Math.random() - 0.5) * 0.04, flag: 'accent'
     };
   }
-  if (roll < 0.84) return volumetricSphere(0.3);                      // inner core
-  if (roll < 0.95) {                                                  // crown ring above
-    const a = Math.random() * Math.PI * 2, R = 0.5, tr = 0.025;
-    const v = Math.random() * Math.PI * 2;
-    return { x: (R + tr * Math.cos(v)) * Math.cos(a), y: 1.02 + tr * Math.sin(v), z: (R + tr * Math.cos(v)) * Math.sin(a) };
+
+  if (r < 0.72) {                                                        // 5 corona bleeding off the stone
+    const p = volumetricSphere(0.30);
+    return { x: p.x, y: GEMY + p.y, z: p.z };
   }
-  return { x: (Math.random() - 0.5) * 0.03, y: (Math.random() - 0.5) * 2.2, z: (Math.random() - 0.5) * 0.03 }; // seeing-beam
+
+  if (r < 0.90) {                                                        // 6 the stone — faceted, not smooth
+    const p = volumetricSphere(0.125);
+    const facet = 0.86 + Math.round(Math.random() * 3) * 0.05;           // quantized radius reads as cut
+    return { x: p.x * facet, y: GEMY + p.y * facet, z: p.z * facet, flag: 'gem', tight: true };
+  }
+
+  const t = Math.random(), a = t * Math.PI * 5.5;                        // 7 mist helix up the shaft
+  return { x: Math.cos(a) * (0.17 + t * 0.05), y: -1.1 + t * 1.5, z: Math.sin(a) * (0.17 + t * 0.05) };
+}
+
+// ODIN — THE HIGH SEAT. A stepped dais, a seat slab, a tall back that fans
+// into spires, armrests, two perches for the ravens, a light column rising
+// behind the back, and a core burning in the seat. 8 subsystems.
+function sampleOdin(i) {
+  const r = rollOf(i);
+
+  if (r < 0.16) {                                                        // 1 stepped dais
+    const step = Math.floor(Math.random() * 3);
+    const R = 0.92 - step * 0.17;
+    const a = Math.random() * Math.PI * 2;
+    const rr = R * (0.88 + Math.random() * 0.12);
+    return { x: Math.cos(a) * rr, y: -1.02 + step * 0.12, z: Math.sin(a) * rr };
+  }
+
+  if (r < 0.28) return boxShell(0.46, 0.055, 0.40, -0.60);               // 2 seat slab
+
+  if (r < 0.50) {                                                        // 3 the high back — tapers upward
+    const t = Math.random();
+    const halfW = 0.44 - t * 0.16;
+    const edge = Math.random() < 0.42;                                   // bias to the outline
+    const x = edge ? (Math.random() < 0.5 ? -halfW : halfW) : (Math.random() * 2 - 1) * halfW;
+    return { x, y: -0.55 + t * 1.30, z: -0.36 + (Math.random() - 0.5) * 0.05, flag: edge ? 'edge' : null };
+  }
+
+  if (r < 0.64) {                                                        // 4 fanned spires above the back
+    const k = Math.floor(Math.random() * 7);
+    const spread = (k - 3) / 3;                                          // -1..1
+    const t = Math.random();
+    return {
+      x: spread * (0.30 + t * 0.42),
+      y: 0.74 + t * (0.46 - Math.abs(spread) * 0.20),
+      z: -0.36 + (Math.random() - 0.5) * 0.05, flag: 'accent'
+    };
+  }
+
+  if (r < 0.74) {                                                        // 5 armrests
+    const side = Math.random() < 0.5 ? 1 : -1;
+    const t = Math.random();
+    return { x: side * 0.46, y: -0.36 + Math.sin(t * Math.PI) * 0.05, z: -0.30 + t * 0.62, flag: 'accent' };
+  }
+
+  if (r < 0.82) {                                                        // 6 raven perches at the back corners
+    const side = Math.random() < 0.5 ? 1 : -1;
+    const p = volumetricSphere(0.09);
+    return { x: side * 0.30 + p.x, y: 0.80 + p.y, z: -0.36 + p.z, flag: 'accent' };
+  }
+
+  if (r < 0.92) {                                                        // 7 light column behind the seat
+    const a = Math.random() * Math.PI * 2;
+    const rad = 0.05 + Math.random() * 0.05;
+    return { x: Math.cos(a) * rad, y: -0.5 + Math.random() * 2.1, z: -0.52 + Math.sin(a) * rad };
+  }
+
+  const p = volumetricSphere(0.17);                                      // 8 core burning in the seat
+  return { x: p.x, y: -0.02 + p.y * 0.7, z: p.z * 0.8, flag: 'gem', tight: true };
 }
 
 const SAMPLERS = { thor: sampleThor, loki: sampleLoki, odin: sampleOdin };
 
 // ---------------------------------------------------------------------------
 // Geometry build — anchors bloom subdot clusters; buffers allocated ONCE at
-// max tier (setDrawRange costs nothing, reallocating hitches).
+// max tier (setDrawRange costs nothing, reallocating hitches). Points flagged
+// 'gem' get their indices recorded so the render loop can drive them with the
+// live voice without touching anything else.
 // ---------------------------------------------------------------------------
 function buildPersonaCloud(personaId) {
   const sampler = SAMPLERS[personaId];
   const colors = P_COLORS[personaId];
-  const pos = [], col = [];
+  const pos = [], col = [], gemIdx = [];
   const tierPointCounts = [];
   let tierIdx = 0;
   for (let a = 0; a < MAX_ANCHORS; a++) {
-    const anchor = sampler();
-    const sub = 8 + Math.floor(Math.random() * 17); // 8-24 subdots per anchor
-    const spread = 0.02 + Math.random() * 0.03;     // 0.02-0.05 of form scale
-    const isDark = anchor.flag === 'dark';
-    const isAccent = !isDark && (anchor.flag === 'edge' ? Math.random() < 0.45 : Math.random() < 0.15);
-    const base = isDark ? [10, 12, 16] : (isAccent ? colors.accent : colors.primary);
+    const anchor = sampler(a);
+    const sub = 8 + Math.floor(Math.random() * 17);            // 8-24 subdots per anchor
+    const spread = anchor.tight ? 0.010 : 0.02 + Math.random() * 0.03;
+    const kind = anchor.flag;
+
+    let base, floor, span;
+    if (kind === 'dark')        { base = [10, 12, 16];                    floor = 0.25; span = 0.20; }
+    else if (kind === 'gem')    { base = GEM_COLOR[personaId] || colors.accent; floor = 0.85; span = 0.55; }
+    else if (kind === 'accent') { base = colors.accent;                   floor = 0.60; span = 0.50; }
+    else if (kind === 'edge')   { base = Math.random() < 0.55 ? colors.accent : colors.primary; floor = 0.62; span = 0.48; }
+    else                        { base = Math.random() < 0.15 ? colors.accent : colors.primary; floor = 0.55; span = 0.55; }
+
     for (let s = 0; s < sub; s++) {
+      const idx = pos.length / 3;
       const j = volumetricSphere(spread);
       pos.push(anchor.x + j.x, anchor.y + j.y, anchor.z + j.z);
-      const bright = isDark ? (0.25 + Math.random() * 0.2) : (0.55 + Math.random() * 0.55);
+      const bright = floor + Math.random() * span;
       col.push(base[0] / 255 * bright, base[1] / 255 * bright, base[2] / 255 * bright);
+      if (kind === 'gem') gemIdx.push(idx);
     }
     if (tierIdx < CLUSTER_TIERS.length && a + 1 === CLUSTER_TIERS[tierIdx]) {
       tierPointCounts.push(pos.length / 3);
       tierIdx++;
     }
   }
-  return { positions: new Float32Array(pos), colors: new Float32Array(col), tierPointCounts };
+  return {
+    positions: new Float32Array(pos), colors: new Float32Array(col), tierPointCounts,
+    gemIdx: new Uint32Array(gemIdx), gemCenter: GEM_CENTER[personaId] || [0, 0, 0]
+  };
 }
 
 function makeGlowTexture(THREE) {
@@ -773,7 +1011,7 @@ function makeReactorMaterial(THREE, glowTex) {
 }
 
 // ---------------------------------------------------------------------------
-// Reactor state (shared by WebGPU path and 2D fallback where sensible)
+// Reactor state (shared by WebGL path and 2D fallback where sensible)
 // ---------------------------------------------------------------------------
 const R = {
   active: 'thor',
@@ -788,7 +1026,7 @@ const R = {
   qualityLevel: 2,
   alertTint: false,
   powered: true,
-  mode: 'none' // 'webgpu' | '2d' | 'none'
+  mode: 'none' // 'webgl' | '2d' | 'none'
 };
 
 let onTapCallback = null;
@@ -898,7 +1136,7 @@ async function initThreeReactor() {
   turntable.position.y = -0.35;
   scene.add(turntable);
 
-  const clouds = {}; // personaId -> { points, geometry, base(Float32Array), tierPointCounts, holder, spin }
+  const clouds = {}; // personaId -> { points, geometry, base, tierPointCounts, holder, spin, gemIdx, gemCenter }
   for (const id of P_IDS) {
     const built = buildPersonaCloud(id);
     const geometry = new THREE.BufferGeometry();
@@ -911,7 +1149,7 @@ async function initThreeReactor() {
     holder.position.set(Math.sin(slot) * SLOT_D, 0, Math.cos(slot) * SLOT_D);
     holder.add(points);
     turntable.add(holder);
-    clouds[id] = { points, geometry, base: built.positions, tierPointCounts: built.tierPointCounts, holder, spin: Math.random() * Math.PI * 2, vis: id === R.active ? 1 : 0 };
+    clouds[id] = { points, geometry, base: built.positions, tierPointCounts: built.tierPointCounts, holder, spin: Math.random() * Math.PI * 2, vis: id === R.active ? 1 : 0, gemIdx: built.gemIdx, gemCenter: built.gemCenter };
   }
 
   // Hot-swap a cloud (used by Project H region for her denser form).
@@ -988,21 +1226,44 @@ async function initThreeReactor() {
       c.points.rotation.y = c.spin;
       if (c.points.visible) liveVerts += c.geometry.drawRange.count;
 
-      // per-frame jitter on a rotating slice (cheap CPU shimmer, audio-boosted)
+      // per-frame jitter on a rotating slice (cheap CPU shimmer, audio-boosted),
+      // plus the reactive core: gem points scale away from the core centre on a
+      // slow breath, hard-driven by live speech amplitude. Both write into the
+      // same position attribute, so they share one needsUpdate.
       if (isActive && c.vis > 0.5) {
         const drawCount = c.tierPointCounts[R.qualityLevel];
         c.geometry.setDrawRange(0, drawCount);
+        const attr = c.geometry.getAttribute('position');
+        const arr = attr.array, base = c.base;
+        let touched = false;
+
         const jAmp = (R.cur.jitter + voice * 0.05);
         if (jAmp > 0.0005) {
-          const attr = c.geometry.getAttribute('position');
-          const arr = attr.array, base = c.base;
           const sliceLen = Math.floor(drawCount / 7);
           const start = (jitterPhase % 7) * sliceLen;
           for (let i = start * 3; i < (start + sliceLen) * 3; i++) {
             arr[i] = base[i] + (Math.random() - 0.5) * jAmp * 2;
           }
-          attr.needsUpdate = true;
+          touched = true;
         }
+
+        if (c.gemIdx && c.gemIdx.length) {
+          const gc = c.gemCenter;
+          // breath is always on; voice rides on top of it, so the core reads as
+          // alive when silent and as the actual voice when speaking
+          const pulse = 1 + 0.16 * Math.sin(now * 0.0024) + voice * 0.55;
+          for (let k = 0; k < c.gemIdx.length; k++) {
+            const gi = c.gemIdx[k];
+            if (gi >= drawCount) continue;                 // respect the current quality tier
+            const i3 = gi * 3;
+            arr[i3]     = gc[0] + (base[i3]     - gc[0]) * pulse;
+            arr[i3 + 1] = gc[1] + (base[i3 + 1] - gc[1]) * pulse;
+            arr[i3 + 2] = gc[2] + (base[i3 + 2] - gc[2]) * pulse;
+          }
+          touched = true;
+        }
+
+        if (touched) attr.needsUpdate = true;
       }
     }
     jitterPhase++;
@@ -1023,8 +1284,10 @@ async function initThreeReactor() {
 }
 
 // ---------------------------------------------------------------------------
-// Canvas 2D fallback — same sampled clouds, manual projection. WebGPU/WebGL
-// is not universal, and a blank reactor is a dead demo.
+// Canvas 2D fallback — same sampled clouds, manual projection. WebGL is not
+// universal, and a blank reactor is a dead demo. The core pulse is WebGL-only
+// (this path reads the immutable base array), so the form is correct here but
+// the core sits still.
 // ---------------------------------------------------------------------------
 function initCanvas2DFallback() {
   ensureFreshCanvas();
@@ -1124,9 +1387,6 @@ if (new URLSearchParams(location.search).get('reactor') === '2d') {
 // The demo models go through the same spec path as assistant-authored ones.
 // Three.js loads dynamically on first open — never at page load.
 // ============================================================================
-// Classic WebGLRenderer here too — the bay's meshes have no texture map, so
-// they don't hit the WebGPU/Points UV bug, but the WebGPU render path is
-// still dropped throughout this file for one consistent, well-tested renderer.
 let THREE = null;
 async function loadThree() {
   if (THREE) return;
@@ -1950,6 +2210,7 @@ function switchPersona(personaId, opts = {}) {
   activePersona = personaId;
   window.Reactor && window.Reactor.setActivePersona(personaId);
   buildHUD(personaId);
+  clearCaption();
   fireShockwave();
   sfxSwitch();
   if (!opts.silent) setVoiceStatus(`${UI_PERSONAS[personaId].name} has the floor.`);
@@ -2650,6 +2911,40 @@ function startContinuousAwakeListening() {
 }
 
 // ---------------------------------------------------------------------------
+// CAPTION PLATE — what the active persona is saying, rendered on the form
+// itself (the struck face of the hammer, under the stone, across the throne
+// back). Words land in time with the speech rather than all at once, and the
+// plate clears itself so it never strands a stale line on screen.
+// ---------------------------------------------------------------------------
+let captionTimers = [];
+function clearCaption() {
+  for (const t of captionTimers) clearTimeout(t);
+  captionTimers = [];
+  $('captionPlate').classList.remove('on');
+  captionTimers.push(setTimeout(() => { if (!$('captionPlate').classList.contains('on')) $('captionText').textContent = ''; }, 400));
+}
+function showCaption(text) {
+  for (const t of captionTimers) clearTimeout(t);
+  captionTimers = [];
+  const words = text.split(/\s+/).filter(Boolean);
+  if (!words.length) return;
+  // ~2.6 words/sec at 1.0x — scaled by the rate slider so it tracks the voice
+  const rate = parseFloat($('rateSlider').value) || 1;
+  const per = 385 / rate;
+  const plate = $('captionPlate'), out = $('captionText');
+  out.textContent = '';
+  plate.classList.add('on');
+  const WINDOW = 9; // keep the plate to a readable band, not a wall of text
+  words.forEach((w, i) => {
+    captionTimers.push(setTimeout(() => {
+      const from = Math.max(0, i - WINDOW + 1);
+      out.textContent = words.slice(from, i + 1).join(' ');
+    }, i * per));
+  });
+  captionTimers.push(setTimeout(clearCaption, words.length * per + 1400));
+}
+
+// ---------------------------------------------------------------------------
 // TTS — ElevenLabs per persona, tapped through an AnalyserNode so the
 // particles ride the actual speech audio. Fast attack, slow release. The
 // 72-bar circular spectrum ring is mirrored and parks its rAF when idle.
@@ -2727,6 +3022,7 @@ function stopSpeaking() {
   if ('speechSynthesis' in window) { try { window.speechSynthesis.cancel(); } catch (e) {} }
   if (synthPulseTimer !== null) { clearTimeout(synthPulseTimer); synthPulseTimer = null; }
   stopAudioReactive();
+  clearCaption();
   currentOnDone = null;
 }
 
@@ -2734,6 +3030,7 @@ function speak(text, onDone) {
   const cleaned = text.replace(/,/g, '').trim();
   stopSpeaking();
   window.Reactor && window.Reactor.setState('talking');
+  showCaption(cleaned);
   currentOnDone = onDone;
   fetch(`${BACKEND_URL}/tts`, {
     method: 'POST',
