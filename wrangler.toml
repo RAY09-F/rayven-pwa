@@ -1,31 +1,30 @@
-# The live Worker is "asgrard-backend" (note the spelling — it is misspelled on
-# Cloudflare, and this name MUST match it exactly or nothing deploys where you
-# think it does). It was renamed from "rayven-backend" on 2026-08-15; that old
-# name no longer exists, and its URL now returns Cloudflare error 1042.
+# RAYVEN — single-assistant backend.
 #
-# This name must never be "fixed" casually: all 17 secrets, the workers.dev URL,
-# and the Telegram webhook are attached to the script NAME. Deploying under a
-# name that does not exist silently CREATES a second, empty Worker with no
-# secrets, while the real one keeps serving — a very confusing way to lose an
-# afternoon. Renaming for real means re-adding every secret, re-pointing the
-# Telegram webhook, and updating BACKEND_URL in the frontend pages.
+# The THOR/LOKI/ODIN split was reverted on 2026-08-15; that work is preserved on
+# the thor-loki-odin-backup branch, not deleted. Entry point is back to the
+# worker.js monolith, and src/ is gone from this branch.
+#
+# The script NAME stays "asgrard-backend" (yes, misspelled on Cloudflare) even
+# though the code is RAYVEN again. All 17 secrets, the workers.dev URL, and the
+# Telegram webhook are attached to the script NAME, not to the code inside it.
+# Deploying under a name that does not exist silently CREATES a second, empty
+# Worker with no secrets while the real one keeps serving. The old name
+# "rayven-backend" was reclaimed by a stub and holds none of the secrets, so
+# renaming back is a deliberate migration (re-add every secret, re-point the
+# Telegram webhook, update BACKEND_URL in index.html) — never a casual edit.
 name = "asgrard-backend"
-main = "src/index.js"
+main = "worker.js"
 compatibility_date = "2026-08-13"
 
-# The ASGARD PWA is served straight from the worker: GET / (and /index.html)
-# serve public/ (GET / 302-redirects to /thor/, the hub lives at /hub/);
-# every other route — all POSTs, /ping, /status,
-# /agent/query, Telegram webhooks — still hits the worker code. public/ holds a
-# COPY of the repo-root index.html: after editing index.html, re-copy it into
-# public/ before `wrangler deploy`.
+# The RAYVEN PWA is served straight from the worker: public/index.html is a COPY
+# of the repo-root index.html, so re-copy it after every edit or the live page
+# silently stays stale.
 #
-# run_worker_first is REQUIRED here: without it, Cloudflare's static-asset
-# handler claims the "/" route for every HTTP method (not just GET), so
-# POST / — the web chat endpoint AND the legacy Telegram webhook — starts
-# returning a flat 405 the moment assets are enabled. With this on, fetch()
-# in src/index.js runs first for every request and explicitly calls
-# env.ASSETS.fetch() only for the GET/HEAD fallthrough case.
+# run_worker_first is REQUIRED. Without it Cloudflare's static-asset handler
+# claims the "/" route for EVERY HTTP method, not just GET, so POST / — the web
+# chat endpoint AND the RAYVENN_RAYAN_BOT Telegram webhook — starts returning a
+# flat 405. With it on, fetch() in worker.js runs for every request and only its
+# unmatched-GET fallthrough ever calls env.ASSETS.fetch().
 [assets]
 directory = "./public"
 binding = "ASSETS"
@@ -35,6 +34,10 @@ run_worker_first = true
 binding = "RAYVEN_KV"
 id = "ee3cce96335249a9a4cc990cdfd8a2a5"
 
+# worker.js does not read VECTORIZE or AI — vector-backed memory arrived with the
+# src/ refactor that this revert undid. The bindings stay declared so the index
+# and its embeddings remain attached to this Worker and are there if the
+# multi-persona branch is ever restored. Unused bindings are inert.
 [[vectorize]]
 binding = "VECTORIZE"
 index_name = "rayven-memory"
@@ -43,7 +46,7 @@ index_name = "rayven-memory"
 binding = "AI"
 
 [triggers]
-# Runs every 5 minutes; each background subsystem (proactive check-in, code
-# check, and later monitoring/email/calendar sweeps) tracks its own "last run"
-# state in KV and decides internally whether it's actually due this tick.
+# Every 5 minutes. Each background job (proactive check-in, morning briefing,
+# self-code-check) keeps its own "last run" marker in KV and decides internally
+# whether it is actually due on this tick.
 crons = ["*/5 * * * *"]
