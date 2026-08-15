@@ -3,7 +3,8 @@ main = "src/index.js"
 compatibility_date = "2026-08-13"
 
 # The ASGARD PWA is served straight from the worker: GET / (and /index.html)
-# return public/index.html; every other route — all POSTs, /ping, /status,
+# serve public/ (GET / 302-redirects to /thor/, the hub lives at /hub/);
+# every other route — all POSTs, /ping, /status,
 # /agent/query, Telegram webhooks — still hits the worker code. public/ holds a
 # COPY of the repo-root index.html: after editing index.html, re-copy it into
 # public/ before `wrangler deploy`.

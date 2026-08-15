@@ -615,10 +615,16 @@ export default {
     }
 
     if (request.method !== 'POST') {
-      // Anything GET/HEAD that fell through every API route above is the PWA
-      // itself — index.html and any future static file in public/. With
-      // run_worker_first on, Cloudflare no longer serves these automatically;
-      // this is the one explicit call that does it.
+      // THOR's Storm Forge is the front page; the original ASGARD hub lives on
+      // at /hub/. Redirect only bare GETs of "/" — POST / (web chat + the
+      // legacy Telegram webhook) never reaches this branch.
+      if (url.pathname === '/' || url.pathname === '/index.html') {
+        return Response.redirect(new URL('/thor/', url).toString(), 302);
+      }
+      // Anything GET/HEAD that fell through every API route above is a static
+      // page in public/ (/thor/, /loki/, /odin/, /hub/). With run_worker_first
+      // on, Cloudflare no longer serves these automatically; this is the one
+      // explicit call that does it.
       if (env.ASSETS) {
         try {
           const assetResponse = await env.ASSETS.fetch(request);
