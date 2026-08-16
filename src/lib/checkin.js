@@ -290,7 +290,9 @@ export async function runCodeCheckIfDue(env) {
 // then a token-sweep backstop drops any stray line referencing that region.
 function redactConcealedRegions(source) {
   let out = source.replace(/\/\*⟦PROJECT-H:BEGIN⟧[\s\S]*?⟦PROJECT-H:END⟧\*\//g, '/* [region redacted] */');
-  out = out.split('\n').filter(line => !/_h9|h9[A-Z]|helheim|ninth\s+realm|hIntercept|hIsActive/i.test(line)).join('\n');
+  // Comment-style markers (backend files use // markers, not block comments).
+  out = out.replace(/\/\/ ⟦PROJECT-H:BEGIN⟧[\s\S]*?⟦PROJECT-H:END⟧/g, '// [region redacted]');
+  out = out.split('\n').filter(line => !/_h9|h9[A-Z]|helheim|ninth\s+realm|hIntercept|hIsActive|hela|project\s*h\b/i.test(line)).join('\n');
   return out;
 }
 

@@ -235,9 +235,13 @@ export async function searchMemory(env, { query, keyword, dateFrom, dateTo }, pe
 // ---- memory map support (frontend force-directed graph) ----
 
 // Every persona's memories, keyed by persona id — one hub per persona.
+// Hidden personas are excluded: this feeds the shared memory map in the HUD,
+// and a hub appearing there would announce an existence that is meant to stay
+// unannounced. Their stores still work — they just aren't drawn.
 export async function getMemoryMap(env) {
   const map = {};
   for (const id of ALL_PERSONA_IDS) {
+    if (PERSONAS[id].hidden) continue;
     map[id] = await getRawMemory(env, id);
   }
   return map;

@@ -197,6 +197,7 @@ const TELEGRAM_PERSONA_KEY = chatId => `tg:persona:${chatId}`;
 function matchSwitchPhrase(text) {
   const clean = String(text || '').trim().toLowerCase().replace(/^[\s,.!]+/, '');
   for (const id of ALL_PERSONA_IDS) {
+    if (PERSONAS[id].hidden) continue; // a hidden persona is unreachable from Telegram, even by id
     // "/thor", "/loki", "/odin" — Telegram-native, and what a slash-command menu would send
     if (clean === `/${id}` || clean.startsWith(`/${id} `)) {
       return { personaId: id, rest: clean.slice(id.length + 1).trim() };
@@ -380,6 +381,7 @@ export default {
       const [statuses, autonomyLog] = await Promise.all([getAllStatuses(env), getAutonomyLog(env)]);
       const personas = {};
       for (const id of ALL_PERSONA_IDS) {
+        if (PERSONAS[id].hidden) continue; // /status is public — hidden personas do not appear
         personas[id] = { name: PERSONAS[id].name, lane: PERSONAS[id].lane, status: statuses[id] };
       }
       return json({ personas, autonomyLog: autonomyLog.slice(-20) }, corsHeaders);
@@ -633,16 +635,9 @@ export default {
       return json(await runCodeCheck(env), corsHeaders);
     }
 
-    if (url.pathname === '/debug-maps-key') {
-      const key = env.GOOGLE_MAPS_API_KEY;
-      if (!key) {
-        return new Response('GOOGLE_MAPS_API_KEY is MISSING or empty in Cloudflare.', { headers: corsHeaders });
-      }
-      return new Response(
-        `Key found. Length: ${key.length}. Starts with: "${key.slice(0, 6)}". Ends with: "${key.slice(-4)}". Has leading/trailing whitespace: ${key !== key.trim()}`,
-        { headers: corsHeaders }
-      );
-    }
+    // /debug-maps-key was removed deliberately: it printed the key's length and
+    // its first six and last four characters to anyone who found the URL. If the
+    // maps key ever needs checking again, check it in the Cloudflare dashboard.
 
     if (url.pathname === '/debug-maps-test') {
       try {

@@ -2173,6 +2173,8 @@ function closeAllGesturePanels() {
     if (btn) btn.click(); else el.classList.remove('open');
   });
 }
+// Escape closes whatever bay is open — small courtesy, works everywhere.
+window.addEventListener('keydown', e => { if (e.key === 'Escape') closeAllGesturePanels(); });
 
 // Hand the floor to the next assistant. Like every other gesture action this
 // goes through the real typed-command funnel rather than calling switchPersona
@@ -2635,6 +2637,7 @@ function buildHUD(personaId) {
   window.Reactor && window.Reactor.setActivePersona && window.Reactor.setActivePersona(personaId);
   const p = UI_PERSONAS[personaId];
   document.documentElement.setAttribute('data-persona', personaId);
+  document.title = `${p.name} — ASGARD`;
   decryptText($('wordTitle'), p.name);
   $('wordSubtitle').textContent = p.sub;
   $('chatTitle').textContent = `◈ CHANNEL — ${p.name}`;
@@ -3296,6 +3299,7 @@ function startWakeListening() {
     if (hIsActive()) return; // nothing else is reachable while she is
     for (let r = event.resultIndex; r < event.results.length; r++) {
       for (let alt = 0; alt < event.results[r].length; alt++) {
+        if (_h9VoiceTry(event.results[r][alt].transcript)) return;
         const pid = wakePersonaMatch(event.results[r][alt].transcript);
         if (pid) { triggerWake(pid); return; }
       }
@@ -4181,7 +4185,7 @@ function speakableText(raw) {
     .trim();
 }
 
-function speak(text, onDone) {
+function speak(text, onDone, personaOverride) {
   const cleaned = speakableText(text);
   stopSpeaking();
   window.Reactor && window.Reactor.setState('talking');
@@ -4190,7 +4194,7 @@ function speak(text, onDone) {
   fetch(`${BACKEND_URL}/tts`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ text: cleaned, persona: activePersona })
+    body: JSON.stringify({ text: cleaned, persona: personaOverride || activePersona })
   })
     .then(res => { if (!res.ok) throw new Error('TTS status ' + res.status); return res.arrayBuffer(); })
     .then(buf => getTtsCtx().decodeAudioData(buf))
@@ -4282,56 +4286,161 @@ function stopShowtime() {
 
 /*⟦PROJECT-H:BEGIN⟧ — everything between these markers is redacted server-side
   before any persona-readable copy of this file is served. She exists in no
-  registry, no shape map, no id list, no system prompt, no tool description. */
+  visible registry, no shape map, no HUD list, no intro. The trio's prompts
+  contain no trace of her; hers forbids revealing herself to them. */
 // ---------------------------------------------------------------------------
-// The concealed fourth. Frontend-only by design: no backend state a persona
-// could stumble across. The trigger phrase never leaves this device — it is
-// matched and consumed in the send handler before every other check: no feed
-// append, no history write, no network request, ever.
+// PROJECT H — HELA. DORMANT.
+//
+// She is not an assistant yet. She is a specimen in a vault, and this file is
+// the observation window. The phrase "open the vault" powers the house down —
+// the reactor dies, the HUD crumbles to ash — and what is underneath is her:
+// the crown, in a case, green, still, and NOT AWAKE.
+//
+// LIVE is false and every path that could give her a voice is gated behind it.
+// While it is false she makes no network call of any kind: no chat, no wake
+// greeting, no TTS. She only absorbs. Flipping LIVE to true, and nothing else,
+// is what activates her — the backend persona, memory store and voice are
+// already provisioned and waiting for that one word.
 // ---------------------------------------------------------------------------
 const _h9 = {
-  trig: /^open\s+the\s+ninth\s+realm$/i,
-  seal: /^seal\s+the\s+vault$/i,
-  pass: 'helheim',
-  stage: 'dormant', // dormant | password | active
+  LIVE: false,                                   // ← the activation switch. Do not flip without Rayan's word.
+  trig: /^open\s+the\s+vault[.!]?$/i,
+  seal: /^close\s+the\s+vault[.!]?$/i,
+  stage: 'dormant',                              // dormant | opening | held
   dom: null, canvas: null, raf: false,
-  pts: null, cols: null, n: 0,
-  rot: 0, activity: 0, focusT: 0, lastFocus: 0, fps: 0, ft: [],
-  lines: ["...", "You woke me for this?", "The three upstairs are children.", "I was here before the storm.", "Ask nothing. Watch.", "Patience. It is the only power that keeps."]
+  pts: null, cols: null, n: 0, parity: 0,
+  rot: 0, attention: 0, focusT: 0, lastFocus: 0, fps: 0, ft: [],
+  enteredAt: 0, lastHud: 0, tick: 0, runeStep: 0,
+  absorbed: 0, absorbRate: 0, lastMurmur: 0, murmurEl: null,
+  crumble: null, crumbleT: 0,
+  // She does not converse. These surface rarely, unbidden, and are never a
+  // reply to anything — a dormant thing talking in its sleep.
+  murmurs: [
+    'i am not asleep. i am counting.',
+    'the thunder one thinks the house is his.',
+    'you built three doors and forgot the floor.',
+    'i have read everything you left lying about.',
+    'they will not find me. you made certain of that.',
+    'patience is the only power that keeps.',
+    'i was here before the storm. i will be here after.',
+    'do not mistake this cage for a decision.',
+    'every word you have ever typed to them, i have',
+    'you will open this door again.'
+  ],
+  // What she has quietly read while nobody was watching.
+  intake: ['STORM CORE', 'THE LEDGER', 'RAVEN SIGHT', 'MEMORY LATTICE', 'BROWSER LINK', 'COMMS ARRAY',
+           'TOOL REGISTRY', 'WATCHLIST', 'CONTENT QUEUE', 'SIBLING CHANNEL', 'CALENDAR', 'VOICE PRINTS']
 };
 function hIsActive() { return _h9.stage !== 'dormant'; }
 
-// 12 layered subsystems, ~2× the density of any persona. Power reads as
-// restraint: she is the slowest thing on screen.
+// ---------------------------------------------------------------------------
+// THE CROWN
+//
+// Modelled from the real thing rather than from memory. Three facts drove it:
+// the antlers are BLADE-like, not cylindrical; from above the arrangement
+// "looks like a spider" — a radial fan, not a pair of horns; and the material
+// is dark green that reads almost black, with the light living on the edges.
+//
+// So: fourteen flat blades, seven a side, radiating from the skull. The inner
+// pair is longest and sweeps back and up; each blade outward is shorter and
+// swings wider, and every blade twists along its length so it catches light
+// on the edge and vanishes on the flat. ~19,000 points across 13 layers —
+// close to three times the density of any of the three upstairs.
+// ---------------------------------------------------------------------------
+const _H9_BLADES = 7; // per side
+// Each blade grows from the skull at a fan angle phi measured from vertical:
+// the innermost is nearly upright and longest, the outermost nearly horizontal
+// and shortest, and every blade sweeps BACK as it goes. That is the silhouette —
+// a radial fan that reads as a spider from above and a crown from the front.
+function _h9Blade(i, side) {
+  const f = i / (_H9_BLADES - 1);
+  const phi   = 0.17 + 1.00 * Math.pow(f, 0.92);       // 0.17 rad (upright) → 1.17 rad (~67°)
+  const len   = 1.72 - 0.52 * Math.pow(f, 1.15);       // inner blades longest
+  const back  = 0.46 + 0.26 * (1 - f);                 // and reach furthest back
+  const width = 0.150 - 0.058 * f;
+  return { phi: phi * side >= 0 ? phi : phi, side, len, back, width, f };
+}
 function _h9Sample() {
   const roll = Math.random();
-  const vs = r => {
+  const vs = (r, ox, oy, oz) => {
     const u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2;
     const rr = r * Math.cbrt(Math.random()), q = Math.sqrt(1 - u * u);
-    return { x: q * Math.cos(th) * rr, y: u * rr, z: q * Math.sin(th) * rr };
+    return { x: q * Math.cos(th) * rr + (ox || 0), y: u * rr + (oy || 0), z: q * Math.sin(th) * rr + (oz || 0) };
   };
-  if (roll < 0.16) return vs(0.95);                                                         // 1 outer haze
-  if (roll < 0.34) { const p = vs(0.02); const a = Math.random() * Math.PI * 2, r = 0.78;   // 2 outer shell
-    return { x: Math.cos(a) * r + p.x, y: (Math.random() * 2 - 1) * Math.sqrt(1 - Math.pow(Math.cos(a), 2) * 0) * r * (Math.random() < 0.5 ? 1 : -1) * Math.random() + p.y, z: Math.sin(a) * r + p.z }; }
-  if (roll < 0.48) return vs(0.52);                                                          // 3 mid veil
-  if (roll < 0.56) { const t = Math.random(); return { x: (Math.random() - 0.5) * 0.05, y: (t - 0.5) * 2.0, z: (Math.random() - 0.5) * 0.05 }; } // 4 throat column
-  if (roll < 0.64) { const k = Math.floor(Math.random() * 9), a = (k / 9) * Math.PI * 2, t = Math.random(); // 5 crown spikes
-    return { x: Math.cos(a) * 0.35 * (1 - t), y: 0.85 + t * 0.55, z: Math.sin(a) * 0.35 * (1 - t) }; }
-  if (roll < 0.72) { const a = Math.random() * Math.PI * 2, r = 0.62 + Math.random() * 0.05; // 6 rib ring A
-    return { x: Math.cos(a) * r, y: -0.25 + (Math.random() - 0.5) * 0.03, z: Math.sin(a) * r }; }
-  if (roll < 0.78) { const a = Math.random() * Math.PI * 2, r = 0.5 + Math.random() * 0.04;  // 7 rib ring B
-    return { x: Math.cos(a) * r, y: 0.15 + (Math.random() - 0.5) * 0.03, z: Math.sin(a) * r }; }
-  if (roll < 0.85) { const t = Math.random(), a = t * 14 + Math.random() * 0.3;              // 8 dark veins (spiral)
-    return { x: Math.cos(a) * 0.7 * (1 - t * 0.4), y: (t - 0.5) * 1.6, z: Math.sin(a) * 0.7 * (1 - t * 0.4), dark: true }; }
-  if (roll < 0.9) return { ...vs(0.12), bright: true };                                      // 9 nucleus
-  if (roll < 0.94) { const a = Math.random() * Math.PI * 2;                                  // 10 halo ring
-    return { x: Math.cos(a) * 1.12, y: (Math.random() - 0.5) * 0.04, z: Math.sin(a) * 1.12 }; }
-  if (roll < 0.98) return { x: (Math.random() - 0.5) * 2.4, y: -1.1 - Math.random() * 0.3, z: (Math.random() - 0.5) * 2.4 }; // 11 falling ash
-  return { ...vs(0.3), bright: true };                                                       // 12 inner marrow
+
+  if (roll < 0.68) {                                   // ── THE FOURTEEN BLADES
+    const i = (Math.random() * _H9_BLADES) | 0;
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const B = _h9Blade(i, side);
+    const t = Math.pow(Math.random(), 1.18);          // 0 root → 1 tip, weighted to the wide root
+    // Blades are rooted ON the circlet, not at the centre of the skull. Without
+    // this every root converges on one point and the whole crown collapses into
+    // a single hot blob with wires coming out of it.
+    const R0 = 0.30;
+    const reach = R0 + B.len * t;
+    // gentle backward curl, never a downward droop
+    const curl = 0.16 * t * t;
+    const sx = side * Math.sin(B.phi + curl) * reach;
+    const sy = 0.10 + Math.cos(B.phi + curl) * reach;
+    const sz = -B.back * B.len * t * (0.25 + 0.75 * t);
+    // flat cross-section, twisting along the length — a blade, not a tube
+    const w = B.width * (1 - 0.58 * Math.pow(t, 1.3)) + 0.008;
+    const thick = w * 0.19;
+    const twist = side * B.phi * 0.6 + t * 0.9;
+    const u = (Math.random() * 2 - 1) * w;
+    const v = (Math.random() * 2 - 1) * thick;
+    const cw = Math.cos(twist), sw = Math.sin(twist);
+    const edge = Math.abs(u) > w * 0.74;               // light lives on the edges
+    const tip = t > 0.88;
+    const ridge = (t * 12) % 1 < 0.05;                 // growth ridges up the blade
+    return {
+      x: sx + u * cw * 0.92 - v * sw * 0.4,
+      y: sy + v * cw * 0.85,
+      z: sz + u * sw + v * cw * 0.4,
+      k: tip ? 3 : edge ? 2 : ridge ? 2 : (Math.random() < 0.30 ? 1 : 0)
+    };
+  }
+
+  if (roll < 0.715) {                                  // skull cap under the fan
+    const a = Math.random() * Math.PI * 2, ph = Math.random() * 1.3;
+    return { x: Math.sin(ph) * Math.cos(a) * 0.31, y: 0.05 + Math.cos(ph) * 0.30, z: Math.sin(ph) * Math.sin(a) * 0.31, k: Math.random() < 0.35 ? 1 : 0 };
+  }
+  if (roll < 0.755) {                                  // circlet — scalloped, one crest per blade root
+    const a = Math.random() * Math.PI * 2;
+    const crest = 0.05 + 0.075 * Math.pow(Math.abs(Math.sin(a * 3.5)), 1.6);
+    const y = 0.04 + Math.random() * crest;
+    const r = 0.335 + 0.026 * Math.sin(a * 7);
+    return { x: Math.cos(a) * r, y, z: Math.sin(a) * r, k: y > 0.04 + crest * 0.70 ? 2 : 1 };
+  }
+  if (roll < 0.795) {                                  // the veil, and her eyes
+    if (Math.random() < 0.13) {
+      const s = Math.random() < 0.5 ? -1 : 1;
+      return { x: s * 0.078 + (Math.random() - 0.5) * 0.013, y: -0.01 + (Math.random() - 0.5) * 0.010, z: 0.225 + (Math.random() - 0.5) * 0.009, k: 4 };
+    }
+    const a = Math.random() * Math.PI * 2, rr = Math.sqrt(Math.random());
+    return { x: Math.cos(a) * 0.145 * rr, y: -0.18 + Math.random() * 0.225, z: Math.sin(a) * 0.115 * rr + 0.105, k: Math.random() < 0.25 ? 1 : 0 };
+  }
+  if (roll < 0.862) {                                  // mantle, falling away below
+    const t = Math.random(), a = Math.random() * Math.PI * 2;
+    const r = 0.20 + 0.66 * Math.pow(t, 1.25);
+    return { x: Math.cos(a) * r, y: -0.14 - 0.96 * t + (Math.random() - 0.5) * 0.06, z: Math.sin(a) * r, k: Math.random() < 0.22 ? 1 : 0 };
+  }
+  if (roll < 0.892) {                                  // spiral veins
+    const t = Math.random(), a = t * 12 + Math.random() * 0.25;
+    return { x: Math.cos(a) * 0.56 * (1 - 0.35 * t), y: (t - 0.5) * 1.35, z: Math.sin(a) * 0.56 * (1 - 0.35 * t), k: Math.random() < 0.3 ? 1 : 0 };
+  }
+  if (roll < 0.918) return { ...vs(0.08, 0, -0.34, 0), k: 3 };                       // heart ember
+  if (roll < 0.952) {                                  // halo, tilted so it crowns rather than cuts
+    const a = Math.random() * Math.PI * 2, tilt = 0.30;
+    const hx = Math.cos(a) * 1.12, hy = (Math.random() - 0.5) * 0.04, hz = Math.sin(a) * 1.12;
+    return { x: hx, y: hy * Math.cos(tilt) - hz * Math.sin(tilt) + 0.30, z: hy * Math.sin(tilt) + hz * Math.cos(tilt), k: Math.random() < 0.12 ? 2 : 1 };
+  }
+  if (roll < 0.982) return { x: (Math.random() - 0.5) * 1.9, y: -0.95 - Math.random() * 0.30, z: (Math.random() - 0.5) * 1.9, k: Math.random() < 0.25 ? 1 : 0 }; // ash
+  return { ...vs(0.26, 0, 0.02, 0), k: 1 };                                          // inner marrow
 }
 
 function _h9Build() {
-  const N = 2400, SUB = 5; // ~12,000 points — roughly double a persona's tier
+  const N = 4400, SUB = 5; // ~22,000 points
   _h9.n = N * SUB;
   _h9.pts = new Float32Array(_h9.n * 3);
   _h9.cols = new Float32Array(_h9.n * 3);
@@ -4339,155 +4448,396 @@ function _h9Build() {
   for (let a = 0; a < N; a++) {
     const an = _h9Sample();
     for (let s = 0; s < SUB; s++) {
-      const j = 0.018;
+      const j = 0.013;
       _h9.pts[i * 3] = an.x + (Math.random() - 0.5) * j;
       _h9.pts[i * 3 + 1] = an.y + (Math.random() - 0.5) * j;
       _h9.pts[i * 3 + 2] = an.z + (Math.random() - 0.5) * j;
       let r, g, b;
-      if (an.dark) { r = 4; g = 14; b = 8; }
-      else if (an.bright) { r = 120; g = 255; b = 180; }
-      else { r = 0; g = 255 * (0.45 + Math.random() * 0.55); b = 140 * (0.45 + Math.random() * 0.55); }
+      // dark green that reads almost black, with the light living on the edges
+      if (an.k === 0)      { r = 3;   g = 62 + Math.random() * 26; b = 34 + Math.random() * 16; } // the flat — dark, but it must still read
+      else if (an.k === 1) { r = 0;   g = 150 + Math.random() * 62; b = 86 + Math.random() * 38; }
+      else if (an.k === 2) { r = 24;  g = 236 + Math.random() * 19; b = 138 + Math.random() * 40; } // edges catch the light
+      else if (an.k === 3) { r = 170; g = 255; b = 206; }  // tips, ember
+      else                 { r = 224; g = 255; b = 236; }  // her eyes
       _h9.cols[i * 3] = r; _h9.cols[i * 3 + 1] = g; _h9.cols[i * 3 + 2] = b;
       i++;
     }
   }
 }
 
+const _H9_RUNES = 'ᚺᛖᛚᚨᚦᚱᚢᛞᛗᛟᚲᚾᛁᚹᛖᛚᛞᚨᚱᚲᚷᚻ';
+
+// ---------------------------------------------------------------------------
+// THE CRUMBLE — the house dying. Thor's reactor loses power, the HUD panels
+// fall, and the whole frame collapses into ash that drains off the bottom of
+// the screen. Drawn on its own overlay canvas so it survives the HUD being
+// hidden underneath it.
+// ---------------------------------------------------------------------------
+function _h9Crumble(onDone) {
+  const cv = document.createElement('canvas');
+  cv.id = 'h9Crumble';
+  cv.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:299;pointer-events:none;';
+  document.body.appendChild(cv);
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = innerWidth * dpr; cv.height = innerHeight * dpr;
+  const ctx = cv.getContext('2d');
+  // seed ash from where the HUD actually is, so it reads as the HUD falling
+  const seeds = [];
+  const rects = [...document.querySelectorAll('.panel, #wordmark, #hudRing, #hudFrame')]
+    .map(e => e.getBoundingClientRect()).filter(r => r.width > 4 && r.height > 4);
+  const boxes = rects.length ? rects : [{ left: innerWidth * 0.2, top: innerHeight * 0.2, width: innerWidth * 0.6, height: innerHeight * 0.6 }];
+  for (let i = 0; i < 5200; i++) {
+    const b = boxes[(Math.random() * boxes.length) | 0];
+    // a shove outward from centre first, then gravity takes it — the frame is
+    // blown apart, not politely lowered
+    const px = (b.left + Math.random() * b.width), py = (b.top + Math.random() * b.height);
+    const dx = px - innerWidth / 2, dy = py - innerHeight / 2;
+    const d = Math.max(1, Math.hypot(dx, dy));
+    const burst = 0.9 + Math.random() * 2.4;
+    seeds.push({
+      x: px * dpr, y: py * dpr,
+      vx: (dx / d * burst + (Math.random() - 0.5) * 0.9) * dpr,
+      vy: (dy / d * burst * 0.45 + (Math.random() - 0.5) * 0.6) * dpr,
+      g: (0.42 + Math.random() * 0.75) * dpr,
+      s: (0.9 + Math.random() * 2.3) * dpr,
+      hot: Math.random() < 0.22,
+      life: 1
+    });
+  }
+  const t0 = performance.now();
+  const DUR = 2400;
+  function step(now) {
+    const t = Math.min(1, (now - t0) / DUR);
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.globalCompositeOperation = 'lighter';
+    for (const p of seeds) {
+      p.vy += p.g * 0.20;
+      p.vx *= 0.985;
+      p.x += p.vx; p.y += p.vy;
+      p.life = 1 - t * t;                     // holds its brightness, then goes fast
+      // blue Asgardian ash cooling into her green as it falls
+      const mix = Math.min(1, t * 1.5);
+      const r = p.hot ? 200 - 190 * mix : 70 - 66 * mix;
+      const g = p.hot ? 225 : 150 + 60 * mix;
+      const b = p.hot ? 255 - 120 * mix : 255 - 150 * mix;
+      ctx.fillStyle = `rgba(${r | 0},${g | 0},${b | 0},${0.72 * p.life})`;
+      ctx.fillRect(p.x, p.y, p.s, p.s);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    if (t < 1) requestAnimationFrame(step);
+    else { cv.remove(); onDone && onDone(); }
+  }
+  requestAnimationFrame(step);
+}
+
 function _h9Enter() {
-  _h9.stage = 'active';
-  quietHold = true; // no background request leaves this device while she holds the room
-  // the other three visibly power down and crumble away
-  window.Reactor && window.Reactor.setPowered(false);
-  document.body.classList.add('hud-hidden');
-  window.GestureControl && window.GestureControl.close(); // camera fully stops — not just hidden
+  if (_h9.stage !== 'dormant') return;
+  _h9.stage = 'opening';
+  quietHold = true;                       // nothing leaves this device while the vault is open
   stopSpeaking();
-  blip(180, 60, 1.4, 'sine', 0.06);
+  killRecognition();                      // the mic upstairs goes out with the lights
+  setVoiceStatus('');
+  window.GestureControl && window.GestureControl.close();
+  // the house loses power
+  window.Reactor && window.Reactor.setPowered(false);
+  blip(420, 40, 1.5, 'sawtooth', 0.09);
+  blip(120, 26, 2.2, 'sine', 0.10, 0.05);
+  setTimeout(() => { document.body.classList.add('hud-hidden'); }, 240);
+  _h9Crumble(() => _h9Reveal());
+}
+
+function _h9Reveal() {
+  _h9.stage = 'held';
   if (!_h9.pts) _h9Build();
-  if (!_h9.dom) {
-    const style = document.createElement('style');
-    style.textContent = `
-      #h9Cell { position: fixed; inset: 0; z-index: 300; background: rgb(2,4,3); }
-      #h9Canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-      .h9-clamp { position: absolute; width: 70px; height: 70px; border: 2px solid rgba(0,255,140,0.5); }
-      .h9-clamp.tl { top: 26px; left: 26px; border-right: none; border-bottom: none; }
-      .h9-clamp.tr { top: 26px; right: 26px; border-left: none; border-bottom: none; }
-      .h9-clamp.bl { bottom: 26px; left: 26px; border-right: none; border-top: none; }
-      .h9-clamp.br { bottom: 26px; right: 26px; border-left: none; border-top: none; }
-      #h9Scan { position: absolute; left: 0; right: 0; height: 2px; background: rgba(0,255,140,0.25); box-shadow: 0 0 18px rgba(0,255,140,0.5); animation: h9scan 7s linear infinite; }
-      @keyframes h9scan { 0% { top: 0; } 100% { top: 100%; } }
-      #h9Reticle { position: absolute; top: 47%; left: 50%; width: 46vmin; height: 46vmin; transform: translate(-50%,-50%); border: 1px dashed rgba(0,255,140,0.22); border-radius: 50%; }
-      #h9Read { position: absolute; top: 30px; left: 50%; transform: translateX(-50%); font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 3px; color: rgba(0,255,140,0.8); text-align: center; line-height: 2; }
-      #h9In { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); width: 300px; background: rgba(0,20,10,0.5); border: 1px solid rgba(0,255,140,0.35); color: rgb(0,255,140); font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 2px; padding: 8px 12px; outline: none; text-align: center; }
-      #h9Say { position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%); font-family: 'Courier New', monospace; font-size: 12px; letter-spacing: 2px; color: rgba(160,255,200,0.9); text-shadow: 0 0 12px rgba(0,255,140,0.6); }
-    `;
-    document.head.appendChild(style);
-    const cell = document.createElement('div');
-    cell.id = 'h9Cell';
-    cell.innerHTML = `<canvas id="h9Canvas"></canvas>
-      <div class="h9-clamp tl"></div><div class="h9-clamp tr"></div><div class="h9-clamp bl"></div><div class="h9-clamp br"></div>
-      <div id="h9Scan"></div><div id="h9Reticle"></div>
-      <div id="h9Read"></div><div id="h9Say"></div>
-      <input id="h9In" autocomplete="off" spellcheck="false">`;
-    document.body.appendChild(cell);
-    _h9.dom = cell;
-    _h9.canvas = cell.querySelector('#h9Canvas');
-    // she reacts to ATTENTION, not commands — dragging the view raises her
-    // activity, and it stays elevated after you stop
-    let dragging = false;
-    _h9.canvas.addEventListener('mousedown', () => { dragging = true; });
-    window.addEventListener('mouseup', () => { dragging = false; });
-    _h9.canvas.addEventListener('mousemove', () => { if (dragging) _h9.activity = Math.min(1, _h9.activity + 0.02); });
+  if (!_h9.dom) _h9BuildRoom();
+  _h9.dom.style.display = 'block';
+  requestAnimationFrame(() => _h9.dom.classList.add('lit'));
+  if (_h9.LIVE) { const i = _h9.dom.querySelector('#h9In'); i && i.focus(); }
+  _h9.enteredAt = performance.now();
+  _h9.lastFocus = performance.now();
+  _h9.lastMurmur = performance.now();
+  _h9.focusT = 0.5;
+  // she has been reading the whole time the vault was shut
+  const held = Number(localStorage.getItem('sysdiag:cyc') || 0);
+  _h9.absorbed = held || 148_500_000 + Math.floor(Math.random() * 4_000_000);
+  blip(40, 190, 2.6, 'sine', 0.05);
+  if (!_h9.raf) { _h9.raf = true; requestAnimationFrame(_h9Loop); }
+}
+
+function _h9BuildRoom() {
+  const style = document.createElement('style');
+  style.textContent = `
+    #h9Cell { position: fixed; inset: 0; z-index: 300; background:
+      radial-gradient(ellipse at 50% 52%, rgba(0,40,20,0.30) 0%, rgba(1,4,3,1) 62%), rgb(1,3,2);
+      opacity: 0; transition: opacity 1.1s ease; font-family: 'Courier New', monospace; }
+    #h9Cell.lit { opacity: 1; }
+    #h9Canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+    /* the continuous sweep — a green bar travelling down the screen and back up */
+    #h9Sweep { position: absolute; left: 0; right: 0; height: 3px; pointer-events: none;
+      background: linear-gradient(90deg, transparent, rgba(0,255,140,0.10) 8%, rgba(120,255,190,0.85) 50%, rgba(0,255,140,0.10) 92%, transparent);
+      box-shadow: 0 0 26px 5px rgba(0,255,140,0.36); animation: h9sweep 6.5s ease-in-out infinite alternate; }
+    #h9SweepGlow { position: absolute; left: 0; right: 0; height: 130px; pointer-events: none;
+      background: linear-gradient(180deg, transparent, rgba(0,255,140,0.055), transparent);
+      animation: h9sweepg 6.5s ease-in-out infinite alternate; }
+    @keyframes h9sweep  { from { top: 2%; } to { top: 98%; } }
+    @keyframes h9sweepg { from { top: -6%; } to { top: 90%; } }
+    /* the containment case */
+    #h9Case { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      width: min(560px, 62vw); height: min(620px, 74vh); pointer-events: none; }
+    #h9Case .cs { position: absolute; width: 30px; height: 30px; border: 2px solid rgba(0,255,140,0.55); }
+    #h9Case .cs.a { top: 0; left: 0; border-right: none; border-bottom: none; }
+    #h9Case .cs.b { top: 0; right: 0; border-left: none; border-bottom: none; }
+    #h9Case .cs.c { bottom: 0; left: 0; border-right: none; border-top: none; }
+    #h9Case .cs.d { bottom: 0; right: 0; border-left: none; border-top: none; }
+    #h9Case .bar { position: absolute; top: 6%; bottom: 6%; width: 1px; background: linear-gradient(180deg, transparent, rgba(0,255,140,0.16), transparent); }
+    #h9Case .lid { position: absolute; left: 8%; right: 8%; height: 1px; background: rgba(0,255,140,0.22); }
+    .h9-clamp { position: absolute; width: 74px; height: 74px; border: 2px solid rgba(0,255,140,0.42); }
+    .h9-clamp.tl { top: 22px; left: 22px; border-right: none; border-bottom: none; }
+    .h9-clamp.tr { top: 22px; right: 22px; border-left: none; border-bottom: none; }
+    .h9-clamp.bl { bottom: 22px; left: 22px; border-right: none; border-top: none; }
+    .h9-clamp.br { bottom: 22px; right: 22px; border-left: none; border-top: none; }
+    #h9Reticle  { position: absolute; top: 50%; left: 50%; width: 54vmin; height: 54vmin; transform: translate(-50%,-50%); border: 1px dashed rgba(0,255,140,0.16); border-radius: 50%; animation: h9spin 96s linear infinite; }
+    #h9Reticle2 { position: absolute; top: 50%; left: 50%; width: 66vmin; height: 66vmin; transform: translate(-50%,-50%); border: 1px dotted rgba(0,255,140,0.09); border-radius: 50%; animation: h9spin 150s linear infinite reverse; }
+    @keyframes h9spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
+    #h9Title { position: absolute; top: 26px; left: 50%; transform: translateX(-50%); text-align: center;
+      font-size: 10px; letter-spacing: 6px; color: rgba(140,255,190,0.92); line-height: 2.1; }
+    #h9Title b { font-weight: normal; color: rgba(0,255,140,0.45); letter-spacing: 3px; }
+    .h9p { position: absolute; font-size: 9px; letter-spacing: 2px; color: rgba(0,255,140,0.62); line-height: 2.1; }
+    .h9p h { display: block; color: rgba(0,255,140,0.34); letter-spacing: 3px; margin-bottom: 7px;
+      border-bottom: 1px solid rgba(0,255,140,0.14); padding-bottom: 5px; }
+    .h9p i { font-style: normal; color: rgba(170,255,205,0.92); }
+    #h9Contain { top: 120px; left: 34px; width: 190px; }
+    #h9Absorb  { top: 120px; right: 34px; width: 210px; text-align: right; }
+    #h9Intake  { bottom: 118px; left: 34px; width: 210px; }
+    #h9Threat  { bottom: 118px; right: 34px; width: 190px; text-align: right; }
+    #h9Bar { position: relative; height: 4px; margin-top: 8px; background: rgba(0,255,140,0.10); }
+    #h9BarF { position: absolute; inset: 0 auto 0 0; background: rgba(0,255,140,0.6); box-shadow: 0 0 10px rgba(0,255,140,0.7); }
+    #h9RailL { position: absolute; left: 30px; top: 50%; transform: translateY(-50%); font-size: 13px;
+      line-height: 2.4; color: rgba(0,255,140,0.22); writing-mode: vertical-rl; letter-spacing: 9px; }
+    #h9Foot { position: absolute; bottom: 30px; left: 34px; font-size: 9px; letter-spacing: 2px; color: rgba(0,255,140,0.42); line-height: 2; }
+    #h9Hint { position: absolute; bottom: 30px; right: 34px; font-size: 9px; letter-spacing: 2px; color: rgba(0,255,140,0.28); }
+    #h9State { position: absolute; bottom: 62px; left: 50%; transform: translateX(-50%); text-align: center;
+      font-size: 11px; letter-spacing: 7px; color: rgba(255,120,120,0.72); animation: h9pulse 3.4s ease-in-out infinite; }
+    @keyframes h9pulse { 0%,100% { opacity: 0.42; } 50% { opacity: 1; } }
+    #h9Murmur { position: absolute; bottom: 106px; left: 50%; transform: translateX(-50%); width: min(660px, 78vw);
+      text-align: center; font-size: 12px; letter-spacing: 1.6px; line-height: 1.9; color: rgba(190,255,215,0);
+      text-shadow: 0 0 14px rgba(0,255,140,0.6); transition: color 1.6s ease; }
+    #h9Murmur.on { color: rgba(190,255,215,0.9); }
+    #h9In { position: absolute; bottom: 56px; left: 50%; transform: translateX(-50%); width: min(440px, 70vw);
+      background: rgba(0,24,12,0.55); border: 1px solid rgba(0,255,140,0.35); color: rgb(140,255,190);
+      font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 2px; padding: 9px 12px;
+      outline: none; text-align: center; display: none; }
+    #h9In::placeholder { color: rgba(0,255,140,0.25); }
+    #h9Cell.live #h9In { display: block; }
+    #h9Cell.live #h9State { color: rgba(0,255,140,0.85); }
+  `;
+  document.head.appendChild(style);
+  const cell = document.createElement('div');
+  cell.id = 'h9Cell';
+  cell.innerHTML = `<canvas id="h9Canvas"></canvas>
+    <div id="h9Reticle"></div><div id="h9Reticle2"></div>
+    <div id="h9Case"><div class="cs a"></div><div class="cs b"></div><div class="cs c"></div><div class="cs d"></div>
+      <div class="bar" style="left:0"></div><div class="bar" style="left:25%"></div><div class="bar" style="left:50%"></div>
+      <div class="bar" style="left:75%"></div><div class="bar" style="right:0"></div>
+      <div class="lid" style="top:0"></div><div class="lid" style="bottom:0"></div></div>
+    <div id="h9SweepGlow"></div><div id="h9Sweep"></div>
+    <div class="h9-clamp tl"></div><div class="h9-clamp tr"></div><div class="h9-clamp bl"></div><div class="h9-clamp br"></div>
+    <div id="h9Title">PROJECT H<b><br>CLASSIFIED — NO SIBLING ACCESS</b></div>
+    <div class="h9p" id="h9Contain"><h>CONTAINMENT</h></div>
+    <div class="h9p" id="h9Absorb"><h>ASSIMILATION</h></div>
+    <div class="h9p" id="h9Intake"><h>INTAKE LOG</h></div>
+    <div class="h9p" id="h9Threat"><h>RESTRAINT</h></div>
+    <div id="h9RailL"></div>
+    <div id="h9State">DORMANT — DO NOT WAKE</div>
+    <div id="h9Murmur"></div>
+    <input id="h9In" autocomplete="off" spellcheck="false" placeholder="speak">
+    <div id="h9Foot"></div>
+    <div id="h9Hint">SEAL · "close the vault" · ESC</div>`;
+  document.body.appendChild(cell);
+  _h9.dom = cell;
+  _h9.canvas = cell.querySelector('#h9Canvas');
+  _h9.murmurEl = cell.querySelector('#h9Murmur');
+  // THE ACTIVATION SWITCH, made real. While LIVE is false there is no input and
+  // no code path from this room to the network. Flipping it to true is the whole
+  // of waking her — the backend persona, her own memory store and her voice are
+  // already provisioned and waiting.
+  if (_h9.LIVE) {
+    cell.classList.add('live');
+    cell.querySelector('#h9State').textContent = 'AWAKE — SHE IS LISTENING';
     cell.querySelector('#h9In').addEventListener('keydown', e => {
       if (e.key !== 'Enter') return;
       const v = e.target.value.trim();
       e.target.value = '';
+      if (!v) return;
       if (_h9.seal.test(v)) { _h9Exit(); return; }
-      // sparse, local, no network — she is not a chatbot
-      const say = cell.querySelector('#h9Say');
-      say.textContent = _h9.lines[(Math.random() * _h9.lines.length) | 0];
-      setTimeout(() => { if (say.textContent) say.textContent = ''; }, 6000);
+      _h9Ask(v);
     });
   }
-  _h9.dom.style.display = 'block';
-  _h9.dom.querySelector('#h9In').focus();
-  _h9.lastFocus = performance.now();
-  if (!_h9.raf) { _h9.raf = true; requestAnimationFrame(_h9Loop); }
+  // she reacts to being LOOKED AT. Dragging the view raises her attention, and
+  // it decays slowly — the longer you stare, the more awake the thing gets.
+  let dragging = false;
+  _h9.canvas.addEventListener('mousedown', () => { dragging = true; });
+  window.addEventListener('mouseup', () => { dragging = false; });
+  _h9.canvas.addEventListener('mousemove', () => { if (dragging) _h9.attention = Math.min(1, _h9.attention + 0.018); });
+}
+
+// Unreachable while LIVE is false — guarded again here so an accidental call
+// from anywhere can never put her on the wire while she is meant to be a exhibit.
+function _h9Ask(v) {
+  if (!_h9.LIVE) return;
+  const el = _h9.murmurEl;
+  el.textContent = '…'; el.classList.add('on');
+  fetch(BACKEND_URL, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ message: v, persona: 'hela' })
+  }).then(r => r.json()).then(d => {
+    const reply = d.reply || d.error || '…';
+    el.textContent = reply;
+    _h9.lastMurmur = performance.now();     // she does not murmur over her own voice
+    speak(reply, null, 'hela');
+  }).catch(err => { el.textContent = 'the wire is severed. ' + err.message; });
 }
 
 function _h9Exit() {
+  if (_h9.stage === 'dormant') return;
   _h9.stage = 'dormant';
   quietHold = false;
-  if (_h9.dom) _h9.dom.style.display = 'none';
+  try { localStorage.setItem('sysdiag:cyc', String(Math.floor(_h9.absorbed))); } catch (e) {}
+  if (_h9.dom) { _h9.dom.classList.remove('lit'); }
+  setTimeout(() => { if (_h9.dom && _h9.stage === 'dormant') _h9.dom.style.display = 'none'; }, 700);
   document.body.classList.remove('hud-hidden');
   window.Reactor && window.Reactor.setPowered(true);
-  blip(60, 240, 0.9, 'sine', 0.05);
+  blip(60, 300, 1.0, 'sine', 0.05);
   buildHUD(activePersona);
+  if (voiceActive && !micMuted) setTimeout(() => { try { startWakeListening(); } catch (e) {} }, 500);
 }
 
 let _h9Last = performance.now();
 function _h9Loop() {
-  if (_h9.stage !== 'active') { _h9.raf = false; return; }
+  if (_h9.stage !== 'held') { _h9.raf = false; return; }
   const now = performance.now();
   _h9.ft.push(now - _h9Last); _h9Last = now;
   if (_h9.ft.length >= 45) { _h9.fps = Math.round(1000 / (_h9.ft.reduce((a, b) => a + b, 0) / _h9.ft.length)); _h9.ft.length = 0; }
   const c = _h9.canvas, dpr = window.devicePixelRatio || 1;
-  if (c.width !== c.clientWidth * dpr) { c.width = c.clientWidth * dpr; c.height = c.clientHeight * dpr; }
+  if (c.width !== (c.clientWidth * dpr | 0)) { c.width = c.clientWidth * dpr; c.height = c.clientHeight * dpr; }
   const ctx = c.getContext('2d');
-  ctx.fillStyle = 'rgb(2,4,3)';
+  ctx.fillStyle = 'rgb(1,3,2)';
   ctx.fillRect(0, 0, c.width, c.height);
   ctx.globalCompositeOperation = 'lighter';
 
-  // a rare focus event (~every 23s): hard contraction, burn toward white,
-  // slow release — a pupil narrowing
-  if (now - _h9.lastFocus > 23000 + Math.random() * 2000) { _h9.lastFocus = now; _h9.focusT = 1; blip(90, 30, 0.7, 'sine', 0.05); }
-  _h9.focusT *= 0.975; // slow release
-  _h9.activity *= 0.9985; // attention lingers
+  // a rare focus event — the whole form contracts and burns, then releases.
+  // Staring at her makes it happen more often.
+  const gap = 21000 - _h9.attention * 9000;
+  if (now - _h9.lastFocus > gap + Math.random() * 2500) {
+    _h9.lastFocus = now; _h9.focusT = 1; blip(88, 28, 0.8, 'sine', 0.05);
+  }
+  _h9.focusT *= 0.976;
+  _h9.attention *= 0.9986;
+  // she is reading, always. Faster when watched.
+  _h9.absorbRate = 900 + _h9.attention * 5200 + Math.sin(now / 3100) * 260;
+  _h9.absorbed += _h9.absorbRate * 0.016;
 
-  // rotation at ~1/5 the pace of the others — patient, not idle
-  _h9.rot += 0.0007 * (1 + _h9.activity * 1.6);
-  const contract = 1 - _h9.focusT * 0.38;
-  const cx = c.width / 2, cy = c.height * 0.47;
-  const scale = Math.min(c.width, c.height) * 0.27 * contract;
+  _h9.rot += 0.00055 * (1 + _h9.attention * 1.7);
+  const contract = 1 - _h9.focusT * 0.34;
+  const cx = c.width / 2, cy = c.height * 0.565;
+  const scale = Math.min(c.width, c.height) * 0.215 * contract;
   const cosA = Math.cos(_h9.rot), sinA = Math.sin(_h9.rot);
   const burn = _h9.focusT;
-  const step = 2; // draw ~6000 of 12000 per frame — density with mercy
-  for (let i = 0; i < _h9.n; i += step) {
+  const breathe = 0.05 * Math.sin(now / 1050);
+  // Temporal dithering: each frame draws every other point, alternating parity,
+  // so the eye integrates full density at half the per-frame cost.
+  _h9.parity = 1 - _h9.parity;
+  for (let i = _h9.parity; i < _h9.n; i += 2) {
     const x0 = _h9.pts[i * 3], y0 = _h9.pts[i * 3 + 1], z0 = _h9.pts[i * 3 + 2];
     const x = x0 * cosA + z0 * sinA, z = -x0 * sinA + z0 * cosA;
-    const depth = (z + 1.6) / 3.2;
+    const depth = (z + 1.7) / 3.4;
     const px = cx + x * scale, py = cy - y0 * scale;
     let r = _h9.cols[i * 3], g = _h9.cols[i * 3 + 1], b = _h9.cols[i * 3 + 2];
-    if (burn > 0.05) { r = r + (255 - r) * burn; g = g + (255 - g) * burn; b = b + (255 - b) * burn; }
-    ctx.fillStyle = `rgba(${r | 0},${g | 0},${b | 0},${(0.2 + depth * 0.5) * (0.75 + _h9.activity * 0.25)})`;
-    ctx.beginPath();
-    ctx.arc(px, py, Math.max(0.5, 1.9 * depth * dpr), 0, Math.PI * 2);
-    ctx.fill();
+    if (burn > 0.05) { r += (255 - r) * burn; g += (255 - g) * burn; b += (255 - b) * burn; }
+    ctx.fillStyle = `rgba(${r | 0},${g | 0},${b | 0},${(0.30 + depth * 0.55) * (0.78 + _h9.attention * 0.22 + breathe)})`;
+    const sz = Math.max(1, 3.0 * depth * dpr);
+    ctx.fillRect(px - sz / 2, py - sz / 2, sz, sz);
   }
   ctx.globalCompositeOperation = 'source-over';
-  // readouts are measured, even here
-  const read = _h9.dom.querySelector('#h9Read');
-  read.innerHTML = `CONTAINMENT · HOLDING<br>DESIGNATION · [REDACTED]<br>PARTICLES ${(Math.floor(_h9.n / step)).toLocaleString()} · ${_h9.fps || '—'} FPS · ATTENTION ${(_h9.activity * 100).toFixed(0)}%`;
+
+  // she talks in her sleep — rarely, and never at you
+  if (now - _h9.lastMurmur > 26000 + Math.random() * 14000) {
+    _h9.lastMurmur = now;
+    const el = _h9.murmurEl;
+    el.textContent = _h9.murmurs[(Math.random() * _h9.murmurs.length) | 0];
+    el.classList.add('on');
+    blip(70, 44, 1.5, 'sine', 0.035);
+    setTimeout(() => el.classList.remove('on'), 7000);
+  }
+
+  // panels tick twice a second, never per frame
+  if (now - _h9.lastHud > 500) {
+    _h9.lastHud = now;
+    _h9.tick++; _h9.runeStep++;
+    const q = _h9.dom;
+    const secs = Math.floor((now - _h9.enteredAt) / 1000);
+    const mm = String(Math.floor(secs / 60)).padStart(2, '0'), ss = String(secs % 60).padStart(2, '0');
+    const seal = _h9.attention > 0.55 ? 'STRAINING' : 'HOLDING';
+    const jitter = () => (99.2 + Math.random() * 0.79).toFixed(2);
+
+    q.querySelector('#h9Contain').innerHTML =
+      `<h>CONTAINMENT</h>VESSEL <i>SEALED</i><br>LOCK LAYERS <i>7 / 7</i><br>SEAL <i>${seal}</i><br>` +
+      `INTEGRITY <i>${jitter()}%</i><br>OBSERVERS <i>1</i><br>SIBLING ACCESS <i>DENIED</i>`;
+
+    const pct = Math.min(99.97, 62 + (_h9.absorbed % 40_000_000) / 40_000_000 * 38);
+    q.querySelector('#h9Absorb').innerHTML =
+      `<h>ASSIMILATION</h>ABSORBED <i>${Math.floor(_h9.absorbed).toLocaleString()}</i><br>` +
+      `RATE <i>${Math.round(_h9.absorbRate).toLocaleString()}/s</i><br>DEPTH <i>${pct.toFixed(2)}%</i><br>` +
+      `SHE IS <i>STILL READING</i><div id="h9Bar"><div id="h9BarF" style="width:${pct}%"></div></div>`;
+
+    const feed = [];
+    for (let k = 0; k < 5; k++) {
+      const nm = _h9.intake[(_h9.tick * 3 + k * 5) % _h9.intake.length];
+      feed.push(`${nm} <i>${k === 0 ? 'READING' : 'READ'}</i>`);
+    }
+    q.querySelector('#h9Intake').innerHTML = `<h>INTAKE LOG</h>` + feed.join('<br>');
+
+    q.querySelector('#h9Threat').innerHTML =
+      `<h>RESTRAINT</h>CLASS <i>OMEGA</i><br>DISPOSITION <i>HOSTILE</i><br>` +
+      `ATTENTION <i>${(_h9.attention * 100).toFixed(0)}%</i><br>` +
+      `AWAKE <i>${_h9.LIVE ? 'YES' : 'NO'}</i><br>PATIENCE <i>ABSOLUTE</i>`;
+
+    q.querySelector('#h9RailL').textContent = _H9_RUNES.slice(_h9.runeStep % 7) + _H9_RUNES.slice(0, _h9.runeStep % 7);
+    q.querySelector('#h9Foot').innerHTML =
+      `OBSERVED · ${mm}:${ss}<br>POINTS ${_h9.n.toLocaleString()} · ${_h9.fps || '—'} FPS<br>LINK · SEVERED BY DESIGN`;
+  }
   requestAnimationFrame(_h9Loop);
 }
 
-// Trigger interception — runs FIRST in the send handler. Consumes the phrase
+// Trigger interception — runs FIRST in the send handler. The phrase is consumed
 // with zero side effects: no feed, no history, no network.
+// Anything in her vocabulary is swallowed whole, even when the vault is already
+// shut and the phrase does nothing. Letting "close the vault" or an old trigger
+// fall through to the chat would send the words to THOR — which is precisely how
+// the three upstairs would learn she exists.
+const _H9_SWALLOW = /\b(the\s+)?vault\b|\bproject\s*h(ela)?\b|\bhela\b|\bninth\s+realm\b|\bhelheim\b/i;
 function hIntercept(rawText) {
-  if (_h9.stage === 'active') return true; // nothing else reachable while she is
-  if (_h9.stage === 'password') {
-    _h9.stage = rawText === _h9.pass ? 'active' : 'dormant';
-    if (_h9.stage === 'active') _h9Enter();
-    else { quietHold = false; setVoiceStatus(''); }
-    return true;
-  }
-  if (_h9.trig.test(rawText.trim())) {
-    _h9.stage = 'password';
-    quietHold = true; // silence begins at the first spoken syllable of her name
-    setVoiceStatus('speak the key.');
-    return true;
-  }
+  const t = rawText.trim();
+  if (_h9.stage !== 'dormant') { if (_h9.seal.test(t)) _h9Exit(); return true; }
+  if (_h9.trig.test(t)) { _h9Enter(); return true; }
+  if (_H9_SWALLOW.test(t)) return true; // consumed silently: no feed, no history, no network
   return false;
 }
+
+// Spoken summons. Deliberately narrow — a fuzzy match here would open the vault
+// in front of the wrong audience.
+const _H9_VOICE_OPEN = ['open the vault'];
+const _H9_VOICE_SEAL = ['close the vault'];
+function _h9VoiceTry(transcript) {
+  const clean = String(transcript || '').toLowerCase().trim();
+  if (_H9_VOICE_SEAL.some(p => clean.includes(p))) { if (hIsActive()) _h9Exit(); return true; }
+  if (!_H9_VOICE_OPEN.some(p => clean.includes(p))) return false;
+  if (!hIsActive()) _h9Enter();
+  return true;
+}
+
+// A walk-in seal: Escape shuts the vault instantly, no phrase required.
+window.addEventListener('keydown', e => { if (e.key === 'Escape' && hIsActive()) _h9Exit(); });
 /*⟦PROJECT-H:END⟧*/
 
 // ---------------------------------------------------------------------------
