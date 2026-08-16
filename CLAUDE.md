@@ -32,6 +32,15 @@ There is no package.json, bundler config, lint config, or test suite in this rep
 
 Renaming back to `rayven-backend` for real is a deliberate migration, never a casual edit: re-add all 17 secrets, re-point the Telegram webhook, and update `BACKEND_URL` in `index.html` (and `public/index.html`), `background.js`, and the Spotify OAuth redirect URI.
 
+### Worker topology — there are exactly two, and there should stay two
+
+- **`asgrard-backend`** — the engine. Holds all the secrets, the KV/Vectorize/AI bindings, and the 5-minute cron. Deployed from the repo root.
+- **`rayven-backend`** — a forwarder, deployed from `legacy-url-shim/`. It reclaims the original hostname (installed PWAs, bookmarks, the Chrome extension, the Spotify OAuth redirect, and JARVIS/KEVOS federation all still point there) and passes everything through over a `[[services]]` binding. It holds no secrets and no logic. Don't add any.
+
+**`workers_dev = true` must stay set on the forwarder.** It was missing once, and the result was maximally confusing: the script deployed fine and its code was correct, but no hostname was bound to it, so the URL returned Cloudflare's own 404 and the forwarding code never ran. **A 404 with `server: cloudflare`, an HTML body, and no worker headers means nothing is listening on that hostname — not that the worker ran and 404'd.**
+
+**A third Worker, `rayven-pwa`, existed until 2026-08-15 and was deleted.** It was auto-deploying from the GitHub repo via a dashboard-level connection (there is no `.github/workflows`), had zero secrets, but carried the same KV binding and its own cron — so it ran whatever `src/` happened to be on `main` against live data. The symptom was KV keys reappearing minutes after being deleted. If that ever recurs: read the key and check its timestamp rather than blaming eventual consistency, and remember `wrangler` has no "list all workers" command, so probe suspects with `wrangler deployments list --name <guess>`.
+
 ### Deploy checklist
 
 1. `node --check worker.js`
