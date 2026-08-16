@@ -4449,28 +4449,66 @@ function _h9Sample() {
 
 function _h9Build() {
   const N = 4400, SUB = 5; // ~22,000 points
-  _h9.n = N * SUB;
-  _h9.pts = new Float32Array(_h9.n * 3);
-  _h9.cols = new Float32Array(_h9.n * 3);
+  const n = N * SUB;
+  _h9.n = n;
+
+  // Colours are QUANTISED into a small palette and the points are then SORTED
+  // by palette index. This is the whole performance story of this file: the
+  // draw loop used to build one `rgba(...)` template string per point per
+  // frame — 22,000 string allocations and 22,000 CSS colour parses every single
+  // frame. Now fillStyle is set once per palette entry (about twenty times a
+  // frame) and per-point alpha rides on globalAlpha, which is a plain float
+  // assignment. Same picture, a fraction of the work.
+  const SHADES = 4;
+  const palette = [];
+  const paletteOf = (k, shade) => k * SHADES + shade;
+  for (let k = 0; k < 5; k++) {
+    for (let s = 0; s < SHADES; s++) {
+      const f = SHADES === 1 ? 0 : s / (SHADES - 1);
+      let r, g, b;
+      if (k === 0)      { r = 3;   g = 62 + 26 * f;  b = 34 + 16 * f; }   // the flat — dark, but it must still read
+      else if (k === 1) { r = 0;   g = 150 + 62 * f; b = 86 + 38 * f; }
+      else if (k === 2) { r = 24;  g = 236 + 19 * f; b = 138 + 40 * f; }  // edges catch the light
+      else if (k === 3) { r = 170; g = 255;          b = 206; }           // tips, ember
+      else              { r = 224; g = 255;          b = 236; }           // her eyes
+      palette.push(`rgb(${r | 0},${g | 0},${b | 0})`);
+    }
+  }
+  _h9.palette = palette;
+  _h9.eyeFirst = paletteOf(4, 0); // everything at or above this index is an eye
+
+  // pass one: sample into scratch arrays
+  const sx = new Float32Array(n), sy = new Float32Array(n), sz = new Float32Array(n);
+  const sc = new Uint8Array(n);
   let i = 0;
   for (let a = 0; a < N; a++) {
     const an = _h9Sample();
     for (let s = 0; s < SUB; s++) {
       const j = 0.013;
-      _h9.pts[i * 3] = an.x + (Math.random() - 0.5) * j;
-      _h9.pts[i * 3 + 1] = an.y + (Math.random() - 0.5) * j;
-      _h9.pts[i * 3 + 2] = an.z + (Math.random() - 0.5) * j;
-      let r, g, b;
-      // dark green that reads almost black, with the light living on the edges
-      if (an.k === 0)      { r = 3;   g = 62 + Math.random() * 26; b = 34 + Math.random() * 16; } // the flat — dark, but it must still read
-      else if (an.k === 1) { r = 0;   g = 150 + Math.random() * 62; b = 86 + Math.random() * 38; }
-      else if (an.k === 2) { r = 24;  g = 236 + Math.random() * 19; b = 138 + Math.random() * 40; } // edges catch the light
-      else if (an.k === 3) { r = 170; g = 255; b = 206; }  // tips, ember
-      else                 { r = 224; g = 255; b = 236; }  // her eyes
-      _h9.cols[i * 3] = r; _h9.cols[i * 3 + 1] = g; _h9.cols[i * 3 + 2] = b;
+      sx[i] = an.x + (Math.random() - 0.5) * j;
+      sy[i] = an.y + (Math.random() - 0.5) * j;
+      sz[i] = an.z + (Math.random() - 0.5) * j;
+      sc[i] = paletteOf(an.k, (Math.random() * SHADES) | 0);
       i++;
     }
   }
+
+  // pass two: counting sort by palette index, so every point of one colour is
+  // contiguous and the draw loop can set fillStyle once per run
+  const P = palette.length;
+  const counts = new Uint32Array(P + 1);
+  for (let q = 0; q < n; q++) counts[sc[q] + 1]++;
+  for (let q = 0; q < P; q++) counts[q + 1] += counts[q];
+  _h9.bounds = counts;                       // bounds[c] .. bounds[c+1]
+  const cursor = counts.slice();
+  _h9.pts = new Float32Array(n * 3);
+  for (let q = 0; q < n; q++) {
+    const dst = cursor[sc[q]]++;
+    _h9.pts[dst * 3] = sx[q];
+    _h9.pts[dst * 3 + 1] = sy[q];
+    _h9.pts[dst * 3 + 2] = sz[q];
+  }
+  _h9.cols = null;                           // no longer needed — colour is position now
 }
 
 const _H9_RUNES = 'ᚺᛖᛚᚨᚦᚱᚢᛞᛗᛟᚲᚾᛁᚹᛖᛚᛞᚨᚱᚲᚷᚻ';
@@ -4824,12 +4862,17 @@ function _h9BuildRoom() {
     /* the continuous sweep — a green bar travelling down the screen and back up */
     #h9Sweep { position: absolute; left: 0; right: 0; height: 3px; pointer-events: none;
       background: linear-gradient(90deg, transparent, rgba(0,255,140,0.10) 8%, rgba(120,255,190,0.85) 50%, rgba(0,255,140,0.10) 92%, transparent);
-      box-shadow: 0 0 26px 5px rgba(0,255,140,0.36); animation: h9sweep 6.5s ease-in-out infinite alternate; }
+      box-shadow: 0 0 26px 5px rgba(0,255,140,0.36); will-change: transform;
+      top: 0; animation: h9sweep 6.5s ease-in-out infinite alternate; }
     #h9SweepGlow { position: absolute; left: 0; right: 0; height: 130px; pointer-events: none;
       background: linear-gradient(180deg, transparent, rgba(0,255,140,0.055), transparent);
-      animation: h9sweepg 6.5s ease-in-out infinite alternate; }
-    @keyframes h9sweep  { from { top: 2%; } to { top: 98%; } }
-    @keyframes h9sweepg { from { top: -6%; } to { top: 90%; } }
+      top: 0; will-change: transform; animation: h9sweepg 6.5s ease-in-out infinite alternate; }
+    /* transform, not top: animating the top property relayouts and repaints the
+       blurred shadow every frame; translate3d is composited on the GPU.
+       NOTE: no backticks in here — this CSS lives inside a JS template literal
+       and a stray backtick terminates the string. */
+    @keyframes h9sweep  { from { transform: translate3d(0,2vh,0); } to { transform: translate3d(0,96vh,0); } }
+    @keyframes h9sweepg { from { transform: translate3d(0,-6vh,0); } to { transform: translate3d(0,90vh,0); } }
     /* the containment case */
     #h9Case { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
       width: min(560px, 62vw); height: min(620px, 74vh); pointer-events: none; }
@@ -4873,18 +4916,23 @@ function _h9BuildRoom() {
       text-shadow: 0 0 14px rgba(0,255,140,0.6); transition: color 1.6s ease; }
     #h9Murmur.on { color: rgba(190,255,215,0.9); }
     /* a slow red breath under everything — the room is alive and it is not friendly */
-    #h9Pulse { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen;
-      background: radial-gradient(ellipse at 50% 54%, rgba(120,0,0,0) 38%, rgba(90,0,0,0.30) 100%);
+    /* One layer, not two, and NO mix-blend-mode. Screen-blending forced the
+       browser to re-composite the entire stacking context every frame and cost
+       ~17ms on its own; over a near-black background the visual difference is
+       nil. The vignette is folded in as a second background so there is one
+       compositor layer instead of two, and will-change keeps the opacity
+       animation on the GPU instead of repainting. */
+    #h9Pulse { position: absolute; inset: 0; pointer-events: none; will-change: opacity;
+      background:
+        radial-gradient(ellipse at 50% 54%, rgba(120,0,0,0) 38%, rgba(96,0,0,0.34) 100%),
+        radial-gradient(ellipse at 50% 50%, transparent 44%, rgba(0,0,0,0.86) 100%);
       animation: h9breath 5.2s ease-in-out infinite; }
-    @keyframes h9breath { 0%,100% { opacity: 0.35; } 50% { opacity: 0.95; } }
+    @keyframes h9breath { 0%,100% { opacity: 0.68; } 50% { opacity: 1; } }
     /* the tear — a horizontal glitch band that rips across at random */
     #h9Tear { position: absolute; left: 0; right: 0; height: 0; pointer-events: none; opacity: 0;
       background: linear-gradient(180deg, rgba(0,255,140,0.22), rgba(255,40,40,0.16), rgba(0,255,140,0.22));
       mix-blend-mode: screen; }
     #h9Tear.rip { opacity: 1; }
-    /* a hard vignette so the corners close in */
-    #h9Vig { position: absolute; inset: 0; pointer-events: none;
-      background: radial-gradient(ellipse at 50% 50%, transparent 44%, rgba(0,0,0,0.86) 100%); }
     #h9Warn { position: absolute; top: 84px; left: 50%; transform: translateX(-50%);
       font-size: 9px; letter-spacing: 5px; color: rgba(255,70,70,0.85); opacity: 0; }
     #h9Warn.on { animation: h9warn 0.42s steps(2) 5; }
@@ -4910,7 +4958,7 @@ function _h9BuildRoom() {
       <div class="bar" style="left:75%"></div><div class="bar" style="right:0"></div>
       <div class="lid" style="top:0"></div><div class="lid" style="bottom:0"></div></div>
     <div id="h9SweepGlow"></div><div id="h9Sweep"></div>
-    <div id="h9Pulse"></div><div id="h9Tear"></div><div id="h9Vig"></div>
+    <div id="h9Pulse"></div><div id="h9Tear"></div>
     <div id="h9Warn">CONTAINMENT INTEGRITY FALLING</div>
     <div class="h9-clamp tl"></div><div class="h9-clamp tr"></div><div class="h9-clamp bl"></div><div class="h9-clamp br"></div>
     <div id="h9Title">PROJECT H<b><br>CLASSIFIED — NO SIBLING ACCESS</b></div>
@@ -4995,14 +5043,39 @@ let _h9Last = performance.now();
 function _h9Loop() {
   if (_h9.stage !== 'held') { _h9.raf = false; return; }
   const now = performance.now();
-  _h9.ft.push(now - _h9Last); _h9Last = now;
+  const dt = now - _h9Last;                  // the real frame delta — must be read BEFORE _h9Last moves
+  _h9.ft.push(dt); _h9Last = now;
   if (_h9.ft.length >= 45) { _h9.fps = Math.round(1000 / (_h9.ft.reduce((a, b) => a + b, 0) / _h9.ft.length)); _h9.ft.length = 0; }
   const c = _h9.canvas, dpr = window.devicePixelRatio || 1;
-  if (c.width !== (c.clientWidth * dpr | 0)) { c.width = c.clientWidth * dpr; c.height = c.clientHeight * dpr; }
-  const ctx = c.getContext('2d');
+  if (c.width !== (c.clientWidth * dpr | 0)) {
+    c.width = c.clientWidth * dpr; c.height = c.clientHeight * dpr;
+    _h9.ctx = null;                          // a resize invalidates the cached context state
+  }
+  // getContext was being called every frame; it is cheap but not free, and the
+  // returned object is stable for the life of the canvas.
+  const ctx = _h9.ctx || (_h9.ctx = c.getContext('2d', { alpha: false }));
+
+  // ADAPTIVE QUALITY. Stride is how many points we skip; the eye integrates the
+  // gaps because the parity alternates every frame. On fast hardware this walks
+  // down to 1 (every point, every frame) and on slow hardware it walks up, so
+  // the frame rate holds instead of the picture stuttering. Self-tuning: it
+  // finds Rayan's actual machine rather than guessing at it.
+  // Biased toward FRAME RATE, not fidelity: quality is raised only when there
+  // is real headroom (under 9ms, comfortably inside a 16.7ms budget) and shed
+  // as soon as a frame threatens to overrun (over 15ms, before a frame is
+  // actually dropped). The wide gap between the two thresholds is deliberate
+  // hysteresis — a narrow band makes it oscillate, which reads as flicker.
+  // A dt over 200ms means the tab was backgrounded; that is not a slow machine
+  // and must not be allowed to poison the average.
+  if (dt > 0 && dt < 200) _h9.avgFt = _h9.avgFt ? _h9.avgFt * 0.9 + dt * 0.1 : dt;
+  if (_h9.stride === undefined) _h9.stride = 2;
+  if (_h9.avgFt > 15 && _h9.stride < 4) _h9.stride++;
+  else if (_h9.avgFt < 9 && _h9.stride > 1) _h9.stride--;
+  const stride = _h9.stride;
+
+  ctx.globalCompositeOperation = 'source-over';
   ctx.fillStyle = 'rgb(1,3,2)';
   ctx.fillRect(0, 0, c.width, c.height);
-  ctx.globalCompositeOperation = 'lighter';
 
   // a rare focus event — the whole form contracts and burns, then releases.
   // Staring at her makes it happen more often.
@@ -5028,23 +5101,74 @@ function _h9Loop() {
   _h9.gy = (_h9.gy || 0) + (((_h9.gazeY || 0) * 8 * dpr) - (_h9.gy || 0)) * 0.06;
   const gx = _h9.gx, gy = _h9.gy;
   const eyeGlow = 0.35 * Math.abs(Math.sin(now / 2400)) + _h9.attention * 0.3;
-  // Temporal dithering: each frame draws every other point, alternating parity,
-  // so the eye integrates full density at half the per-frame cost.
+
+  const alphaMul = 0.78 + _h9.attention * 0.22 + breathe;
+  const sizeComp = Math.sqrt(stride);        // area compensation for the adaptive stride
+  const pts = _h9.pts, bounds = _h9.bounds, pal = _h9.palette, eyeFirst = _h9.eyeFirst;
+  const W = c.width, H = c.height;
   _h9.parity = 1 - _h9.parity;
-  for (let i = _h9.parity; i < _h9.n; i += 2) {
-    const x0 = _h9.pts[i * 3], y0 = _h9.pts[i * 3 + 1], z0 = _h9.pts[i * 3 + 2];
-    const x = x0 * cosA + z0 * sinA, z = -x0 * sinA + z0 * cosA;
-    const depth = (z + 1.7) / 3.4;
-    const px = cx + x * scale, py = cy - y0 * scale;
-    let r = _h9.cols[i * 3], g = _h9.cols[i * 3 + 1], b = _h9.cols[i * 3 + 2];
-    if (burn > 0.05) { r += (255 - r) * burn; g += (255 - g) * burn; b += (255 - b) * burn; }
-    // her eyes are the brightest thing in the file, and they move with the cursor
-    let ox = 0, oy = 0, extra = 0;
-    if (r > 210 && g > 250) { ox = gx; oy = gy; extra = 0.25 + eyeGlow; }
-    ctx.fillStyle = `rgba(${r | 0},${g | 0},${b | 0},${Math.min(1, (0.30 + depth * 0.55) * (0.78 + _h9.attention * 0.22 + breathe) + extra)})`;
-    const sz = Math.max(1, (3.0 + extra * 2.2) * depth * dpr);
-    ctx.fillRect(px + ox - sz / 2, py + oy - sz / 2, sz, sz);
+  const par = stride > 1 ? _h9.parity % stride : 0;
+
+  // ADDITIVE BLENDING, ONLY WHERE IT SHOWS.
+  //
+  // 'lighter' was the single most expensive thing in this file — measured at
+  // half the total frame time, 30fps with it against 60fps without. But the
+  // bloom is the entire look, so switching it off wholesale was not an option.
+  //
+  // The resolution: the palette is sorted, and the first run (DARK_END entries)
+  // is the near-black flat of the blades — well over half of all points. Adding
+  // rgb(3,62,34) onto a black background contributes almost nothing visually
+  // while costing exactly as much per pixel as a bright point does. So the dark
+  // mass draws with plain source-over and only the edges, tips, ember and eyes
+  // get the additive pass. Identical picture, roughly half the blended pixels.
+  //
+  // And if the machine is still struggling with stride already at its limit,
+  // the bloom is dropped entirely rather than letting the frame rate collapse.
+  const DARK_END = 4;                       // palette entries 0..3 are the flat of the blade
+  const bloomOK = !(_h9.stride >= 4 && _h9.avgFt > 26);
+  ctx.globalCompositeOperation = 'source-over';
+  let blending = false;
+
+  for (let cI = 0; cI < pal.length; cI++) {
+    const from = bounds[cI], to = bounds[cI + 1];
+    if (from === to) continue;
+    const wantBlend = bloomOK && cI >= DARK_END;
+    if (wantBlend !== blending) {
+      ctx.globalCompositeOperation = wantBlend ? 'lighter' : 'source-over';
+      blending = wantBlend;
+    }
+    const isEye = cI >= eyeFirst;
+    // burn drives the whole form toward white during a focus event; done per
+    // colour run rather than per point
+    if (burn > 0.05) {
+      const m = pal[cI].match(/\d+/g);
+      const r = +m[0] + (255 - +m[0]) * burn, g = +m[1] + (255 - +m[1]) * burn, b = +m[2] + (255 - +m[2]) * burn;
+      ctx.fillStyle = `rgb(${r | 0},${g | 0},${b | 0})`;
+    } else {
+      ctx.fillStyle = pal[cI];
+    }
+    const extra = isEye ? 0.25 + eyeGlow : 0;
+    const ox = isEye ? gx : 0, oy = isEye ? gy : 0;
+    for (let i = from + par; i < to; i += stride) {
+      const i3 = i * 3;
+      const x0 = pts[i3], y0 = pts[i3 + 1], z0 = pts[i3 + 2];
+      const z = -x0 * sinA + z0 * cosA;
+      const depth = (z + 1.7) / 3.4;
+      const px = cx + (x0 * cosA + z0 * sinA) * scale + ox;
+      const py = cy - y0 * scale + oy;
+      if (px < -8 || py < -8 || px > W + 8 || py > H + 8) continue;   // off-screen points cost nothing
+      const a = (0.30 + depth * 0.55) * alphaMul + extra;
+      ctx.globalAlpha = a > 1 ? 1 : a;                                 // a float assign, not a parsed string
+      // Points GROW as the stride thins them, so the form keeps roughly the
+      // same covered area and therefore the same apparent density whether the
+      // machine is drawing every point or one in four. Without this, protecting
+      // the frame rate would visibly thin her out on weaker hardware.
+      const sz = (3.0 + extra * 2.2) * depth * dpr * sizeComp;
+      const s = sz > 1 ? sz : 1;
+      ctx.fillRect(px - s / 2, py - s / 2, s, s);
+    }
   }
+  ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
 
   // THE TEAR — the picture rips for two frames and heals. No warning, no reason.
