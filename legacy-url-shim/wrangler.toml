@@ -8,3 +8,19 @@
 name = "rayven-backend"
 main = "src/index.js"
 compatibility_date = "2026-08-13"
+
+# REQUIRED, and the reason this shim silently did nothing for hours on
+# 2026-08-15: the script deployed fine, but no workers.dev hostname was bound to
+# it, so https://rayven-backend.rayanfahil2.workers.dev/ returned Cloudflare's
+# own generic 404 HTML page and the forwarding code never ran once. A 404 with
+# `server: cloudflare` and no worker headers means "nothing is listening on this
+# hostname" — it does NOT mean the worker ran and 404'd. Check for that first.
+workers_dev = true
+
+# Forward over a service binding rather than a public fetch() to the target's
+# workers.dev URL. Same-account Worker-to-Worker calls over the public hostname
+# are the fragile path (they leave the edge and can loop back on themselves);
+# a service binding dispatches in-process, adds no network hop, and cannot loop.
+[[services]]
+binding = "BACKEND"
+service = "asgrard-backend"

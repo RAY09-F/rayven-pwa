@@ -8,8 +8,8 @@
 // Trying each host in turn means a rename costs one failed request instead of an
 // outage. Keep the current host first; leave the old one in place as a fallback.
 const BACKEND_CANDIDATES = [
-  "https://asgrard-backend.rayanfahil2.workers.dev",
-  "https://rayven-backend.rayanfahil2.workers.dev"
+  "https://rayven-backend.rayanfahil2.workers.dev",
+  "https://asgrard-backend.rayanfahil2.workers.dev"
 ];
 
 // Whichever host last answered, so the healthy one is tried first every time and

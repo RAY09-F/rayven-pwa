@@ -799,11 +799,15 @@ function wakeBurst() {
   }, 1600);
 }
 
-// The Worker was renamed rayven-backend -> asgrard-backend on 2026-08-15 (yes,
-// misspelled on Cloudflare). All 17 secrets and the Telegram webhook are bound
-// to that script NAME, so the name stays even though the code is RAYVEN again;
-// the old rayven-backend URL no longer serves this backend.
-const BACKEND_URL = "https://asgrard-backend.rayanfahil2.workers.dev";
+// Back on the original hostname. The Worker holding the secrets is still named
+// asgrard-backend (renamed 2026-08-15; secrets bind to the script NAME, so it
+// cannot be renamed back without re-entering all 17 by hand), but
+// rayven-backend is now a real Worker that forwards every request to it over a
+// service binding — see legacy-url-shim/. Both hostnames serve this same
+// backend; this one is canonical because installed PWAs, bookmarks, the Chrome
+// extension, the Spotify OAuth redirect, and JARVIS/KEVOS federation all
+// already point here.
+const BACKEND_URL = "https://rayven-backend.rayanfahil2.workers.dev";
 const WAKE_PHRASES = [
   "hey rayven", "hey raven", "hey ray ven",
   "wake up raven", "wake up rayven", "wake raven",
