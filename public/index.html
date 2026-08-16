@@ -34,6 +34,9 @@
   }
   #reactorCanvas { display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; cursor: grab; z-index: 1; }
   #reactorCanvas.dragging { cursor: grabbing; }
+  /* Wake sequences draw here — above the reactor, below the HUD chrome, so a
+     bolt can cross the whole screen without ever sitting on top of the panels. */
+  #wakeFx { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 8; pointer-events: none; }
   #spectrumCanvas { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 2; pointer-events: none; }
 
   /* Backdrop — each persona gets its own weather, not just a different grid. */
@@ -212,7 +215,21 @@
   html[data-persona="thor"] #sysPanel { bottom: 118px; right: 16px; }
   html[data-persona="loki"] #sysPanel { top: 64px; right: 16px; }
   html[data-persona="odin"] #sysPanel { bottom: 118px; left: 16px; }
-  @media (max-width: 760px) { #diagPanel, #sysPanel { display: none; } }
+  /* The fourth panel. Each persona had exactly one empty corner — Thor's was
+     bottom-left, Loki's bottom-right, Odin's top-left — so this drops into the
+     gap without moving anything that was already placed. */
+  #lanePanel { width: 250px; }
+  html[data-persona="thor"] #lanePanel { bottom: 118px; left: 16px; }
+  html[data-persona="loki"] #lanePanel { bottom: 118px; right: 16px; }
+  html[data-persona="odin"] #lanePanel { top: 64px; left: 16px; }
+  #laneBody { max-height: 168px; overflow: hidden; }
+  .lane-row { display: flex; gap: 8px; align-items: baseline; margin-bottom: 7px; line-height: 1.45; }
+  .lane-time { font-size: 7px; letter-spacing: 1px; color: var(--steel); flex: 0 0 34px; }
+  .lane-text { font-size: 9px; color: rgba(214,228,255,0.86); }
+  .lane-empty { font-size: 9px; color: var(--steel); font-style: italic; }
+  html[data-persona="loki"] .lane-text { font-style: italic; }
+  html[data-persona="odin"] .lane-text { font-family: 'Cinzel', serif; letter-spacing: 0.4px; }
+  @media (max-width: 760px) { #diagPanel, #sysPanel, #lanePanel { display: none; } }
 
   #chatLog { max-height: 190px; overflow-y: auto; font-size: 11px; line-height: 1.45; margin-bottom: 8px; padding-right: 4px; }
   #chatLog .msg { margin-bottom: 7px; }
@@ -285,7 +302,7 @@
 
   /* ---------------- persona-switch shockwave ---------------- */
   #shockwave {
-    position: fixed; top: 44%; left: 50%; width: 40px; height: 40px; border-radius: 50%;
+    position: fixed; top: 50%; left: 50%; width: 40px; height: 40px; border-radius: 50%;
     transform: translate(-50%,-50%) scale(0); opacity: 0; z-index: 15; pointer-events: none;
     border: 3px solid rgb(var(--accent-rgb)); box-shadow: 0 0 30px rgba(var(--accent-rgb),0.8), inset 0 0 30px rgba(var(--accent-rgb),0.4);
   }
@@ -427,9 +444,21 @@
   html[data-persona="odin"] #hudFrame .clamp { width: 92px; height: 92px; border-style: double; border-width: 3px; }
 
   #hudRing {
-    position: absolute; top: 47%; left: 50%; width: 62vmin; height: 62vmin;
+    position: absolute; top: 50%; left: 50%; width: 62vmin; height: 62vmin;
     transform: translate(-50%,-50%); border-radius: 50%;
-    border: 1px dashed rgba(var(--accent-rgb),0.16);
+    border: 1px dashed rgba(var(--accent-rgb), calc(0.16 + var(--voice, 0) * 0.20));
+  }
+  /* The ring breathes with whoever is speaking. --voice is written once per
+     animation frame from the live TTS analyser (see audioReactiveLoop), so this is
+     the real waveform, not a canned animation. It rides on ::before so it can
+     never fight the rotate on #hudRing itself, which Loki's wobble uses. */
+  #hudRing::before {
+    content: ''; position: absolute; inset: 0; border-radius: 50%;
+    border: 1px solid rgba(var(--accent-rgb), calc(0.06 + var(--voice, 0) * 0.55));
+    box-shadow: 0 0 calc(4px + var(--voice, 0) * 46px) rgba(var(--accent-rgb), calc(var(--voice, 0) * 0.30)),
+                inset 0 0 calc(3px + var(--voice, 0) * 34px) rgba(var(--accent-2), calc(var(--voice, 0) * 0.16));
+    transform: scale(calc(1 + var(--voice, 0) * 0.045));
+    will-change: transform;
   }
   #hudRing::after {
     content: ''; position: absolute; inset: -22px; border-radius: 50%;
@@ -501,6 +530,7 @@
   <div id="wordSubtitle">RAYAN'S SYSTEM</div>
 </div>
 
+<canvas id="wakeFx"></canvas>
 <div id="shockwave"></div>
 
 <div id="hudFrame">
@@ -539,6 +569,12 @@
   <span class="panel-corner tl"></span><span class="panel-corner tr"></span><span class="panel-corner bl"></span><span class="panel-corner br"></span>
   <div class="panel-title">◈ SUBSYSTEMS</div>
   <div id="sysBody"></div>
+</div>
+
+<div id="lanePanel" class="panel">
+  <span class="panel-corner tl"></span><span class="panel-corner tr"></span><span class="panel-corner bl"></span><span class="panel-corner br"></span>
+  <div class="panel-title" id="laneTitle">◈ FIELD LOG</div>
+  <div id="laneBody"></div>
 </div>
 
 <div id="statusStrip"></div>
@@ -639,6 +675,36 @@
   "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"
 }}</script>
 
+<!-- Three.js comes through this one helper so a single CDN being slow, blocked
+     or down cannot silently drop the reactor to the flat 2D fallback. -->
+<script>
+  window.__loadThree = (function () {
+    var URLS = [
+      'https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js',
+      'https://unpkg.com/three@0.185.1/build/three.module.js',
+      'https://esm.sh/three@0.185.1'
+    ];
+    var cached = null;
+    window.__threeSource = null;
+    return async function loadThree() {
+      if (cached) return cached;
+      var lastErr = null;
+      for (var i = 0; i < URLS.length; i++) {
+        try {
+          cached = await import(URLS[i]);
+          window.__threeSource = URLS[i];
+          if (i > 0) console.warn('three.js loaded from mirror ' + (i + 1) + ': ' + URLS[i]);
+          return cached;
+        } catch (e) {
+          lastErr = e;
+          console.warn('three.js mirror unavailable: ' + URLS[i]);
+        }
+      }
+      throw lastErr || new Error('three.js unavailable from every mirror');
+    };
+  })();
+</script>
+
 <script type="module">
 // ============================================================================
 // THE REACTOR — three forged forms on a turntable: Mjolnir, the scepter, and
@@ -677,6 +743,25 @@ const P_COLORS = {
 const TAU_THIRD = (Math.PI * 2) / 3;
 const PERSONA_SLOT_ANGLE = { thor: 0, loki: TAU_THIRD, odin: TAU_THIRD * 2 };
 
+// ===========================================================================
+// FORM FIT — RAYAN, EDIT THESE TWO LINES AND NOTHING ELSE.
+//
+// FORM_FILL  how much of the ring each form fills at rest, per assistant.
+//            These are not all the same number on purpose: the hammer is broad
+//            and reaches the edge easily, the scepter and the throne are tall and
+//            narrow and need a bigger number to LOOK the same size. Raise one to
+//            grow that form; much past these values and it clips the ring while
+//            talking.
+// FORM_LIFT  nudge one form up (+) or down (-). 0.10 is a small lift. A lifted
+//            form is shrunk by exactly the same amount, so it can never push out
+//            through the top of the ring.
+// ===========================================================================
+const FORM_FILL = { thor: 0.86, loki: 0.96, odin: 1.03 };
+const RING_R_FRAC = 0.31;                 // #hudRing is 62vmin across
+let cloudsRef = null;                     // set by whichever renderer initialises
+const fillFor = id => (typeof FORM_FILL[id] === 'number' ? FORM_FILL[id] : 0.86);
+const FORM_LIFT = { thor: 0.00, loki: 0.00, odin: 0.10 };
+
 // Anchors per quality tier; each anchor blooms 8-24 subdots (two-scale structure).
 const CLUSTER_TIERS = [260, 440, 640, 820, 1000];
 const MAX_ANCHORS = CLUSTER_TIERS[CLUSTER_TIERS.length - 1];
@@ -684,12 +769,14 @@ const MAX_ANCHORS = CLUSTER_TIERS[CLUSTER_TIERS.length - 1];
 // Conversational formations — smoothed toward each frame, never jumped.
 // "thinking" CONTRACTS (concentration), sleeping is tiny/dense/still.
 const FORMATIONS = {
+  // Expansion is capped so the loudest state still clears the ring:
+  // largest fill x 1.08 (powerup) x 1.05 (voice) stays under the ring radius.
   idle:      { R: 1.00, speed: 1.0, jitter: 0.010 },
-  listening: { R: 1.12, speed: 1.5, jitter: 0.030 },
-  talking:   { R: 1.18, speed: 2.1, jitter: 0.020 },
-  thinking:  { R: 0.80, speed: 2.6, jitter: 0.012 },
+  listening: { R: 1.04, speed: 1.5, jitter: 0.030 },
+  talking:   { R: 1.06, speed: 2.1, jitter: 0.020 },
+  thinking:  { R: 0.86, speed: 2.6, jitter: 0.012 },
   sleeping:  { R: 0.14, speed: 0.08, jitter: 0.000 },
-  powerup:   { R: 1.20, speed: 3.2, jitter: 0.020 }
+  powerup:   { R: 1.08, speed: 3.2, jitter: 0.020 }
 };
 
 // ---------------------------------------------------------------------------
@@ -965,9 +1052,63 @@ function buildPersonaCloud(personaId) {
       tierIdx++;
     }
   }
+  // Every form is centred on its own origin before it leaves here. The three
+  // sculptures have very different vertical extents — the hammer hangs low on its
+  // haft, the throne sits tall — and until now they all inherited one hardcoded
+  // offset, so none of them actually sat in the middle of the ring. Measuring each
+  // cloud and subtracting its own centre lands all three dead centre, in the WebGL
+  // path and the 2D path alike, with nothing left to hand-tune.
+  // Normalise every form into the same unit sphere, so all three inscribe the
+  // ring identically instead of each one being whatever size its sampler happened
+  // to produce. Three steps:
+  //   1. centre the BOUNDING BOX on the origin, not the centre of mass — mass
+  //      centring looks right for the throne but hangs the hammer low, and only
+  //      box centring guarantees the form reaches equally far in every direction,
+  //      which is what "fits the circle without touching it" actually requires;
+  //   2. divide by the furthest point, so the form's extreme touches radius 1;
+  //   3. apply FORM_LIFT, shrinking by the same amount it moves, so a lifted form
+  //      still cannot poke out through the top of the ring.
+  const positions = new Float32Array(pos);
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (let i = 0; i < positions.length; i += 3) {
+    if (positions[i] < minX) minX = positions[i];
+    if (positions[i] > maxX) maxX = positions[i];
+    if (positions[i+1] < minY) minY = positions[i+1];
+    if (positions[i+1] > maxY) maxY = positions[i+1];
+    if (positions[i+2] < minZ) minZ = positions[i+2];
+    if (positions[i+2] > maxZ) maxZ = positions[i+2];
+  }
+  const cX = (minX + maxX) / 2, cY = (minY + maxY) / 2, cZ = (minZ + maxZ) / 2;
+  const ok = Number.isFinite(cX) && Number.isFinite(cY) && Number.isFinite(cZ);
+  // Size the form by its 99.5th-percentile radius rather than its single furthest
+  // speck. A handful of stray dust motes sit well outside the sculpture, and
+  // normalising to those shrank the whole body to make room for nothing.
+  let maxR = 0;
+  if (ok) {
+    const radii = new Float64Array(positions.length / 3);
+    for (let i = 0, k = 0; i < positions.length; i += 3, k++) {
+      positions[i] -= cX; positions[i+1] -= cY; positions[i+2] -= cZ;
+      radii[k] = Math.hypot(positions[i], positions[i+1], positions[i+2]);
+    }
+    const sorted = Array.prototype.slice.call(radii).sort((a, b) => a - b);
+    maxR = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.995))] || 0;
+  }
+  const lift = FORM_LIFT[personaId] || 0;
+  const shrink = (1 - Math.abs(lift)) / (maxR || 1);
+  if (ok && maxR > 0) {
+    for (let i = 0; i < positions.length; i += 3) {
+      positions[i] *= shrink;
+      positions[i+1] = positions[i+1] * shrink + lift;
+      positions[i+2] *= shrink;
+    }
+  }
+  const gc = (GEM_CENTER[personaId] || [0, 0, 0]);
+  const gemCentre = ok && maxR > 0
+    ? [(gc[0] - cX) * shrink, (gc[1] - cY) * shrink + lift, (gc[2] - cZ) * shrink]
+    : gc.slice();
   return {
-    positions: new Float32Array(pos), colors: new Float32Array(col), tierPointCounts,
-    gemIdx: new Uint32Array(gemIdx), gemCenter: GEM_CENTER[personaId] || [0, 0, 0]
+    positions, colors: new Float32Array(col), tierPointCounts,
+    gemIdx: new Uint32Array(gemIdx), gemCenter: gemCentre
   };
 }
 
@@ -1026,7 +1167,9 @@ function makeReactorMaterial(THREE, glowTex) {
 // Reactor state (shared by WebGL path and 2D fallback where sensible)
 // ---------------------------------------------------------------------------
 const R = {
-  active: 'rayven',
+  // Derived, never hardcoded. Pinning this to an id that stopped existing made
+  // every cloud fail its `id === R.active` check and fade itself to nothing.
+  active: P_IDS[0],
   stateName: 'idle',
   cur: { R: 1, speed: 1, jitter: 0.01 },
   spinVel: 0,
@@ -1038,6 +1181,11 @@ const R = {
   qualityLevel: 2,
   alertTint: false,
   powered: true,
+  // Normally a form fades in and out over about half a second, which is right for
+  // a persona switch and wrong for an explosion — Loki's scepter was still sitting
+  // there in one piece while its own shards flew off across the screen. visSnap
+  // makes that transition near-instant for the moment it is needed.
+  visSnap: false,
   mode: 'none' // 'webgl' | '2d' | 'none'
 };
 
@@ -1052,6 +1200,23 @@ window.Reactor = {
   setAudioLevel(v) { R.audioLevel = Math.max(0, Math.min(1, v)); },
   setAlertTint(on) { R.alertTint = !!on; },
   setPowered(on) { R.powered = !!on; },
+  setVisSnap(on) { R.visSnap = !!on; },
+  // Where this form's gem sits on screen, in CSS pixels. The gem is on the
+  // vertical axis at z=0, and the camera looks at that plane, so the same
+  // ring-fraction mapping the fit uses is exact here for both renderers — no
+  // separate perspective maths, and it stays correct if the fit is retuned.
+  gemScreen(id) {
+    const key = id || R.active;
+    const c = cloudsRef && cloudsRef[key];
+    if (!c || !c.gemCenter) return null;
+    const vmin = Math.min(window.innerWidth, window.innerHeight);
+    const formR = vmin * RING_R_FRAC * fillFor(key) * R.cur.R * R.zoom;
+    return {
+      x: window.innerWidth / 2 + c.gemCenter[0] * formR,
+      y: window.innerHeight / 2 - c.gemCenter[1] * formR,
+      formR
+    };
+  },
   onTap(cb) { onTapCallback = cb; },
   onAttention(cb) { onAttentionCallback = cb; },
   fps: () => R.fps,
@@ -1121,7 +1286,7 @@ let renderLoopToken = 0; // bumping this kills any previous render loop
 const CAM_Z = 8.2, SLOT_D = 3.0;
 
 async function initThreeReactor() {
-  const THREE = await import('three');
+  const THREE = await window.__loadThree();
   ensureFreshCanvas();
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -1145,7 +1310,10 @@ async function initThreeReactor() {
   const glowTex = makeGlowTexture(THREE);
   const sharedMaterial = makeReactorMaterial(THREE, glowTex);
   const turntable = new THREE.Group();
-  turntable.position.y = -0.35;
+  // 0, not -0.35. The forms now centre themselves (see buildPersonaCloud), and
+  // the camera looks at the form plane, so world y=0 IS the middle of the screen —
+  // which is where the ring, the spectrum and the 2D fallback all draw too.
+  turntable.position.y = 0;
   scene.add(turntable);
 
   const clouds = {}; // personaId -> { points, geometry, base, tierPointCounts, holder, spin, gemIdx, gemCenter }
@@ -1164,6 +1332,7 @@ async function initThreeReactor() {
     clouds[id] = { points, geometry, base: built.positions, tierPointCounts: built.tierPointCounts, holder, spin: Math.random() * Math.PI * 2, vis: id === R.active ? 1 : 0, gemIdx: built.gemIdx, gemCenter: built.gemCenter };
   }
 
+  cloudsRef = clouds;
   // Hot-swap a cloud (used by Project H region for her denser form).
   window.Reactor._swapCloud = null;
 
@@ -1182,6 +1351,10 @@ async function initThreeReactor() {
   // threshold oscillates), buffers stay put, only the draw range moves.
   const frameTimes = [];
   let lastT = performance.now();
+
+  // Derived fit: viewport height spans this many world units at the form plane.
+  const VIEW_SPAN = 2 * (CAM_Z - SLOT_D) * Math.tan((45 * Math.PI / 180) / 2);
+  const FIT_WORLD = RING_R_FRAC * VIEW_SPAN;   // multiplied by each form's own fill below
 
   let tableAngle = 0;
   let jitterPhase = 0;
@@ -1208,7 +1381,9 @@ async function initThreeReactor() {
 
     // turntable — shortest-way wrap, eased; without the wrap it takes the long
     // way around ~half the time, which looks broken
-    const targetAngle = -PERSONA_SLOT_ANGLE[R.active];
+    // A missing slot angle would make this NaN and take the turntable with it.
+    const activeSlot = PERSONA_SLOT_ANGLE[R.active];
+    const targetAngle = -(typeof activeSlot === 'number' ? activeSlot : 0);
     let delta = targetAngle - tableAngle;
     delta = ((delta + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
     tableAngle += delta * 0.04;
@@ -1226,8 +1401,12 @@ async function initThreeReactor() {
       const c = clouds[id];
       const isActive = id === R.active;
       // fade non-active fully out (scale→0), eased — never a snap
-      c.vis += ((isActive && R.powered ? 1 : 0) - c.vis) * 0.06;
-      const formScale = Math.max(0.001, c.vis * R.cur.R * R.zoom * (1 + voice * 0.11));
+      c.vis += ((isActive && R.powered ? 1 : 0) - c.vis) * (R.visSnap ? 0.42 : 0.06);
+      // A unit-radius form scaled to sit inside the ring. RING_R_FRAC is the
+      // ring's radius as a fraction of the viewport (62vmin wide => 0.31), and
+      // VIEW_SPAN is how many world units the viewport height covers at the form
+      // plane — so this is derived, not guessed, and stays right if the camera moves.
+      const formScale = Math.max(0.001, c.vis * FIT_WORLD * fillFor(id) * R.cur.R * R.zoom * (1 + voice * 0.05));
       c.points.scale.setScalar(formScale);
       c.points.visible = c.vis > 0.01;
       if (isActive) {
@@ -1308,8 +1487,9 @@ function initCanvas2DFallback() {
   const clouds = {};
   for (const id of P_IDS) {
     const built = buildPersonaCloud(id);
-    clouds[id] = { base: built.positions, colors: built.colors, tierPointCounts: built.tierPointCounts, spin: 0, vis: id === R.active ? 1 : 0 };
+    clouds[id] = { base: built.positions, colors: built.colors, tierPointCounts: built.tierPointCounts, spin: 0, vis: id === R.active ? 1 : 0, gemCenter: built.gemCenter };
   }
+  cloudsRef = clouds;
   let lastT = performance.now();
   const frameTimes = [];
   function resize() {
@@ -1340,16 +1520,17 @@ function initCanvas2DFallback() {
     ctx2d.clearRect(0, 0, W, H);
     ctx2d.globalCompositeOperation = 'lighter';
     const voice = R.audioLevel;
-    const cx = W / 2, cy = H * 0.47;
-    const scalePx = Math.min(W, H) * 0.23 * R.cur.R * R.zoom * (1 + voice * 0.11);
+    const cx = W / 2, cy = H * 0.5;
+    const scaleBase = Math.min(W, H) * 0.31 * R.cur.R * R.zoom * (1 + voice * 0.05);
 
     let liveVerts = 0;
     for (const id of P_IDS) {
       const c = clouds[id];
       const isActive = id === R.active;
-      c.vis += ((isActive && R.powered ? 1 : 0) - c.vis) * 0.06;
+      c.vis += ((isActive && R.powered ? 1 : 0) - c.vis) * (R.visSnap ? 0.42 : 0.06);
       if (c.vis < 0.02) continue;
       c.spin += (isActive ? 0.0035 * R.cur.speed + R.spinVel + voice * 0.003 : 0.0008);
+      const scalePx = scaleBase * fillFor(id);
       const n = c.tierPointCounts[R.qualityLevel];
       liveVerts += n;
       const cosA = Math.cos(c.spin), sinA = Math.sin(c.spin);
@@ -1402,7 +1583,7 @@ if (new URLSearchParams(location.search).get('reactor') === '2d') {
 let THREE = null;
 async function loadThree() {
   if (THREE) return;
-  THREE = await import('three');
+  THREE = await window.__loadThree();
 }
 
 const MODEL_LIBRARY = [
@@ -2169,30 +2350,39 @@ const UI_PERSONAS = {
     id: 'thor', name: 'THOR', color: '70,150,255', accent2: '255,199,64',
     sub: "PERSONAL — RAYAN'S SYSTEM", placeholder: 'Message THOR...',
     diagLabel: 'STORM OUTPUT',
+    laneLabel: 'FIELD LOG', laneEmpty: "Nothing to report, sir. Standing by.",
     lane: 'music, browser, comms, maps, research',
     subsystems: [['STORM CORE', 'CHARGED'], ['WEB SEARCH', 'READY'], ['BROWSER LINK', 'READY'], ['COMMS ARRAY', 'ARMED']],
     switchPhrases: ['switch to thor', 'talk to thor', 'give me thor'],
     wakePhrases: ['hey thor', 'ok thor', 'okay thor', 'thor wake up'],
+    wakeLine: "Thor, prince of Asgard, at your service, mortal.",
+    introLine: "Thor. Prince of Asgard, and Rayan's right hand. I hold the hours: music and video, full command of his browser, his messages and his calls, maps and routes, live research across the web, and the open line to Jarvis and Kevos. I carry the day so he does not have to.",
     sleepLine: "Powering down. I'll keep a light on for you, sir."
   },
   loki: {
     id: 'loki', name: 'LOKI', color: '46,190,110', accent2: '255,199,64',
     sub: 'TASKS — CALENDAR — FOLLOW-THROUGH', placeholder: 'Message LOKI...',
     diagLabel: 'MISCHIEF INDEX',
+    laneLabel: 'THE LEDGER', laneEmpty: "Suspiciously quiet. I am watching anyway.",
     lane: 'to-dos, calendar, reminders, wellbeing',
     subsystems: [['TASK LEDGER', 'OPEN'], ['NAG ENGINE', 'COILED'], ['WATCHLIST', 'READY'], ['WELLBEING', 'TRACKING']],
     switchPhrases: ['switch to loki', 'talk to loki', 'give me loki'],
     wakePhrases: ['hey loki', 'ok loki', 'okay loki', 'loki wake up'],
+    wakeLine: "I'm the god of trickery and stories. What could you possibly need from me?",
+    introLine: "Loki. I keep the ledger. Every task, every deadline, every promise he has quietly walked past. The calendar is mine, the reminders are mine, the watchlists are mine, and I notice when he has not eaten. I will be charming about it precisely once.",
     sleepLine: "Fine. I'll stop talking. You'll miss me in an hour."
   },
   odin: {
     id: 'odin', name: 'ODIN', color: '255,199,64', accent2: '246,244,236',
     sub: 'BUSINESS — REVENUE — STRATEGY', placeholder: 'Message ODIN...',
     diagLabel: 'RAVEN SIGHT',
+    laneLabel: 'COUNSEL', laneEmpty: "No movement worth your attention yet.",
     lane: 'business, revenue, strategy, stakes',
     subsystems: [['MARKET EYE', 'OPEN'], ['DEEP RESEARCH', 'READY'], ['CONTENT QUEUE', 'HELD'], ['SIBLING COUNSEL', 'READY']],
     switchPhrases: ['switch to odin', 'talk to odin', 'give me odin'],
     wakePhrases: ['hey odin', 'ok odin', 'okay odin', 'odin wake up'],
+    wakeLine: "King of Asgard, in attendance.",
+    introLine: "Odin. King of Asgard. I weigh the things with weight: revenue, strategy, the competitive field, the content queue, and the sixty accounts standing ready for his word. I do not rush, and I do not flatter. Bring me the decisions that matter.",
     sleepLine: 'We are done for now. Think on it.'
   }
 };
@@ -2247,6 +2437,13 @@ function blip(from, to, dur, type, gain, delay) {
 }
 const sfxSwitch = () => { blip(520, 760, 0.09, 'square', 0.05); blip(760, 1040, 0.1, 'square', 0.045, 0.07); };
 const sfxBoot = () => { blip(120, 520, 0.7, 'sine', 0.07); blip(520, 1560, 0.35, 'sine', 0.05, 0.55); };
+// Wake sounds, all synthesized from the same blip primitive — no audio files.
+const sfxCharge = () => { blip(90, 900, 1.9, 'sawtooth', 0.045); blip(200, 1400, 1.9, 'sine', 0.03, 0.05); };
+const sfxThunder = () => { blip(900, 40, 0.9, 'sawtooth', 0.14); blip(160, 30, 1.4, 'sine', 0.11, 0.02); blip(1800, 120, 0.25, 'square', 0.05); };
+const sfxCast = () => { blip(300, 1500, 0.42, 'sine', 0.06); blip(1500, 400, 0.3, 'triangle', 0.04, 0.36); };
+const sfxShatter = () => { blip(1800, 200, 0.5, 'square', 0.07); blip(700, 90, 0.7, 'sawtooth', 0.05, 0.04); };
+const sfxReform = () => { blip(180, 1200, 0.7, 'sine', 0.055); blip(900, 1600, 0.25, 'triangle', 0.035, 0.6); };
+const sfxSlam = () => { blip(500, 30, 0.75, 'sawtooth', 0.15); blip(120, 24, 1.1, 'sine', 0.12, 0.01); };
 const sfxError = () => blip(220, 160, 0.2, 'sawtooth', 0.06);
 const sfxTick = () => blip(880, 880, 0.03, 'square', 0.02);
 
@@ -2295,6 +2492,9 @@ function decryptText(el, finalText, durMs = 520) {
 // HUD BUILD — rebuilt on every persona switch, so showEnter re-fires free.
 // ---------------------------------------------------------------------------
 function buildHUD(personaId) {
+  // switchPersona returns early when the persona is already active, so without
+  // this the very first persona never reached the reactor at all.
+  window.Reactor && window.Reactor.setActivePersona && window.Reactor.setActivePersona(personaId);
   const p = UI_PERSONAS[personaId];
   document.documentElement.setAttribute('data-persona', personaId);
   decryptText($('wordTitle'), p.name);
@@ -2302,6 +2502,8 @@ function buildHUD(personaId) {
   $('chatTitle').textContent = `◈ CHANNEL — ${p.name}`;
   $('userInput').placeholder = p.placeholder;
   $('diagTitle').textContent = `◈ ${p.diagLabel}`;
+  $('laneTitle').textContent = `\u25c8 ${p.laneLabel}`;
+  refreshLanePanel();
   $('sysBody').innerHTML = p.subsystems.map(([n, s]) =>
     `<div class="diag-row"><span class="diag-label">${n}<span class="sys-state">${s}</span></span></div>`).join('');
   // re-fire materialization on every panel, staggered
@@ -2426,7 +2628,25 @@ async function refreshStatusStrip() {
     return `<span><span class="strip-name">${UI_PERSONAS[id].name}</span>${s && s.task ? s.task : 'idle'}</span>`;
   }).join('');
 }
-setInterval(() => { if (!quietHold) refreshStatusStrip(); }, 75000);
+// The fourth panel shows what THIS persona has actually been doing on its own —
+// the autonomy log the backend already returns from /status. No new endpoint, no
+// extra request: it reads the same cached payload the status strip uses.
+async function refreshLanePanel() {
+  const body = $('laneBody');
+  if (!body) return;
+  const data = await fetchStatus();
+  const p = UI_PERSONAS[activePersona];
+  const log = (data && Array.isArray(data.autonomyLog)) ? data.autonomyLog : [];
+  const mine = log.filter(e => e && e.persona === activePersona).slice(-4).reverse();
+  if (!mine.length) { body.innerHTML = `<div class="lane-empty">${p.laneEmpty}</div>`; return; }
+  body.innerHTML = mine.map(e => {
+    let t = '';
+    try { const d = new Date(e.time); t = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); } catch (err) {}
+    const text = String(e.summary || '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+    return `<div class="lane-row"><span class="lane-time">${t}</span><span class="lane-text">${text}</span></div>`;
+  }).join('');
+}
+setInterval(() => { if (!quietHold) { refreshStatusStrip(); refreshLanePanel(); } }, 75000);
 
 async function openOpsFloor() {
   $('opsFloor').classList.add('open');
@@ -2697,6 +2917,7 @@ const PALETTE_COMMANDS = [
   { group: 'TASKS', label: 'Show my to-do list', run: () => sendMessage('What is on my to-do list?') },
   { group: 'TASKS', label: 'Business pulse', hint: 'clipping', run: () => sendMessage('Give me the current read on the clipping business.') },
   { group: 'VIEWS', label: 'Open inspection bay', hint: '3D models', run: () => window.ModelBay && window.ModelBay.open() },
+  { group: 'VIEWS', label: 'Introduce the royal family', hint: 'all three, in turn', run: runRoyalIntroduction },
   { group: 'VIEWS', label: 'Open memory map', hint: 'shared brain', run: openMemMap },
   { group: 'VIEWS', label: 'Open ops floor', hint: 'live status', run: openOpsFloor },
   { group: 'VIEWS', label: 'Open gesture control', hint: 'hand tracking', run: () => window.GestureControl && window.GestureControl.open() },
@@ -2914,6 +3135,9 @@ function triggerWake(personaId) {
 }
 
 let wakeSequenceRunning = false;
+// Kept, unused by the wake path since the entrance lines became fixed. Left in
+// place because it is the only working example of the [WAKE_TRIGGER] round trip,
+// which the backend still supports.
 async function fetchWakeGreeting() {
   const timeout = new Promise(resolve => setTimeout(() => resolve("Welcome back, sir."), 6000));
   const fetchPromise = (async () => {
@@ -2932,23 +3156,623 @@ async function fetchWakeGreeting() {
   })();
   return Promise.race([fetchPromise, timeout]);
 }
+
+// ===========================================================================
+// WAKE SEQUENCES — one per assistant, drawn on #wakeFx.
+//
+// Each returns a promise that resolves at the moment the assistant should
+// START SPEAKING, which is deliberately not the end of the animation: Thor
+// speaks out of the thunderclap while it is still rolling, Odin speaks as the
+// staff rings. Nothing here touches the reactor's render loop; the only hooks
+// used are setPowered() and setState(), so a failure in here can never take the
+// reactor down with it.
+// ===========================================================================
+// ===========================================================================
+// THE MIND STONE — a reusable particle gem.
+//
+// Not a set of stroked shapes: a real point cloud in local unit space, built
+// once and rotated in 3D every frame, so it has depth, facets that occlude, and
+// motes that orbit behind and in front. Amber-gold with a white-hot core, the
+// colour it is in the films.
+//
+// MIND_STONE.draw(ctx, x, y, radius, {rot, glow, jitter, energy})
+//   rot     radians about the vertical axis
+//   glow    0..1 overall opacity
+//   jitter  0..1 how far each mote wanders off its true position
+//   energy  0..1 how hard it is being driven — drives the corona, the outward
+//           push on the cloud, the arc filaments, and the shift toward white
+//
+// Written as a standalone object because it is going to be wanted elsewhere:
+// anything that needs a power source on screen can call this.
+// ===========================================================================
+const MIND_STONE = (function () {
+  const pts = [];
+  const add = (x, y, z, kind) => pts.push({ x, y, z, kind, s: Math.random(), o: Math.random() * Math.PI * 2 });
+
+  // A hexagonal bipyramid — six equatorial points, two apexes.
+  const EQ = [];
+  for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; EQ.push([Math.cos(a) * 0.82, 0, Math.sin(a) * 0.82]); }
+  const TOP = [0, 1.15, 0], BOT = [0, -1.15, 0];
+  const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+
+  // Edges get the densest sampling — edges are what make a cut stone read as cut.
+  for (let i = 0; i < 6; i++) {
+    const a = EQ[i], b = EQ[(i + 1) % 6];
+    for (let k = 0; k < 26; k++) { const q = lerp3(a, b, k / 25); add(q[0], q[1], q[2], 'edge'); }
+    for (const apex of [TOP, BOT]) {
+      for (let k = 0; k < 30; k++) { const q = lerp3(a, apex, k / 29); add(q[0], q[1], q[2], 'edge'); }
+    }
+  }
+  // Facet interiors, sparser, so the faces read as surfaces rather than holes.
+  for (let i = 0; i < 6; i++) {
+    const a = EQ[i], b = EQ[(i + 1) % 6];
+    for (const apex of [TOP, BOT]) {
+      for (let k = 0; k < 52; k++) {
+        let u = Math.random(), v = Math.random();
+        if (u + v > 1) { u = 1 - u; v = 1 - v; }
+        add(a[0] + (b[0] - a[0]) * u + (apex[0] - a[0]) * v,
+            a[1] + (b[1] - a[1]) * u + (apex[1] - a[1]) * v,
+            a[2] + (b[2] - a[2]) * u + (apex[2] - a[2]) * v, 'face');
+      }
+    }
+  }
+  // The core: a dense hot cluster, and a loose shell of motes around everything.
+  for (let i = 0; i < 95; i++) {
+    const u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2, rr = 0.34 * Math.cbrt(Math.random());
+    const q = Math.sqrt(1 - u * u);
+    add(q * Math.cos(th) * rr, u * rr * 1.2, q * Math.sin(th) * rr, 'core');
+  }
+  for (let i = 0; i < 110; i++) {
+    const u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2, rr = 1.0 + Math.random() * 0.5;
+    const q = Math.sqrt(1 - u * u);
+    add(q * Math.cos(th) * rr, u * rr * 0.9, q * Math.sin(th) * rr, 'mote');
+  }
+
+  const TINT = {
+    edge: [255, 214, 120],
+    face: [244, 168, 46],
+    core: [255, 248, 226],
+    mote: [255, 190, 70]
+  };
+
+  function draw(ctx, cx, cy, radius, opts) {
+    const o = opts || {};
+    const rot = o.rot || 0, glow = o.glow == null ? 1 : o.glow;
+    const jitter = o.jitter || 0, energy = o.energy || 0;
+    if (glow <= 0.01 || radius <= 0) return;
+    const cos = Math.cos(rot), sin = Math.sin(rot);
+    const t = performance.now();
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    // corona — the light it is throwing off, before any of the solid
+    const cg = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius * (1.7 + energy * 1.5));
+    cg.addColorStop(0, `rgba(255,236,190,${(0.34 + energy * 0.4) * glow})`);
+    cg.addColorStop(0.35, `rgba(255,178,52,${(0.20 + energy * 0.32) * glow})`);
+    cg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = cg;
+    ctx.beginPath(); ctx.arc(cx, cy, radius * (1.7 + energy * 1.5), 0, Math.PI * 2); ctx.fill();
+
+    // the cloud itself
+    const push = 1 + energy * 0.16;
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      let px = p.x, py = p.y, pz = p.z;
+      if (p.kind === 'mote') {                       // motes drift on their own orbit
+        const a = p.o + t * 0.0009 * (0.5 + p.s);
+        px = Math.cos(a) * Math.hypot(p.x, p.z);
+        pz = Math.sin(a) * Math.hypot(p.x, p.z);
+      }
+      const jx = jitter ? (Math.random() - 0.5) * jitter : 0;
+      const jy = jitter ? (Math.random() - 0.5) * jitter : 0;
+      const x = (px * cos + pz * sin) * push + jx;
+      const z = (-px * sin + pz * cos) * push;
+      const y = py * push + jy;
+      const depth = (z + 1.6) / 3.2;                 // 0 back .. 1 front
+      const sx = cx + x * radius, sy = cy - y * radius;
+      const base = TINT[p.kind];
+      // Only a light shift toward white with energy. The first pass pushed hard
+      // to white and, additively blended across ~1,400 overlapping points, the
+      // whole stone blew out to a featureless white blob at full power — the one
+      // thing it must not look like. It stays amber; energy shows in the corona,
+      // the filaments and the shake instead.
+      const hot = Math.min(1, energy * 0.28);
+      const r0 = base[0] + (255 - base[0]) * hot;
+      const g0 = base[1] + (250 - base[1]) * hot;
+      const b0 = base[2] + (235 - base[2]) * hot;
+      const a0 = (p.kind === 'mote' ? 0.34
+                : p.kind === 'face' ? 0.09 + depth * 0.22
+                : p.kind === 'core' ? 0.26 + depth * 0.34
+                : 0.24 + depth * 0.46) * glow;
+      const sz = Math.max(0.55, radius * (p.kind === 'core' ? 0.055 : 0.036) * (0.45 + depth));
+      ctx.fillStyle = `rgba(${r0 | 0},${g0 | 0},${b0 | 0},${a0})`;
+      ctx.beginPath(); ctx.arc(sx, sy, sz, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // the power it is holding — filaments only appear as energy climbs
+    const fil = Math.floor(energy * 7);
+    for (let i = 0; i < fil; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const rr = radius * (1.05 + Math.random() * (0.5 + energy));
+      strokeBolt(ctx, boltPoints(cx, cy, cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, 3, 0.55),
+                 '255,196,80', 0.34 * energy * glow, Math.max(0.6, radius * 0.018));
+    }
+    ctx.restore();
+  }
+
+  return { draw, pointCount: pts.length };
+})();
+
+let wakeFxToken = 0;
+const REDUCED_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function wakeSurface() {
+  const c = $('wakeFx');
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.round(window.innerWidth * dpr), h = Math.round(window.innerHeight * dpr);
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  return { ctx: c.getContext('2d'), W: w, H: h, dpr, R: Math.min(w, h) * 0.31 };
+}
+function clearWakeFx() { const s = wakeSurface(); s.ctx.clearRect(0, 0, s.W, s.H); }
+
+// A jagged bolt from a to b. Midpoint displacement, so it forks naturally
+// instead of looking like a hand-drawn zigzag.
+function boltPoints(x1, y1, x2, y2, depth, spread) {
+  let pts = [{ x: x1, y: y1 }, { x: x2, y: y2 }];
+  for (let d = 0; d < depth; d++) {
+    const next = [pts[0]];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1];
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const off = (Math.random() - 0.5) * spread * len;
+      next.push({ x: mx - (dy / len) * off, y: my + (dx / len) * off });
+      next.push(b);
+    }
+    pts = next; spread *= 0.55;
+  }
+  return pts;
+}
+// Four passes, widest and faintest first: an outer glow that bleeds into the
+// dark, a broad body, a bright core, and a near-white filament down the middle.
+// Real lightning reads as a thin white channel wrapped in light, not as a
+// coloured line — one pass looks like a drawn stroke no matter how thick it is.
+function strokeBolt(ctx, pts, rgb, alpha, width, flicker) {
+  if (pts.length < 2) return;
+  const a = alpha * (flicker === false ? 1 : 0.78 + Math.random() * 0.22);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const path = () => {
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  };
+  ctx.save();
+  ctx.shadowColor = `rgba(${rgb},${a})`; ctx.shadowBlur = width * 9;
+  path(); ctx.strokeStyle = `rgba(${rgb},${a * 0.16})`; ctx.lineWidth = width * 7.0; ctx.stroke();
+  ctx.shadowBlur = width * 5;
+  path(); ctx.strokeStyle = `rgba(${rgb},${a * 0.42})`; ctx.lineWidth = width * 3.4; ctx.stroke();
+  ctx.restore();
+  path(); ctx.strokeStyle = `rgba(${rgb},${a * 0.9})`;  ctx.lineWidth = width * 1.7; ctx.stroke();
+  path(); ctx.strokeStyle = `rgba(244,250,255,${a})`;   ctx.lineWidth = width * 0.62; ctx.stroke();
+}
+
+// Branches off the main channel. A bolt without forks looks like a crack in
+// glass; the forks are what make it read as electricity.
+function boltForks(pts, count) {
+  const out = [];
+  for (let f = 0; f < count; f++) {
+    const i = 2 + Math.floor(Math.random() * Math.max(1, pts.length - 6));
+    const a = pts[i], b = pts[Math.min(pts.length - 1, i + 2)];
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const ang = Math.atan2(dy, dx) + (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.7);
+    const reach = len * (2.5 + Math.random() * 4);
+    out.push(boltPoints(a.x, a.y, a.x + Math.cos(ang) * reach, a.y + Math.sin(ang) * reach, 3, 0.4));
+  }
+  return out;
+}
+// A point on the screen edge, indexed so the bolts arrive from every side and
+// corner in turn rather than clustering wherever random put them.
+function edgePoint(i, W, H) {
+  // Twelve arrival points, five of them along the bottom. The bottom edge needs
+  // the extra weight because the voice controls and the status strip sit over it,
+  // so a single bottom bolt per cycle was being hidden and the storm read as
+  // coming only from above.
+  const spots = [
+    [0, 0], [W / 2, 0], [W, 0], [W, H / 2],
+    [W, H], [W * 0.72, H], [W / 2, H], [W * 0.28, H], [0, H], [0, H / 2],
+    [W * 0.14, H], [W * 0.86, H]
+  ];
+  const [bx, by] = spots[i % spots.length];
+  const jx = (Math.random() - 0.5) * W * 0.12, jy = (Math.random() - 0.5) * H * 0.12;
+  return { x: Math.max(0, Math.min(W, bx + jx)), y: Math.max(0, Math.min(H, by + jy)) };
+}
+
+function runWakeFx(personaId) {
+  const token = ++wakeFxToken;
+  if (REDUCED_MOTION) { clearWakeFx(); return Promise.resolve(); }
+  if (personaId === 'loki') return lokiWake(token);
+  if (personaId === 'odin') return odinWake(token);
+  return thorWake(token);
+}
+
+// --- THOR: lightning in from every side and corner, charging the hammer for
+// --- two seconds, then the whole lot goes off at once.
+function thorWake(token) {
+  const CHARGE = 2000, BANG = CHARGE, END = CHARGE + 900;
+  const BLUE = '86,170,255';
+  sfxCharge();
+  window.Reactor && window.Reactor.setState('powerup');
+  return new Promise(resolve => {
+    const t0 = performance.now();
+    let arrivals = [], burst = null, spawnAt = 0, edgeIdx = 0, spoke = false;
+    function frame(now) {
+      if (token !== wakeFxToken) return;
+      const { ctx, W, H, R } = wakeSurface();
+      // Clamped at zero on purpose. requestAnimationFrame reports the frame's
+      // START time, which can be a fraction of a millisecond EARLIER than the
+      // performance.now() captured just before it — so the first frame arrives
+      // with a negative t, and any easing using a fractional power (Math.pow of
+      // a negative) returns NaN. That NaN reached createRadialGradient, threw,
+      // and killed the whole animation on frame one. Silently: the only visible
+      // symptom was Loki never appearing to wake.
+      const t = Math.max(0, now - t0);
+      ctx.clearRect(0, 0, W, H);
+      const cx = W / 2, cy = H / 2;
+
+      if (t < CHARGE) {
+        const p = t / CHARGE;                       // 0..1 charge progress
+        // bolts arrive faster and faster as it charges
+        if (t > spawnAt) {
+          const e = edgePoint(edgeIdx++, W, H);
+          const aim = R * 0.22;
+          const bolt = {
+            pts: (function () { const b = boltPoints(e.x, e.y, cx + (Math.random() - 0.5) * aim, cy + (Math.random() - 0.5) * aim, 6, 0.30); return b; })(),
+            forks: [], born: t, life: 210 + Math.random() * 120
+          };
+          bolt.forks = boltForks(bolt.pts, 2 + Math.floor(Math.random() * 3));
+          arrivals.push(bolt);
+          spawnAt = t + 95 - p * 78;
+          if (Math.random() < 0.4) blip(1200 + Math.random() * 900, 300, 0.05, 'square', 0.02);
+        }
+        arrivals = arrivals.filter(a => t - a.born < a.life);
+        for (const a of arrivals) {
+          const k = 1 - (t - a.born) / a.life;
+          const w = (1.7 + p * 2.6) * (R / 210);
+          strokeBolt(ctx, a.pts, BLUE, k * (0.40 + p * 0.6), w);
+          for (const f of a.forks) strokeBolt(ctx, f, BLUE, k * (0.22 + p * 0.34), w * 0.42);
+        }
+        // the charge pooling in the hammer
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * (0.30 + p * 0.55));
+        g.addColorStop(0, `rgba(200,230,255,${0.10 + p * 0.42})`);
+        g.addColorStop(0.45, `rgba(${BLUE},${0.06 + p * 0.20})`);
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * (0.30 + p * 0.55), 0, Math.PI * 2); ctx.fill();
+        // crawling arcs on the hammer itself
+        if (p > 0.35) for (let i = 0; i < 3; i++) {
+          const a1 = Math.random() * Math.PI * 2, a2 = a1 + (Math.random() - 0.5) * 2.4;
+          const rr = R * 0.34;
+          strokeBolt(ctx, boltPoints(cx + Math.cos(a1) * rr, cy + Math.sin(a1) * rr, cx + Math.cos(a2) * rr, cy + Math.sin(a2) * rr, 3, 0.5), BLUE, (p - 0.35) * 0.9, R / 300);
+        }
+      } else {
+        if (!burst) {
+          burst = { at: t, bolts: [], forks: [] };
+          for (let i = 0; i < 26; i++) {
+            const a = (i / 26) * Math.PI * 2 + Math.random() * 0.2;
+            const far = Math.max(W, H) * 0.85;
+            const pts = boltPoints(cx, cy, cx + Math.cos(a) * far, cy + Math.sin(a) * far, 6, 0.26);
+            burst.bolts.push(pts);
+            burst.forks.push(...boltForks(pts, 2));
+          }
+          sfxThunder(); fireShockwave();
+          window.Reactor && window.Reactor.setAlertTint && window.Reactor.setAlertTint(false);
+        }
+        const bt = (t - BANG) / (END - BANG);        // 0..1 after the bang
+        const k = Math.max(0, 1 - bt);
+        ctx.fillStyle = `rgba(226,240,255,${Math.pow(k, 3) * 0.85})`;
+        ctx.fillRect(0, 0, W, H);
+        for (const pts of burst.bolts) {
+          const w = (R / 150) * (0.45 + k);
+          strokeBolt(ctx, pts, BLUE, k * 0.95, w);
+        }
+        for (const f of burst.forks) strokeBolt(ctx, f, BLUE, k * 0.55, (R / 150) * (0.2 + k * 0.4));
+        ctx.beginPath();
+        ctx.arc(cx, cy, R * (0.3 + bt * 2.4), 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(${BLUE},${k * 0.8})`; ctx.lineWidth = 6 * k + 1; ctx.stroke();
+        if (!spoke) { spoke = true; resolve(); }
+      }
+      if (t < END) requestAnimationFrame(frame);
+      else { clearWakeFx(); if (!spoke) resolve(); }
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
+// --- LOKI: the mind stone leaves the scepter, swells, shakes itself apart at
+// --- the seams, then snaps home.
+function lokiWake(token) {
+  const OUT = 480, SWELL = 1000, SHAKE_END = 2000, HOME = 2160, END = 2520;
+  const STONE = '120,190,255', HALO = '200,235,255';
+  sfxCast();
+  return new Promise(resolve => {
+    const t0 = performance.now();
+    let spoke = false, rattleAt = 0, snapped = false;
+
+    const drawStone = (ctx, x, y, r, rot, glow, jitter, energy) =>
+      MIND_STONE.draw(ctx, x, y, r, { rot, glow, jitter, energy });
+
+    function frame(now) {
+      if (token !== wakeFxToken) return;
+      const { ctx, W, H, R } = wakeSurface();
+      const t = Math.max(0, now - t0);
+      const cx = W / 2, cy = H / 2;
+      ctx.clearRect(0, 0, W, H);
+
+      // where the stone lives in the scepter, straight from the reactor
+      const gs = (window.Reactor && window.Reactor.gemScreen) ? window.Reactor.gemScreen('loki') : null;
+      const dpr = W / window.innerWidth;
+      const socketX = gs ? gs.x * dpr : cx;
+      const socketY = gs ? gs.y * dpr : cy - R * 0.55;
+      const seated = R * 0.055;              // its size in the socket
+      const swollen = R * 0.46;              // how big it gets once it is out
+
+      let x = socketX, y = socketY, r = seated, glow = 1, jitter = 0, energy = 0;
+      const rot = t / 900;
+
+      if (t < OUT) {                          // lifts free of the setting
+        const p = t / OUT, e = p * p * (3 - 2 * p);
+        x = socketX + (cx - socketX) * e;
+        y = socketY + (cy - socketY) * e;
+        r = seated + (swollen * 0.42 - seated) * e;
+        glow = 0.6 + p * 0.4;
+        energy = p * 0.35;
+      } else if (t < SWELL) {                 // swells
+        const p = (t - OUT) / (SWELL - OUT), e = 1 - Math.pow(1 - p, 3);
+        x = cx; y = cy;
+        r = swollen * (0.42 + 0.58 * e);
+        glow = 1;
+        energy = 0.35 + e * 0.35;
+      } else if (t < SHAKE_END) {             // shakes, harder and harder
+        const p = (t - SWELL) / (SHAKE_END - SWELL);
+        const amp = R * (0.012 + p * 0.085);
+        x = cx + (Math.random() - 0.5) * amp * 2;
+        y = cy + (Math.random() - 0.5) * amp * 2;
+        r = swollen * (1 + Math.sin(t / 34) * 0.05 * (0.4 + p));
+        jitter = 0.04 + p * 0.16;
+        glow = 1;
+        energy = 0.70 + p * 0.30;              // driven to the limit
+        if (t > rattleAt) { blip(700 + Math.random() * 1400, 260, 0.045, 'square', 0.03); rattleAt = t + 70 - p * 45; }
+        // The stone throws its own filaments now (see MIND_STONE energy), and it
+        // is a real point cloud, so the shake needs no ghost copies to sell it —
+        // which also keeps this affordable on a Chromebook.
+      } else if (t < HOME) {                  // snaps back into the setting
+        const p = (t - SHAKE_END) / (HOME - SHAKE_END);
+        const e = p * p * p;                  // hard ease-in: gone in a blink
+        x = cx + (socketX - cx) * e;
+        y = cy + (socketY - cy) * e;
+        r = swollen + (seated - swollen) * e;
+        glow = 1;
+        energy = 1 - e * 0.6;
+      } else {
+        if (!snapped) {
+          snapped = true;
+          sfxReform(); fireShockwave();
+          window.Reactor && window.Reactor.setState('powerup');
+        }
+        const p = (t - HOME) / (END - HOME), k = Math.max(0, 1 - p);
+        ctx.fillStyle = `rgba(255,236,190,${Math.pow(k, 3) * 0.42})`; ctx.fillRect(0, 0, W, H);
+        ctx.beginPath(); ctx.arc(socketX, socketY, R * (0.06 + p * 0.9), 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255,196,80,${k * 0.7})`; ctx.lineWidth = 5 * k + 1; ctx.stroke();
+        r = seated; x = socketX; y = socketY; glow = k; energy = k * 0.5;
+        if (!spoke) { spoke = true; resolve(); }
+      }
+
+      // the empty setting it left behind
+      if (t > OUT * 0.5 && t < HOME) {
+        ctx.beginPath(); ctx.arc(socketX, socketY, seated * 1.5, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255,196,80,0.32)`; ctx.lineWidth = 1.5; ctx.stroke();
+      }
+      if (glow > 0.02) drawStone(ctx, x, y, r, rot, glow, jitter, energy);
+
+      if (t < END) requestAnimationFrame(frame);
+      else { clearWakeFx(); if (!spoke) resolve(); }
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
+// --- ODIN: the crown settles over the throne, then Gungnir comes down.
+function odinWake(token) {
+  const CROWN_IN = 780, STAFF_IN = 1420, SLAM = STAFF_IN, END = 2500;
+  const GOLD = '255,199,64', BONE = '246,244,236';
+  sfxCharge();
+  return new Promise(resolve => {
+    const t0 = performance.now();
+    let slammed = false, spoke = false, dust = [];
+    function drawCrown(ctx, cx, cy, w, alpha) {
+      const h = w * 0.52, base = cy + h * 0.5;
+      ctx.save();
+      ctx.shadowColor = `rgba(${GOLD},${0.9 * alpha})`; ctx.shadowBlur = w * 0.28;
+      ctx.strokeStyle = `rgba(${GOLD},${alpha})`; ctx.lineWidth = Math.max(1.4, w * 0.035);
+      ctx.beginPath();
+      ctx.moveTo(cx - w / 2, base);
+      const spikes = 5;
+      for (let i = 0; i < spikes; i++) {
+        const x0 = cx - w / 2 + (w / spikes) * i;
+        const x1 = x0 + (w / spikes) / 2;
+        const x2 = x0 + (w / spikes);
+        const peak = base - h * (i === 2 ? 1.0 : (i === 1 || i === 3 ? 0.74 : 0.55));
+        ctx.lineTo(x1, peak); ctx.lineTo(x2, base - h * 0.16);
+      }
+      ctx.lineTo(cx + w / 2, base);
+      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx - w / 2, base); ctx.lineTo(cx + w / 2, base); ctx.stroke();
+      for (let i = 0; i < spikes; i++) {
+        const x1 = cx - w / 2 + (w / spikes) * i + (w / spikes) / 2;
+        const peak = base - h * (i === 2 ? 1.0 : (i === 1 || i === 3 ? 0.74 : 0.55));
+        ctx.beginPath(); ctx.arc(x1, peak, w * 0.026, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${BONE},${alpha})`; ctx.fill();
+      }
+      ctx.restore();
+    }
+    function frame(now) {
+      if (token !== wakeFxToken) return;
+      const { ctx, W, H, R } = wakeSurface();
+      // Clamped at zero on purpose. requestAnimationFrame reports the frame's
+      // START time, which can be a fraction of a millisecond EARLIER than the
+      // performance.now() captured just before it — so the first frame arrives
+      // with a negative t, and any easing using a fractional power (Math.pow of
+      // a negative) returns NaN. That NaN reached createRadialGradient, threw,
+      // and killed the whole animation on frame one. Silently: the only visible
+      // symptom was Loki never appearing to wake.
+      const t = Math.max(0, now - t0);
+      const cx = W / 2, cy = H / 2;
+      ctx.clearRect(0, 0, W, H);
+      const crownW = R * 0.50;
+      const crownRest = cy - R * 0.95;
+
+      // crown descends with a small settle
+      if (t > 0) {
+        const p = Math.min(1, t / CROWN_IN);
+        const e = 1 - Math.pow(1 - p, 3);
+        const overshoot = p >= 1 ? Math.sin((t - CROWN_IN) / 150) * R * 0.012 * Math.max(0, 1 - (t - CROWN_IN) / 900) : 0;
+        const y = -R * 0.4 + (crownRest + R * 0.4) * e + overshoot;
+        drawCrown(ctx, cx, y, crownW, Math.min(1, p * 1.3));
+      }
+
+      // Gungnir comes down
+      if (t > 420 && t < END) {
+        const p = Math.min(1, (t - 420) / (STAFF_IN - 420));
+        const e = Math.pow(p, 2.6);
+        const tipRest = cy + R * 0.82;
+        const tipY = -R * 0.9 + (tipRest + R * 0.9) * e;
+        const len = R * 1.15, sx = cx + R * 0.56;   // beside the throne, not through it
+        ctx.save();
+        ctx.shadowColor = `rgba(${GOLD},0.8)`; ctx.shadowBlur = R * 0.10;
+        ctx.strokeStyle = `rgba(${BONE},0.92)`; ctx.lineWidth = Math.max(2, R * 0.020);
+        ctx.beginPath(); ctx.moveTo(sx, tipY - len); ctx.lineTo(sx, tipY); ctx.stroke();
+        ctx.strokeStyle = `rgba(${GOLD},0.95)`; ctx.lineWidth = Math.max(2, R * 0.026);
+        ctx.beginPath();
+        ctx.moveTo(sx, tipY - len);
+        ctx.lineTo(sx - R * 0.045, tipY - len - R * 0.10);
+        ctx.lineTo(sx, tipY - len - R * 0.20);
+        ctx.lineTo(sx + R * 0.045, tipY - len - R * 0.10);
+        ctx.closePath(); ctx.stroke();
+        ctx.beginPath(); ctx.arc(sx, tipY - len * 0.86, R * 0.05, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+
+        if (p >= 1 && !slammed) {
+          slammed = true;
+          sfxSlam(); fireShockwave();
+          window.Reactor && window.Reactor.setState('powerup');
+          for (let i = 0; i < 90; i++) {
+            const a = -Math.PI * (0.1 + Math.random() * 0.8);
+            const sp = (0.4 + Math.random()) * R * 0.010;
+            dust.push({ x: sx + (Math.random() - 0.5) * R * 0.15, y: tipRest, vx: Math.cos(a) * sp * (Math.random() < 0.5 ? -1 : 1), vy: Math.sin(a) * sp, life: 1 });
+          }
+        }
+      }
+
+      if (slammed) {
+        const st = (t - SLAM) / (END - SLAM);
+        const k = Math.max(0, 1 - st);
+        ctx.fillStyle = `rgba(255,240,205,${Math.pow(k, 4) * 0.30})`; ctx.fillRect(0, 0, W, H);
+        for (let i = 0; i < 3; i++) {
+          const rr = R * (0.15 + st * (1.6 + i * 0.5));
+          ctx.beginPath(); ctx.ellipse(cx, cy + R * 0.82, rr, rr * 0.22, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(${GOLD},${k * (0.55 - i * 0.14)})`; ctx.lineWidth = (3 - i) * k + 0.6; ctx.stroke();
+        }
+        for (const d of dust) {
+          d.x += d.vx * 16; d.y += d.vy * 16; d.vy += 0.00028 * R * 16 / 16; d.life -= 0.012;
+          if (d.life <= 0) continue;
+          ctx.beginPath(); ctx.arc(d.x, d.y, 1.6, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${GOLD},${0.7 * d.life * k})`; ctx.fill();
+        }
+        if (!spoke && st > 0.08) { spoke = true; resolve(); }
+      }
+      if (t < END) requestAnimationFrame(frame);
+      else { clearWakeFx(); if (!spoke) resolve(); }
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
+// ===========================================================================
+// "INTRODUCE THE ROYAL FAMILY" — all three in turn, each with its own entrance.
+// The floor passes down the line: Thor, then Loki, then Odin. Each is switched
+// to properly, so the turntable rotates and the HUD repaints, then plays its own
+// wake sequence and says who it is and what it holds.
+// ===========================================================================
+let royalIntroRunning = false;
+function speakAsync(text) {
+  return new Promise(resolve => {
+    let done = false;
+    const finish = () => { if (!done) { done = true; resolve(); } };
+    setTimeout(finish, 26000);   // a failed TTS call must not strand the procession
+    try { speak(text, finish); } catch (e) { finish(); }
+  });
+}
+async function runRoyalIntroduction() {
+  if (royalIntroRunning) return;
+  royalIntroRunning = true;
+  const previous = activePersona;
+  listeningPaused = true;
+  updateMicVisual();
+  setVoiceStatus('The royal family of Asgard.');
+  try {
+    for (const id of UI_IDS) {
+      if (id !== activePersona) switchPersona(id, { silent: true }); else buildHUD(id);
+      await new Promise(r => setTimeout(r, 1100));   // let the turntable come round
+      if (!royalIntroRunning) break;
+      await runWakeFx(id).catch(() => {});
+      if (!royalIntroRunning) break;
+      const p = UI_PERSONAS[id];
+      pushMsg('assistant', p.introLine, p.name);
+      await speakAsync(p.introLine);
+      await new Promise(r => setTimeout(r, 350));
+    }
+  } finally {
+    royalIntroRunning = false;
+    listeningPaused = false;
+    updateMicVisual();
+    setVoiceStatus('');
+    if (UI_PERSONAS[previous] && previous !== activePersona) switchPersona(previous, { silent: true });
+  }
+}
+function stopRoyalIntroduction() { royalIntroRunning = false; }
+
 function wakeBurst() {
   if (wakeSequenceRunning) return;
   wakeSequenceRunning = true;
   listeningPaused = true;
   updateMicVisual();
-  window.Reactor && window.Reactor.setState('powerup');
-  fireShockwave();
-  sfxBoot();
-  setVoiceStatus(`${UI_PERSONAS[activePersona].name} is waking...`);
-  fetchWakeGreeting().then(greeting => {
-    pushMsg('assistant', greeting);
-    speak(greeting, () => {
+  const p = UI_PERSONAS[activePersona];
+  const line = p.wakeLine || 'Welcome back, sir.';
+  setVoiceStatus(`${p.name} is waking...`);
+
+  // The greeting is a FIXED line per assistant, not one generated by the model.
+  // Rayan wrote these three; they are their entrance, and an entrance that comes
+  // out slightly different every time is not an entrance. It also means waking up
+  // costs no round trip — the line starts the instant the animation reaches its
+  // beat, instead of after a call to Anthropic.
+  const finish = () => {
+    pushMsg('assistant', line);
+    speak(line, () => {
       wakeSequenceRunning = false;
       resumeListeningAfterSpeech();
     });
-  });
-  setTimeout(() => { if (window.Reactor && window.Reactor.getState() === 'powerup') window.Reactor.setState('listening'); }, 1900);
+    setTimeout(() => {
+      if (window.Reactor && window.Reactor.getState() === 'powerup') window.Reactor.setState('listening');
+    }, 1200);
+  };
+  // A thrown animation must never leave him with a mute assistant.
+  let spoken = false;
+  const speakOnce = () => { if (!spoken) { spoken = true; finish(); } };
+  setTimeout(speakOnce, 4200);            // hard backstop
+  try { runWakeFx(activePersona).then(speakOnce, speakOnce); }
+  catch (e) { speakOnce(); }
 }
 
 function exitAwakeMode() {
@@ -3093,6 +3917,9 @@ function audioReactiveLoop() {
   // fast attack, slow release — raw amplitude looks twitchy
   smoothedLevel += (level - smoothedLevel) * (level > smoothedLevel ? 0.5 : 0.12);
   window.Reactor && window.Reactor.setAudioLevel(smoothedLevel);
+  // One custom-property write per frame drives every CSS-side reaction without
+  // touching layout.
+  document.documentElement.style.setProperty('--voice', smoothedLevel.toFixed(3));
   drawSpectrumRing();
   requestAnimationFrame(audioReactiveLoop);
 }
@@ -3101,6 +3928,7 @@ function stopAudioReactive() {
   spectrumOn = false;
   smoothedLevel = 0;
   window.Reactor && window.Reactor.setAudioLevel(0);
+  document.documentElement.style.setProperty('--voice', '0');
   const c = $('spectrumCanvas');
   c.getContext('2d').clearRect(0, 0, c.width, c.height);
 }
@@ -3110,7 +3938,7 @@ function drawSpectrumRing() {
   if (c.width !== innerWidth * dpr) { c.width = innerWidth * dpr; c.height = innerHeight * dpr; }
   const ctx = c.getContext('2d');
   ctx.clearRect(0, 0, c.width, c.height);
-  const cx = c.width / 2, cy = c.height * 0.47;
+  const cx = c.width / 2, cy = c.height * 0.5;
   const baseR = Math.min(c.width, c.height) * 0.3;
   const accent = UI_PERSONAS[activePersona].color;
   const BARS = 72;
@@ -3138,8 +3966,32 @@ function stopSpeaking() {
   currentOnDone = null;
 }
 
+// Punctuation is how a speech engine paces a sentence. This used to strip every
+// comma before sending — which is why replies came out as one flat run-on breath.
+// Commas, full stops and dashes now survive; what gets removed is the stuff that
+// is silent on the page but reads as noise out loud: markdown marks, emoji, and
+// bare URLs.
+function speakableText(raw) {
+  return String(raw || '')
+    .replace(/```[\s\S]*?```/g, ' ')                       // code blocks
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')             // links -> their text
+    .replace(/https?:\/\/\S+/g, 'the link')
+    .replace(/^\s*[#>]+\s*/gm, '')                        // headings, quotes
+    .replace(/^\s*[-*•]\s+/gm, '')                        // bullets
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/(^|\s)[*_]([^*_]+)[*_](?=\s|$)/g, '$1$2')
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{2,}/g, '. ')
+    .replace(/\n/g, ' ')
+    .replace(/\s+([,.;:!?])/g, '$1')
+    .trim();
+}
+
 function speak(text, onDone) {
-  const cleaned = text.replace(/,/g, '').trim();
+  const cleaned = speakableText(text);
   stopSpeaking();
   window.Reactor && window.Reactor.setState('talking');
   showCaption(cleaned);
@@ -3464,6 +4316,9 @@ async function sendMessage(text) {
   const sw = switchPhraseMatch(text);
   if (sw) { switchPersona(sw); $('userInput').value = ''; return; }
 
+  if (/^(introduce|meet)( the)? royal family$/i.test(text) || /^introduce yourselves$/i.test(text)) {
+    runRoyalIntroduction(); $('userInput').value = ''; return;
+  }
   if (/^showtime$/i.test(text)) { startShowtime(); $('userInput').value = ''; return; }
   if (/^guest mode$/i.test(text)) { enterGuestMode(); $('userInput').value = ''; return; }
   if (/^exit guest mode$/i.test(text)) { exitGuestMode(); $('userInput').value = ''; return; }

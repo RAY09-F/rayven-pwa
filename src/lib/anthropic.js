@@ -14,7 +14,7 @@ export async function callAnthropic(env, systemBlocks, tools, messages, maxToken
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: maxTokens || 900,
+        max_tokens: maxTokens || 1400,   // 900 was clipping longer answers mid-thought
         system: systemBlocks,
         tools: tools,
         messages: messages

@@ -42,14 +42,19 @@ export async function executeTool(env, name, input, personaId = DEFAULT_PERSONA_
     error = err.message;
     throw err;
   } finally {
-    await appendCappedLog(env, TASK_LOG_KEY, {
+    // Was awaited. appendCappedLog is a read-modify-write of a 500-entry array —
+    // two KV round trips plus a parse and re-serialize of a large blob, on EVERY
+    // tool call, purely to feed a debug endpoint. A multi-tool turn paid it several
+    // times over. Fire and forget: a lost debug entry costs nothing, a slow reply
+    // costs Rayan every single turn.
+    void appendCappedLog(env, TASK_LOG_KEY, {
       time: new Date(startedAt).toISOString(),
       tool: name,
       persona: personaId,
       durationMs: Date.now() - startedAt,
       success,
       error
-    }, TASK_LOG_CAP);
+    }, TASK_LOG_CAP).catch(err => console.error('task log write failed:', err && err.message));
   }
 }
 
@@ -430,6 +435,23 @@ export function toolDefinitionsForPersona(personaId) {
   return TOOL_DEFINITIONS.filter(t => persona.toolNames.includes(t.name));
 }
 
+// Put an ephemeral cache breakpoint on the final content block of the last
+// message. Anthropic caches the prefix up to the breakpoint, so a long history
+// and a long tool chain stop being re-read on every iteration. Text-only blocks
+// are left alone if the shape is anything unexpected — a mis-shaped
+// cache_control is a hard API error, and a slower reply beats a failed one.
+function withMessageCacheBreakpoint(messages) {
+  if (!messages.length) return messages;
+  const last = messages[messages.length - 1];
+  if (!last || typeof last.content === 'string') {
+    return messages.slice(0, -1).concat([{
+      role: last.role,
+      content: [{ type: 'text', text: last.content, cache_control: { type: 'ephemeral' } }]
+    }]);
+  }
+  return messages;
+}
+
 export async function callClaudeWithTools(env, personaAndBaseline, channelAndSender, longTermMemoryBlock, initialMessages, allowTools, extraContext, personaId = DEFAULT_PERSONA_ID) {
   const systemBlocks = [
     { type: 'text', text: personaAndBaseline, cache_control: { type: 'ephemeral' } },
@@ -438,7 +460,11 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   ];
   if (extraContext) systemBlocks.push({ type: 'text', text: extraContext });
 
-  let messages = [...initialMessages];
+  // A second cache breakpoint, on the last message going in. Without it every one
+  // of the up-to-14 tool-loop iterations re-processed the whole conversation and
+  // every accumulated tool result from scratch — the deeper the tool chain, the
+  // more it cost. With it, each iteration only pays for what is genuinely new.
+  let messages = withMessageCacheBreakpoint([...initialMessages]);
   let lastResult = null;
 
   // ---- FIXED: wake-trigger messages get NO tools at all, so the greeting is always a

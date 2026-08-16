@@ -21,7 +21,7 @@ import { getActivityLog } from './lib/activity.js';
 import { readCappedLog } from './lib/util.js';
 import { notify, flushNotificationDigestIfDue, getNotificationLog } from './lib/notifications.js';
 import { runMonitoringSweep, getWatchList } from './lib/monitoring.js';
-import { PERSONAS, ALL_PERSONA_IDS, DEFAULT_PERSONA_ID, getPersona, getPersonaBotToken, getPersonaVoiceId, historyKeyFor, resolvePersonaId } from './lib/personas.js';
+import { PERSONAS, ALL_PERSONA_IDS, DEFAULT_PERSONA_ID, getPersona, getPersonaBotToken, getPersonaVoiceId, getPersonaVoiceSettings, historyKeyFor, resolvePersonaId } from './lib/personas.js';
 import { runPersonaAutonomyIfDue, getAllStatuses, getAutonomyLog, setPersonaStatus, runThorSelfCheck } from './lib/autonomy.js';
 import { runRoundtable } from './lib/roundtable.js';
 
@@ -88,7 +88,17 @@ async function handleChatTurn(env, ctx, opts) {
   // Pending-confirmation flow — persona-scoped so Loki's pending action can't
   // be confirmed at Odin's table.
   const pendingKey = `pending:${personaId}`;
-  const pendingRaw = await env.RAYVEN_KV.get(pendingKey);
+
+  // These three reads are independent of each other, and every turn used to wait
+  // for them one after another — three serialized KV round trips before Anthropic
+  // was even called. Firing them together makes it one. The only cost is a wasted
+  // history/memory read on the rare pending-confirmation turn, which is free
+  // because it happens in parallel anyway.
+  const [pendingRaw, prefetchedHistoryRaw, prefetchedMemoryBlock] = await Promise.all([
+    env.RAYVEN_KV.get(pendingKey),
+    loadHistory(env, memoryKey),
+    getRecentMemoryBlock(env, personaId)
+  ]);
   if (pendingRaw && isAffirmative(userMessage)) {
     const pending = JSON.parse(pendingRaw);
     await env.RAYVEN_KV.delete(pendingKey);
@@ -104,7 +114,7 @@ async function handleChatTurn(env, ctx, opts) {
     await env.RAYVEN_KV.delete(pendingKey);
   }
 
-  let history = sanitizeHistory(await loadHistory(env, memoryKey));
+  let history = sanitizeHistory(prefetchedHistoryRaw);
   history.push({ role: 'user', content: historyEntryContent });
   if (history.length > MAX_HISTORY) history = history.slice(-MAX_HISTORY);
   const claudeMessages = history;
@@ -125,7 +135,7 @@ async function handleChatTurn(env, ctx, opts) {
 
   const isWakeTrigger = !isTelegram && typeof userMessage === 'string' && userMessage.startsWith('[WAKE_TRIGGER]');
 
-  const longTermMemoryBlock = await getRecentMemoryBlock(env, personaId);
+  const longTermMemoryBlock = prefetchedMemoryBlock;
 
   let wakeCodeCheckContext = null;
   if (isWakeTrigger && personaId === DEFAULT_PERSONA_ID) {
@@ -671,7 +681,7 @@ export default {
           body: JSON.stringify({
             text: text,
             model_id: 'eleven_turbo_v2_5',
-            voice_settings: { stability: 0.7, similarity_boost: 0.75, use_speaker_boost: true }
+            voice_settings: getPersonaVoiceSettings(resolvePersonaId(persona || assistant))
           })
         });
         if (!elevenRes.ok) {

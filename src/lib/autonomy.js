@@ -30,13 +30,14 @@ export async function setPersonaStatus(env, personaId, task, progress = null, et
 }
 
 export async function getAllStatuses(env) {
+  // One round trip instead of one per persona — the frontend polls this.
+  const raws = await Promise.all(ALL_PERSONA_IDS.map(id => env.RAYVEN_KV.get(`status:${id}`)));
   const statuses = {};
-  for (const id of ALL_PERSONA_IDS) {
-    const raw = await env.RAYVEN_KV.get(`status:${id}`);
+  ALL_PERSONA_IDS.forEach((id, i) => {
     let status = null;
-    try { status = raw ? JSON.parse(raw) : null; } catch (e) {}
+    try { status = raws[i] ? JSON.parse(raws[i]) : null; } catch (e) {}
     statuses[id] = status || { personaId: id, task: 'idle', progress: null, eta: null, at: null };
-  }
+  });
   return statuses;
 }
 
