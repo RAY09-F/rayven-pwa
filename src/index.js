@@ -24,6 +24,8 @@ import { runMonitoringSweep, getWatchList } from './lib/monitoring.js';
 import { PERSONAS, ALL_PERSONA_IDS, DEFAULT_PERSONA_ID, getPersona, getPersonaBotToken, getPersonaVoiceId, getPersonaVoiceSettings, historyKeyFor, resolvePersonaId } from './lib/personas.js';
 import { runPersonaAutonomyIfDue, getAllStatuses, getAutonomyLog, setPersonaStatus, runThorSelfCheck } from './lib/autonomy.js';
 import { runRoundtable } from './lib/roundtable.js';
+import { runClipCycleIfDue } from './lib/clipping.js';
+import { igRefreshIfDue } from './lib/instagram.js';
 
 const RAYAN_TELEGRAM_USERNAME = 'rayanfahil';
 
@@ -815,6 +817,12 @@ export default {
     ctx.waitUntil(runPersonaAutonomyIfDue(env));
     ctx.waitUntil(runLokiBriefIfDue(env));
     ctx.waitUntil(runOdinReportIfDue(env));
+    // The clipping pass. Publishes at most one clip per tick and stops dead at
+    // the day's ramp allowance, so it cannot run away even if the queue is deep.
+    ctx.waitUntil(runClipCycleIfDue(env));
+    // Instagram long-lived tokens expire at 60 days. Refreshed weekly so the
+    // free Instagram path does not quietly stop working two months from now.
+    ctx.waitUntil(igRefreshIfDue(env));
     // Sweep first, then flush, so any digest-priority alerts the sweep just
     // queued go out this same tick instead of waiting for the next one.
     ctx.waitUntil(runMonitoringSweep(env).then(() => flushNotificationDigestIfDue(env)));

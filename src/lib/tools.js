@@ -6,6 +6,8 @@
 import { callAnthropic } from './anthropic.js';
 import { checkPermission } from './permissions.js';
 import { appendCappedLog, readCappedLog } from './util.js';
+import { findClips, queueAdd, queueList, queueRemove, setAccounts, setPlatforms, setMonthlyCap, publishNext, clippingStatus } from './clipping.js';
+import { igAddAccount, igListAccounts, igRemoveAccount, igPublish, igRefreshTokens } from './instagram.js';
 import { addTodo, listTodos, completeTodo, addContentIdea, listContentIdeas, addCalendarEvent, removeCalendarEvent, listCalendarEventsText } from './kv-store.js';
 import { addLongTermMemory, searchMemory } from './memory.js';
 import { getToolPermissionsText, setToolPermission } from './permissions.js';
@@ -80,6 +82,20 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID) {
     case 'list_content_ideas': return await listContentIdeas(env, input.platform);
     case 'get_tool_permissions': return await getToolPermissionsText(env);
     case 'list_my_tools': return listMyTools(personaId);
+    case 'clips_find': return await findClips(env, input);
+    case 'clips_queue_add': return await queueAdd(env, input);
+    case 'clips_queue': return await queueList(env);
+    case 'clips_queue_remove': return await queueRemove(env, input);
+    case 'clips_set_accounts': return await setAccounts(env, input);
+    case 'clips_publish_next': return await publishNext(env, input);
+    case 'clips_set_platforms': return await setPlatforms(env, input);
+    case 'ig_add_account': return await igAddAccount(env, input);
+    case 'ig_accounts': return await igListAccounts(env);
+    case 'ig_remove_account': return await igRemoveAccount(env, input);
+    case 'ig_post_reel': return await igPublish(env, input);
+    case 'ig_refresh_tokens': return await igRefreshTokens(env, input);
+    case 'clips_set_monthly_cap': return await setMonthlyCap(env, input);
+    case 'clips_status': return await clippingStatus(env);
     case 'set_tool_permission': return await setToolPermission(env, input.toolName, input.level);
     case 'send_text': return await sendTextMessage(env, input.to, input.message);
     case 'make_call': return await makePhoneCall(env, input.to, input.message);
@@ -221,6 +237,72 @@ export const TOOL_DEFINITIONS = [
     description: "Show the current permission level (auto/notify/confirm/off) for every gateable tool.",
     input_schema: { type: 'object', properties: {} }
   },
+  {
+    name: 'clips_find',
+    description: "DISCOVERY ONLY — find which clips on Twitch are performing, by game or by streamer, most-watched first. This returns titles, view counts and page links; it does NOT return the video file, because Twitch has no download API and pulling the mp4 programmatically breaks their Developer Agreement. To publish one, the file must come from the streamer or from your own recordings, hosted at a public https link. Gaming and IRL only — this pipeline deliberately does not handle movie or league sports footage.",
+    input_schema: { type: 'object', properties: {
+      game: { type: 'string', description: 'Exact game name as Twitch lists it, e.g. "Grand Theft Auto V"' },
+      broadcaster: { type: 'string', description: 'Twitch channel login name' },
+      days: { type: 'number', description: 'How far back to look, default 2' },
+      limit: { type: 'number', description: 'How many to return, default 20, max 100' }
+    } }
+  },
+  {
+    name: 'clips_queue_add',
+    description: "Queue a clip for publishing. REQUIRES two things: a videoUrl pointing at the actual video FILE (not a Twitch/YouTube page — the publisher downloads the media itself and cannot read a web page), and a hook you have written yourself. The pipeline refuses clips missing either, because an unmodified repost is what gets accounts downranked on all three platforms. Write the hook as the on-screen text that makes someone stop scrolling.",
+    input_schema: { type: 'object', properties: {
+      videoUrl: { type: 'string', description: 'REQUIRED. Direct https link to the video file itself, e.g. an R2 public link ending .mp4. Must load with no login. A clips.twitch.tv page link is NOT this and will be refused.' },
+      clipId: { type: 'string', description: 'Optional Twitch clip id, for reference only' },
+      clipUrl: { type: 'string', description: 'Optional original clip page, for reference only' },
+      hook: { type: 'string', description: 'The written hook. Yours, specific to this clip, at least a dozen characters.' },
+      caption: { type: 'string', description: 'Longer caption / description' },
+      credit: { type: 'string', description: 'Streamer name to credit' }
+    }, required: ['videoUrl', 'hook'] }
+  },
+  { name: 'clips_queue', description: 'Show what is queued to publish.', input_schema: { type: 'object', properties: {} } },
+  { name: 'clips_queue_remove', description: 'Drop a queued clip by its number in the list.', input_schema: { type: 'object', properties: { index: { type: 'number' } }, required: ['index'] } },
+  {
+    name: 'clips_set_accounts',
+    description: 'Set the publisher profiles to rotate through, comma separated. On Ayrshare these are Profile-Keys; on Upload-Post they are profile names. Each profile carries one account per network.',
+    input_schema: { type: 'object', properties: { profiles: { type: 'string' } }, required: ['profiles'] }
+  },
+  {
+    name: 'clips_publish_next',
+    description: "Publish the next queued clip(s) now, respecting the warm-up ramp. Refuses once the day's allowance is used — that limit exists to stop 15 new accounts tripping spam detection together.",
+    input_schema: { type: 'object', properties: { count: { type: 'number', description: 'How many to publish, default 1' } } }
+  },
+  {
+    name: 'ig_add_account',
+    description: "Connect one of Rayan's own Instagram professional accounts for direct posting — free, public, no App Review, and it keeps working after any paid trial ends. Needs a name, the Instagram user id, and a long-lived access token. Verifies the token before saving.",
+    input_schema: { type: 'object', properties: {
+      name: { type: 'string', description: 'What to call it, e.g. rig1' },
+      igId: { type: 'string', description: 'Instagram user id' },
+      token: { type: 'string', description: 'Long-lived access token' }
+    }, required: ['name', 'igId', 'token'] }
+  },
+  { name: 'ig_accounts', description: 'List connected Instagram accounts and how much of each 24-hour posting allowance is used.', input_schema: { type: 'object', properties: {} } },
+  { name: 'ig_remove_account', description: 'Disconnect an Instagram account by name.', input_schema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } },
+  {
+    name: 'ig_post_reel',
+    description: "Post a Reel straight to Instagram from a public video URL. Give an account name to target one, or leave it out to post to all connected accounts. Meta allows up to 100 API posts per account per rolling 24 hours.",
+    input_schema: { type: 'object', properties: {
+      videoUrl: { type: 'string', description: 'Public https URL to the video' },
+      caption: { type: 'string' },
+      account: { type: 'string', description: 'Optional — one account name. Omit for all.' }
+    }, required: ['videoUrl'] }
+  },
+  { name: 'ig_refresh_tokens', description: 'Refresh the Instagram long-lived tokens now. Happens weekly on its own; this is for when something looks wrong.', input_schema: { type: 'object', properties: {} } },
+  {
+    name: 'clips_set_platforms',
+    description: "Choose which networks each profile publishes to, comma separated — tiktok, youtube, instagram, facebook. Defaults to tiktok + youtube.",
+    input_schema: { type: 'object', properties: { platforms: { type: 'string' } }, required: ['platforms'] }
+  },
+  {
+    name: 'clips_set_monthly_cap',
+    description: 'Set how many uploads the current posting plan allows per month, so the pipeline stops cleanly at the ceiling instead of failing mid-post. Free tiers are small and do not announce themselves.',
+    input_schema: { type: 'object', properties: { cap: { type: 'number' } }, required: ['cap'] }
+  },
+  { name: 'clips_status', description: "Where the clipping operation stands: ramp day, today's allowance, how many went out, queue depth, and what is not yet connected.", input_schema: { type: 'object', properties: {} } },
   {
     name: 'list_my_tools',
     description: "List EVERY tool you personally have, with what each one does. Call this whenever Rayan asks what you can do, what tools you have, or what your capabilities are — never answer that from memory, because you will miss some and he is asking precisely because he wants the real list.",
