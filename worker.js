@@ -28,6 +28,78 @@ export default {
       return new Response(JSON.stringify(mem, null, 2), { headers: { ...corsHeaders, 'content-type': 'application/json' } });
     }
 
+    // -----------------------------------------------------------------------
+    // Endpoints the HUD frontend polls. These existed only on the multi-persona
+    // src/ backend; without them the HUD's latency readout sat at "—", the
+    // status strip showed "LINK DOWN — retrying", and the memory map opened
+    // empty. They report real state or nothing — never invented numbers.
+    // -----------------------------------------------------------------------
+
+    // Health + round-trip latency for the telemetry bar.
+    if (url.pathname === '/ping') {
+      return new Response(JSON.stringify({ ok: true, t: Date.now() }), { headers: { ...corsHeaders, 'content-type': 'application/json' } });
+    }
+
+    // Status strip and ops floor. RAYVEN is a single assistant, so there is one
+    // entry, and the shape stays keyed by id so the HUD needs no special case.
+    //
+    // There is no autonomy engine on this backend to report a running task, so
+    // this says "idle" and means it. The one genuinely live signal available is
+    // when the daily self-code-check last completed, which is real, so it is
+    // surfaced instead of padding the card with invented progress.
+    if (url.pathname === '/status') {
+      let lastCheck = null;
+      try {
+        const raw = await env.RAYVEN_KV.get('codecheck:last_run');
+        if (raw) lastCheck = Number(raw) || null;
+      } catch (e) {}
+      return new Response(JSON.stringify({
+        ok: true,
+        personas: {
+          rayven: {
+            lane: 'personal · business · comms',
+            status: { task: 'idle', progress: 0, eta: null, at: lastCheck }
+          }
+        }
+      }), { headers: { ...corsHeaders, 'content-type': 'application/json' } });
+    }
+
+    // Memory map. Long-term memory is a flat array with no stable ids, so the
+    // array index is the id — which is why /memory/update below takes an index
+    // and re-checks the fact it is replacing before writing.
+    if (url.pathname === '/memory/map' && request.method === 'GET') {
+      const memRaw = await env.RAYVEN_KV.get('memory:longterm');
+      const mem = memRaw ? JSON.parse(memRaw) : [];
+      const nodes = mem.map((m, i) => ({ id: String(i), fact: m.fact, date: m.date || null, sharedFrom: null }));
+      return new Response(JSON.stringify({ rayven: nodes }), { headers: { ...corsHeaders, 'content-type': 'application/json' } });
+    }
+
+    // Click-to-edit in the memory map. Guarded rather than trusting the index:
+    // memory can be appended to or trimmed between the map loading and an edit
+    // landing, and a bare index write would silently overwrite the wrong fact.
+    if (url.pathname === '/memory/update' && request.method === 'POST') {
+      try {
+        const { memId, fact, prevFact } = await request.json();
+        const idx = Number(memId);
+        if (!Number.isInteger(idx) || idx < 0 || !fact || typeof fact !== 'string') {
+          return new Response(JSON.stringify({ ok: false, error: 'memId and fact are required' }), { status: 400, headers: { ...corsHeaders, 'content-type': 'application/json' } });
+        }
+        const memRaw = await env.RAYVEN_KV.get('memory:longterm');
+        const mem = memRaw ? JSON.parse(memRaw) : [];
+        if (idx >= mem.length) {
+          return new Response(JSON.stringify({ ok: false, error: 'no memory at that index' }), { status: 404, headers: { ...corsHeaders, 'content-type': 'application/json' } });
+        }
+        if (typeof prevFact === 'string' && mem[idx].fact !== prevFact) {
+          return new Response(JSON.stringify({ ok: false, error: 'memory changed underneath this edit; reopen the map' }), { status: 409, headers: { ...corsHeaders, 'content-type': 'application/json' } });
+        }
+        mem[idx] = { ...mem[idx], fact: String(fact).trim() };
+        await env.RAYVEN_KV.put('memory:longterm', JSON.stringify(mem));
+        return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, 'content-type': 'application/json' } });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: err.message }), { status: 500, headers: { ...corsHeaders, 'content-type': 'application/json' } });
+      }
+    }
+
     if (url.pathname === '/todos' && request.method === 'GET') {
       const todosRaw = await env.RAYVEN_KV.get('todos');
       const todos = todosRaw ? JSON.parse(todosRaw) : [];
