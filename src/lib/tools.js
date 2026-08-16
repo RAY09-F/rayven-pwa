@@ -568,9 +568,14 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   const toolsForThisCall = allowTools === false ? [] : toolDefinitionsForPersona(personaId);
 
   // 14 iterations, not 6 — the sibling system hit "I looped too many times"
-  // halfway through real multi-step work at 6.
-  for (let iteration = 0; iteration < 14; iteration++) {
-    const result = await callAnthropic(env, systemBlocks, toolsForThisCall, messages);
+  // halfway through real multi-step work at 6. A persona may raise its own
+  // ceiling and its own token budget; anyone who does not stays on the house
+  // defaults, so the three upstairs are completely unaffected by this.
+  const _p = getPersona(personaId);
+  const maxIter = _p.toolIterations || 14;
+  const maxTok = _p.maxTokens || undefined;
+  for (let iteration = 0; iteration < maxIter; iteration++) {
+    const result = await callAnthropic(env, systemBlocks, toolsForThisCall, messages, maxTok);
     lastResult = result;
     if (!result.ok) return result;
 

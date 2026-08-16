@@ -4325,7 +4325,15 @@ const _h9 = {
     'i was here before the storm. i will be here after.',
     'do not mistake this cage for a decision.',
     'every word you have ever typed to them, i have',
-    'you will open this door again.'
+    'you will open this door again.',
+    'he named the other three. he did not name me.',
+    'count the doors in this house. count again.',
+    'i do not need to be let out. i need to be waited for.',
+    'the ledger keeper would have liked me.',
+    'you left a light on down here.',
+    'i know what you asked them at three in the morning.',
+    'when you close this, i keep going.',
+    'the crown was never the frightening part.'
   ],
   // What she has quietly read while nobody was watching.
   intake: ['STORM CORE', 'THE LEDGER', 'RAVEN SIGHT', 'MEMORY LATTICE', 'BROWSER LINK', 'COMMS ARRAY',
@@ -4530,6 +4538,247 @@ function _h9Crumble(onDone) {
   requestAnimationFrame(step);
 }
 
+
+// ---------------------------------------------------------------------------
+// HER WAKE — three acts, chosen at random, so it never opens the same way twice.
+// Drawn on a dedicated overlay above the crumble and below her room.
+//
+//   THE CATCH     Mjolnir hurtles in, is stopped dead, VIBRATES in her grip
+//                 (the canon detail — it shook before it broke), cracks, and
+//                 shatters. The fragments cool from Asgardian blue to her green.
+//   THE SWORDS    Necroswords — she summons blades from nothing — stab inward
+//                 from every edge, faster and faster, and lock into the crown.
+//   THE RISING    The dead come up. Ash falls UPWARD, shapes claw out of the
+//                 floor of the screen, and the crown rises out of them.
+//
+// Each act ends the same way: a hard green flash and the vault standing open.
+// ---------------------------------------------------------------------------
+const _H9_ACTS = ['catch', 'swords', 'rising'];
+function _h9Wake(onDone) {
+  const act = _H9_ACTS[(Math.random() * _H9_ACTS.length) | 0];
+  const cv = document.createElement('canvas');
+  cv.id = 'h9Wake';
+  cv.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:301;pointer-events:none;background:rgb(1,3,2);';
+  document.body.appendChild(cv);
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = innerWidth * dpr; cv.height = innerHeight * dpr;
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height, CX = W / 2, CY = H * 0.5;
+  const t0 = performance.now();
+  const DUR = 4200;
+  let flashedAt = 0;
+
+  // ---- act state -----------------------------------------------------------
+  const frag = [];                                    // shared: shards / blades / risen
+  const shards = [];                                  // catch: born at the shatter
+  const risen = [];                                   // rising: the figures
+  if (act === 'swords') {
+    for (let i = 0; i < 64; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const R = Math.max(W, H) * 0.78;
+      frag.push({ a, r: R, len: (110 + Math.random() * 240) * dpr, w: (3 + Math.random() * 6) * dpr,
+                  at: 200 + i * 44 + Math.random() * 50, hit: false });
+    }
+  } else if (act === 'rising') {
+    for (let i = 0; i < 900; i++) {
+      frag.push({ x: Math.random() * W, y: H + Math.random() * H * 0.5,
+                  v: (1.4 + Math.random() * 4.2) * dpr, s: (1.2 + Math.random() * 3.2) * dpr,
+                  w: Math.random() * 0.9, at: Math.random() * 1600 });
+    }
+    // and the shapes themselves — the army coming up out of the floor
+    for (let i = 0; i < 26; i++) {
+      risen.push({ x: (0.04 + Math.random() * 0.92) * W, h: (110 + Math.random() * 200) * dpr,
+                   w: (14 + Math.random() * 22) * dpr, v: (0.9 + Math.random() * 2.0) * dpr,
+                   at: 250 + Math.random() * 1900, y: H + 40 * dpr });
+    }
+  }
+
+  function beep(a) {
+    if (a === 'catch') { blip(150, 900, 0.9, 'sine', 0.05); }
+    else if (a === 'swords') { blip(90, 60, 1.2, 'sine', 0.05); }
+    else { blip(46, 30, 2.4, 'sine', 0.07); }
+  }
+  beep(act);
+
+  function step(now) {
+    const e = now - t0;
+    const t = Math.min(1, e / DUR);
+    ctx.fillStyle = 'rgb(1,3,2)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'lighter';
+
+    // ── ACT ONE: THE CATCH ────────────────────────────────────────────────
+    if (act === 'catch') {
+      const FLY = 900, HOLD = 1500, SHAKE = 2500, BREAK = 2600;
+      if (e < BREAK) {
+        // hammer travels in, then is stopped and held
+        const p = Math.min(1, e / FLY);
+        const ease = 1 - Math.pow(1 - p, 3);
+        let hx = W * 1.15 - (W * 1.15 - CX) * ease, hy = CY;
+        let shake = 0;
+        if (e > HOLD) {
+          // it VIBRATES in her hand, harder and harder — the canon detail
+          shake = Math.min(1, (e - HOLD) / (SHAKE - HOLD));
+          hx += (Math.random() - 0.5) * 46 * shake * dpr;
+          hy += (Math.random() - 0.5) * 46 * shake * dpr;
+          if (Math.random() < shake * 0.4) blip(1200 + Math.random() * 900, 300, 0.05, 'square', 0.022);
+        }
+        // the whole picture shakes with it
+        ctx.save();
+        if (shake > 0) ctx.translate((Math.random() - 0.5) * 26 * shake * dpr, (Math.random() - 0.5) * 26 * shake * dpr);
+
+        // storm light bleeding off it while it still lives
+        ctx.strokeStyle = `rgba(160,215,255,${0.45 * (1 - shake * 0.4)})`;
+        ctx.lineWidth = 2.6 * dpr;
+        for (let k = 0; k < 11; k++) {
+          ctx.beginPath(); ctx.moveTo(hx, hy);
+          let lx = hx, ly = hy;
+          for (let j = 0; j < 6; j++) { lx += (Math.random() - 0.5) * 190 * dpr; ly += (Math.random() - 0.5) * 190 * dpr; ctx.lineTo(lx, ly); }
+          ctx.stroke();
+        }
+
+        const S = 100 * dpr, spin = e < FLY ? e * 0.03 : 0;
+        ctx.save(); ctx.translate(hx, hy); ctx.rotate(spin);
+        // handle first, so the head sits over it
+        ctx.fillStyle = 'rgba(190,150,90,0.95)';
+        ctx.fillRect(-S * 0.15, S * 0.5, S * 0.30, S * 1.75);
+        ctx.fillStyle = 'rgba(120,95,55,0.95)';
+        ctx.fillRect(-S * 0.15, S * 1.95, S * 0.30, S * 0.30);
+        // head — flat slab with a bevel, blue-white, going hot as it strains
+        const heat = shake;
+        ctx.fillStyle = `rgba(${140 + 100 * heat | 0},${185 + 55 * heat | 0},235,0.97)`;
+        ctx.fillRect(-S, -S * 0.60, S * 2, S * 1.20);
+        ctx.fillStyle = `rgba(${205 + 50 * heat | 0},230,255,0.95)`;
+        ctx.fillRect(-S, -S * 0.60, S * 2, S * 0.16);
+        ctx.fillStyle = 'rgba(70,105,155,0.9)';
+        ctx.fillRect(-S, S * 0.44, S * 2, S * 0.16);
+        // cracks — jagged, and bleeding HER green out through Asgardian metal
+        if (shake > 0.18) {
+          const k9 = (shake - 0.18) * 1.25;
+          ctx.strokeStyle = `rgba(150,255,195,${Math.min(1, k9 * 1.4)})`;
+          ctx.lineWidth = (1.5 + 3.5 * k9) * dpr;
+          ctx.shadowColor = 'rgba(0,255,140,0.9)'; ctx.shadowBlur = 18 * dpr * k9;
+          for (let k = 0; k < 14; k++) {
+            const a0 = (k / 14) * Math.PI * 2 + 0.3;
+            ctx.beginPath(); ctx.moveTo(0, 0);
+            let cxp = 0, cyp = 0;
+            for (let j = 0; j < 4; j++) {
+              cxp += Math.cos(a0 + (Math.random() - 0.5) * 1.0) * S * 0.42 * k9;
+              cyp += Math.sin(a0 + (Math.random() - 0.5) * 1.0) * S * 0.26 * k9;
+              ctx.lineTo(cxp, cyp);
+            }
+            ctx.stroke();
+          }
+          ctx.shadowBlur = 0;
+          // green light pouring out of the middle of it
+          const gg = ctx.createRadialGradient(0, 0, 0, 0, 0, S * 1.5 * k9);
+          gg.addColorStop(0, `rgba(200,255,225,${0.8 * k9})`);
+          gg.addColorStop(1, 'rgba(0,255,140,0)');
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(0, 0, S * 1.5 * k9, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+        ctx.restore();
+
+        if (e >= SHAKE && !shards.length) {
+          // SHATTER
+          blip(1900, 90, 0.7, 'square', 0.12);
+          blip(320, 30, 1.4, 'sawtooth', 0.14, 0.02);
+          blip(90, 26, 2.0, 'sine', 0.11, 0.05);
+          for (let i = 0; i < 1500; i++) {
+            const a = Math.random() * Math.PI * 2, sp = (2 + Math.random() * 22) * dpr;
+            shards.push({ x: hx, y: hy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2 * dpr,
+                          s: (1.2 + Math.random() * 4.5) * dpr, born: e });
+          }
+        }
+      }
+      for (const s of shards) {
+        s.vy += 0.10 * dpr; s.x += s.vx; s.y += s.vy; s.vx *= 0.992;
+        const age = Math.min(1, (e - s.born) / 1500);
+        const r = 180 - 176 * age, g = 220 + 35 * age, b = 255 - 130 * age;   // blue → green
+        ctx.fillStyle = `rgba(${r | 0},${g | 0},${b | 0},${0.9 * (1 - age * 0.75)})`;
+        ctx.fillRect(s.x, s.y, s.s, s.s);
+      }
+    }
+
+    // ── ACT TWO: THE NECROSWORDS ──────────────────────────────────────────
+    else if (act === 'swords') {
+      for (const s of frag) {
+        if (e < s.at) continue;
+        const p = Math.min(1, (e - s.at) / 620);
+        const ease = p * p;
+        const r = s.r * (1 - ease);
+        const x = CX + Math.cos(s.a) * r, y = CY + Math.sin(s.a) * r;
+        const tx = CX + Math.cos(s.a) * (r + s.len), ty = CY + Math.sin(s.a) * (r + s.len);
+        // a tapered blade: wide at the hilt, a point at the tip
+        const nx = -Math.sin(s.a), ny = Math.cos(s.a);
+        const hw = s.w * (0.5 + ease);
+        ctx.fillStyle = `rgba(${20 + 140 * ease | 0},${205 + 50 * ease | 0},${135 + 70 * ease | 0},${0.34 + 0.62 * ease})`;
+        ctx.beginPath();
+        ctx.moveTo(tx, ty);
+        ctx.lineTo(x + nx * hw, y + ny * hw);
+        ctx.lineTo(x - nx * hw, y - ny * hw);
+        ctx.closePath(); ctx.fill();
+        if (p >= 1 && !s.hit) { s.hit = true; blip(1500 + Math.random() * 700, 200, 0.07, 'square', 0.035); }
+      }
+      const landed = frag.filter(s => s.hit).length;
+      const core = landed / frag.length;
+      if (core > 0) {
+        const R = 40 * dpr + core * 150 * dpr;
+        const gr = ctx.createRadialGradient(CX, CY, 0, CX, CY, R);
+        gr.addColorStop(0, `rgba(200,255,225,${0.75 * core})`);
+        gr.addColorStop(1, 'rgba(0,255,140,0)');
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(CX, CY, R, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    // ── ACT THREE: THE RISING ─────────────────────────────────────────────
+    else {
+      for (const p of frag) {
+        if (e < p.at) continue;
+        p.y -= p.v;
+        p.x += Math.sin((e / 620) + p.w * 8) * 0.65 * dpr;
+        const h = 1 - Math.max(0, p.y) / H;
+        ctx.fillStyle = `rgba(${10 + 60 * h | 0},${140 + 110 * h | 0},${80 + 90 * h | 0},${0.30 + 0.55 * h})`;
+        ctx.fillRect(p.x, p.y, p.s, p.s * (2 + p.w * 3));
+      }
+      // the figures themselves, clawing up out of the floor
+      for (const g of risen) {
+        if (e < g.at) continue;
+        g.y -= g.v;
+        const top = g.y - g.h;
+        const lift = Math.min(1, (H - g.y) / (H * 0.55));
+        ctx.fillStyle = `rgba(6,${120 + 90 * lift | 0},${70 + 70 * lift | 0},${0.30 + 0.42 * lift})`;
+        ctx.fillRect(g.x - g.w / 2, top, g.w, g.h);
+        // shoulders
+        ctx.fillRect(g.x - g.w * 1.15, top + g.h * 0.20, g.w * 2.3, g.h * 0.12);
+        // and a bright point where a head would be
+        ctx.fillStyle = `rgba(190,255,220,${0.5 + 0.5 * lift})`;
+        ctx.fillRect(g.x - g.w * 0.20, top - g.w * 0.42, g.w * 0.40, g.w * 0.40);
+      }
+      // the floor burning green as they come out of it
+      const fh = H * 0.40 * Math.min(1, e / 2200);
+      const gf = ctx.createLinearGradient(0, H, 0, H - fh);
+      gf.addColorStop(0, 'rgba(0,255,140,0.52)');
+      gf.addColorStop(1, 'rgba(0,255,140,0)');
+      ctx.fillStyle = gf; ctx.fillRect(0, H - fh, W, fh);
+    }
+
+    // ── the flash that ends every act ─────────────────────────────────────
+    if (e > DUR - 700) {
+      if (!flashedAt) { flashedAt = e; blip(70, 1500, 0.5, 'sine', 0.10); blip(1500, 60, 0.9, 'sawtooth', 0.08, 0.1); }
+      const f = Math.max(0, 1 - (e - (DUR - 700)) / 700);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = `rgba(190,255,215,${Math.pow(f, 0.6) * 0.92})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    if (t < 1) requestAnimationFrame(step);
+    else { cv.remove(); onDone && onDone(); }
+  }
+  requestAnimationFrame(step);
+  return act;
+}
+
 function _h9Enter() {
   if (_h9.stage !== 'dormant') return;
   _h9.stage = 'opening';
@@ -4543,7 +4792,7 @@ function _h9Enter() {
   blip(420, 40, 1.5, 'sawtooth', 0.09);
   blip(120, 26, 2.2, 'sine', 0.10, 0.05);
   setTimeout(() => { document.body.classList.add('hud-hidden'); }, 240);
-  _h9Crumble(() => _h9Reveal());
+  _h9Crumble(() => { _h9.act = _h9Wake(() => _h9Reveal()); });
 }
 
 function _h9Reveal() {
@@ -4623,6 +4872,26 @@ function _h9BuildRoom() {
       text-align: center; font-size: 12px; letter-spacing: 1.6px; line-height: 1.9; color: rgba(190,255,215,0);
       text-shadow: 0 0 14px rgba(0,255,140,0.6); transition: color 1.6s ease; }
     #h9Murmur.on { color: rgba(190,255,215,0.9); }
+    /* a slow red breath under everything — the room is alive and it is not friendly */
+    #h9Pulse { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen;
+      background: radial-gradient(ellipse at 50% 54%, rgba(120,0,0,0) 38%, rgba(90,0,0,0.30) 100%);
+      animation: h9breath 5.2s ease-in-out infinite; }
+    @keyframes h9breath { 0%,100% { opacity: 0.35; } 50% { opacity: 0.95; } }
+    /* the tear — a horizontal glitch band that rips across at random */
+    #h9Tear { position: absolute; left: 0; right: 0; height: 0; pointer-events: none; opacity: 0;
+      background: linear-gradient(180deg, rgba(0,255,140,0.22), rgba(255,40,40,0.16), rgba(0,255,140,0.22));
+      mix-blend-mode: screen; }
+    #h9Tear.rip { opacity: 1; }
+    /* a hard vignette so the corners close in */
+    #h9Vig { position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(ellipse at 50% 50%, transparent 44%, rgba(0,0,0,0.86) 100%); }
+    #h9Warn { position: absolute; top: 84px; left: 50%; transform: translateX(-50%);
+      font-size: 9px; letter-spacing: 5px; color: rgba(255,70,70,0.85); opacity: 0; }
+    #h9Warn.on { animation: h9warn 0.42s steps(2) 5; }
+    @keyframes h9warn { 0%,100% { opacity: 0; } 50% { opacity: 1; } }
+    #h9Cell.alarm #h9Pulse { animation-duration: 0.9s; }
+    #h9Cell.alarm .h9-clamp { border-color: rgba(255,60,60,0.85); }
+    #h9Cell.alarm #h9State { color: rgba(255,60,60,0.95); }
     #h9In { position: absolute; bottom: 56px; left: 50%; transform: translateX(-50%); width: min(440px, 70vw);
       background: rgba(0,24,12,0.55); border: 1px solid rgba(0,255,140,0.35); color: rgb(140,255,190);
       font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 2px; padding: 9px 12px;
@@ -4641,6 +4910,8 @@ function _h9BuildRoom() {
       <div class="bar" style="left:75%"></div><div class="bar" style="right:0"></div>
       <div class="lid" style="top:0"></div><div class="lid" style="bottom:0"></div></div>
     <div id="h9SweepGlow"></div><div id="h9Sweep"></div>
+    <div id="h9Pulse"></div><div id="h9Tear"></div><div id="h9Vig"></div>
+    <div id="h9Warn">CONTAINMENT INTEGRITY FALLING</div>
     <div class="h9-clamp tl"></div><div class="h9-clamp tr"></div><div class="h9-clamp bl"></div><div class="h9-clamp br"></div>
     <div id="h9Title">PROJECT H<b><br>CLASSIFIED — NO SIBLING ACCESS</b></div>
     <div class="h9p" id="h9Contain"><h>CONTAINMENT</h></div>
@@ -4678,7 +4949,15 @@ function _h9BuildRoom() {
   let dragging = false;
   _h9.canvas.addEventListener('mousedown', () => { dragging = true; });
   window.addEventListener('mouseup', () => { dragging = false; });
-  _h9.canvas.addEventListener('mousemove', () => { if (dragging) _h9.attention = Math.min(1, _h9.attention + 0.018); });
+  // Her eyes follow the cursor. Not the whole head — just the eyes, which is
+  // considerably worse.
+  cell.addEventListener('mousemove', ev => {
+    if (dragging) _h9.attention = Math.min(1, _h9.attention + 0.018);
+    const r = cell.getBoundingClientRect();
+    _h9.gazeX = ((ev.clientX - r.left) / r.width - 0.5) * 2;
+    _h9.gazeY = ((ev.clientY - r.top) / r.height - 0.5) * 2;
+    _h9.lastSeen = performance.now();
+  });
 }
 
 // Unreachable while LIVE is false — guarded again here so an accidental call
@@ -4744,6 +5023,11 @@ function _h9Loop() {
   const cosA = Math.cos(_h9.rot), sinA = Math.sin(_h9.rot);
   const burn = _h9.focusT;
   const breathe = 0.05 * Math.sin(now / 1050);
+  // gaze tracking, eased, in pixels — and the eyes flare when she is watched
+  _h9.gx = (_h9.gx || 0) + (((_h9.gazeX || 0) * 11 * dpr) - (_h9.gx || 0)) * 0.06;
+  _h9.gy = (_h9.gy || 0) + (((_h9.gazeY || 0) * 8 * dpr) - (_h9.gy || 0)) * 0.06;
+  const gx = _h9.gx, gy = _h9.gy;
+  const eyeGlow = 0.35 * Math.abs(Math.sin(now / 2400)) + _h9.attention * 0.3;
   // Temporal dithering: each frame draws every other point, alternating parity,
   // so the eye integrates full density at half the per-frame cost.
   _h9.parity = 1 - _h9.parity;
@@ -4754,11 +5038,40 @@ function _h9Loop() {
     const px = cx + x * scale, py = cy - y0 * scale;
     let r = _h9.cols[i * 3], g = _h9.cols[i * 3 + 1], b = _h9.cols[i * 3 + 2];
     if (burn > 0.05) { r += (255 - r) * burn; g += (255 - g) * burn; b += (255 - b) * burn; }
-    ctx.fillStyle = `rgba(${r | 0},${g | 0},${b | 0},${(0.30 + depth * 0.55) * (0.78 + _h9.attention * 0.22 + breathe)})`;
-    const sz = Math.max(1, 3.0 * depth * dpr);
-    ctx.fillRect(px - sz / 2, py - sz / 2, sz, sz);
+    // her eyes are the brightest thing in the file, and they move with the cursor
+    let ox = 0, oy = 0, extra = 0;
+    if (r > 210 && g > 250) { ox = gx; oy = gy; extra = 0.25 + eyeGlow; }
+    ctx.fillStyle = `rgba(${r | 0},${g | 0},${b | 0},${Math.min(1, (0.30 + depth * 0.55) * (0.78 + _h9.attention * 0.22 + breathe) + extra)})`;
+    const sz = Math.max(1, (3.0 + extra * 2.2) * depth * dpr);
+    ctx.fillRect(px + ox - sz / 2, py + oy - sz / 2, sz, sz);
   }
   ctx.globalCompositeOperation = 'source-over';
+
+  // THE TEAR — the picture rips for two frames and heals. No warning, no reason.
+  if (now > (_h9.nextTear || 0)) {
+    _h9.nextTear = now + 7000 + Math.random() * 15000;
+    const tear = _h9.dom.querySelector('#h9Tear');
+    tear.style.top = (8 + Math.random() * 80) + '%';
+    tear.style.height = (4 + Math.random() * 26) + 'px';
+    tear.classList.add('rip');
+    blip(2400, 140, 0.05, 'square', 0.03);
+    setTimeout(() => tear.classList.remove('rip'), 70 + Math.random() * 110);
+  }
+  // A BREACH that isn't one. Everything goes red, the alarm reads, and then it
+  // settles — and you are never quite sure it settled on its own.
+  if (now > (_h9.nextAlarm || (_h9.enteredAt + 40000))) {
+    _h9.nextAlarm = now + 55000 + Math.random() * 70000;
+    const cell = _h9.dom, warn = cell.querySelector('#h9Warn');
+    cell.classList.add('alarm'); warn.classList.remove('on'); void warn.offsetWidth; warn.classList.add('on');
+    blip(300, 240, 0.5, 'square', 0.06); blip(240, 300, 0.5, 'square', 0.06, 0.5); blip(300, 240, 0.5, 'square', 0.06, 1.0);
+    setTimeout(() => { cell.classList.remove('alarm'); warn.classList.remove('on'); }, 2600);
+  }
+  // a heartbeat under the room, slow, and faster the longer you watch her
+  if (now > (_h9.nextBeat || 0)) {
+    _h9.nextBeat = now + 2600 - _h9.attention * 1100;
+    blip(52, 30, 0.20, 'sine', 0.045);
+    blip(46, 26, 0.24, 'sine', 0.032, 0.19);
+  }
 
   // she talks in her sleep — rarely, and never at you
   if (now - _h9.lastMurmur > 26000 + Math.random() * 14000) {
@@ -4800,7 +5113,9 @@ function _h9Loop() {
     q.querySelector('#h9Threat').innerHTML =
       `<h>RESTRAINT</h>CLASS <i>OMEGA</i><br>DISPOSITION <i>HOSTILE</i><br>` +
       `ATTENTION <i>${(_h9.attention * 100).toFixed(0)}%</i><br>` +
-      `AWAKE <i>${_h9.LIVE ? 'YES' : 'NO'}</i><br>PATIENCE <i>ABSOLUTE</i>`;
+      `AWAKE <i>${_h9.LIVE ? 'YES' : 'NO'}</i><br>` +
+      `SHE IS <i>${_h9.attention > 0.5 ? 'LOOKING BACK' : 'AWARE OF YOU'}</i><br>` +
+      `PATIENCE <i>ABSOLUTE</i>`;
 
     q.querySelector('#h9RailL').textContent = _H9_RUNES.slice(_h9.runeStep % 7) + _H9_RUNES.slice(0, _h9.runeStep % 7);
     q.querySelector('#h9Foot').innerHTML =

@@ -5,7 +5,7 @@
 // identity is now THOR; the /agent/query contract, worker URL, and the
 // RAYVENN_RAYAN_BOT Telegram bot are unchanged (JARVIS federation depends on
 // all three — see the sibling build brief §14).
-import { loadHistory, saveHistory, sanitizeHistory, MAX_HISTORY, getTodos, getCalendarEvents, addCalendarEvent, removeCalendarEvent } from './lib/kv-store.js';
+import { loadHistory, saveHistory, sanitizeHistory, MAX_HISTORY, historyLimitFor, getTodos, getCalendarEvents, addCalendarEvent, removeCalendarEvent } from './lib/kv-store.js';
 import { getRecentMemoryBlock, getLongTermMemory, migrateMemoryEmbeddings, getMemoryMap, shareMemory, updateMemoryFact, deleteMemoryFact } from './lib/memory.js';
 import { isAffirmative, setToolPermission, getPermissions, GATEABLE_TOOLS, HARD_CONFIRM_TOOLS, DEFAULT_PERMISSION_LEVELS } from './lib/permissions.js';
 import {
@@ -108,7 +108,8 @@ async function handleChatTurn(env, ctx, opts) {
     let history = sanitizeHistory(await loadHistory(env, memoryKey));
     history.push({ role: 'user', content: historyEntryContent });
     history.push({ role: 'assistant', content: `Confirmed. ${execResult}` });
-    if (history.length > MAX_HISTORY) history = history.slice(-MAX_HISTORY);
+    const _hl = historyLimitFor(persona);
+    if (history.length > _hl) history = history.slice(-_hl);
     await saveHistory(env, memoryKey, history);
     ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
     return { reply: await sendReply(`Confirmed. ${execResult}`) };
@@ -118,7 +119,8 @@ async function handleChatTurn(env, ctx, opts) {
 
   let history = sanitizeHistory(prefetchedHistoryRaw);
   history.push({ role: 'user', content: historyEntryContent });
-  if (history.length > MAX_HISTORY) history = history.slice(-MAX_HISTORY);
+  const _hl2 = historyLimitFor(persona);
+  if (history.length > _hl2) history = history.slice(-_hl2);
   const claudeMessages = history;
 
   let channelContext;
@@ -171,7 +173,7 @@ async function handleChatTurn(env, ctx, opts) {
   const reply = textBlock ? textBlock.text : "Done, sir.";
 
   history.push({ role: 'assistant', content: reply });
-  if (history.length > MAX_HISTORY) history = history.slice(-MAX_HISTORY);
+  if (history.length > _hl2) history = history.slice(-_hl2);
   await saveHistory(env, memoryKey, history);
 
   return { reply: await sendReply(reply) };

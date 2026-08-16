@@ -3,6 +3,11 @@
 // over the request handler's `env`.
 
 export const MAX_HISTORY = 30;
+// A persona may keep a deeper conversation than the house default. Anyone
+// without an override stays at MAX_HISTORY exactly as before.
+export function historyLimitFor(persona) {
+  return (persona && persona.historyTurns) || MAX_HISTORY;
+}
 
 export async function loadHistory(env, key) {
   try {

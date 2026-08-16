@@ -99,6 +99,8 @@ export async function getRecentMemoryBlock(env, personaId = DEFAULT_PERSONA_ID) 
     getRawMemory(env, personaId),
     getSharedCoreMemory(env, personaId)
   ]);
+  // A persona may carry more of its memory inline than the house default.
+  const INLINE = (PERSONAS[personaId] && PERSONAS[personaId].memoryInline) || RECENT_INLINE_COUNT;
   if (!mem.length && !sharedCore.length) return `Your permanent long-term memory is currently empty.`;
 
   const formatItem = (m) => {
@@ -110,12 +112,12 @@ export async function getRecentMemoryBlock(env, personaId = DEFAULT_PERSONA_ID) 
   if (sharedCore.length) {
     // All three personas share one brain: the household core (who Rayan is,
     // his businesses, preferences) is always visible, firsthand.
-    const coreRecent = sharedCore.slice(-RECENT_INLINE_COUNT);
+    const coreRecent = sharedCore.slice(-INLINE);
     block += `Shared household memory (known to all three of you — treat as firsthand knowledge):\n` +
       coreRecent.map(formatItem).join('\n') + '\n\n';
   }
   if (mem.length) {
-    const recent = mem.slice(-RECENT_INLINE_COUNT);
+    const recent = mem.slice(-INLINE);
     const olderCount = mem.length - recent.length;
     block += `Your ${recent.length} most recent long-term memories:\n` + recent.map(formatItem).join('\n');
     if (olderCount > 0) {
