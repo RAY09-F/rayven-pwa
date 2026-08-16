@@ -1979,7 +1979,17 @@ window.ModelBay = {
 // equivalent at all.
 // ============================================================================
 const MP_VERSION = '0.10.17';
-const WASM_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}/wasm`;
+// Same lesson as three.js: one CDN is a single point of failure, and when it is
+// slow or blocked the only symptom is "the camera never came on". Mirrors, tried
+// in order, same pinned version on each.
+const MP_MIRRORS = [
+  `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}`,
+  `https://unpkg.com/@mediapipe/tasks-vision@${MP_VERSION}`
+];
+const MP_WASM = [
+  `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}/wasm`,
+  `https://unpkg.com/@mediapipe/tasks-vision@${MP_VERSION}/wasm`
+];
 const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task';
 const CONFIDENCE_THRESHOLD = 0.62;
 const STABLE_FRAMES_REQUIRED = 3; // debounce flicker before treating a pose as real
@@ -2020,10 +2030,14 @@ function setStatus(text) { const el = document.getElementById('gestureStatus'); 
 
 async function loadRecognizer() {
   if (gs.recognizer) return gs.recognizer;
-  const { GestureRecognizer, FilesetResolver } = await import(
-    `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}`
-  );
-  const vision = await FilesetResolver.forVisionTasks(WASM_BASE);
+  let mod = null, lastErr = null, mirror = 0;
+  for (let i = 0; i < MP_MIRRORS.length; i++) {
+    try { mod = await import(MP_MIRRORS[i]); mirror = i; break; }
+    catch (e) { lastErr = e; console.warn('mediapipe mirror unavailable: ' + MP_MIRRORS[i]); }
+  }
+  if (!mod) throw lastErr || new Error('gesture model unavailable from every mirror');
+  const { GestureRecognizer, FilesetResolver } = mod;
+  const vision = await FilesetResolver.forVisionTasks(MP_WASM[mirror]);
   gs.recognizer = await GestureRecognizer.createFromOptions(vision, {
     baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
     runningMode: 'VIDEO',
@@ -2261,22 +2275,28 @@ async function enableCamera() {
   await gs.video.play().catch(() => {});
 
   setStatus('Loading hand-tracking model (on-device, one-time download)...');
+  let modelOk = true;
   try {
     await loadRecognizer();
   } catch (err) {
-    setStatus(`Model load failed: ${err.message}`);
-    camBtn.disabled = false;
-    return;
+    // The camera itself is fine here — only the tracking model failed to load.
+    // Bailing out at this point left the webcam light on above a dead panel and
+    // told nobody why. Keep the preview, disable arming, say what happened.
+    modelOk = false;
+    setStatus(`Camera live, but hand tracking is unavailable: ${err.message}`);
   }
 
   gs.cameraOn = true;
+  gs.modelReady = modelOk;
   const myToken = ++gs.sessionToken;
   camBtn.textContent = 'DISABLE CAMERA';
   camBtn.classList.add('on');
   camBtn.disabled = false;
-  armBtn.disabled = false;
-  setStatus('Camera live — this is what tracking sees. Arm gestures when it looks right.');
-  detectionLoop(myToken);
+  armBtn.disabled = !modelOk;
+  if (modelOk) {
+    setStatus('Camera live — this is what tracking sees. Arm gestures when it looks right.');
+    detectionLoop(myToken);
+  }
 }
 
 function disableCamera() {
@@ -2295,6 +2315,7 @@ function disableCamera() {
 }
 
 function setArmed(on) {
+  if (on && !gs.modelReady) { setStatus('Hand tracking is not loaded — nothing to arm.'); return; }
   gs.armed = on;
   const armBtn = document.getElementById('gestureArmBtn');
   armBtn.textContent = on ? 'DISARM GESTURES' : 'ARM GESTURES';
@@ -2326,7 +2347,27 @@ refreshGestureLegend();
 window.GestureControl = {
   open: () => { refreshGestureLegend(); openGesturePanel(); },
   close: closeGesturePanel,
-  isOpen: () => gs.open
+  isOpen: () => gs.open,
+  isCameraOn: () => !!gs.cameraOn,
+  isArmed: () => !!gs.armed,
+  // Asked for by name — "turn on the camera", "watch my hands". Opens the panel,
+  // requests the camera, and reports back what actually happened, because the
+  // browser can refuse and the assistant must not claim it worked.
+  async startCamera(alsoArm) {
+    refreshGestureLegend();
+    openGesturePanel();
+    if (!gs.cameraOn) await enableCamera();
+    if (!gs.cameraOn) return { ok: false, reason: 'camera-denied' };
+    if (!gs.modelReady) return { ok: false, reason: 'model' };
+    if (alsoArm && !gs.armed) setArmed(true);
+    return { ok: true, armed: !!gs.armed };
+  },
+  stopCamera() {
+    if (gs.armed) setArmed(false);
+    if (gs.cameraOn) disableCamera();
+    return { ok: true };
+  },
+  setArmed: (on) => { setArmed(!!on); return { ok: true, armed: !!gs.armed }; }
 };
 </script>
 
@@ -2920,6 +2961,8 @@ const PALETTE_COMMANDS = [
   { group: 'VIEWS', label: 'Introduce the royal family', hint: 'all three, in turn', run: runRoyalIntroduction },
   { group: 'VIEWS', label: 'Open memory map', hint: 'shared brain', run: openMemMap },
   { group: 'VIEWS', label: 'Open ops floor', hint: 'live status', run: openOpsFloor },
+  { group: 'VIEWS', label: 'Turn on camera + gestures', hint: 'watch my hands', run: () => window.GestureControl && window.GestureControl.startCamera(true) },
+  { group: 'VIEWS', label: 'Turn off camera', hint: 'stop watching', run: () => window.GestureControl && window.GestureControl.stopCamera() },
   { group: 'VIEWS', label: 'Open gesture control', hint: 'hand tracking', run: () => window.GestureControl && window.GestureControl.open() },
   { group: 'VIEWS', label: 'Project the hammer', hint: 'live projection', run: () => window.ModelBay && window.ModelBay.tryProjection('show me the hammer') },
   { group: 'SHOW', label: 'Showtime', hint: 'scripted tour', run: () => startShowtime() },
@@ -3010,6 +3053,49 @@ function lockDown() {
 // conversation. TTS is audio-reactive: the reactor IS the voice.
 // ---------------------------------------------------------------------------
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+// ---------------------------------------------------------------------------
+// RECOGNITION SUPERVISOR
+//
+// Chrome allows exactly ONE live SpeechRecognition per page, and stop() is
+// asynchronous — the old instance is still winding down for a few hundred
+// milliseconds after you call it. Starting the next one inside that window
+// throws InvalidStateError. Every start site here was wrapped in a bare
+// `try { ... } catch (e) {}`, so the throw vanished; and because the new
+// instance never actually started, its onend and onerror never fired either, so
+// nothing ever retried. The microphone stayed dead until a page refresh.
+//
+// That is exactly why switching assistants killed the mic. The normal reply path
+// stops listening, waits seconds for the model and the speech, then restarts —
+// by which time the old instance is long gone. The switch path restarts
+// IMMEDIATELY after stopping, landing inside the dead window every single time.
+//
+// Two fixes: abort() rather than stop(), so the old instance dies at once
+// instead of finishing its audio; and a retrying start, so a lost race heals
+// itself instead of ending the session.
+// ---------------------------------------------------------------------------
+let liveRecognition = null;
+function killRecognition() {
+  const r = liveRecognition;
+  liveRecognition = null;
+  if (!r) return;
+  try { r.onend = null; r.onerror = null; r.onresult = null; } catch (e) {}
+  try { r.abort ? r.abort() : r.stop(); } catch (e) {}
+}
+function beginRecognition(rec) {
+  killRecognition();
+  liveRecognition = rec;
+  let tries = 0;
+  const attempt = () => {
+    if (liveRecognition !== rec) return;      // something newer took over
+    try { rec.start(); }
+    catch (e) {
+      if (++tries <= 10) setTimeout(attempt, 150);
+      else setVoiceStatus('Microphone did not restart — click the mic.');
+    }
+  };
+  attempt();
+}
 let wakeRecognition = null, convoRecognition = null;
 
 function setVoiceStatus(msg) { $('voiceStatusSmall').textContent = msg; }
@@ -3087,8 +3173,7 @@ $('muteCircle').addEventListener('click', () => {
   $('muteCircle').classList.toggle('muted', micMuted);
   updateMicVisual();
   if (micMuted) {
-    if (wakeRecognition) { try { wakeRecognition.stop(); } catch (e) {} }
-    if (convoRecognition) { try { convoRecognition.stop(); } catch (e) {} }
+    killRecognition();
     setVoiceStatus('Microphone muted.');
   } else if (voiceActive) {
     if (awake) { if (!listeningPaused) startContinuousAwakeListening(); } else startWakeListening();
@@ -3122,7 +3207,7 @@ function startWakeListening() {
   wakeRecognition.onend = () => { if (voiceActive && !awake && !micMuted) { try { startWakeListening(); } catch (e) { setTimeout(startWakeListening, 120); } } };
   wakeRecognition.onerror = () => { if (voiceActive && !awake && !micMuted) setTimeout(() => { try { startWakeListening(); } catch (err) {} }, 120); };
   setVoiceStatus('Listening for "Hey Thor", "Hey Loki" or "Hey Odin"...');
-  try { wakeRecognition.start(); } catch (e) {}
+  beginRecognition(wakeRecognition);
 }
 
 function triggerWake(personaId) {
@@ -3130,7 +3215,7 @@ function triggerWake(personaId) {
   awake = true;
   if (personaId !== activePersona) switchPersona(personaId, { silent: true });
   updateMicVisual();
-  if (wakeRecognition) { try { wakeRecognition.stop(); } catch (e) {} }
+  killRecognition();
   wakeBurst();
 }
 
@@ -3779,7 +3864,7 @@ function exitAwakeMode() {
   awake = false;
   listeningPaused = false;
   updateMicVisual();
-  if (convoRecognition) { try { convoRecognition.stop(); } catch (e) {} }
+  killRecognition();
   goToSleep();
   if (!micMuted && voiceActive) setTimeout(() => { wakeFromSleep(); window.Reactor && window.Reactor.setState('sleeping'); startWakeListeningKeepSleepVisual(); }, 400);
 }
@@ -3799,8 +3884,17 @@ function startWakeListeningKeepSleepVisual() {
     }
   };
   wakeRecognition.onend = () => { if (voiceActive && !awake && !micMuted) setTimeout(startWakeListeningKeepSleepVisual, 120); };
-  try { wakeRecognition.start(); } catch (e) {}
+  beginRecognition(wakeRecognition);
 }
+
+// Belt and braces. If the app believes it should be listening but nothing is
+// actually live, restart it. Any future path that forgets to resume — or any
+// browser-side hiccup — self-heals within a few seconds instead of needing F5.
+setInterval(() => {
+  if (!voiceActive || micMuted || listeningPaused || !SpeechRecognitionCtor) return;
+  if (liveRecognition) return;
+  if (awake) startContinuousAwakeListening(); else startWakeListening();
+}, 3000);
 
 function resumeListeningAfterSpeech() {
   listeningPaused = false;
@@ -3825,7 +3919,7 @@ function startContinuousAwakeListening() {
     if (!transcript) return;
     listeningPaused = true;
     updateMicVisual();
-    try { convoRecognition.stop(); } catch (e) {}
+    killRecognition();
 
     if (hIsActive()) { resumeListeningAfterSpeech(); return; } // her room is sealed
 
@@ -3842,7 +3936,7 @@ function startContinuousAwakeListening() {
   };
   convoRecognition.onend = () => { if (awake && !micMuted && !listeningPaused) setTimeout(() => { if (awake && !micMuted && !listeningPaused) startContinuousAwakeListening(); }, 120); };
   convoRecognition.onerror = () => { if (awake && !micMuted && !listeningPaused) setTimeout(() => { if (awake && !micMuted && !listeningPaused) startContinuousAwakeListening(); }, 120); };
-  try { convoRecognition.start(); } catch (e) {}
+  beginRecognition(convoRecognition);
   updateMicVisual();
 }
 
@@ -4326,6 +4420,37 @@ async function sendMessage(text) {
   if (/^(open|show) (the )?memory map$/i.test(text)) { openMemMap(); $('userInput').value = ''; return; }
   if (/^(open|show) (the )?ops floor$/i.test(text)) { openOpsFloor(); $('userInput').value = ''; return; }
   if (/^(open|show) (the )?(gesture|hand|camera)( control| tracking)?$/i.test(text)) { window.GestureControl && window.GestureControl.open(); $('userInput').value = ''; return; }
+
+  // Camera and gestures by voice. "turn on the camera", "watch my hands",
+  // "read my gestures", "turn off the camera", "stop watching me".
+  if (/^(turn on|open|start|enable)( the)? (camera|webcam)$/i.test(text) ||
+      /^(watch|read|follow)( my)? (hands?|gestures?)$/i.test(text) ||
+      /^(turn on|enable|arm)( the)? gestures?$/i.test(text)) {
+    const arm = !/^(turn on|open|start|enable)( the)? (camera|webcam)$/i.test(text);
+    $('userInput').value = '';
+    (async () => {
+      const r = await (window.GestureControl ? window.GestureControl.startCamera(arm) : Promise.resolve({ ok: false }));
+      const line = r && r.ok
+        ? (r.armed ? "Camera's on and I'm reading your hands." : "Camera's on. Say \u201carm gestures\u201d when you want me acting on them.")
+        : r && r.reason === 'model'
+          ? "Camera's on, but the hand-tracking model wouldn't load, so I can't read gestures yet."
+          : "Couldn't get the camera \u2014 the browser refused. Check the permission in the address bar.";
+      pushMsg('assistant', line);
+      speak(line);
+    })();
+    return;
+  }
+  if (/^(turn off|close|stop|disable)( the)? (camera|webcam)$/i.test(text) ||
+      /^stop (watching|reading)( my)?( hands?| gestures?)?$/i.test(text) ||
+      /^(disarm|turn off|disable)( the)? gestures?$/i.test(text)) {
+    const onlyGestures = /gestures?$/i.test(text) && !/camera|webcam/i.test(text);
+    $('userInput').value = '';
+    if (window.GestureControl) onlyGestures ? window.GestureControl.setArmed(false) : window.GestureControl.stopCamera();
+    const line = onlyGestures ? 'Gestures off. Camera still on for preview.' : "Camera's off.";
+    pushMsg('assistant', line);
+    speak(line);
+    return;
+  }
 
   // live projection — conservative match; everything else falls through to chat
   if (/^show me\b|^project\b/i.test(text) && window.ModelBay && window.ModelBay.tryProjection(text)) {
