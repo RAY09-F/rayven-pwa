@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="en" data-persona="rayven">
+<html lang="en" data-persona="thor">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RAYVEN</title>
+<title>ASGARD</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Cinzel:wght@500;700&display=swap" rel="stylesheet">
 <style>
   /* ============================================================
-     RAYVEN — Rayan's AI system
+     ASGARD — Rayan's AI system: THOR, LOKI and ODIN in one page
      Accent colors are driven per persona via html[data-persona]
      so one override block (alert mode) can recolor everything.
      ============================================================ */
@@ -18,7 +18,7 @@
     --steel: #7d8ba3;
     --danger: 255,42,60;
   }
-  html[data-persona="rayven"] { --accent-rgb: 70,150,255; --accent-2: 255,199,64; }
+  html[data-persona="thor"] { --accent-rgb: 70,150,255; --accent-2: 255,199,64; }
   html[data-persona="loki"] { --accent-rgb: 46,190,110; --accent-2: 255,199,64; }
   html[data-persona="odin"] { --accent-rgb: 255,199,64; --accent-2: 246,244,236; }
   /* Alert mode recolors the entire HUD through the one accent variable —
@@ -40,18 +40,18 @@
   #backdrop { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.55; overflow: hidden; }
 
   /* THOR — a storm you are standing inside: grid, driving rain, distant strike. */
-  html[data-persona="rayven"] #backdrop {
+  html[data-persona="thor"] #backdrop {
     background:
       repeating-linear-gradient(0deg, rgba(var(--accent-rgb),0.05) 0 1px, transparent 1px 46px),
       repeating-linear-gradient(90deg, rgba(var(--accent-rgb),0.05) 0 1px, transparent 1px 46px);
   }
-  html[data-persona="rayven"] #backdrop::before {
+  html[data-persona="thor"] #backdrop::before {
     content: ''; position: absolute; inset: -35%; opacity: 0.45;
     background: repeating-linear-gradient(74deg, rgba(var(--accent-rgb),0.11) 0 2px, transparent 2px 22px);
     animation: thorRain 1.7s linear infinite;
   }
   @keyframes thorRain { to { transform: translate(-24px, 84px); } }
-  html[data-persona="rayven"] #backdrop::after {
+  html[data-persona="thor"] #backdrop::after {
     content: ''; position: absolute; inset: 0; opacity: 0;
     background: radial-gradient(ellipse at 50% 16%, rgba(196,228,255,0.5), transparent 62%);
     animation: thorFlash 11s ease-out infinite;
@@ -161,15 +161,15 @@
   .materialize { animation: showEnter .5s cubic-bezier(.2,.8,.3,1) backwards; animation-delay: calc(var(--i,0) * .09s); }
 
   /* ---------------- THOR — forged: heavy left edge, riveted corners, squared ---------------- */
-  html[data-persona="rayven"] .panel {
+  html[data-persona="thor"] .panel {
     border-radius: 0;
     border: 1px solid rgba(var(--accent-rgb), 0.25);
     border-left: 3px solid rgba(var(--accent-rgb), 0.85);
     box-shadow: inset 0 0 0 1px rgba(var(--accent-2), 0.18), 0 0 22px rgba(0,0,0,0.4);
   }
-  html[data-persona="rayven"] .panel-title { font-family: 'Orbitron', sans-serif; font-weight: 700; }
+  html[data-persona="thor"] .panel-title { font-family: 'Orbitron', sans-serif; font-weight: 700; }
   .panel-corner { display: none; position: absolute; width: 5px; height: 5px; }
-  html[data-persona="rayven"] .panel-corner {
+  html[data-persona="thor"] .panel-corner {
     display: block; border-radius: 50%;
     background: rgba(var(--accent-2), 0.9);
     box-shadow: 0 0 5px rgba(var(--accent-2), 0.8);
@@ -201,15 +201,15 @@
 
   /* ---------------- per-persona panel POSITIONS — each persona claims different corners ---------------- */
   #chatPanel { width: 305px; max-width: 88vw; }
-  html[data-persona="rayven"] #chatPanel { top: 64px; left: 16px; }
+  html[data-persona="thor"] #chatPanel { top: 64px; left: 16px; }
   html[data-persona="loki"] #chatPanel { bottom: 118px; left: 16px; }
   html[data-persona="odin"] #chatPanel { top: 64px; right: 16px; left: auto; }
   #diagPanel { width: 205px; }
-  html[data-persona="rayven"] #diagPanel { top: 64px; right: 16px; }
+  html[data-persona="thor"] #diagPanel { top: 64px; right: 16px; }
   html[data-persona="loki"] #diagPanel { top: 64px; left: 16px; }
   html[data-persona="odin"] #diagPanel { bottom: 118px; right: 16px; top: auto; }
   #sysPanel { width: 205px; }
-  html[data-persona="rayven"] #sysPanel { bottom: 118px; right: 16px; }
+  html[data-persona="thor"] #sysPanel { bottom: 118px; right: 16px; }
   html[data-persona="loki"] #sysPanel { top: 64px; right: 16px; }
   html[data-persona="odin"] #sysPanel { bottom: 118px; left: 16px; }
   @media (max-width: 760px) { #diagPanel, #sysPanel { display: none; } }
@@ -359,6 +359,10 @@
   .ops-bar { height: 3px; background: rgba(255,255,255,0.08); margin: 8px 0; }
   .ops-fill { height: 100%; width: 0; transition: width 0.6s ease; }
   /* each ops card wears its owner's frame language — a lineup of the identities */
+  /* Ops Floor cards get the assistant id as a class (see the ops-card template).
+     After the revert that id became "rayven", but these rules were still keyed
+     to .thor/.loki/.odin — so every card rendered with no border and no colour.
+     Keyed to .rayven now; the loki/odin variants are gone with the split. */
   .ops-card.thor { border-left: 3px solid rgba(70,150,255,0.85); border-top: 1px solid rgba(70,150,255,0.3); border-right: 1px solid rgba(70,150,255,0.3); border-bottom: 1px solid rgba(70,150,255,0.3); }
   .ops-card.thor .ops-name { color: rgb(70,150,255); }
   .ops-card.thor .ops-fill { background: rgb(70,150,255); }
@@ -462,8 +466,8 @@
   .hud-hidden #captionPlate { display: none; }
 
   /* Thor: dead centre of the hammer head. Loki: under the gem. Odin: across the throne back. */
-  html[data-persona="rayven"] #captionPlate { top: 40.5%; }
-  html[data-persona="rayven"] #captionText { font-family: 'Orbitron', sans-serif; font-weight: 500; letter-spacing: 2.5px; }
+  html[data-persona="thor"] #captionPlate { top: 40.5%; }
+  html[data-persona="thor"] #captionText { font-family: 'Orbitron', sans-serif; font-weight: 500; letter-spacing: 2.5px; }
   html[data-persona="loki"] #captionPlate { top: 55%; width: min(360px, 58vw); }
   html[data-persona="loki"] #captionText { font-style: italic; letter-spacing: 2px; }
   html[data-persona="odin"] #captionPlate { top: 36%; }
@@ -484,7 +488,7 @@
 <canvas id="spectrumCanvas"></canvas>
 
 <div id="lockScreen">
-  <div id="lockTitle">R A Y V E N</div>
+  <div id="lockTitle">A S G A R D</div>
   <div id="lockSub">IDENTITY REQUIRED</div>
   <input type="password" id="lockInput" autocomplete="off" placeholder="passphrase">
 </div>
@@ -493,7 +497,7 @@
 <div id="bootFlash"></div>
 
 <div id="wordmark">
-  <div id="wordTitle">RAYVEN</div>
+  <div id="wordTitle">THOR</div>
   <div id="wordSubtitle">RAYAN'S SYSTEM</div>
 </div>
 
@@ -517,17 +521,17 @@
 
 <div id="chatPanel" class="panel">
   <span class="panel-corner tl"></span><span class="panel-corner tr"></span><span class="panel-corner bl"></span><span class="panel-corner br"></span>
-  <div class="panel-title" id="chatTitle">◈ CHANNEL — RAYVEN</div>
+  <div class="panel-title" id="chatTitle">◈ CHANNEL — THOR</div>
   <div id="chatLog"></div>
   <div class="chat-input-row">
-    <input type="text" id="userInput" placeholder="Message RAYVEN..." autocomplete="off">
+    <input type="text" id="userInput" placeholder="Message THOR..." autocomplete="off">
     <button id="sendBtn">SEND</button>
   </div>
 </div>
 
 <div id="diagPanel" class="panel">
   <span class="panel-corner tl"></span><span class="panel-corner tr"></span><span class="panel-corner bl"></span><span class="panel-corner br"></span>
-  <div class="panel-title" id="diagTitle">◈ STORM OUTPUT</div>
+  <div class="panel-title" id="diagTitle">◈ CORE OUTPUT</div>
   <div id="diagBody"></div>
 </div>
 
@@ -552,7 +556,7 @@
     <input type="range" id="pitchSlider" min="-8" max="8" step="1" value="0">
   </div>
 </div>
-<div id="voiceStatusSmall">Click the mic, then say "Hey RAYVEN"</div>
+<div id="voiceStatusSmall">Click the mic, then say "Hey Thor", "Hey Loki" or "Hey Odin"</div>
 
 <div id="alertOverlay">
   <div class="hazard top"></div><div class="hazard bottom"></div>
@@ -619,13 +623,13 @@
   </div>
   <div id="gestureStatus">Camera off. Enable it to see yourself framed before anything can act.</div>
   <div id="gestureLegend">
-    <div><b>✋ OPEN PALM</b>wake the active persona</div>
-    <div><b>✊ FIST</b>stop speaking</div>
-    <div><b>✌️ PEACE</b>open command palette</div>
-    <div><b>☝️ POINT UP</b>next persona</div>
-    <div><b>👍 THUMBS UP</b>confirm a pending action</div>
-    <div><b>👎 THUMBS DOWN</b>cancel a pending action</div>
-    <div><b>🤟 I LOVE YOU</b>toggle mic mute</div>
+    <div><b>✋ OPEN PALM</b><span data-gesture-desc="Open_Palm">wake the active assistant</span></div>
+    <div><b>✊ FIST</b><span data-gesture-desc="Closed_Fist">stop speaking</span></div>
+    <div><b>✌️ PEACE</b><span data-gesture-desc="Victory">open command palette</span></div>
+    <div><b>☝️ POINT UP</b><span data-gesture-desc="Pointing_Up">cycle HUD panels</span></div>
+    <div><b>👍 THUMBS UP</b><span data-gesture-desc="Thumb_Up">confirm a pending action</span></div>
+    <div><b>👎 THUMBS DOWN</b><span data-gesture-desc="Thumb_Down">cancel a pending action</span></div>
+    <div><b>🤟 I LOVE YOU</b><span data-gesture-desc="ILoveYou">toggle mic mute</span></div>
   </div>
 </div>
 
@@ -660,15 +664,18 @@
 // Reactor forms. Single assistant since the 2026-08-15 revert, so one form sits
 // at slot 0 and the turntable has nothing to rotate to.
 //
-// sampleLoki and sampleOdin (the scepter and the throne) are deliberately left
-// in the file below, unreferenced. They are finished geometry, they cost nothing
-// while nothing points at them, and putting them back — as sculpture or as
-// personas — is a matter of re-adding ids here rather than rebuilding them.
-const P_IDS = ['rayven'];
+// Three forms on one turntable: Mjolnir (Thor), the scepter (Loki), the throne
+// (Odin). Slot angles are evenly spaced thirds — switching persona rotates the
+// turntable to that slot rather than swapping the geometry, so the transition
+// reads as one object moving instead of a cut.
+const P_IDS = ['thor', 'loki', 'odin'];
 const P_COLORS = {
-  rayven: { primary: [70, 150, 255], accent: [255, 199, 64] }
+  thor: { primary: [70, 150, 255], accent: [255, 199, 64] },
+  loki: { primary: [46, 190, 110], accent: [255, 199, 64] },
+  odin: { primary: [255, 199, 64], accent: [246, 244, 236] }
 };
-const PERSONA_SLOT_ANGLE = { rayven: 0 };
+const TAU_THIRD = (Math.PI * 2) / 3;
+const PERSONA_SLOT_ANGLE = { thor: 0, loki: TAU_THIRD, odin: TAU_THIRD * 2 };
 
 // Anchors per quality tier; each anchor blooms 8-24 subdots (two-scale structure).
 const CLUSTER_TIERS = [260, 440, 640, 820, 1000];
@@ -918,9 +925,7 @@ function sampleOdin(i) {
   return { x: p.x, y: -0.02 + p.y * 0.7, z: p.z * 0.8, flag: 'gem', tight: true };
 }
 
-// sampleThor is RAYVEN's form: the forged head. The other two samplers stay
-// defined above but unreferenced — see the note on P_IDS.
-const SAMPLERS = { rayven: sampleThor };
+const SAMPLERS = { thor: sampleThor, loki: sampleLoki, odin: sampleOdin };
 
 // ---------------------------------------------------------------------------
 // Geometry build — anchors bloom subdot clusters; buffers allocated ONCE at
@@ -1554,7 +1559,7 @@ function exportOpenScad(spec) {
   };
   const solids = spec.parts.filter(p => !p.void && SHAPE_NAMES.includes(p.shape)).map(emit).join('\n');
   const voids = spec.parts.filter(p => p.void && SHAPE_NAMES.includes(p.shape)).map(emit).join('\n');
-  const scad = `// ${spec.name} — generated by RAYVEN inspection bay\n// units: mm — sizes on round shapes are RADII, not diameters\nrotate([-90,0,0]) // stand the assembly up for the printer — one rotate at the end\ndifference() {\n  union() {\n${solids}\n  }\n${voids || '  // (no voids)'}\n}\n`;
+  const scad = `// ${spec.name} — generated by the ASGARD inspection bay\n// units: mm — sizes on round shapes are RADII, not diameters\nrotate([-90,0,0]) // stand the assembly up for the printer — one rotate at the end\ndifference() {\n  union() {\n${solids}\n  }\n${voids || '  // (no voids)'}\n}\n`;
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([scad], { type: 'text/plain' }));
   a.download = spec.name.toLowerCase().replace(/\s+/g, '-') + '.scad';
@@ -1869,7 +1874,7 @@ function drawLandmarks(ctx, landmarks, w, h) {
 // Nothing else is reachable while Project H holds the room — gestures must
 // go silent exactly like wake-word recognition and the typed send handler do.
 function sealed() {
-  return !!(window.RAYVEN && window.RAYVEN.sealed && window.RAYVEN.sealed());
+  return !!(window.ASGARD && window.ASGARD.sealed && window.ASGARD.sealed());
 }
 
 function runTypedCommand(text) {
@@ -1886,45 +1891,127 @@ const GESTURE_LABELS = {
   ILoveYou: '🤟 I LOVE YOU'
 };
 
+// ===========================================================================
+// GESTURE CONTROLS — RAYAN, EDIT THIS BLOCK AND NOTHING ELSE.
+//
+// Change the text on the RIGHT of each colon to change what a gesture does.
+// The on-screen legend updates itself from this, so you never have to edit the
+// wording separately. Set a gesture to 'none' to switch it off completely.
+//
+// Valid actions:
+//   'wake'          wake whichever assistant has the floor, and start listening
+//   'stopSpeaking'  cut the speaking assistant off mid-sentence
+//   'commandPalette' open the CTRL+K command palette
+//   'nextPersona'   hand the floor to the next assistant (Thor -> Loki -> Odin)
+//   'cyclePanel'    step through Inspection Bay -> Memory Map -> Ops Floor -> all closed
+//   'confirm'       answer "yes" to a pending action
+//   'cancel'        answer "no, cancel that" to a pending action
+//   'toggleMute'    mute / unmute the mic
+//   'none'          do nothing
+// ===========================================================================
+const GESTURE_ACTIONS = {
+  Open_Palm:   'wake',
+  Closed_Fist: 'stopSpeaking',
+  Victory:     'commandPalette',
+  Pointing_Up: 'nextPersona',
+  Thumb_Up:    'confirm',
+  Thumb_Down:  'cancel',
+  ILoveYou:    'toggleMute'
+};
+
+// Human-readable text for the legend, keyed by action name.
+const GESTURE_ACTION_TEXT = {
+  wake: 'wake the active assistant',
+  stopSpeaking: 'stop speaking',
+  commandPalette: 'open command palette',
+  nextPersona: 'next assistant',
+  cyclePanel: 'cycle HUD panels',
+  confirm: 'confirm a pending action',
+  cancel: 'cancel a pending action',
+  toggleMute: 'toggle mic mute',
+  none: 'off'
+};
+
+// The panels cyclePanel steps through, in order.
+//
+// This script block is a SEPARATE ES module from the one that defines
+// openBay/openMemMap/openOpsFloor, so it cannot call them directly — a direct
+// call would be a ReferenceError at runtime. It reaches them the same way every
+// other gesture does: by clicking a real button, or by pushing a real typed
+// command through #userInput, which the main module already intercepts.
+const GESTURE_PANEL_CYCLE = [
+  { id: 'modelBay', closeId: 'bayClose',     command: 'open the bay' },
+  { id: 'memMap',   closeId: 'memMapClose',  command: 'open the memory map' },
+  { id: 'opsFloor', closeId: 'opsClose',     command: 'open the ops floor' }
+];
+let gesturePanelIndex = -1;
+
+// Click each panel's own CLOSE button rather than stripping the .open class:
+// the close handlers also stop the memory map's animation loop, and leaving
+// that loop running burns CPU on a machine that has none to spare.
+function closeAllGesturePanels() {
+  GESTURE_PANEL_CYCLE.forEach(p => {
+    const el = document.getElementById(p.id);
+    if (!el || !el.classList.contains('open')) return;
+    const btn = document.getElementById(p.closeId);
+    if (btn) btn.click(); else el.classList.remove('open');
+  });
+}
+
+// Hand the floor to the next assistant. Like every other gesture action this
+// goes through the real typed-command funnel rather than calling switchPersona
+// directly — that function lives in a different ES module and is not in scope
+// here. The id list is read off the DOM so it cannot drift from UI_PERSONAS.
+const GESTURE_PERSONA_ORDER = ['thor', 'loki', 'odin'];
+function nextAssistant() {
+  const current = document.documentElement.getAttribute('data-persona') || GESTURE_PERSONA_ORDER[0];
+  const i = GESTURE_PERSONA_ORDER.indexOf(current);
+  const next = GESTURE_PERSONA_ORDER[(i + 1) % GESTURE_PERSONA_ORDER.length];
+  runTypedCommand('switch to ' + next);
+}
+
+function cycleHudPanel() {
+  gesturePanelIndex += 1;
+  closeAllGesturePanels();
+  if (gesturePanelIndex >= GESTURE_PANEL_CYCLE.length) {
+    gesturePanelIndex = -1;          // one more press closes everything
+    setStatus('Panels closed.');
+    return;
+  }
+  runTypedCommand(GESTURE_PANEL_CYCLE[gesturePanelIndex].command);
+}
+
+const GESTURE_ACTION_IMPL = {
+  wake() { window.ASGARD && window.ASGARD.gestureWake && window.ASGARD.gestureWake(); },
+  stopSpeaking() { const b = document.getElementById('stopButton'); if (b) b.click(); },
+  commandPalette() { const h = document.getElementById('paletteHint'); if (h) h.click(); },
+  nextPersona() { nextAssistant(); },
+  cyclePanel() { cycleHudPanel(); },
+  confirm() { runTypedCommand('yes'); },
+  cancel() { runTypedCommand('no, cancel that'); },
+  toggleMute() { const m = document.getElementById('muteCircle'); if (m) m.click(); },
+  none() {}
+};
+
+// Keep the on-screen legend honest: it is generated from GESTURE_ACTIONS above,
+// so the panel can never again describe something the code does not do.
+function refreshGestureLegend() {
+  document.querySelectorAll('[data-gesture-desc]').forEach(el => {
+    const action = GESTURE_ACTIONS[el.getAttribute('data-gesture-desc')] || 'none';
+    el.textContent = GESTURE_ACTION_TEXT[action] || action;
+  });
+}
+
 function fireGesture(category) {
   blip(880, 0.06);
   const label = GESTURE_LABELS[category] || category;
   setStatus(`Recognized: <b>${label}</b>`);
   if (sealed()) return; // camera preview stays alive; actions do not
 
-  switch (category) {
-    case 'Open_Palm':
-      window.RAYVEN && window.RAYVEN.gestureWake && window.RAYVEN.gestureWake();
-      break;
-    case 'Closed_Fist': {
-      const stopBtn = document.getElementById('stopButton');
-      if (stopBtn) stopBtn.click();
-      break;
-    }
-    case 'Victory': {
-      const hint = document.getElementById('paletteHint');
-      if (hint) hint.click();
-      break;
-    }
-    case 'Pointing_Up': {
-      const ids = ['thor', 'loki', 'odin'];
-      const current = document.documentElement.getAttribute('data-persona') || 'rayven';
-      const next = ids[(ids.indexOf(current) + 1) % ids.length];
-      runTypedCommand('switch to ' + next);
-      break;
-    }
-    case 'Thumb_Up':
-      runTypedCommand('yes');
-      break;
-    case 'Thumb_Down':
-      runTypedCommand('no, cancel that');
-      break;
-    case 'ILoveYou': {
-      const muteBtn = document.getElementById('muteCircle');
-      if (muteBtn) muteBtn.click();
-      break;
-    }
-  }
+  const action = GESTURE_ACTIONS[category] || 'none';
+  const impl = GESTURE_ACTION_IMPL[action];
+  if (!impl) { setStatus(`<b>${label}</b> is mapped to "${action}", which is not a real action.`); return; }
+  try { impl(); } catch (e) { setStatus(`<b>${label}</b> failed: ${e.message}`); }
 }
 
 const INFERENCE_INTERVAL_MS = 80; // ~12.5fps — discrete hand poses don't need 60fps tracking,
@@ -2051,8 +2138,12 @@ function closeGesturePanel() {
   if (gs.cameraOn) disableCamera(); // never leave the webcam light on with the panel hidden
 }
 
+// Generate the legend from GESTURE_ACTIONS once at load, so the panel always
+// describes what the code actually does.
+refreshGestureLegend();
+
 window.GestureControl = {
-  open: openGesturePanel,
+  open: () => { refreshGestureLegend(); openGesturePanel(); },
   close: closeGesturePanel,
   isOpen: () => gs.open
 };
@@ -2064,37 +2155,62 @@ window.GestureControl = {
 // The show layer holds no application state: deleting it degrades to the
 // plain working app.
 // ============================================================================
-const BACKEND_URL = "https://rayven-backend.rayanfahil2.workers.dev";
+const BACKEND_URL = "https://asgrard-backend.rayanfahil2.workers.dev";
 const UNLOCK_PASSWORD = "bifrost"; // change me — real password entry gates the boot cinematic
 
-// UI assistant registry. RAYVEN is a single assistant again as of 2026-08-15 —
-// the THOR/LOKI/ODIN split was reverted — so there is exactly one entry here.
-//
-// The registry SHAPE is kept deliberately, rather than flattening it into loose
-// consts, for two reasons: everything downstream already reads
-// UI_PERSONAS[activePersona].{name,color,sub,placeholder,subsystems,...} and
-// iterates UI_IDS, so a one-entry map keeps the status strip, ops floor, memory
-// map, diagnostics and chat labels working untouched; and if the multi-assistant
-// work is ever restored from the thor-loki-odin-backup branch, it slots back in
-// by adding entries instead of rewriting the page.
+// UI assistant registry — the frontend mirror of src/lib/personas.js. Keep the
+// two in step: ids, names and colours here must match the backend, because the
+// id is what gets sent as `persona` on every request and what namespaces each
+// assistant's memory and history.
 //
 // Derive every list from Object.keys(UI_PERSONAS); never hand-write id arrays.
 const UI_PERSONAS = {
-  rayven: {
-    id: 'rayven', name: 'RAYVEN', color: '70,150,255', accent2: '255,199,64',
-    sub: "RAYAN'S SYSTEM", placeholder: 'Message RAYVEN...',
-    diagLabel: 'CORE OUTPUT',
-    subsystems: [['CORE', 'CHARGED'], ['WEB SEARCH', 'READY'], ['BROWSER LINK', 'READY'], ['COMMS ARRAY', 'ARMED']],
-    switchPhrases: [],
-    wakePhrases: ['hey rayven', 'ok rayven', 'okay rayven', 'rayven wake up'],
+  thor: {
+    id: 'thor', name: 'THOR', color: '70,150,255', accent2: '255,199,64',
+    sub: "PERSONAL — RAYAN'S SYSTEM", placeholder: 'Message THOR...',
+    diagLabel: 'STORM OUTPUT',
+    lane: 'music, browser, comms, maps, research',
+    subsystems: [['STORM CORE', 'CHARGED'], ['WEB SEARCH', 'READY'], ['BROWSER LINK', 'READY'], ['COMMS ARRAY', 'ARMED']],
+    switchPhrases: ['switch to thor', 'talk to thor', 'give me thor'],
+    wakePhrases: ['hey thor', 'ok thor', 'okay thor', 'thor wake up'],
     sleepLine: "Powering down. I'll keep a light on for you, sir."
+  },
+  loki: {
+    id: 'loki', name: 'LOKI', color: '46,190,110', accent2: '255,199,64',
+    sub: 'TASKS — CALENDAR — FOLLOW-THROUGH', placeholder: 'Message LOKI...',
+    diagLabel: 'MISCHIEF INDEX',
+    lane: 'to-dos, calendar, reminders, wellbeing',
+    subsystems: [['TASK LEDGER', 'OPEN'], ['NAG ENGINE', 'COILED'], ['WATCHLIST', 'READY'], ['WELLBEING', 'TRACKING']],
+    switchPhrases: ['switch to loki', 'talk to loki', 'give me loki'],
+    wakePhrases: ['hey loki', 'ok loki', 'okay loki', 'loki wake up'],
+    sleepLine: "Fine. I'll stop talking. You'll miss me in an hour."
+  },
+  odin: {
+    id: 'odin', name: 'ODIN', color: '255,199,64', accent2: '246,244,236',
+    sub: 'BUSINESS — REVENUE — STRATEGY', placeholder: 'Message ODIN...',
+    diagLabel: 'RAVEN SIGHT',
+    lane: 'business, revenue, strategy, stakes',
+    subsystems: [['MARKET EYE', 'OPEN'], ['DEEP RESEARCH', 'READY'], ['CONTENT QUEUE', 'HELD'], ['SIBLING COUNSEL', 'READY']],
+    switchPhrases: ['switch to odin', 'talk to odin', 'give me odin'],
+    wakePhrases: ['hey odin', 'ok odin', 'okay odin', 'odin wake up'],
+    sleepLine: 'We are done for now. Think on it.'
   }
 };
 const UI_IDS = Object.keys(UI_PERSONAS);
 // Derived, never hand-written — see the note above about restoring extra entries.
 const DEFAULT_PERSONA = UI_IDS[0];
 
-let activePersona = DEFAULT_PERSONA;
+// Boot persona: ?persona=<id> (how the legacy /thor/, /loki/, /odin/ redirects
+// arrive), else the last one used, else THOR. Anything unrecognised falls back
+// to THOR rather than leaving the HUD pointed at a persona that does not exist.
+function bootPersona() {
+  const wanted = new URLSearchParams(location.search).get('persona');
+  if (wanted && UI_PERSONAS[wanted]) return wanted;
+  const remembered = localStorage.getItem('asgard:persona');
+  if (remembered && UI_PERSONAS[remembered]) return remembered;
+  return DEFAULT_PERSONA;
+}
+let activePersona = bootPersona();
 let awake = false, voiceActive = false, micMuted = false, listeningPaused = false;
 let guestName = null;
 let unlocked = false;
@@ -2209,6 +2325,7 @@ function fireShockwave() {
 function switchPersona(personaId, opts = {}) {
   if (!UI_PERSONAS[personaId] || personaId === activePersona) return;
   activePersona = personaId;
+  try { localStorage.setItem('asgard:persona', personaId); } catch (e) {}
   window.Reactor && window.Reactor.setActivePersona(personaId);
   buildHUD(personaId);
   clearCaption();
@@ -2364,7 +2481,17 @@ const memMap = {
   open: false, nodes: [], hubs: {}, view: { scale: 1, x: 0, y: 0 },
   dragNode: null, panning: false, lastPX: 0, lastPY: 0, downPX: 0, downPY: 0, raf: false
 };
-const HUB_POS = { thor: { x: 0, y: -170 }, loki: { x: -280, y: 140 }, odin: { x: 280, y: 140 } };
+// One hub per assistant, arranged as a triangle so no pair of hubs is closer
+// than any other — dragging a memory between any two is the same gesture.
+// Keys MUST match UI_PERSONAS: a missing key used to return undefined and throw
+// on hub.x on every animation frame, which silently killed the whole map.
+// hubPos() makes a missing key harmless instead of fatal.
+const HUB_POS = {
+  thor: { x: 0, y: -180 },
+  loki: { x: -290, y: 140 },
+  odin: { x: 290, y: 140 }
+};
+const hubPos = id => HUB_POS[id] || { x: 0, y: 0 };
 const HUB_R = 46;
 
 async function openMemMap() {
@@ -2380,7 +2507,7 @@ async function openMemMap() {
     const data = await res.json();
     for (const pid of UI_IDS) {
       for (const m of (data[pid] || [])) {
-        const hub = HUB_POS[pid];
+        const hub = hubPos(pid);
         memMap.nodes.push({
           id: m.id, owner: pid, fact: m.fact, date: m.date, sharedFrom: m.sharedFrom || null,
           x: hub.x + (Math.random() - 0.5) * 220, y: hub.y + (Math.random() - 0.5) * 220, vx: 0, vy: 0
@@ -2406,7 +2533,7 @@ function memMapLoop() {
   // physics in graph space
   for (const n of nodes) {
     if (n === memMap.dragNode) continue;
-    const hub = HUB_POS[n.owner];
+    const hub = hubPos(n.owner);
     n.vx += (hub.x - n.x) * 0.0012;
     n.vy += (hub.y - n.y) * 0.0012;
   }
@@ -2428,13 +2555,13 @@ function memMapLoop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.setTransform(memMap.view.scale, 0, 0, memMap.view.scale, memMap.view.x, memMap.view.y);
   for (const n of nodes) {
-    const hub = HUB_POS[n.owner];
+    const hub = hubPos(n.owner);
     ctx.strokeStyle = `rgba(${UI_PERSONAS[n.owner].color},0.25)`;
     ctx.setLineDash([]);
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(hub.x, hub.y); ctx.lineTo(n.x, n.y); ctx.stroke();
     if (n.sharedFrom && HUB_POS[n.sharedFrom]) {
-      const src = HUB_POS[n.sharedFrom];
+      const src = hubPos(n.sharedFrom);
       ctx.strokeStyle = `rgba(${UI_PERSONAS[n.sharedFrom].color},0.35)`;
       ctx.setLineDash([4, 5]);
       ctx.beginPath(); ctx.moveTo(src.x, src.y); ctx.lineTo(n.x, n.y); ctx.stroke();
@@ -2442,7 +2569,7 @@ function memMapLoop() {
     }
   }
   for (const pid of UI_IDS) {
-    const hub = HUB_POS[pid];
+    const hub = hubPos(pid);
     ctx.fillStyle = `rgba(${UI_PERSONAS[pid].color},0.14)`;
     ctx.strokeStyle = `rgb(${UI_PERSONAS[pid].color})`;
     ctx.lineWidth = 1.6;
@@ -2529,7 +2656,7 @@ function memMapLoop() {
     const g = graphFromScreen(px, py);
     for (const pid of UI_IDS) {
       if (pid === n.owner) continue;
-      const hub = HUB_POS[pid];
+      const hub = hubPos(pid);
       if (Math.hypot(g.x - hub.x, g.y - hub.y) < HUB_R + 12) {
         try {
           const res = await fetch(BACKEND_URL + '/memory/share', {
@@ -3095,14 +3222,14 @@ function startShowtime() {
   showtimeActive = true;
   const stopOnInput = () => stopShowtime();
   window.addEventListener('keydown', stopOnInput, { once: true });
-  showStep(0, () => { pushMsg('assistant', 'Showtime, sir. Everything you are about to see is live.', 'RAYVEN'); });
-  showStep(2600, () => { pushMsg('assistant', 'I keep the receipts. Every task, every dodge — noted.', 'RAYVEN'); });
-  showStep(5200, () => { pushMsg('assistant', 'And I read the whole board, not just the loud parts.', 'RAYVEN'); });
+  showStep(0, () => { pushMsg('assistant', 'Showtime, sir. Everything you are about to see is live.', 'THOR'); });
+  showStep(2600, () => { pushMsg('assistant', 'I keep the receipts. Every task, every dodge — noted.', 'LOKI'); });
+  showStep(5200, () => { pushMsg('assistant', 'And I read the whole board, not just the loud parts.', 'ODIN'); });
   showStep(7800, () => { window.ModelBay && window.ModelBay.open('Mjolnir Stand'); });
   showStep(9200, () => { const s = $('bayExplode'); if (s) { s.value = 85; s.dispatchEvent(new Event('input')); } });
   showStep(12500, () => { window.ModelBay && window.ModelBay.close(); window.ModelBay && window.ModelBay.tryProjection('show me the hammer'); });
   showStep(15200, () => enterAlertMode());
-  showStep(19000, () => { exitAlertMode(); pushMsg('assistant', 'Tour complete, sir. Standing by.', 'RAYVEN'); showtimeActive = false; });
+  showStep(19000, () => { exitAlertMode(); pushMsg('assistant', 'Tour complete, sir. Standing by.', 'THOR'); showtimeActive = false; });
 }
 function stopShowtime() {
   for (const t of showtimeTimers) clearTimeout(t);
@@ -3395,9 +3522,9 @@ window.Reactor && window.Reactor.onTap(() => {
 
 // Bridge for the gesture-control module (see the separate GESTURE CONTROL
 // script block). Every other gesture action reuses an existing button click
-// or the real #userInput/#sendBtn funnel, but waking a sleeping persona has
+// or the real #userInput/#sendBtn funnel, but waking a sleeping assistant has
 // no typed-command equivalent — this is the one piece of surface it needs.
-window.RAYVEN = {
+window.ASGARD = {
   gestureWake() {
     if (hIsActive()) return;
     if (!voiceActive) { voiceActive = true; startWakeListening(); }

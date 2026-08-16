@@ -1,11 +1,11 @@
-# RAYVEN — single-assistant backend.
+# ASGARD — one Worker, three personas (THOR / LOKI / ODIN).
 #
-# The THOR/LOKI/ODIN split was reverted on 2026-08-15; that work is preserved on
-# the thor-loki-odin-backup branch, not deleted. Entry point is back to the
-# worker.js monolith, and src/ is gone from this branch.
+# Entry point is the src/ module tree. src/lib/personas.js is the single source
+# of truth for prompts, tool allow-lists, memory namespaces, voices and bots —
+# derive every persona list from Object.keys(PERSONAS), never hand-write one.
 #
-# The script NAME stays "asgrard-backend" (yes, misspelled on Cloudflare) even
-# though the code is RAYVEN again. All 17 secrets, the workers.dev URL, and the
+# The script NAME stays "asgrard-backend" (yes, misspelled on Cloudflare). All
+# 17 secrets, the workers.dev URL, and the
 # Telegram webhook are attached to the script NAME, not to the code inside it.
 # Deploying under a name that does not exist silently CREATES a second, empty
 # Worker with no secrets while the real one keeps serving. The old name
@@ -13,18 +13,20 @@
 # renaming back is a deliberate migration (re-add every secret, re-point the
 # Telegram webhook, update BACKEND_URL in index.html) — never a casual edit.
 name = "asgrard-backend"
-main = "worker.js"
+main = "src/index.js"
 compatibility_date = "2026-08-13"
 
-# The RAYVEN PWA is served straight from the worker: public/index.html is a COPY
-# of the repo-root index.html, so re-copy it after every edit or the live page
-# silently stays stale.
+# ASGARD is served straight from the worker: public/index.html is a COPY of the
+# repo-root index.html, so re-copy it after every edit or the live page silently
+# stays stale. There is exactly ONE page — THOR, LOKI and ODIN are personas
+# switched inside it, not separate builds. /thor/, /loki/ and /odin/ 301 to
+# /?persona=<id> so old bookmarks still work.
 #
 # run_worker_first is REQUIRED. Without it Cloudflare's static-asset handler
 # claims the "/" route for EVERY HTTP method, not just GET, so POST / — the web
 # chat endpoint AND the RAYVENN_RAYAN_BOT Telegram webhook — starts returning a
-# flat 405. With it on, fetch() in worker.js runs for every request and only its
-# unmatched-GET fallthrough ever calls env.ASSETS.fetch().
+# flat 405. With it on, fetch() in src/index.js runs for every request and only
+# its unmatched-GET fallthrough ever calls env.ASSETS.fetch().
 [assets]
 directory = "./public"
 binding = "ASSETS"
@@ -34,10 +36,8 @@ run_worker_first = true
 binding = "RAYVEN_KV"
 id = "ee3cce96335249a9a4cc990cdfd8a2a5"
 
-# worker.js does not read VECTORIZE or AI — vector-backed memory arrived with the
-# src/ refactor that this revert undid. The bindings stay declared so the index
-# and its embeddings remain attached to this Worker and are there if the
-# multi-persona branch is ever restored. Unused bindings are inert.
+# Vector-backed memory: search_memory embeds the query and matches against the
+# index so a persona can recall something worded differently. Used by src/lib/memory.js.
 [[vectorize]]
 binding = "VECTORIZE"
 index_name = "rayven-memory"
