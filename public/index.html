@@ -2025,7 +2025,14 @@ const gs = {
 // A tiny self-contained blip so this module stays independently removable —
 // no dependency on the HUD module's sound system.
 let sfxCtx = null;
+// NOTE THE SIGNATURE: blip(freq, dur). The HUD module further down defines a
+// DIFFERENT blip(from, to, dur, type, gain, delay). Calling this one with the
+// other one's arguments put 1300 into `dur` and started a 21-minute continuous
+// tone that nothing could stop short of closing the tab. The clamp below means
+// the worst a wrong call can now do is a short chirp.
 function blip(freq, dur) {
+  dur = Math.max(0.01, Math.min(2, Number(dur) || 0.08));
+  if (!Number.isFinite(freq) || freq <= 0) return;
   try {
     if (!sfxCtx) sfxCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (sfxCtx.state === 'suspended') sfxCtx.resume().catch(() => {});
@@ -2230,10 +2237,13 @@ function fireGesture(category) {
 // treacle. Measuring the real cost and leaving proportional headroom means the
 // tracker takes what it needs and gives the rest back.
 let inferenceCostMs = 60;                 // rolling estimate, seeded optimistically
-const MIN_INFERENCE_GAP = 70;
+const MIN_INFERENCE_GAP = 85;
 const MAX_INFERENCE_GAP = 260;
 function nextInferenceGap() {
-  return Math.max(MIN_INFERENCE_GAP, Math.min(MAX_INFERENCE_GAP, inferenceCostMs * 2.1));
+  const base = Math.max(MIN_INFERENCE_GAP, Math.min(MAX_INFERENCE_GAP, inferenceCostMs * 2.1));
+  // Disarmed, the tracker is only drawing a preview so you can frame yourself —
+  // that does not need the same rate as something about to act on your hands.
+  return gs.armed ? base : Math.min(MAX_INFERENCE_GAP, base * 2);
 }
 const INFERENCE_INTERVAL_MS = 80; // legacy constant, kept for reference:
                                    // and this meaningfully cuts CPU/memory load for real users
@@ -2271,7 +2281,7 @@ function updatePinchZoom(hand) {
       pinch.active = true;
       pinch.ref = gap;
       pinch.refZoom = (window.Reactor && window.Reactor.getZoom) ? window.Reactor.getZoom() : 1;
-      blip(900, 1300, 0.07, 'sine', 0.03);
+      blip(900, 0.07);   // this module's blip is blip(freq, dur) — see the guard in blip()
       setStatus('Pinch locked — open and close to zoom.');
     }
     return;
@@ -2341,7 +2351,12 @@ async function enableCamera() {
   camBtn.disabled = true;
   setStatus('Requesting camera access...');
   try {
-    gs.stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240, facingMode: 'user' }, audio: false });
+    // 256x192 rather than 320x240. Hand tracking needs shape, not detail, and
+    // this is a third fewer pixels through the model on every single frame.
+    gs.stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 256 }, height: { ideal: 192 }, frameRate: { ideal: 20, max: 24 }, facingMode: 'user' },
+      audio: false
+    });
   } catch (err) {
     setStatus(`Camera access failed: ${err.message}`);
     camBtn.disabled = false;

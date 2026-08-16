@@ -79,6 +79,7 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID) {
     case 'add_content_idea': return await addContentIdea(env, input.platform, input.idea);
     case 'list_content_ideas': return await listContentIdeas(env, input.platform);
     case 'get_tool_permissions': return await getToolPermissionsText(env);
+    case 'list_my_tools': return listMyTools(personaId);
     case 'set_tool_permission': return await setToolPermission(env, input.toolName, input.level);
     case 'send_text': return await sendTextMessage(env, input.to, input.message);
     case 'make_call': return await makePhoneCall(env, input.to, input.message);
@@ -218,6 +219,11 @@ export const TOOL_DEFINITIONS = [
   {
     name: 'get_tool_permissions',
     description: "Show the current permission level (auto/notify/confirm/off) for every gateable tool.",
+    input_schema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'list_my_tools',
+    description: "List EVERY tool you personally have, with what each one does. Call this whenever Rayan asks what you can do, what tools you have, or what your capabilities are — never answer that from memory, because you will miss some and he is asking precisely because he wants the real list.",
     input_schema: { type: 'object', properties: {} }
   },
   {
@@ -429,6 +435,14 @@ export const TOOL_DEFINITIONS = [
 // Tool schemas a given persona is allowed to see. Thor (toolNames: null) gets
 // everything; restricted personas get only their allow-list. The prompt-level
 // restriction is a suggestion — the dispatch check below is the actual boundary.
+// The honest answer to "what can you do?" — read off the live registry rather
+// than from the model's recollection, which drifts and drops things.
+function listMyTools(personaId) {
+  const defs = toolDefinitionsForPersona(personaId).filter(t => t.name !== 'list_my_tools');
+  const lines = defs.map(t => `- ${t.name}: ${t.description}`);
+  return `You currently have ${defs.length} tools. This is the complete list, straight from your own registry — read it out in full when asked, grouped sensibly and in your own voice, and do not leave any out:\n\n${lines.join('\n')}`;
+}
+
 export function toolDefinitionsForPersona(personaId) {
   const persona = getPersona(personaId);
   if (persona.toolNames === null) return TOOL_DEFINITIONS;
