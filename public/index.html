@@ -204,9 +204,12 @@
 
   /* ---------------- per-persona panel POSITIONS — each persona claims different corners ---------------- */
   #chatPanel { width: 305px; max-width: 88vw; }
-  html[data-persona="thor"] #chatPanel { top: 64px; left: 16px; }
+  /* The channel box is bottom-left for all three — it is the thing he reaches
+     for most, so it should not move when the assistant does. Whatever used to
+     sit bottom-left took the chat box's old corner. */
+  html[data-persona="thor"] #chatPanel { bottom: 118px; left: 16px; }
   html[data-persona="loki"] #chatPanel { bottom: 118px; left: 16px; }
-  html[data-persona="odin"] #chatPanel { top: 64px; right: 16px; left: auto; }
+  html[data-persona="odin"] #chatPanel { bottom: 118px; left: 16px; right: auto; }
   #diagPanel { width: 205px; }
   html[data-persona="thor"] #diagPanel { top: 64px; right: 16px; }
   html[data-persona="loki"] #diagPanel { top: 64px; left: 16px; }
@@ -214,12 +217,12 @@
   #sysPanel { width: 205px; }
   html[data-persona="thor"] #sysPanel { bottom: 118px; right: 16px; }
   html[data-persona="loki"] #sysPanel { top: 64px; right: 16px; }
-  html[data-persona="odin"] #sysPanel { bottom: 118px; left: 16px; }
+  html[data-persona="odin"] #sysPanel { top: 64px; right: 16px; bottom: auto; left: auto; }
   /* The fourth panel. Each persona had exactly one empty corner — Thor's was
      bottom-left, Loki's bottom-right, Odin's top-left — so this drops into the
      gap without moving anything that was already placed. */
   #lanePanel { width: 250px; }
-  html[data-persona="thor"] #lanePanel { bottom: 118px; left: 16px; }
+  html[data-persona="thor"] #lanePanel { top: 64px; left: 16px; }
   html[data-persona="loki"] #lanePanel { bottom: 118px; right: 16px; }
   html[data-persona="odin"] #lanePanel { top: 64px; left: 16px; }
   #laneBody { max-height: 168px; overflow: hidden; }
@@ -666,6 +669,7 @@
     <div><b>👍 THUMBS UP</b><span data-gesture-desc="Thumb_Up">confirm a pending action</span></div>
     <div><b>👎 THUMBS DOWN</b><span data-gesture-desc="Thumb_Down">cancel a pending action</span></div>
     <div><b>🤟 I LOVE YOU</b><span data-gesture-desc="ILoveYou">toggle mic mute</span></div>
+    <div><b>🤏 PINCH</b>zoom — pinch to grab, open and close</div>
   </div>
 </div>
 
@@ -1179,6 +1183,7 @@ const R = {
   fps: 0,
   vertexCount: 0,
   qualityLevel: 2,
+  frugal: false,   // true while the camera is running — see setFrugal
   alertTint: false,
   powered: true,
   // Normally a form fades in and out over about half a second, which is right for
@@ -1201,6 +1206,15 @@ window.Reactor = {
   setAlertTint(on) { R.alertTint = !!on; },
   setPowered(on) { R.powered = !!on; },
   setVisSnap(on) { R.visSnap = !!on; },
+  // Hand tracking and a few thousand particles are fighting for the same single
+  // thread. While the camera is live the reactor drops a quality tier and stops
+  // climbing back, which is invisible on screen and buys the tracker real time.
+  setFrugal(on) {
+    R.frugal = !!on;
+    if (R.frugal) R.qualityLevel = Math.min(R.qualityLevel, 1);
+  },
+  getZoom: () => R.zoom,
+  setZoom(v) { R.zoom = Math.max(0.45, Math.min(2.3, v)); },
   // Where this form's gem sits on screen, in CSS pixels. The gem is on the
   // vertical axis at z=0, and the camera looks at that plane, so the same
   // ring-fraction mapping the fit uses is exact here for both renderers — no
@@ -1369,7 +1383,7 @@ async function initThreeReactor() {
       const fps = 1000 / avgMs;
       R.fps = Math.round(fps);
       if (fps < 40 && R.qualityLevel > 0) R.qualityLevel--;
-      else if (fps > 55 && R.qualityLevel < CLUSTER_TIERS.length - 1) R.qualityLevel++;
+      else if (fps > 55 && !R.frugal && R.qualityLevel < CLUSTER_TIERS.length - 1) R.qualityLevel++;
       frameTimes.length = 0;
     }
 
@@ -1507,7 +1521,7 @@ function initCanvas2DFallback() {
       const fps = 1000 / (frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length);
       R.fps = Math.round(fps);
       if (fps < 40 && R.qualityLevel > 0) R.qualityLevel--;
-      else if (fps > 55 && R.qualityLevel < CLUSTER_TIERS.length - 1) R.qualityLevel++;
+      else if (fps > 55 && !R.frugal && R.qualityLevel < CLUSTER_TIERS.length - 1) R.qualityLevel++;
       frameTimes.length = 0;
     }
     const target = FORMATIONS[R.stateName] || FORMATIONS.idle;
@@ -2209,27 +2223,87 @@ function fireGesture(category) {
   try { impl(); } catch (e) { setStatus(`<b>${label}</b> failed: ${e.message}`); }
 }
 
-const INFERENCE_INTERVAL_MS = 80; // ~12.5fps — discrete hand poses don't need 60fps tracking,
+// Inference pacing is ADAPTIVE, not fixed. A flat 80ms is fine on a laptop and
+// ruinous on this Chromebook: if one recognizeForVideo call costs 130ms, asking
+// for another every 80ms queues them faster than they finish, the main thread
+// never gets a clear run, and everything — gestures, reactor, UI — turns to
+// treacle. Measuring the real cost and leaving proportional headroom means the
+// tracker takes what it needs and gives the rest back.
+let inferenceCostMs = 60;                 // rolling estimate, seeded optimistically
+const MIN_INFERENCE_GAP = 70;
+const MAX_INFERENCE_GAP = 260;
+function nextInferenceGap() {
+  return Math.max(MIN_INFERENCE_GAP, Math.min(MAX_INFERENCE_GAP, inferenceCostMs * 2.1));
+}
+const INFERENCE_INTERVAL_MS = 80; // legacy constant, kept for reference:
                                    // and this meaningfully cuts CPU/memory load for real users
 let lastInferenceAt = 0;
+
+// ---------------------------------------------------------------------------
+// PINCH TO ZOOM — thumb and forefinger, no controller.
+//
+// The pinch distance is measured against the width of your own hand (wrist to
+// middle knuckle), so it means the same thing whether you are close to the
+// camera or across the room — a raw pixel distance would zoom every time you
+// leaned forward.
+//
+// Pinch closed to engage, then open and close to drive it. Let your hand fall
+// open past PINCH_RELEASE and it lets go, so the zoom you set is the zoom you
+// keep.
+// ---------------------------------------------------------------------------
+const PINCH_ENGAGE = 0.32;
+const PINCH_RELEASE = 1.35;
+const PINCH_GAIN = 1.15;
+const pinch = { active: false, ref: 0, refZoom: 1, lostFrames: 0 };
+
+function updatePinchZoom(hand) {
+  if (!gs.armed || !hand || hand.length < 13) {
+    if (pinch.active && ++pinch.lostFrames > 4) { pinch.active = false; setStatus('Zoom held.'); }
+    return;
+  }
+  pinch.lostFrames = 0;
+  const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const span = d(hand[0], hand[9]) || 0.0001;      // wrist to middle knuckle
+  const gap = d(hand[4], hand[8]) / span;          // thumb tip to index tip
+
+  if (!pinch.active) {
+    if (gap < PINCH_ENGAGE) {
+      pinch.active = true;
+      pinch.ref = gap;
+      pinch.refZoom = (window.Reactor && window.Reactor.getZoom) ? window.Reactor.getZoom() : 1;
+      blip(900, 1300, 0.07, 'sine', 0.03);
+      setStatus('Pinch locked — open and close to zoom.');
+    }
+    return;
+  }
+  if (gap > PINCH_RELEASE) { pinch.active = false; setStatus('Zoom held.'); return; }
+  const z = pinch.refZoom + (gap - pinch.ref) * PINCH_GAIN;
+  if (window.Reactor && window.Reactor.setZoom) window.Reactor.setZoom(z);
+  const shown = (window.Reactor && window.Reactor.getZoom) ? window.Reactor.getZoom() : z;
+  setStatus(`Zoom <b>${shown.toFixed(2)}x</b>`);
+}
 
 function detectionLoop(myToken) {
   if (gs.sessionToken !== myToken || !gs.cameraOn) return;
   const now = performance.now();
-  if (now - lastInferenceAt < INFERENCE_INTERVAL_MS) {
-    gs.rafId = requestAnimationFrame(() => detectionLoop(myToken));
-    return;
-  }
-  lastInferenceAt = now;
   const video = gs.video;
   if (video.readyState >= 2) {
-    const w = gs.canvas.width = video.videoWidth || 320;
-    const h = gs.canvas.height = video.videoHeight || 240;
+    // Assigning canvas.width RESETS the whole canvas — it reallocates the backing
+    // store and drops all state. This ran on EVERY inference, several times a
+    // second, for dimensions that never change. Only touch it when it actually
+    // differs.
+    const vw = video.videoWidth || 320, vh = video.videoHeight || 240;
+    if (gs.canvas.width !== vw || gs.canvas.height !== vh) { gs.canvas.width = vw; gs.canvas.height = vh; }
+    const w = gs.canvas.width, h = gs.canvas.height;
     const ctx = gs.canvas.getContext('2d');
     try {
+      const t0 = performance.now();
       const result = gs.recognizer.recognizeForVideo(video, now);
+      const cost = performance.now() - t0;
+      inferenceCostMs += (cost - inferenceCostMs) * 0.25;   // smooth, so one slow frame doesn't overreact
       const hand = result.landmarks && result.landmarks[0];
       drawLandmarks(ctx, hand, w, h);
+      updatePinchZoom(hand);
 
       const top = result.gestures && result.gestures[0] && result.gestures[0][0];
       const category = (top && top.score >= CONFIDENCE_THRESHOLD) ? top.categoryName : 'None';
@@ -2254,7 +2328,11 @@ function detectionLoop(myToken) {
       }
     } catch (e) { /* a dropped frame is not worth surfacing */ }
   }
-  gs.rafId = requestAnimationFrame(() => detectionLoop(myToken));
+  // setTimeout, not requestAnimationFrame. The old loop woke on every one of the
+  // display's 60 frames a second purely to look at a clock, competing with the
+  // reactor for main-thread time it then threw away. This wakes only when there
+  // is actually work to do.
+  gs.rafId = setTimeout(() => detectionLoop(myToken), nextInferenceGap());
 }
 
 async function enableCamera() {
@@ -2294,6 +2372,7 @@ async function enableCamera() {
   camBtn.disabled = false;
   armBtn.disabled = !modelOk;
   if (modelOk) {
+    window.Reactor && window.Reactor.setFrugal && window.Reactor.setFrugal(true);
     setStatus('Camera live — this is what tracking sees. Arm gestures when it looks right.');
     detectionLoop(myToken);
   }
@@ -2301,6 +2380,9 @@ async function enableCamera() {
 
 function disableCamera() {
   gs.sessionToken++; // kills the running detection loop
+  clearTimeout(gs.rafId);
+  window.Reactor && window.Reactor.setFrugal && window.Reactor.setFrugal(false);
+  pinch.active = false;
   gs.cameraOn = false;
   setArmed(false);
   if (gs.stream) { gs.stream.getTracks().forEach(t => t.stop()); gs.stream = null; }
