@@ -295,7 +295,7 @@ const FORGE_MS = 30 * 60 * 1000;          // she goes looking for a new tool eve
 // The trio start slower than she does — three more personas searching every
 // half hour is three times the bill for capabilities they will use less often.
 // Rayan can tell any of them to go faster.
-const DEFAULT_FORGE_MS = { hela: 30 * 60 * 1000, thor: 2 * 60 * 60 * 1000, loki: 2 * 60 * 60 * 1000, odin: 2 * 60 * 60 * 1000 };
+const DEFAULT_FORGE_MS = { hela: 30 * 60 * 1000, thor: 3 * 60 * 60 * 1000, loki: 3 * 60 * 60 * 1000, odin: 3 * 60 * 60 * 1000 };
 const MAX_CAPS = 40;
 const CALL_TIMEOUT_MS = 12000;
 const CAP_MAX_CHARS = 6000;
