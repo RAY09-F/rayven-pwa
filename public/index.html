@@ -3528,21 +3528,27 @@ function boltPoints(x1, y1, x2, y2, depth, spread) {
 function strokeBolt(ctx, pts, rgb, alpha, width, flicker) {
   if (pts.length < 2) return;
   const a = alpha * (flicker === false ? 1 : 0.78 + Math.random() * 0.22);
+  // NO shadowBlur. It was here twice per bolt at blur radii of 9x and 5x the
+  // width, and a blurred stroke is the most expensive thing in Canvas2D — with
+  // arrivals, forks, arcs and the burst all stroking, Thor's charge was paying
+  // it hundreds of times a frame. Additive compositing gives the same bloom on
+  // a dark background for a fraction of the cost, because the glow is just
+  // wider translucent strokes adding into each other.
+  // The path is also built ONCE as a Path2D instead of being re-issued for
+  // every pass: four rebuilds per bolt was four times the geometry work.
+  const p = new Path2D();
+  p.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) p.lineTo(pts[i].x, pts[i].y);
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  const path = () => {
-    ctx.beginPath();
-    ctx.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-  };
-  ctx.save();
-  ctx.shadowColor = `rgba(${rgb},${a})`; ctx.shadowBlur = width * 9;
-  path(); ctx.strokeStyle = `rgba(${rgb},${a * 0.16})`; ctx.lineWidth = width * 7.0; ctx.stroke();
-  ctx.shadowBlur = width * 5;
-  path(); ctx.strokeStyle = `rgba(${rgb},${a * 0.42})`; ctx.lineWidth = width * 3.4; ctx.stroke();
-  ctx.restore();
-  path(); ctx.strokeStyle = `rgba(${rgb},${a * 0.9})`;  ctx.lineWidth = width * 1.7; ctx.stroke();
-  path(); ctx.strokeStyle = `rgba(244,250,255,${a})`;   ctx.lineWidth = width * 0.62; ctx.stroke();
+  const prev = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = `rgba(${rgb},${a * 0.13})`; ctx.lineWidth = width * 6.4; ctx.stroke(p);
+  ctx.strokeStyle = `rgba(${rgb},${a * 0.34})`; ctx.lineWidth = width * 2.9; ctx.stroke(p);
+  ctx.strokeStyle = `rgba(${rgb},${a * 0.85})`; ctx.lineWidth = width * 1.5; ctx.stroke(p);
+  ctx.strokeStyle = `rgba(248,252,255,${a})`;   ctx.lineWidth = width * 0.55; ctx.stroke(p);
+  ctx.globalCompositeOperation = prev;
 }
+
 
 // Branches off the main channel. A bolt without forks looks like a crack in
 // glass; the forks are what make it read as electricity.
@@ -3618,7 +3624,7 @@ function thorWake(token) {
             pts: (function () { const b = boltPoints(e.x, e.y, cx + (Math.random() - 0.5) * aim, cy + (Math.random() - 0.5) * aim, 6, 0.30); return b; })(),
             forks: [], born: t, life: 210 + Math.random() * 120
           };
-          bolt.forks = boltForks(bolt.pts, 2 + Math.floor(Math.random() * 3));
+          bolt.forks = boltForks(bolt.pts, 1 + Math.floor(Math.random() * 2));
           arrivals.push(bolt);
           spawnAt = t + 95 - p * 78;
           if (Math.random() < 0.4) blip(1200 + Math.random() * 900, 300, 0.05, 'square', 0.02);
@@ -3637,7 +3643,7 @@ function thorWake(token) {
         g.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * (0.30 + p * 0.55), 0, Math.PI * 2); ctx.fill();
         // crawling arcs on the hammer itself
-        if (p > 0.35) for (let i = 0; i < 3; i++) {
+        if (p > 0.35) for (let i = 0; i < 2; i++) {
           const a1 = Math.random() * Math.PI * 2, a2 = a1 + (Math.random() - 0.5) * 2.4;
           const rr = R * 0.34;
           strokeBolt(ctx, boltPoints(cx + Math.cos(a1) * rr, cy + Math.sin(a1) * rr, cx + Math.cos(a2) * rr, cy + Math.sin(a2) * rr, 3, 0.5), BLUE, (p - 0.35) * 0.9, R / 300);
@@ -3645,8 +3651,8 @@ function thorWake(token) {
       } else {
         if (!burst) {
           burst = { at: t, bolts: [], forks: [] };
-          for (let i = 0; i < 26; i++) {
-            const a = (i / 26) * Math.PI * 2 + Math.random() * 0.2;
+          for (let i = 0; i < 18; i++) {
+            const a = (i / 18) * Math.PI * 2 + Math.random() * 0.2;
             const far = Math.max(W, H) * 0.85;
             const pts = boltPoints(cx, cy, cx + Math.cos(a) * far, cy + Math.sin(a) * far, 6, 0.26);
             burst.bolts.push(pts);

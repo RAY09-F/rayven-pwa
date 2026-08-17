@@ -27,7 +27,7 @@ import { runRoundtable } from './lib/roundtable.js';
 import { runClipCycleIfDue } from './lib/clipping.js';
 import { igRefreshIfDue } from './lib/instagram.js';
 // ⟦PROJECT-H:BEGIN⟧
-import { runHelaVigilIfDue, runHelaDailyIfDue, runHelaForgeIfDue, helaGreetingExtra } from './lib/hela.js';
+import { runHelaVigilIfDue, runHelaDailyIfDue, runForgeRotation, helaGreetingExtra } from './lib/hela.js';
 // ⟦PROJECT-H:END⟧
 
 const RAYAN_TELEGRAM_USERNAME = 'rayanfahil';
@@ -837,8 +837,9 @@ export default {
     // cron cost of her existing at all is one KV read per tick.
     ctx.waitUntil(runHelaVigilIfDue(env));
     ctx.waitUntil(runHelaDailyIfDue(env));
-    // every half hour, locked in, she goes and gives herself a new capability
-    ctx.waitUntil(runHelaForgeIfDue(env));
+    // The forge. One persona per tick, in rotation, so four of them searching
+    // costs the same as one did — each still comes round on its own interval.
+    ctx.waitUntil(runForgeRotation(env, ALL_PERSONA_IDS));
     // ⟦PROJECT-H:END⟧
     // Sweep first, then flush, so any digest-priority alerts the sweep just
     // queued go out this same tick instead of waiting for the next one.

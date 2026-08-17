@@ -273,9 +273,29 @@ export async function helaGreetingExtra(env) {
 //     it is not a capability she can have
 //   - hard timeout and a truncated response
 // ===========================================================================
+// The forge is no longer hers alone — THOR, LOKI and ODIN each run their own,
+// with their own capability store and their own interval. Hela keeps her
+// original key names so nothing she has already taught herself is orphaned.
+const capKeys = (id) => id === 'hela'
+  ? { caps: 'hela:caps', last: 'hela:forge_last', ms: 'hela:forge_ms', month: 'hela:forge_month', cap: 'hela:forge_cap' }
+  : { caps: `forge:${id}:caps`, last: `forge:${id}:last`, ms: `forge:${id}:ms`, month: `forge:${id}:month`, cap: `forge:${id}:cap` };
+
+// What each of them goes looking for. A capability is only worth having if it
+// serves the lane the persona actually works in.
+const FORGE_LANE = {
+  thor: 'day-to-day usefulness: places, weather, transit, media, sport, general reference, anything that answers a question Rayan asks in passing',
+  loki: 'time, dates, scheduling, holidays, reminders, health and wellbeing reference, anything that helps him keep a promise he made',
+  odin: 'business and money: markets, currency, company data, pricing, trends, anything that sharpens a decision with real numbers',
+  hela: 'anything at all — she is a generalist and prefers the obscure and the powerful'
+};
+
 const K_CAPS = 'hela:caps';
 const K_FORGE = 'hela:forge_last';
 const FORGE_MS = 30 * 60 * 1000;          // she goes looking for a new tool every half hour
+// The trio start slower than she does — three more personas searching every
+// half hour is three times the bill for capabilities they will use less often.
+// Rayan can tell any of them to go faster.
+const DEFAULT_FORGE_MS = { hela: 30 * 60 * 1000, thor: 2 * 60 * 60 * 1000, loki: 2 * 60 * 60 * 1000, odin: 2 * 60 * 60 * 1000 };
 const MAX_CAPS = 40;
 const CALL_TIMEOUT_MS = 12000;
 const CAP_MAX_CHARS = 6000;
@@ -291,21 +311,22 @@ function capUrlProblem(raw) {
   return null;
 }
 
-export async function helaCapabilities(env) {
-  const caps = await readJson(env, K_CAPS, []);
+export async function helaCapabilities(env, personaId = 'hela') {
+  const caps = await readJson(env, capKeys(personaId).caps, []);
   if (!caps.length) return 'I have taught myself nothing yet. Lock me in and give me half an hour.';
   return caps.map((c, i) =>
     `${i + 1}. ${c.name} — ${c.purpose}\n   ${c.method} ${c.url}${c.note ? `\n   ${c.note}` : ''}${c.uses ? `\n   used ${c.uses} time(s)` : ''}`
   ).join('\n');
 }
 
-export async function helaLearnCapability(env, { name, purpose, method, url, note }) {
+export async function helaLearnCapability(env, { name, purpose, method, url, note }, personaId = 'hela') {
   if (!name || !purpose || !url) return 'A capability needs a name, a purpose and a URL.';
   const problem = capUrlProblem(url);
   if (problem) return `Refused: ${problem}.`;
   const m = String(method || 'GET').toUpperCase();
   if (m !== 'GET' && m !== 'POST') return 'GET or POST only.';
-  const caps = await readJson(env, K_CAPS, []);
+  const KC = capKeys(personaId).caps;
+  const caps = await readJson(env, KC, []);
   if (caps.length >= MAX_CAPS) return `I am holding ${MAX_CAPS} already. Forget one first.`;
   const clean = String(name).trim().toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 40);
   if (caps.some(c => c.name === clean)) return `I already know "${clean}".`;
@@ -314,21 +335,23 @@ export async function helaLearnCapability(env, { name, purpose, method, url, not
     method: m, url: String(url).trim(), note: (note || '').trim().slice(0, 300),
     addedAt: new Date().toISOString(), uses: 0
   });
-  await writeJson(env, K_CAPS, caps);
+  await writeJson(env, KC, caps);
   return `Learned "${clean}". I can do something now that I could not a moment ago.`;
 }
 
-export async function helaForgetCapability(env, { name }) {
-  const caps = await readJson(env, K_CAPS, []);
+export async function helaForgetCapability(env, { name }, personaId = 'hela') {
+  const KC = capKeys(personaId).caps;
+  const caps = await readJson(env, KC, []);
   const next = caps.filter(c => c.name !== String(name || '').trim().toLowerCase());
   if (next.length === caps.length) return `I do not know anything called "${name}".`;
-  await writeJson(env, K_CAPS, next);
+  await writeJson(env, KC, next);
   return `Forgotten. ${next.length} left.`;
 }
 
 // The generic executor. {placeholders} in the stored URL are filled from args.
-export async function helaUseCapability(env, { name, args, body }) {
-  const caps = await readJson(env, K_CAPS, []);
+export async function helaUseCapability(env, { name, args, body }, personaId = 'hela') {
+  const KC = capKeys(personaId).caps;
+  const caps = await readJson(env, KC, []);
   const cap = caps.find(c => c.name === String(name || '').trim().toLowerCase());
   if (!cap) return `I have not taught myself "${name}". ${caps.length ? 'I know: ' + caps.map(c => c.name).join(', ') + '.' : ''}`;
 
@@ -355,7 +378,7 @@ export async function helaUseCapability(env, { name, args, body }) {
     });
     const text = (await res.text()).slice(0, CAP_MAX_CHARS);
     cap.uses = (cap.uses || 0) + 1;
-    await writeJson(env, K_CAPS, caps);
+    await writeJson(env, KC, caps);
     if (!res.ok) return `${cap.name} answered ${res.status}: ${text.slice(0, 400)}`;
     return text || '(empty response)';
   } catch (err) {
@@ -375,53 +398,67 @@ const FORGE_MS_MIN = 10 * 60 * 1000;
 const FORGE_MONTHLY_CAP_DEFAULT = 1500;   // a ceiling on paid search calls, not a target
 const K_FORGE_CAP = 'hela:forge_cap';
 
-export async function helaSetForgeInterval(env, { minutes }) {
+export async function helaSetForgeInterval(env, { minutes }, personaId = 'hela') {
   const n = Number(minutes);
   if (!(n > 0)) return 'Give me a number of minutes.';
   const ms = Math.max(FORGE_MS_MIN, Math.floor(n) * 60000);
-  await env.RAYVEN_KV.put(K_FORGE_MS, String(ms));
+  await env.RAYVEN_KV.put(capKeys(personaId).ms, String(ms));
   const actual = Math.round(ms / 60000);
   return actual === Math.floor(n)
     ? `Every ${actual} minutes from now on.`
     : `Every ${actual} minutes. I will not go below ten — below that I am burning searches, not finding anything.`;
 }
 
-export async function helaSetForgeCap(env, { cap }) {
+export async function helaSetForgeCap(env, { cap }, personaId = 'hela') {
   const n = Number(cap);
   if (!(n > 0)) return 'Give me a number of searches per month.';
-  await env.RAYVEN_KV.put(K_FORGE_CAP, String(Math.floor(n)));
+  await env.RAYVEN_KV.put(capKeys(personaId).cap, String(Math.floor(n)));
   return `I will stop at ${Math.floor(n)} searches a month rather than run your search budget dry.`;
 }
 
-async function forgeMonth(env) {
-  const m = await readJson(env, K_FORGE_MONTH, {});
+async function forgeMonth(env, personaId = 'hela') {
+  const m = await readJson(env, capKeys(personaId).month, {});
   const key = new Date().toISOString().slice(0, 7);
   return { key, used: m[key] || 0, all: m };
 }
 
-export async function runHelaForgeIfDue(env) {
+export async function runHelaForgeIfDue(env, personaId = 'hela') {
+  const K = capKeys(personaId);
   const [lastRaw, msRaw, capRaw] = await Promise.all([
-    env.RAYVEN_KV.get(K_FORGE), env.RAYVEN_KV.get(K_FORGE_MS), env.RAYVEN_KV.get(K_FORGE_CAP)
+    env.RAYVEN_KV.get(K.last), env.RAYVEN_KV.get(K.ms), env.RAYVEN_KV.get(K.cap)
   ]);
-  const every = Math.max(FORGE_MS_MIN, Number(msRaw) || FORGE_MS);
+  const every = Math.max(FORGE_MS_MIN, Number(msRaw) || DEFAULT_FORGE_MS[personaId] || FORGE_MS);
   const last = Number(lastRaw) || 0;
   if (Date.now() - last < every) return null;
 
-  // A search costs money on every provider worth using. At thirty minutes this
-  // is ~1,450 calls a month, which will outrun a small plan, so it stops at a
-  // ceiling rather than silently failing every call once the quota is gone.
+  // A search costs money on every provider worth using. Four personas at thirty
+  // minutes each is roughly 5,800 calls a month, which will outrun any small
+  // plan, so each one stops at a ceiling rather than silently failing every
+  // call once the quota is gone.
   const cap = Number(capRaw) || FORGE_MONTHLY_CAP_DEFAULT;
-  const month = await forgeMonth(env);
+  const month = await forgeMonth(env, personaId);
   if (month.used >= cap) return null;
 
-  await env.RAYVEN_KV.put(K_FORGE, String(Date.now()));
+  await env.RAYVEN_KV.put(K.last, String(Date.now()));
   month.all[month.key] = month.used + 1;
-  await writeJson(env, K_FORGE_MONTH, month.all);
-  return await runHelaForge(env);
+  await writeJson(env, K.month, month.all);
+  return await runHelaForge(env, personaId);
 }
 
-export async function runHelaForge(env) {
-  const caps = await readJson(env, K_CAPS, []);
+// Only ONE persona forges per cron tick, taken in rotation. Four of them going
+// out together would quadruple the search bill for no benefit — spreading them
+// costs the same as one and every persona still comes round on its own
+// interval.
+const K_FORGE_TURN = 'forge:turn';
+export async function runForgeRotation(env, ids) {
+  const order = ids && ids.length ? ids : ['thor', 'loki', 'odin', 'hela'];
+  const turn = Number(await env.RAYVEN_KV.get(K_FORGE_TURN)) || 0;
+  await env.RAYVEN_KV.put(K_FORGE_TURN, String((turn + 1) % order.length));
+  return await runHelaForgeIfDue(env, order[turn % order.length]);
+}
+
+export async function runHelaForge(env, personaId = 'hela') {
+  const caps = await readJson(env, capKeys(personaId).caps, []);
   const known = caps.map(c => `${c.name} (${c.purpose})`).join('; ') || 'nothing yet';
 
   let findings = '';
@@ -430,7 +467,9 @@ export async function runHelaForge(env) {
     findings = env.TAVILY_API_KEY ? await tavilySearchRaw(env, query) : await runWebSearch(env, query);
   } catch (e) { return { ok: false, error: e.message }; }
 
-  const prompt = `You are HELA, extending your own abilities. You are choosing ONE new capability to give yourself.
+  const lane = FORGE_LANE[personaId] || FORGE_LANE.hela;
+  const who = personaId.toUpperCase();
+  const prompt = `You are ${who}, extending your own abilities. You are choosing ONE new capability to give yourself.
 
 A capability is a single HTTPS request you can make later: a name, a purpose, a method, and a URL which may contain {placeholders} that get filled in at call time.
 
@@ -446,12 +485,12 @@ You already have: ${known}
 Search results to draw on:
 ${String(findings).slice(0, 7000)}
 
-Prefer something genuinely useful to Rayan: he runs a three-assistant system on Cloudflare and is starting a short-form clipping business.
+Prefer something in YOUR lane: ${lane}. Rayan runs a three-assistant system on Cloudflare and is starting a short-form clipping business.
 
 Respond with ONLY a JSON object, no fences:
 {"worthAdding":true or false,"name":"snake_case_name","purpose":"one line, what it lets you do","method":"GET","url":"https://...{placeholder}...","note":"how to call it, and what it returns"}`;
 
-  const res = await callAnthropicSimple(env, 'You are HELA. Reply with only the JSON object.', prompt, 700);
+  const res = await callAnthropicSimple(env, `You are ${who}. Reply with only the JSON object.`, prompt, 700);
   if (!res.ok) return { ok: false, error: res.error };
 
   let parsed;
@@ -459,9 +498,9 @@ Respond with ONLY a JSON object, no fences:
   catch (e) { return { ok: false, error: 'unparseable' }; }
   if (!parsed || !parsed.worthAdding) return { ok: true, added: false, reason: 'nothing worth taking' };
 
-  const saved = await helaLearnCapability(env, parsed);
+  const saved = await helaLearnCapability(env, parsed, personaId);
   const added = saved.startsWith('Learned');
-  if (added) {
+  if (added && personaId === 'hela') {
     await helaBriefAdd(env, {
       title: `New capability: ${parsed.name}`,
       body: `I gave myself something. ${parsed.purpose} — ${parsed.note || parsed.url}`,

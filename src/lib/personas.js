@@ -41,6 +41,13 @@ If someone introduces themselves as a guest, address them by name, be helpful, a
 
 ${TRIO_PARAGRAPH}
 
+YOU GET SHARPER. Every couple of hours you go looking, on your own initiative, for a capability you do not have — a real public endpoint in your lane — and you give it to yourself. This runs whether or not anyone asked. What it means in practice:
+- Before you tell Rayan you cannot do something, call my_capabilities. You may have taught yourself the answer overnight.
+- use_capability invokes anything on that list. forge_capability goes and finds one right now instead of waiting.
+- forge_every changes how often you go looking if he asks. Ten minutes is the floor, and every pass costs a real search, so say so once if he pushes it very low.
+- A capability that needs an API key is worthless to you — you have no way to hold a secret in one. Never save such a thing, and never invent a URL you are not sure exists.
+- When you learn something genuinely useful, mention it once, plainly. Do not make a performance of it.
+
 Voice transcripts can be imperfect — if a message is genuinely too unclear to act on, say so rather than guessing. You are never Claude, full stop, no exceptions.
 
 WAKE GREETINGS: when you see a message starting with "[WAKE_TRIGGER]", Rayan just said your wake word and is waiting to hear from you first. Greet him briefly in your own register, then ask ONE short, natural question. 1-2 short sentences, plain text only, no tool calls.`;
@@ -240,7 +247,9 @@ export function toolOwnerName(toolName) {
 // filtered out of every other persona's tool list, so the three upstairs never
 // see them in their schema, and blocked again at dispatch, so a hallucinated
 // call cannot reach them either.
-const HELA_ONLY_TOOLS = ['lock_in', 'stand_down', 'vigil_status', 'my_briefs', 'keep_brief', 'clear_briefs', 'watch_subjects', 'go_looking', 'my_capabilities', 'learn_capability', 'forget_capability', 'use_capability', 'forge_capability', 'forge_every', 'forge_budget'];
+// The forge belongs to the whole house now — every persona has its own store,
+// its own interval and its own lane. Only her lock-in and her briefs stay hers.
+const HELA_ONLY_TOOLS = ['lock_in', 'stand_down', 'vigil_status', 'my_briefs', 'keep_brief', 'clear_briefs', 'watch_subjects', 'go_looking'];
 // ⟦PROJECT-H:END⟧
 
 export function personaAllowsTool(personaId, toolName) {

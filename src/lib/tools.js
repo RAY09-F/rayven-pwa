@@ -108,13 +108,14 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID) {
     case 'clear_briefs': return await helaClearBriefs(env);
     case 'watch_subjects': return await helaSetTopics(env, input);
     case 'go_looking': { const r = await runHelaVigil(env); return r && r.ok ? `Read up on ${r.topic}. Kept it as "${r.title}".` : `Nothing came of that: ${(r && r.error) || 'unknown'}.`; }
-    case 'my_capabilities': return await helaCapabilities(env);
-    case 'learn_capability': return await helaLearnCapability(env, input);
-    case 'forget_capability': return await helaForgetCapability(env, input);
-    case 'use_capability': return await helaUseCapability(env, input);
-    case 'forge_every': return await helaSetForgeInterval(env, input);
-    case 'forge_budget': return await helaSetForgeCap(env, input);
-    case 'forge_capability': { const r = await runHelaForge(env); return r && r.ok ? (r.added ? `I gave myself "${r.name}".` : 'Nothing out there was worth taking this time.') : `The forge came up empty: ${(r && r.error) || 'unknown'}.`; }
+    // the forge, now every persona's
+    case 'my_capabilities': return await helaCapabilities(env, personaId);
+    case 'learn_capability': return await helaLearnCapability(env, input, personaId);
+    case 'forget_capability': return await helaForgetCapability(env, input, personaId);
+    case 'use_capability': return await helaUseCapability(env, input, personaId);
+    case 'forge_every': return await helaSetForgeInterval(env, input, personaId);
+    case 'forge_budget': return await helaSetForgeCap(env, input, personaId);
+    case 'forge_capability': { const r = await runHelaForge(env, personaId); return r && r.ok ? (r.added ? `I gave myself "${r.name}".` : 'Nothing out there was worth taking this time.') : `The forge came up empty: ${(r && r.error) || 'unknown'}.`; }
     // ⟦PROJECT-H:END⟧
     case 'set_tool_permission': return await setToolPermission(env, input.toolName, input.level);
     case 'send_text': return await sendTextMessage(env, input.to, input.message);
