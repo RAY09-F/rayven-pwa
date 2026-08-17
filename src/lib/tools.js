@@ -448,6 +448,7 @@ export const TOOL_DEFINITIONS = [
       lang: { type: 'string', description: 'Spoken language of the source, default en' },
       permission: { type: 'string', description: "Whether Rayan has rights: 'yes' if the creator agreed, 'own' if it is his own footage, otherwise leave it out" },
       mode: { type: 'string', description: "'clip' to cut a long video into shorts, 'polish' to reframe and caption an already-short one. Omit to decide from the URL." },
+      length: { type: 'string', description: "How long each clip should be: 'short' (under 30s), 'minute' (30-90s, the default), 'long' (90s-3min), 'mixed' (variety under 90s), or 'auto'. Does NOT change the cost — Vizard bills on the length of the SOURCE video, never on the clips that come out." },
       note: { type: 'string', description: 'Anything worth remembering about this source' }
     }, required: ['videoUrl'] }
   },

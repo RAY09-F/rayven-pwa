@@ -1,0 +1,103 @@
+diff --git a/src/lib/clipping.js b/src/lib/clipping.js
+index 2b5c969..67892b7 100644
+--- a/src/lib/clipping.js
++++ b/src/lib/clipping.js
+@@ -559,8 +559,8 @@ export async function clipsVerifyAccounts(env) {
+   if (!accounts.length) out.push('  None configured. Set them with clips_set_accounts.');
+ 
+   const seen = new Map();
+-  const handleOwner = new Map();   // "tiktok @name" -> which key claimed it first
+   const problems = [];
++  const resolved = [];   // gathered first, rendered second — see the note below
+ 
+   for (let i = 0; i < accounts.length; i++) {
+     const key = accounts[i];
+@@ -585,35 +585,62 @@ export async function clipsVerifyAccounts(env) {
+     // linked" while the dashboard shows everything linked.
+     const isPrimary = !d.title && !!d.email;
+     const who = d.title || (isPrimary ? 'PRIMARY PROFILE' : (d.refId || 'unnamed'));
+-    const nets = Array.isArray(d.activeSocialAccounts) ? d.activeSocialAccounts : [];
+-    // The handle, not just the network name. Linking five TikTok accounts in
+-    // one browser is the moment this setup quietly breaks: TikTok's consent
+-    // screen has no account picker, so it authorises whoever is logged in and
+-    // happily attaches the SAME account to a second profile. "tiktok" appearing
+-    // on both rigs looks correct right up until you notice it is one account
+-    // posting twice while another never posts at all.
++    const netNames = Array.isArray(d.activeSocialAccounts) ? d.activeSocialAccounts : [];
+     const names = Array.isArray(d.displayNames) ? d.displayNames : [];
+-    const handleFor = new Map(names.map(x => [x.platform, x.username || x.displayName || '']));
+-    const netStr = nets.length
+-      ? nets.map(nw => `${nw}${handleFor.get(nw) ? ` ${handleFor.get(nw)}` : ''}`).join(' + ')
++    const meta = new Map(names.map(x => [x.platform, {
++      handle: x.username || x.displayName || '',
++      id: x.id ? String(x.id) : ''
++    }]));
++
++    resolved.push({
++      label, who, isPrimary,
++      nets: netNames.map(nw => ({
++        platform: nw,
++        handle: (meta.get(nw) || {}).handle || '',
++        id: (meta.get(nw) || {}).id || ''
++      })),
++      quota: (d.monthlyPostQuota !== undefined)
++        ? `  [${d.monthlyPostCount ?? '?'}/${d.monthlyPostQuota} posts used this month]` : ''
++    });
++  }
++
++  // Two genuinely separate accounts can carry the SAME display name — two
++  // YouTube channels called "Omnix Group" under two different logins is exactly
++  // the case that broke this the first time. Comparing on the name flagged them
++  // as a duplicate and would have sent Rayan to unlink a perfectly good account.
++  // So identity is the platform id, which is unique by construction, and the
++  // name is only ever a label. Where two labels do collide the id is shown so
++  // the two can be told apart on sight.
++  const labelCount = new Map();
++  for (const p of resolved) for (const n of p.nets) {
++    const k = `${n.platform} ${n.handle}`;
++    labelCount.set(k, (labelCount.get(k) || 0) + 1);
++  }
++
++  for (const p of resolved) {
++    const netStr = p.nets.length
++      ? p.nets.map(n => {
++          const collides = labelCount.get(`${n.platform} ${n.handle}`) > 1 && n.id;
++          return `${n.platform}${n.handle ? ` ${n.handle}` : ''}${collides ? ` (…${n.id.slice(-6)})` : ''}`;
++        }).join(' + ')
+       : 'NOTHING LINKED';
+-    const quota = (d.monthlyPostQuota !== undefined)
+-      ? `  [${d.monthlyPostCount ?? '?'}/${d.monthlyPostQuota} posts used this month]` : '';
+-    out.push(`  ${label} -> ${who} — ${netStr}${quota}`);
+-
+-    for (const nw of nets) {
+-      const handle = handleFor.get(nw);
+-      if (!handle) continue;
+-      const tag = `${nw} ${handle}`;
+-      if (handleOwner.has(tag)) {
+-        problems.push(`DUPLICATE ACCOUNT — ${tag} is attached to BOTH ${handleOwner.get(tag)} and ${who}. That is one account posting twice a day while another posts nothing. Unlink it from ${who} and relink the right one (log out of that network in the browser first).`);
+-      } else handleOwner.set(tag, who);
+-    }
++    out.push(`  ${p.label} -> ${p.who} — ${netStr}${p.quota}`);
++  }
+ 
+-    if (isPrimary) problems.push(`${label} lands on the Primary Profile, not a rig. Posts sent with it use whatever the Primary has linked.`);
+-    if (!nets.length) problems.push(`${label} reaches "${who}", which has no networks linked — every post through it will be refused as "not linked".`);
+-    if (seen.has(who)) problems.push(`${label} and ${seen.get(who)} both reach "${who}". Two rigs sharing one key means one rig never posts and the other double-posts.`);
+-    else seen.set(who, label);
++  const owner = new Map();
++  for (const p of resolved) {
++    for (const n of p.nets) {
++      const identity = n.id || n.handle;
++      if (!identity) continue;
++      const tag = `${n.platform}:${identity}`;
++      if (owner.has(tag)) {
++        problems.push(`DUPLICATE ACCOUNT — the same ${n.platform} account (${n.handle || identity}${n.id ? `, id ${n.id}` : ''}) is attached to BOTH ${owner.get(tag)} and ${p.who}. Same id, so this is genuinely one account, not two that share a name. That is one account posting twice a day while another posts nothing.`);
++      } else owner.set(tag, p.who);
++    }
++    if (p.isPrimary) problems.push(`${p.label} lands on the Primary Profile, not a rig. Posts sent with it use whatever the Primary has linked.`);
++    if (!p.nets.length) problems.push(`${p.label} reaches "${p.who}", which has no networks linked — every post through it will be refused as "not linked".`);
++    if (seen.has(p.who)) problems.push(`${p.label} and ${seen.get(p.who)} both reach "${p.who}". Two rigs sharing one key means one rig never posts and the other double-posts.`);
++    else seen.set(p.who, p.label);
+   }
+ 
+   // 3. Name the profiles that ARE ready but that no key of ours reaches.
