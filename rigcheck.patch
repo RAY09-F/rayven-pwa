@@ -1,0 +1,43 @@
+diff --git a/src/lib/clipping.js b/src/lib/clipping.js
+index a8dee4f..7329e4e 100644
+--- a/src/lib/clipping.js
++++ b/src/lib/clipping.js
+@@ -541,6 +541,7 @@ export async function clipsVerifyAccounts(env) {
+   if (!accounts.length) out.push('  None configured. Set them with clips_set_accounts.');
+ 
+   const seen = new Map();
++  const handleOwner = new Map();   // "tiktok @name" -> which key claimed it first
+   const problems = [];
+ 
+   for (let i = 0; i < accounts.length; i++) {
+@@ -567,9 +568,29 @@ export async function clipsVerifyAccounts(env) {
+     const isPrimary = !d.title && !!d.email;
+     const who = d.title || (isPrimary ? 'PRIMARY PROFILE' : (d.refId || 'unnamed'));
+     const nets = Array.isArray(d.activeSocialAccounts) ? d.activeSocialAccounts : [];
++    // The handle, not just the network name. Linking five TikTok accounts in
++    // one browser is the moment this setup quietly breaks: TikTok's consent
++    // screen has no account picker, so it authorises whoever is logged in and
++    // happily attaches the SAME account to a second profile. "tiktok" appearing
++    // on both rigs looks correct right up until you notice it is one account
++    // posting twice while another never posts at all.
++    const names = Array.isArray(d.displayNames) ? d.displayNames : [];
++    const handleFor = new Map(names.map(x => [x.platform, x.username || x.displayName || '']));
++    const netStr = nets.length
++      ? nets.map(nw => `${nw}${handleFor.get(nw) ? ` ${handleFor.get(nw)}` : ''}`).join(' + ')
++      : 'NOTHING LINKED';
+     const quota = (d.monthlyPostQuota !== undefined)
+       ? `  [${d.monthlyPostCount ?? '?'}/${d.monthlyPostQuota} posts used this month]` : '';
+-    out.push(`  ${label} -> ${who} — ${nets.length ? nets.join(' + ') : 'NOTHING LINKED'}${quota}`);
++    out.push(`  ${label} -> ${who} — ${netStr}${quota}`);
++
++    for (const nw of nets) {
++      const handle = handleFor.get(nw);
++      if (!handle) continue;
++      const tag = `${nw} ${handle}`;
++      if (handleOwner.has(tag)) {
++        problems.push(`DUPLICATE ACCOUNT — ${tag} is attached to BOTH ${handleOwner.get(tag)} and ${who}. That is one account posting twice a day while another posts nothing. Unlink it from ${who} and relink the right one (log out of that network in the browser first).`);
++      } else handleOwner.set(tag, who);
++    }
+ 
+     if (isPrimary) problems.push(`${label} lands on the Primary Profile, not a rig. Posts sent with it use whatever the Primary has linked.`);
+     if (!nets.length) problems.push(`${label} reaches "${who}", which has no networks linked — every post through it will be refused as "not linked".`);
