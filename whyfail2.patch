@@ -1,0 +1,47 @@
+diff --git a/src/index.js b/src/index.js
+index 174ec8d..98a2489 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -179,11 +179,17 @@ async function handleChatTurn(env, ctx, opts) {
+   ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
+ 
+   if (!result.ok) {
++    // Say WHAT went wrong. "Claude API error" on its own sent Rayan looking in
++    // the wrong place for twenty minutes; the API always says why.
++    const why = String(
++      (result.data && result.data.error && (result.data.error.message || result.data.error)) ||
++      `HTTP ${result.status || '?'}`
++    ).slice(0, 300);
+     if (isTelegram) {
+-      await sendTelegramMessage(env, telegramChatId, "Something went wrong on my end, sir. (Claude API error)", botToken);
++      await sendTelegramMessage(env, telegramChatId, `Something went wrong on my end, sir. The API said: ${why}`, botToken);
+       return null;
+     }
+-    return { error: 'Claude API error', details: result.data };
++    return { error: `Claude API error — ${why}`, details: result.data };
+   }
+ 
+   const textBlock = result.data.content.find(b => b.type === 'text');
+diff --git a/src/lib/anthropic.js b/src/lib/anthropic.js
+index 790e5d4..f9cff14 100644
+--- a/src/lib/anthropic.js
++++ b/src/lib/anthropic.js
+@@ -28,7 +28,17 @@ export async function callAnthropic(env, systemBlocks, tools, messages, maxToken
+       await new Promise(r => setTimeout(r, 700));
+       continue;
+     }
+-    return { ok: false, data: await response.json().catch(() => ({ error: `HTTP ${response.status}` })) };
++    // The REASON a request was rejected lives in this body, and until now it was
++    // parsed, wrapped, and then never shown to anyone — so every failure, from a
++    // bad tool schema to an expired key to a rate limit, surfaced to Rayan as the
++    // same four words. Log it and pass it up. A service that tells you why it
++    // refused is worth more than any amount of guessing at it.
++    const raw = await response.text();
++    let parsed;
++    try { parsed = JSON.parse(raw); }
++    catch { parsed = { error: { message: raw.slice(0, 400) || `HTTP ${response.status}` } }; }
++    console.log(`ANTHROPIC ${response.status}: ${raw.slice(0, 800)}`);
++    return { ok: false, status: response.status, data: parsed };
+   }
+ }
+ 

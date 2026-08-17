@@ -28,7 +28,17 @@ export async function callAnthropic(env, systemBlocks, tools, messages, maxToken
       await new Promise(r => setTimeout(r, 700));
       continue;
     }
-    return { ok: false, data: await response.json().catch(() => ({ error: `HTTP ${response.status}` })) };
+    // The REASON a request was rejected lives in this body, and until now it was
+    // parsed, wrapped, and then never shown to anyone — so every failure, from a
+    // bad tool schema to an expired key to a rate limit, surfaced to Rayan as the
+    // same four words. Log it and pass it up. A service that tells you why it
+    // refused is worth more than any amount of guessing at it.
+    const raw = await response.text();
+    let parsed;
+    try { parsed = JSON.parse(raw); }
+    catch { parsed = { error: { message: raw.slice(0, 400) || `HTTP ${response.status}` } }; }
+    console.log(`ANTHROPIC ${response.status}: ${raw.slice(0, 800)}`);
+    return { ok: false, status: response.status, data: parsed };
   }
 }
 

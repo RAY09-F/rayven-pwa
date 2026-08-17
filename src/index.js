@@ -179,11 +179,17 @@ async function handleChatTurn(env, ctx, opts) {
   ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
 
   if (!result.ok) {
+    // Say WHAT went wrong. "Claude API error" on its own sent Rayan looking in
+    // the wrong place for twenty minutes; the API always says why.
+    const why = String(
+      (result.data && result.data.error && (result.data.error.message || result.data.error)) ||
+      `HTTP ${result.status || '?'}`
+    ).slice(0, 300);
     if (isTelegram) {
-      await sendTelegramMessage(env, telegramChatId, "Something went wrong on my end, sir. (Claude API error)", botToken);
+      await sendTelegramMessage(env, telegramChatId, `Something went wrong on my end, sir. The API said: ${why}`, botToken);
       return null;
     }
-    return { error: 'Claude API error', details: result.data };
+    return { error: `Claude API error — ${why}`, details: result.data };
   }
 
   const textBlock = result.data.content.find(b => b.type === 'text');

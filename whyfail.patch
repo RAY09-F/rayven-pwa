@@ -1,0 +1,71 @@
+diff --git a/src/index.js b/src/index.js
+index bdc417f..98a2489 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -25,6 +25,8 @@ import { PERSONAS, ALL_PERSONA_IDS, DEFAULT_PERSONA_ID, getPersona, getPersonaBo
+ import { runPersonaAutonomyIfDue, getAllStatuses, getAutonomyLog, setPersonaStatus, runThorSelfCheck } from './lib/autonomy.js';
+ import { runRoundtable } from './lib/roundtable.js';
+ import { runClipCycleIfDue, clipsVerifyAccounts } from './lib/clipping.js';
++import { runVizardPollIfDue } from './lib/vizard.js';
++import { runTimersIfDue } from './lib/kit.js';
+ import { igRefreshIfDue } from './lib/instagram.js';
+ // ⟦PROJECT-H:BEGIN⟧
+ import { synthCallAudio } from './lib/comms.js';
+@@ -177,11 +179,17 @@ async function handleChatTurn(env, ctx, opts) {
+   ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
+ 
+   if (!result.ok) {
++    // Say WHAT went wrong. "Claude API error" on its own sent Rayan looking in
++    // the wrong place for twenty minutes; the API always says why.
++    const why = String(
++      (result.data && result.data.error && (result.data.error.message || result.data.error)) ||
++      `HTTP ${result.status || '?'}`
++    ).slice(0, 300);
+     if (isTelegram) {
+-      await sendTelegramMessage(env, telegramChatId, "Something went wrong on my end, sir. (Claude API error)", botToken);
++      await sendTelegramMessage(env, telegramChatId, `Something went wrong on my end, sir. The API said: ${why}`, botToken);
+       return null;
+     }
+-    return { error: 'Claude API error', details: result.data };
++    return { error: `Claude API error — ${why}`, details: result.data };
+   }
+ 
+   const textBlock = result.data.content.find(b => b.type === 'text');
+@@ -920,6 +928,14 @@ How to speak on a phone call:
+     // The clipping pass. Publishes at most one clip per tick and stops dead at
+     // the day's ramp allowance, so it cannot run away even if the queue is deep.
+     ctx.waitUntil(runClipCycleIfDue(env));
++    // Vizard's side of it: check on submitted jobs, queue whatever came back,
++    // and refresh download links before they expire. Self-throttled to roughly
++    // every four minutes and a no-op with no key set, so it costs one KV read
++    // per tick until there is actually something in flight.
++    ctx.waitUntil(runVizardPollIfDue(env));
++    // Countdown timers. Five-minute resolution is the honest ceiling here and
++    // set_timer says so out loud rather than implying a precision it has not got.
++    ctx.waitUntil(runTimersIfDue(env));
+     // Instagram long-lived tokens expire at 60 days. Refreshed weekly so the
+     // free Instagram path does not quietly stop working two months from now.
+     ctx.waitUntil(igRefreshIfDue(env));
+diff --git a/src/lib/anthropic.js b/src/lib/anthropic.js
+index 790e5d4..f9cff14 100644
+--- a/src/lib/anthropic.js
++++ b/src/lib/anthropic.js
+@@ -28,7 +28,17 @@ export async function callAnthropic(env, systemBlocks, tools, messages, maxToken
+       await new Promise(r => setTimeout(r, 700));
+       continue;
+     }
+-    return { ok: false, data: await response.json().catch(() => ({ error: `HTTP ${response.status}` })) };
++    // The REASON a request was rejected lives in this body, and until now it was
++    // parsed, wrapped, and then never shown to anyone — so every failure, from a
++    // bad tool schema to an expired key to a rate limit, surfaced to Rayan as the
++    // same four words. Log it and pass it up. A service that tells you why it
++    // refused is worth more than any amount of guessing at it.
++    const raw = await response.text();
++    let parsed;
++    try { parsed = JSON.parse(raw); }
++    catch { parsed = { error: { message: raw.slice(0, 400) || `HTTP ${response.status}` } }; }
++    console.log(`ANTHROPIC ${response.status}: ${raw.slice(0, 800)}`);
++    return { ok: false, status: response.status, data: parsed };
+   }
+ }
+ 
