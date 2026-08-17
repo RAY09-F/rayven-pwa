@@ -4963,11 +4963,19 @@ function _h9Reveal() {
   _h9.stage = 'held';
   if (!_h9.pts) _h9Build();
   if (!_h9.dom) _h9BuildRoom();
-  // the mode survives closing the vault and closing the tab
-  try { _h9.locked = localStorage.getItem('sysdiag:mode') === '1'; } catch (e) {}
-  _h9.dom.classList.toggle('locked', !!_h9.locked);
+  // She always comes back green. Lock-in is for the session you are in, not a
+  // setting — leaving the vault or closing the tab ends it.
+  _h9.locked = false;
+  _h9.dom.classList.remove('locked');
   const _st = _h9.dom.querySelector('#h9State');
-  if (_st && _h9.locked) _st.textContent = 'LOCKED IN';
+  if (_st) _st.textContent = _h9.LIVE ? 'AWAKE' : 'DORMANT — DO NOT WAKE';
+  // and if the tab was closed while she was locked, the backend still thinks
+  // she is — put it back in step, quietly.
+  if (_h9.LIVE) {
+    fetch(BACKEND_URL, { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: 'stand down', persona: 'hela' }) }).catch(() => {});
+  }
+  try { localStorage.removeItem('sysdiag:mode'); } catch (e) {}
   _h9.dom.style.display = 'block';
   requestAnimationFrame(() => _h9.dom.classList.add('lit'));
   if (_h9.LIVE) { const i = _h9.dom.querySelector('#h9In'); i && i.focus(); }
@@ -5334,7 +5342,6 @@ function _h9Shock(toRed) {
 function _h9SetLocked(on, tellHer) {
   const changed = !!on !== !!_h9.locked;
   _h9.locked = !!on;
-  try { localStorage.setItem('sysdiag:mode', on ? '1' : '0'); } catch (e) {}
   if (_h9.dom) {
     _h9.dom.classList.toggle('locked', _h9.locked);
     const st = _h9.dom.querySelector('#h9State');
@@ -5361,6 +5368,15 @@ function _h9SetLocked(on, tellHer) {
 function _h9Exit() {
   if (_h9.stage === 'dormant') return;
   _h9StopEar();
+  // leaving ends lock-in, on both sides
+  if (_h9.locked) {
+    _h9.locked = false;
+    if (_h9.dom) _h9.dom.classList.remove('locked');
+    if (_h9.LIVE) {
+      fetch(BACKEND_URL, { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ message: 'stand down', persona: 'hela' }), keepalive: true }).catch(() => {});
+    }
+  }
   _h9.stage = 'dormant';
   quietHold = false;
   try { localStorage.setItem('sysdiag:cyc', String(Math.floor(_h9.absorbed))); } catch (e) {}
@@ -5640,6 +5656,18 @@ function _h9VoiceTry(transcript) {
   if (!hIsActive()) _h9Enter();
   return true;
 }
+
+// Closing the tab while she is locked in must also stand her down. keepalive
+// is what lets the request survive the page going away.
+window.addEventListener('pagehide', () => {
+  if (_h9.locked && _h9.LIVE) {
+    try {
+      fetch(BACKEND_URL, { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ message: 'stand down', persona: 'hela' }), keepalive: true });
+    } catch (e) {}
+  }
+  try { localStorage.removeItem('sysdiag:mode'); } catch (e) {}
+});
 
 // A walk-in seal: Escape shuts the vault instantly, no phrase required.
 window.addEventListener('keydown', e => { if (e.key === 'Escape' && hIsActive()) _h9Exit(); });
