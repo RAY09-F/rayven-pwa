@@ -119,7 +119,7 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID) {
     // ⟦PROJECT-H:END⟧
     case 'set_tool_permission': return await setToolPermission(env, input.toolName, input.level);
     case 'send_text': return await sendTextMessage(env, input.to, input.message);
-    case 'make_call': return await makePhoneCall(env, input.to, input.message);
+    case 'make_call': return await makePhoneCall(env, input.to, input.message, { personaId, purpose: input.purpose });
     case 'spotify_play': return await spotifySearchAndPlay(env, input.query);
     case 'spotify_shuffle_playlist': return await spotifyShufflePlaylist(env, input.playlistName);
     case 'spotify_pause': return await spotifyPause(env);
@@ -365,15 +365,12 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'make_call',
-    description: "Place a real outbound phone call from THOR's own phone number to any phone number, and have THOR speak a message on the call using text-to-speech.",
-    input_schema: {
-      type: 'object',
-      properties: {
-        to: { type: 'string', description: 'Destination phone number in E.164 format, e.g. +16611234567' },
-        message: { type: 'string', description: 'What THOR should say when the call connects' }
-      },
-      required: ['to', 'message']
-    }
+    description: "Place a real phone call and HOLD THE CONVERSATION in your own voice — not a recorded message. Use this to book a table, a barber, an appointment, or to ask a business a question. Always requires Rayan's confirmation first. Write `message` as the natural opening line you will say when someone picks up, and `purpose` as what you are trying to achieve, because you will keep talking to them until it is done.",
+    input_schema: { type: 'object', properties: {
+      to: { type: 'string', description: 'the number to call' },
+      message: { type: 'string', description: 'the opening line, spoken naturally, one or two sentences' },
+      purpose: { type: 'string', description: 'what a successful call looks like — e.g. "book a table for 4 on Friday at 7pm under Rayan"' }
+    }, required: ['to', 'message'] }
   },
   {
     name: 'spotify_play',

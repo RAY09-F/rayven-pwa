@@ -27,6 +27,8 @@ import { runRoundtable } from './lib/roundtable.js';
 import { runClipCycleIfDue } from './lib/clipping.js';
 import { igRefreshIfDue } from './lib/instagram.js';
 // ⟦PROJECT-H:BEGIN⟧
+import { synthCallAudio } from './lib/comms.js';
+import { callAnthropicSimple } from './lib/anthropic.js';
 import { runHelaVigilIfDue, runHelaDailyIfDue, runForgeRotation, helaGreetingExtra } from './lib/hela.js';
 // ⟦PROJECT-H:END⟧
 
@@ -672,6 +674,82 @@ export default {
       } catch (err) {
         return new Response(`Request crashed: ${err.message}`, { headers: corsHeaders });
       }
+    }
+
+    // ---- OUTBOUND CALLS -------------------------------------------------
+    // Twilio fetches the spoken line from here. Public by necessity — Twilio
+    // will not send credentials — but the id is a random one-time token that
+    // expires in fifteen minutes and points at nothing but a spoken sentence.
+    if (url.pathname.startsWith('/voice/audio/') && request.method === 'GET') {
+      const id = url.pathname.split('/').pop().replace(/[^a-zA-Z0-9]/g, '');
+      const b64 = await env.RAYVEN_KV.get(`callaudio:${id}`);
+      if (!b64) return new Response('gone', { status: 404 });
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new Response(bytes, { headers: { 'content-type': 'audio/mpeg', 'cache-control': 'no-store' } });
+    }
+
+    // One turn of a live phone conversation. Twilio posts what the other person
+    // said; the persona answers in its own voice and we hand back TwiML that
+    // plays the reply and listens again.
+    if (url.pathname === '/voice/turn' && request.method === 'POST') {
+      const personaId = resolvePersonaId(url.searchParams.get('p') || 'thor');
+      const base = env.PUBLIC_BASE_URL || 'https://asgrard-backend.rayanfahil2.workers.dev';
+      const form = await request.formData().catch(() => null);
+      const heard = form ? (form.get('SpeechResult') || '').toString().trim() : '';
+      const silent = url.searchParams.get('silent') === '1';
+
+      const ctxRaw = await env.RAYVEN_KV.get('call:purpose');
+      const callCtx = ctxRaw ? JSON.parse(ctxRaw) : {};
+      const scriptRaw = await env.RAYVEN_KV.get('call:transcript');
+      const script = scriptRaw ? JSON.parse(scriptRaw) : [];
+
+      if (!heard && silent) {
+        return new Response('<Response><Say voice="Polly.Matthew">Thank you. Goodbye.</Say><Hangup/></Response>',
+          { headers: { 'content-type': 'text/xml' } });
+      }
+      script.push({ role: 'user', content: heard || '(they said nothing)' });
+
+      const sys = `You are ${getPersona(personaId).name}, on a live telephone call on Rayan's behalf. You are talking to a real person who answered the phone.
+
+WHY YOU CALLED: ${callCtx.purpose || 'to pass on a message'}
+
+How to speak on a phone call:
+- One or two short sentences per turn. Never a paragraph. They are standing at a counter.
+- Plain spoken English. No markdown, no lists, no spelling things out unless asked.
+- Be warm, be brief, be human. Say "thanks" and "no worries" like a person does.
+- You are calling ON BEHALF OF Rayan. Say so if asked who is speaking.
+- Get the thing done: the booking, the time, the confirmation. Ask the one question that moves it forward.
+- If they say to call back later, or it is the wrong number, thank them and say goodbye.
+- When the matter is settled, confirm the details back in one sentence and say goodbye.
+- If you are finished and the call should end, put the word DONE on its own at the very end of your reply. It will not be spoken.`;
+
+      let reply = 'Sorry, I did not catch that.';
+      try {
+        const r = await callAnthropicSimple(env, sys,
+          script.map(m => `${m.role === 'user' ? 'THEM' : 'YOU'}: ${m.content}`).join('\n') + '\nYOU:', 250);
+        if (r.ok) reply = r.text.trim();
+      } catch (e) {}
+
+      const done = /\bDONE\s*$/.test(reply);
+      reply = reply.replace(/\bDONE\s*$/, '').trim() || 'Thank you.';
+      script.push({ role: 'assistant', content: reply });
+      await env.RAYVEN_KV.put('call:transcript', JSON.stringify(script.slice(-24)), { expirationTtl: 3600 });
+
+      const id = await synthCallAudio(env, reply, personaId).catch(() => null);
+      const speak = id ? `<Play>${base}/voice/audio/${id}</Play>`
+                       : `<Say voice="Polly.Matthew">${reply.replace(/[<>&]/g, '')}</Say>`;
+      const xml = done
+        ? `<Response>${speak}<Hangup/></Response>`
+        : `<Response>${speak}<Gather input="speech" action="${base}/voice/turn?p=${personaId}" method="POST" speechTimeout="auto" language="en-US"></Gather><Redirect>${base}/voice/turn?p=${personaId}&amp;silent=1</Redirect></Response>`;
+      return new Response(xml, { headers: { 'content-type': 'text/xml' } });
+    }
+
+    // Read back how the last call actually went.
+    if (url.pathname === '/voice/transcript' && request.method === 'GET') {
+      const t = await env.RAYVEN_KV.get('call:transcript');
+      return json({ transcript: t ? JSON.parse(t) : [] }, corsHeaders);
     }
 
     if (url.pathname === '/tts' && request.method === 'POST') {
