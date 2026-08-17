@@ -24,7 +24,7 @@ import { runMonitoringSweep, getWatchList } from './lib/monitoring.js';
 import { PERSONAS, ALL_PERSONA_IDS, DEFAULT_PERSONA_ID, getPersona, getPersonaBotToken, getPersonaVoiceId, getPersonaVoiceSettings, historyKeyFor, resolvePersonaId } from './lib/personas.js';
 import { runPersonaAutonomyIfDue, getAllStatuses, getAutonomyLog, setPersonaStatus, runThorSelfCheck } from './lib/autonomy.js';
 import { runRoundtable } from './lib/roundtable.js';
-import { runClipCycleIfDue } from './lib/clipping.js';
+import { runClipCycleIfDue, clipsVerifyAccounts } from './lib/clipping.js';
 import { igRefreshIfDue } from './lib/instagram.js';
 // ⟦PROJECT-H:BEGIN⟧
 import { synthCallAudio } from './lib/comms.js';
@@ -386,6 +386,18 @@ export default {
 
     if (url.pathname === '/debug-autonomy') {
       return json(await runPersonaAutonomyIfDue(env), corsHeaders);
+    }
+
+    // Read this in a browser when a publish is refused. It goes straight to
+    // Ayrshare with the Worker's own key and prints what Ayrshare says — which
+    // profiles exist, what is linked to each, where every key we hold actually
+    // lands, and whether anything is suspended. Plain text on purpose: the
+    // point is to see the publisher's answer unedited, with no assistant
+    // summarising it in between. Prints no keys.
+    if (url.pathname === '/debug-clips-verify') {
+      return new Response(await clipsVerifyAccounts(env), {
+        headers: { ...corsHeaders, 'content-type': 'text/plain; charset=utf-8' }
+      });
     }
 
     if (url.pathname === '/debug-selfcheck') {

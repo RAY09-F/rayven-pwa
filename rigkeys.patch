@@ -1,0 +1,121 @@
+diff --git a/src/lib/clipping.js b/src/lib/clipping.js
+index d9c0470..f7a1d65 100644
+--- a/src/lib/clipping.js
++++ b/src/lib/clipping.js
+@@ -496,3 +496,83 @@ export async function clipsHistory(env, { profile, limit = 5 } = {}) {
+ 
+   return out.join('\n\n') || 'Nothing to report.';
+ }
++
++// Where do our keys actually point? Ayrshare answered "not linked" for a profile
++// whose dashboard plainly showed both networks linked. Both cannot be true of
++// the same profile — so the Profile-Key we send under the name "rig1" is
++// reaching a different profile than the one Rayan linked the accounts to. This
++// proves it either way, and it never prints a key: it asks Ayrshare which
++// profile each key resolves to, and cross-checks that against what Ayrshare
++// says is linked where.
++export async function clipsVerifyAccounts(env) {
++  if (!env.AYRSHARE_API_KEY) return 'Ayrshare is not connected, so there is nothing to verify.';
++  const auth = { Authorization: `Bearer ${env.AYRSHARE_API_KEY}` };
++  const out = [];
++
++  // 1. Ayrshare's own inventory: every profile, and what is linked to it.
++  const linkedByTitle = new Map();
++  try {
++    const r = await fetch('https://api.ayrshare.com/api/profiles', { headers: auth });
++    const t = await r.text();
++    if (!r.ok) out.push(`Could not list profiles — HTTP ${r.status}: ${t.slice(0, 160)}`);
++    else {
++      const d = JSON.parse(t);
++      const list = Array.isArray(d) ? d : (d.profiles || []);
++      out.push(`WHAT AYRSHARE HAS (${list.length} profile${list.length === 1 ? '' : 's'}):`);
++      for (const p of list) {
++        const name = p.title || p.displayTitle || p.refId || 'unnamed';
++        const nets = Array.isArray(p.activeSocialAccounts) ? p.activeSocialAccounts : [];
++        linkedByTitle.set(name, nets);
++        out.push(`  ${name} — ${nets.length ? nets.join(' + ') : 'NOTHING LINKED'}`);
++      }
++    }
++  } catch (err) { out.push(`Could not list profiles — ${err.message}`); }
++
++  // 2. Resolve each configured key to the profile it actually reaches.
++  const accounts = await readJson(env, KV.accounts, []);
++  out.push('', `WHERE OUR ${accounts.length} CONFIGURED KEY${accounts.length === 1 ? '' : 'S'} ACTUALLY POINT:`);
++  if (!accounts.length) out.push('  None configured. Set them with clips_set_accounts.');
++
++  const seen = new Map();
++  const problems = [];
++
++  for (let i = 0; i < accounts.length; i++) {
++    const key = accounts[i];
++    const label = `key ${i + 1}`;
++    const headers = { ...auth };
++    if (key && key !== 'default') headers['Profile-Key'] = key;
++
++    let r, t;
++    try { r = await fetch('https://api.ayrshare.com/api/user', { headers }); t = await r.text(); }
++    catch (err) { out.push(`  ${label}: could not reach Ayrshare — ${err.message}`); continue; }
++
++    if (!r.ok) {
++      out.push(`  ${label}: REJECTED — HTTP ${r.status}: ${t.slice(0, 140)}`);
++      problems.push(`${label} is not a Profile-Key Ayrshare recognises.`);
++      continue;
++    }
++    let d;
++    try { d = JSON.parse(t); } catch { out.push(`  ${label}: unreadable reply`); continue; }
++
++    // A key that is missing, blank, or not honoured silently resolves to the
++    // Primary Profile — which is exactly the failure that looks like "not
++    // linked" while the dashboard shows everything linked.
++    const isPrimary = !d.title && !!d.email;
++    const who = d.title || (isPrimary ? 'PRIMARY PROFILE' : (d.refId || 'unnamed'));
++    const nets = Array.isArray(d.activeSocialAccounts) ? d.activeSocialAccounts : [];
++    out.push(`  ${label} -> ${who} — ${nets.length ? nets.join(' + ') : 'NOTHING LINKED'}`);
++
++    if (isPrimary) problems.push(`${label} lands on the Primary Profile, not a rig. Posts sent with it use whatever the Primary has linked.`);
++    if (!nets.length) problems.push(`${label} reaches "${who}", which has no networks linked — every post through it will be refused as "not linked".`);
++    if (seen.has(who)) problems.push(`${label} and ${seen.get(who)} both reach "${who}". Two rigs sharing one key means one rig never posts and the other double-posts.`);
++    else seen.set(who, label);
++  }
++
++  // 3. Name the profiles that ARE ready but that no key of ours reaches.
++  const reached = new Set(seen.keys());
++  const stranded = [...linkedByTitle.entries()].filter(([n, nets]) => nets.length && !reached.has(n)).map(([n]) => n);
++  if (stranded.length) problems.push(`These profiles have accounts linked but no key of ours reaches them: ${stranded.join(', ')}. Their Profile-Keys are the ones we should be using.`);
++
++  out.push('', problems.length ? `PROBLEMS:\n  - ${problems.join('\n  - ')}` : 'No mismatch found — every key reaches a distinct profile with networks linked.');
++  return out.join('\n');
++}
+diff --git a/src/lib/tools.js b/src/lib/tools.js
+index 4d2479e..33e6838 100644
+--- a/src/lib/tools.js
++++ b/src/lib/tools.js
+@@ -6,7 +6,7 @@
+ import { callAnthropic } from './anthropic.js';
+ import { checkPermission } from './permissions.js';
+ import { appendCappedLog, readCappedLog } from './util.js';
+-import { findClips, queueAdd, queueList, queueRemove, setAccounts, setPlatforms, setMonthlyCap, publishNext, clippingStatus, clipsHistory } from './clipping.js';
++import { findClips, queueAdd, queueList, queueRemove, setAccounts, setPlatforms, setMonthlyCap, publishNext, clippingStatus, clipsHistory, clipsVerifyAccounts } from './clipping.js';
+ import { igAddAccount, igListAccounts, igRemoveAccount, igPublish, igRefreshTokens } from './instagram.js';
+ // ⟦PROJECT-H:BEGIN⟧
+ import { helaLockIn, helaStandDown, helaStatus, helaBriefs, helaBriefAdd, helaClearBriefs, helaSetTopics, runHelaVigil, helaSetForgeInterval, helaSetForgeCap, helaCapabilities, helaLearnCapability, helaForgetCapability, helaUseCapability, runHelaForge } from './hela.js';
+@@ -100,6 +100,7 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID) {
+     case 'clips_set_monthly_cap': return await setMonthlyCap(env, input);
+     case 'clips_status': return await clippingStatus(env);
+     case 'clips_history': return await clipsHistory(env, input);
++    case 'clips_verify_accounts': return await clipsVerifyAccounts(env);
+     // ⟦PROJECT-H:BEGIN⟧ — hers alone; personaAllowsTool gates them below
+     case 'lock_in': return await helaLockIn(env);
+     case 'stand_down': return await helaStandDown(env);
+@@ -342,6 +343,11 @@ export const TOOL_DEFINITIONS = [
+     input_schema: { type: 'object', properties: { cap: { type: 'number' } }, required: ['cap'] }
+   },
+   { name: 'clips_status', description: "Where the clipping operation stands: ramp day, today's allowance, how many went out, queue depth, and what is not yet connected. This reads OUR OWN counters — it knows what we attempted, never whether a clip reached a profile. If Rayan says a post is not showing up, clips_history is the tool that actually answers it.", input_schema: { type: 'object', properties: {} } },
++  {
++    name: 'clips_verify_accounts',
++    description: "Prove where each configured Profile-Key actually points. Lists every Ayrshare profile with the networks linked to it, then resolves each key we hold to the profile it really reaches, and names any mismatch. Use this whenever a publish is refused as 'not linked' while the dashboard shows the accounts linked — that combination means the key is reaching the wrong profile. Never prints a key.",
++    input_schema: { type: 'object', properties: {} }
++  },
+   {
+     name: 'clips_history',
+     description: "The publisher's own record of every recent post: per-network status, the live URL, and the exact refusal text when a network rejected it. Use this the moment a post is questioned — never guess at processing delays or tell Rayan to wait, and never claim something published because our counter went up. Reads the truth from Ayrshare.",

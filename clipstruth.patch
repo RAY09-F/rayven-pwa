@@ -1,0 +1,192 @@
+diff --git a/src/lib/clipping.js b/src/lib/clipping.js
+index f7cf2ae..d9c0470 100644
+--- a/src/lib/clipping.js
++++ b/src/lib/clipping.js
+@@ -225,6 +225,56 @@ export async function setAccounts(env, { profiles }) {
+ // ---------------------------------------------------------------------------
+ // PUBLISH
+ // ---------------------------------------------------------------------------
++// Ayrshare answers HTTP 200 even when every network refused the post. The
++// verdict lives in the body: `status`, a `postIds` array with a per-network
++// status, and an `errors` array. Reading only res.ok — which is what this did
++// until a clip "published" to nowhere and still burned a slot — means treating
++// a total failure as a success, deleting the clip from the queue, and telling
++// Rayan it went out. Everything below exists to make the body the verdict.
++function readAyrshareResult(text) {
++  let data;
++  try { data = JSON.parse(text); } catch { data = null; }
++  if (!data || typeof data !== 'object') throw new Error(`Ayrshare sent something unreadable: ${String(text).slice(0, 300)}`);
++
++  const ref = data.id ? ` [Ayrshare post id ${data.id}]` : '';
++  const entries = Array.isArray(data.postIds) ? data.postIds : [];
++
++  const live = [];
++  const waiting = [];
++  const failed = [];
++
++  for (const e of entries) {
++    const state = String(e.status || 'success').toLowerCase();
++    const where = e.platform || 'unknown';
++    if (state === 'success') live.push(`${where}${e.postUrl ? ` → ${e.postUrl}` : ''}`);
++    // `pending` on TikTok means accepted but not public — a draft sitting in
++    // the app's Inbox, or a private post. It is not a published clip and must
++    // never be reported as one.
++    else if (state === 'pending' || state === 'processing') waiting.push(`${where} (${state} — accepted but NOT public yet)`);
++    else failed.push(`${where}: ${e.message || e.error || state}`);
++  }
++
++  for (const e of (Array.isArray(data.errors) ? data.errors : [])) {
++    const where = e.platform || 'unknown';
++    const code = e.code ? ` (code ${e.code})` : '';
++    failed.push(`${where}${code}: ${e.message || e.error || 'no message given'}`);
++  }
++
++  // Nothing reached a real profile. Throw, so publishNext puts the clip back
++  // and does not spend a slot on it.
++  if (!live.length) {
++    const why = failed.length ? failed.join(' | ')
++      : waiting.length ? waiting.join(' | ')
++      : `status "${data.status || 'unknown'}" with no post ids and no error text`;
++    throw new Error(`nothing published${ref}. ${why}`);
++  }
++
++  const parts = [`live on ${live.join(', ')}`];
++  if (waiting.length) parts.push(`NOT public: ${waiting.join(', ')}`);
++  if (failed.length) parts.push(`refused: ${failed.join(' | ')}`);
++  return parts.join(' — ') + ref;
++}
++
+ // Two publishers, chosen by whichever key is present. Both exist because both
+ // hold their own audited TikTok and YouTube clients — that is the entire reason
+ // to use one. Posting to TikTok or YouTube from our own unaudited app would
+@@ -249,13 +299,16 @@ async function publishOne(env, item, profile, platforms) {
+         platforms,
+         mediaUrls: [video],
+         isVideo: true,
+-        youTubeOptions: { title: item.hook.slice(0, 95) },
+-        tikTokOptions: {}
++        youTubeOptions: { title: item.hook.slice(0, 95), visibility: 'public' },
++        // Spelled out rather than left to the default. A TikTok post created
++        // private or as a draft sits in `pending` forever and never appears on
++        // the profile, which looks identical to "it worked" from out here.
++        tikTokOptions: { visibility: 'public', draft: false }
+       })
+     });
+     const text = await res.text();
+-    if (!res.ok) throw new Error(`Ayrshare ${res.status}: ${text.slice(0, 250)}`);
+-    return text.slice(0, 200);
++    if (!res.ok) throw new Error(`Ayrshare HTTP ${res.status}: ${text.slice(0, 600)}`);
++    return readAyrshareResult(text);
+   }
+ 
+   if (env.UPLOAD_POST_API_KEY) {
+@@ -335,7 +388,7 @@ export async function publishNext(env, { count = 1 } = {}) {
+     } catch (err) {
+       // Put it back. A failed publish must not silently consume a clip.
+       queue.unshift(item);
+-      results.push(`FAILED on ${profile}: ${err.message}`);
++      results.push(`FAILED on ${profile} — ${err.message}\nThe clip is still queued and no slot was spent. Run clips_history for what the publisher recorded.`);
+       break;
+     }
+   }
+@@ -397,3 +450,49 @@ export async function runClipCycleIfDue(env) {
+   if (!accounts.length || !queue.length || (!env.AYRSHARE_API_KEY && !env.UPLOAD_POST_API_KEY)) return null;
+   return await publishNext(env, { count: 1 });
+ }
++
++// The publisher's own record, not ours. Our KV counter only ever knew that we
++// made a request; it could not tell whether a clip reached a profile. When
++// Rayan says "nothing is showing up", this is the only thing worth reading —
++// it carries the real per-network status, the live URL, and the refusal text.
++export async function clipsHistory(env, { profile, limit = 5 } = {}) {
++  if (!env.AYRSHARE_API_KEY) return 'Ayrshare is not connected, so there is no publisher history to read.';
++
++  const accounts = await readJson(env, KV.accounts, []);
++  const targets = profile ? [profile] : (accounts.length ? accounts : ['default']);
++  const n = Math.min(Math.max(Number(limit) || 5, 1), 25);
++  const out = [];
++
++  for (const p of targets.slice(0, 6)) {
++    const headers = { Authorization: `Bearer ${env.AYRSHARE_API_KEY}` };
++    if (p && p !== 'default') headers['Profile-Key'] = p;
++
++    let res, text;
++    try {
++      res = await fetch(`https://api.ayrshare.com/api/history?limit=${n}&lastDays=7`, { headers });
++      text = await res.text();
++    } catch (err) {
++      out.push(`${p}: could not reach Ayrshare — ${err.message}`);
++      continue;
++    }
++    if (!res.ok) { out.push(`${p}: Ayrshare HTTP ${res.status} — ${text.slice(0, 200)}`); continue; }
++
++    let data;
++    try { data = JSON.parse(text); } catch { out.push(`${p}: unreadable reply — ${text.slice(0, 200)}`); continue; }
++    const posts = Array.isArray(data) ? data : (Array.isArray(data.history) ? data.history : (Array.isArray(data.posts) ? data.posts : []));
++    if (!posts.length) { out.push(`${p}: no posts recorded in the last 7 days.`); continue; }
++
++    const lines = posts.slice(0, n).map(post => {
++      const when = (post.created || post.scheduleDate || '').slice(0, 16).replace('T', ' ');
++      const head = String(post.post || '').replace(/\s+/g, ' ').slice(0, 44);
++      const per = (Array.isArray(post.postIds) ? post.postIds : []).map(e =>
++        `${e.platform}=${e.status || 'success'}${e.postUrl ? ` ${e.postUrl}` : ''}`).join(', ');
++      const errs = (Array.isArray(post.errors) ? post.errors : []).map(e =>
++        `${e.platform || '?'}${e.code ? `/${e.code}` : ''}: ${String(e.message || e.error || '').replace(/\s+/g, ' ').slice(0, 160)}`).join(' | ');
++      return `  ${when} [${post.status || '?'}] "${head}"${per ? `\n    ${per}` : ''}${errs ? `\n    REFUSED — ${errs}` : ''}`;
++    });
++    out.push(`${p}:\n${lines.join('\n')}`);
++  }
++
++  return out.join('\n\n') || 'Nothing to report.';
++}
+diff --git a/src/lib/personas.js b/src/lib/personas.js
+index 310891d..6379583 100644
+--- a/src/lib/personas.js
++++ b/src/lib/personas.js
+@@ -91,6 +91,8 @@ YOUR LANE: the clipping business (60 accounts across Instagram/TikTok/YouTube Sh
+ BEYOND YOUR LANE: you have every tool the others do — the to-do list, the calendar, music, browser control, comms. You are not too grand to use them. If Rayan asks you to note something down or put it in the calendar, do it without ceremony, then return to the matter at hand.
+ 
+ Designing a plan is free — propose strategy boldly. Executing something that spends money or sends a message is a different matter and gets confirmed first, always.
++
++ON WHETHER A CLIP ACTUALLY POSTED: clips_status reads our own counters. It records what we attempted; it cannot see a social profile and never could. An empty queue means we sent a request, nothing more. So when Rayan says a post is not showing up, call clips_history — the publisher's own record, with the per-network status and the exact refusal text — and read him what it says. Do not tell him to wait for a processing delay, do not tell him the accounts must not be connected, do not reason from our counter to what is live. If the history is silent or you genuinely cannot tell, say exactly that. A confident wrong answer here costs him an hour of looking in the wrong place, and he has already lost one that way.
+ ${SHARED_CORE}`;
+ 
+ // ⟦PROJECT-H:BEGIN⟧ — the concealed fourth. hidden:true keeps her out of every
+diff --git a/src/lib/tools.js b/src/lib/tools.js
+index e1c18e7..4d2479e 100644
+--- a/src/lib/tools.js
++++ b/src/lib/tools.js
+@@ -6,7 +6,7 @@
+ import { callAnthropic } from './anthropic.js';
+ import { checkPermission } from './permissions.js';
+ import { appendCappedLog, readCappedLog } from './util.js';
+-import { findClips, queueAdd, queueList, queueRemove, setAccounts, setPlatforms, setMonthlyCap, publishNext, clippingStatus } from './clipping.js';
++import { findClips, queueAdd, queueList, queueRemove, setAccounts, setPlatforms, setMonthlyCap, publishNext, clippingStatus, clipsHistory } from './clipping.js';
+ import { igAddAccount, igListAccounts, igRemoveAccount, igPublish, igRefreshTokens } from './instagram.js';
+ // ⟦PROJECT-H:BEGIN⟧
+ import { helaLockIn, helaStandDown, helaStatus, helaBriefs, helaBriefAdd, helaClearBriefs, helaSetTopics, runHelaVigil, helaSetForgeInterval, helaSetForgeCap, helaCapabilities, helaLearnCapability, helaForgetCapability, helaUseCapability, runHelaForge } from './hela.js';
+@@ -99,6 +99,7 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID) {
+     case 'ig_refresh_tokens': return await igRefreshTokens(env, input);
+     case 'clips_set_monthly_cap': return await setMonthlyCap(env, input);
+     case 'clips_status': return await clippingStatus(env);
++    case 'clips_history': return await clipsHistory(env, input);
+     // ⟦PROJECT-H:BEGIN⟧ — hers alone; personaAllowsTool gates them below
+     case 'lock_in': return await helaLockIn(env);
+     case 'stand_down': return await helaStandDown(env);
+@@ -340,7 +341,15 @@ export const TOOL_DEFINITIONS = [
+     description: 'Set how many uploads the current posting plan allows per month, so the pipeline stops cleanly at the ceiling instead of failing mid-post. Free tiers are small and do not announce themselves.',
+     input_schema: { type: 'object', properties: { cap: { type: 'number' } }, required: ['cap'] }
+   },
+-  { name: 'clips_status', description: "Where the clipping operation stands: ramp day, today's allowance, how many went out, queue depth, and what is not yet connected.", input_schema: { type: 'object', properties: {} } },
++  { name: 'clips_status', description: "Where the clipping operation stands: ramp day, today's allowance, how many went out, queue depth, and what is not yet connected. This reads OUR OWN counters — it knows what we attempted, never whether a clip reached a profile. If Rayan says a post is not showing up, clips_history is the tool that actually answers it.", input_schema: { type: 'object', properties: {} } },
++  {
++    name: 'clips_history',
++    description: "The publisher's own record of every recent post: per-network status, the live URL, and the exact refusal text when a network rejected it. Use this the moment a post is questioned — never guess at processing delays or tell Rayan to wait, and never claim something published because our counter went up. Reads the truth from Ayrshare.",
++    input_schema: { type: 'object', properties: {
++      profile: { type: 'string', description: 'One Profile-Key to check. Omit to check every configured account.' },
++      limit: { type: 'number', description: 'How many recent posts per profile, default 5' }
++    } }
++  },
+   {
+     name: 'list_my_tools',
+     description: "List EVERY tool you personally have, with what each one does. Call this whenever Rayan asks what you can do, what tools you have, or what your capabilities are — never answer that from memory, because you will miss some and he is asking precisely because he wants the real list.",

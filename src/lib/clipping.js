@@ -225,6 +225,56 @@ export async function setAccounts(env, { profiles }) {
 // ---------------------------------------------------------------------------
 // PUBLISH
 // ---------------------------------------------------------------------------
+// Ayrshare answers HTTP 200 even when every network refused the post. The
+// verdict lives in the body: `status`, a `postIds` array with a per-network
+// status, and an `errors` array. Reading only res.ok — which is what this did
+// until a clip "published" to nowhere and still burned a slot — means treating
+// a total failure as a success, deleting the clip from the queue, and telling
+// Rayan it went out. Everything below exists to make the body the verdict.
+function readAyrshareResult(text) {
+  let data;
+  try { data = JSON.parse(text); } catch { data = null; }
+  if (!data || typeof data !== 'object') throw new Error(`Ayrshare sent something unreadable: ${String(text).slice(0, 300)}`);
+
+  const ref = data.id ? ` [Ayrshare post id ${data.id}]` : '';
+  const entries = Array.isArray(data.postIds) ? data.postIds : [];
+
+  const live = [];
+  const waiting = [];
+  const failed = [];
+
+  for (const e of entries) {
+    const state = String(e.status || 'success').toLowerCase();
+    const where = e.platform || 'unknown';
+    if (state === 'success') live.push(`${where}${e.postUrl ? ` → ${e.postUrl}` : ''}`);
+    // `pending` on TikTok means accepted but not public — a draft sitting in
+    // the app's Inbox, or a private post. It is not a published clip and must
+    // never be reported as one.
+    else if (state === 'pending' || state === 'processing') waiting.push(`${where} (${state} — accepted but NOT public yet)`);
+    else failed.push(`${where}: ${e.message || e.error || state}`);
+  }
+
+  for (const e of (Array.isArray(data.errors) ? data.errors : [])) {
+    const where = e.platform || 'unknown';
+    const code = e.code ? ` (code ${e.code})` : '';
+    failed.push(`${where}${code}: ${e.message || e.error || 'no message given'}`);
+  }
+
+  // Nothing reached a real profile. Throw, so publishNext puts the clip back
+  // and does not spend a slot on it.
+  if (!live.length) {
+    const why = failed.length ? failed.join(' | ')
+      : waiting.length ? waiting.join(' | ')
+      : `status "${data.status || 'unknown'}" with no post ids and no error text`;
+    throw new Error(`nothing published${ref}. ${why}`);
+  }
+
+  const parts = [`live on ${live.join(', ')}`];
+  if (waiting.length) parts.push(`NOT public: ${waiting.join(', ')}`);
+  if (failed.length) parts.push(`refused: ${failed.join(' | ')}`);
+  return parts.join(' — ') + ref;
+}
+
 // Two publishers, chosen by whichever key is present. Both exist because both
 // hold their own audited TikTok and YouTube clients — that is the entire reason
 // to use one. Posting to TikTok or YouTube from our own unaudited app would
@@ -249,13 +299,16 @@ async function publishOne(env, item, profile, platforms) {
         platforms,
         mediaUrls: [video],
         isVideo: true,
-        youTubeOptions: { title: item.hook.slice(0, 95) },
-        tikTokOptions: {}
+        youTubeOptions: { title: item.hook.slice(0, 95), visibility: 'public' },
+        // Spelled out rather than left to the default. A TikTok post created
+        // private or as a draft sits in `pending` forever and never appears on
+        // the profile, which looks identical to "it worked" from out here.
+        tikTokOptions: { visibility: 'public', draft: false }
       })
     });
     const text = await res.text();
-    if (!res.ok) throw new Error(`Ayrshare ${res.status}: ${text.slice(0, 250)}`);
-    return text.slice(0, 200);
+    if (!res.ok) throw new Error(`Ayrshare HTTP ${res.status}: ${text.slice(0, 600)}`);
+    return readAyrshareResult(text);
   }
 
   if (env.UPLOAD_POST_API_KEY) {
@@ -335,7 +388,7 @@ export async function publishNext(env, { count = 1 } = {}) {
     } catch (err) {
       // Put it back. A failed publish must not silently consume a clip.
       queue.unshift(item);
-      results.push(`FAILED on ${profile}: ${err.message}`);
+      results.push(`FAILED on ${profile} — ${err.message}\nThe clip is still queued and no slot was spent. Run clips_history for what the publisher recorded.`);
       break;
     }
   }
@@ -396,4 +449,140 @@ export async function runClipCycleIfDue(env) {
   const queue = await readJson(env, KV.queue, []);
   if (!accounts.length || !queue.length || (!env.AYRSHARE_API_KEY && !env.UPLOAD_POST_API_KEY)) return null;
   return await publishNext(env, { count: 1 });
+}
+
+// The publisher's own record, not ours. Our KV counter only ever knew that we
+// made a request; it could not tell whether a clip reached a profile. When
+// Rayan says "nothing is showing up", this is the only thing worth reading —
+// it carries the real per-network status, the live URL, and the refusal text.
+export async function clipsHistory(env, { profile, limit = 5 } = {}) {
+  if (!env.AYRSHARE_API_KEY) return 'Ayrshare is not connected, so there is no publisher history to read.';
+
+  const accounts = await readJson(env, KV.accounts, []);
+  const targets = profile ? [profile] : (accounts.length ? accounts : ['default']);
+  const n = Math.min(Math.max(Number(limit) || 5, 1), 25);
+  const out = [];
+
+  for (const p of targets.slice(0, 6)) {
+    const headers = { Authorization: `Bearer ${env.AYRSHARE_API_KEY}` };
+    if (p && p !== 'default') headers['Profile-Key'] = p;
+
+    let res, text;
+    try {
+      res = await fetch(`https://api.ayrshare.com/api/history?limit=${n}&lastDays=7`, { headers });
+      text = await res.text();
+    } catch (err) {
+      out.push(`${p}: could not reach Ayrshare — ${err.message}`);
+      continue;
+    }
+    if (!res.ok) { out.push(`${p}: Ayrshare HTTP ${res.status} — ${text.slice(0, 200)}`); continue; }
+
+    let data;
+    try { data = JSON.parse(text); } catch { out.push(`${p}: unreadable reply — ${text.slice(0, 200)}`); continue; }
+    const posts = Array.isArray(data) ? data : (Array.isArray(data.history) ? data.history : (Array.isArray(data.posts) ? data.posts : []));
+    if (!posts.length) { out.push(`${p}: no posts recorded in the last 7 days.`); continue; }
+
+    const lines = posts.slice(0, n).map(post => {
+      const when = (post.created || post.scheduleDate || '').slice(0, 16).replace('T', ' ');
+      const head = String(post.post || '').replace(/\s+/g, ' ').slice(0, 44);
+      const per = (Array.isArray(post.postIds) ? post.postIds : []).map(e =>
+        `${e.platform}=${e.status || 'success'}${e.postUrl ? ` ${e.postUrl}` : ''}`).join(', ');
+      const errs = (Array.isArray(post.errors) ? post.errors : []).map(e =>
+        `${e.platform || '?'}${e.code ? `/${e.code}` : ''}: ${String(e.message || e.error || '').replace(/\s+/g, ' ').slice(0, 160)}`).join(' | ');
+      return `  ${when} [${post.status || '?'}] "${head}"${per ? `\n    ${per}` : ''}${errs ? `\n    REFUSED — ${errs}` : ''}`;
+    });
+    out.push(`${p}:\n${lines.join('\n')}`);
+  }
+
+  return out.join('\n\n') || 'Nothing to report.';
+}
+
+// Where do our keys actually point? Ayrshare answered "not linked" for a profile
+// whose dashboard plainly showed both networks linked. Both cannot be true of
+// the same profile — so the Profile-Key we send under the name "rig1" is
+// reaching a different profile than the one Rayan linked the accounts to. This
+// proves it either way, and it never prints a key: it asks Ayrshare which
+// profile each key resolves to, and cross-checks that against what Ayrshare
+// says is linked where.
+export async function clipsVerifyAccounts(env) {
+  if (!env.AYRSHARE_API_KEY) return 'Ayrshare is not connected, so there is nothing to verify.';
+  const auth = { Authorization: `Bearer ${env.AYRSHARE_API_KEY}` };
+  const out = [];
+
+  // 1. Ayrshare's own inventory: every profile, and what is linked to it.
+  const linkedByTitle = new Map();
+  const suspended = [];
+  try {
+    const r = await fetch('https://api.ayrshare.com/api/profiles', { headers: auth });
+    const t = await r.text();
+    if (!r.ok) out.push(`Could not list profiles — HTTP ${r.status}: ${t.slice(0, 160)}`);
+    else {
+      const d = JSON.parse(t);
+      const list = Array.isArray(d) ? d : (d.profiles || []);
+      out.push(`WHAT AYRSHARE HAS (${list.length} profile${list.length === 1 ? '' : 's'}):`);
+      for (const p of list) {
+        const name = p.title || p.displayTitle || p.refId || 'unnamed';
+        const nets = Array.isArray(p.activeSocialAccounts) ? p.activeSocialAccounts : [];
+        linkedByTitle.set(name, nets);
+        // A suspended profile refuses posts while still showing its accounts as
+        // linked in the dashboard — and Ayrshare suspends every user profile
+        // when the Primary is suspended, so one billing problem reads as five
+        // separate linking problems.
+        const flag = p.suspended ? '  ** SUSPENDED **' : (p.status && p.status !== 'active' ? `  ** status: ${p.status} **` : '');
+        out.push(`  ${name} — ${nets.length ? nets.join(' + ') : 'NOTHING LINKED'}${flag}`);
+        if (p.suspended) suspended.push(name);
+      }
+    }
+  } catch (err) { out.push(`Could not list profiles — ${err.message}`); }
+
+  // 2. Resolve each configured key to the profile it actually reaches.
+  const accounts = await readJson(env, KV.accounts, []);
+  out.push('', `WHERE OUR ${accounts.length} CONFIGURED KEY${accounts.length === 1 ? '' : 'S'} ACTUALLY POINT:`);
+  if (!accounts.length) out.push('  None configured. Set them with clips_set_accounts.');
+
+  const seen = new Map();
+  const problems = [];
+
+  for (let i = 0; i < accounts.length; i++) {
+    const key = accounts[i];
+    const label = `key ${i + 1}`;
+    const headers = { ...auth };
+    if (key && key !== 'default') headers['Profile-Key'] = key;
+
+    let r, t;
+    try { r = await fetch('https://api.ayrshare.com/api/user', { headers }); t = await r.text(); }
+    catch (err) { out.push(`  ${label}: could not reach Ayrshare — ${err.message}`); continue; }
+
+    if (!r.ok) {
+      out.push(`  ${label}: REJECTED — HTTP ${r.status}: ${t.slice(0, 140)}`);
+      problems.push(`${label} is not a Profile-Key Ayrshare recognises.`);
+      continue;
+    }
+    let d;
+    try { d = JSON.parse(t); } catch { out.push(`  ${label}: unreadable reply`); continue; }
+
+    // A key that is missing, blank, or not honoured silently resolves to the
+    // Primary Profile — which is exactly the failure that looks like "not
+    // linked" while the dashboard shows everything linked.
+    const isPrimary = !d.title && !!d.email;
+    const who = d.title || (isPrimary ? 'PRIMARY PROFILE' : (d.refId || 'unnamed'));
+    const nets = Array.isArray(d.activeSocialAccounts) ? d.activeSocialAccounts : [];
+    const quota = (d.monthlyPostQuota !== undefined)
+      ? `  [${d.monthlyPostCount ?? '?'}/${d.monthlyPostQuota} posts used this month]` : '';
+    out.push(`  ${label} -> ${who} — ${nets.length ? nets.join(' + ') : 'NOTHING LINKED'}${quota}`);
+
+    if (isPrimary) problems.push(`${label} lands on the Primary Profile, not a rig. Posts sent with it use whatever the Primary has linked.`);
+    if (!nets.length) problems.push(`${label} reaches "${who}", which has no networks linked — every post through it will be refused as "not linked".`);
+    if (seen.has(who)) problems.push(`${label} and ${seen.get(who)} both reach "${who}". Two rigs sharing one key means one rig never posts and the other double-posts.`);
+    else seen.set(who, label);
+  }
+
+  // 3. Name the profiles that ARE ready but that no key of ours reaches.
+  const reached = new Set(seen.keys());
+  const stranded = [...linkedByTitle.entries()].filter(([n, nets]) => nets.length && !reached.has(n)).map(([n]) => n);
+  if (suspended.length) problems.push(`SUSPENDED: ${suspended.join(', ')}. A suspended profile refuses every post while still showing its accounts as linked. If the Primary Profile is suspended, all of them are — check billing on the account, not the linking.`);
+  if (stranded.length) problems.push(`These profiles have accounts linked but no key of ours reaches them: ${stranded.join(', ')}. Their Profile-Keys are the ones we should be using.`);
+
+  out.push('', problems.length ? `PROBLEMS:\n  - ${problems.join('\n  - ')}` : 'No mismatch found — every key reaches a distinct profile with networks linked.');
+  return out.join('\n');
 }

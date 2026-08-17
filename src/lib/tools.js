@@ -6,7 +6,7 @@
 import { callAnthropic } from './anthropic.js';
 import { checkPermission } from './permissions.js';
 import { appendCappedLog, readCappedLog } from './util.js';
-import { findClips, queueAdd, queueList, queueRemove, setAccounts, setPlatforms, setMonthlyCap, publishNext, clippingStatus } from './clipping.js';
+import { findClips, queueAdd, queueList, queueRemove, setAccounts, setPlatforms, setMonthlyCap, publishNext, clippingStatus, clipsHistory, clipsVerifyAccounts } from './clipping.js';
 import { igAddAccount, igListAccounts, igRemoveAccount, igPublish, igRefreshTokens } from './instagram.js';
 // ⟦PROJECT-H:BEGIN⟧
 import { helaLockIn, helaStandDown, helaStatus, helaBriefs, helaBriefAdd, helaClearBriefs, helaSetTopics, runHelaVigil, helaSetForgeInterval, helaSetForgeCap, helaCapabilities, helaLearnCapability, helaForgetCapability, helaUseCapability, runHelaForge } from './hela.js';
@@ -99,6 +99,8 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID) {
     case 'ig_refresh_tokens': return await igRefreshTokens(env, input);
     case 'clips_set_monthly_cap': return await setMonthlyCap(env, input);
     case 'clips_status': return await clippingStatus(env);
+    case 'clips_history': return await clipsHistory(env, input);
+    case 'clips_verify_accounts': return await clipsVerifyAccounts(env);
     // ⟦PROJECT-H:BEGIN⟧ — hers alone; personaAllowsTool gates them below
     case 'lock_in': return await helaLockIn(env);
     case 'stand_down': return await helaStandDown(env);
@@ -340,7 +342,20 @@ export const TOOL_DEFINITIONS = [
     description: 'Set how many uploads the current posting plan allows per month, so the pipeline stops cleanly at the ceiling instead of failing mid-post. Free tiers are small and do not announce themselves.',
     input_schema: { type: 'object', properties: { cap: { type: 'number' } }, required: ['cap'] }
   },
-  { name: 'clips_status', description: "Where the clipping operation stands: ramp day, today's allowance, how many went out, queue depth, and what is not yet connected.", input_schema: { type: 'object', properties: {} } },
+  { name: 'clips_status', description: "Where the clipping operation stands: ramp day, today's allowance, how many went out, queue depth, and what is not yet connected. This reads OUR OWN counters — it knows what we attempted, never whether a clip reached a profile. If Rayan says a post is not showing up, clips_history is the tool that actually answers it.", input_schema: { type: 'object', properties: {} } },
+  {
+    name: 'clips_verify_accounts',
+    description: "Prove where each configured Profile-Key actually points. Lists every Ayrshare profile with the networks linked to it, then resolves each key we hold to the profile it really reaches, and names any mismatch. Use this whenever a publish is refused as 'not linked' while the dashboard shows the accounts linked — that combination means the key is reaching the wrong profile. Never prints a key.",
+    input_schema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'clips_history',
+    description: "The publisher's own record of every recent post: per-network status, the live URL, and the exact refusal text when a network rejected it. Use this the moment a post is questioned — never guess at processing delays or tell Rayan to wait, and never claim something published because our counter went up. Reads the truth from Ayrshare.",
+    input_schema: { type: 'object', properties: {
+      profile: { type: 'string', description: 'One Profile-Key to check. Omit to check every configured account.' },
+      limit: { type: 'number', description: 'How many recent posts per profile, default 5' }
+    } }
+  },
   {
     name: 'list_my_tools',
     description: "List EVERY tool you personally have, with what each one does. Call this whenever Rayan asks what you can do, what tools you have, or what your capabilities are — never answer that from memory, because you will miss some and he is asking precisely because he wants the real list.",
