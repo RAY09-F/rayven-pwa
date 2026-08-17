@@ -75,16 +75,24 @@ export async function helaSetTopics(env, { topics }) {
 }
 
 export async function helaStatus(env) {
-  const [locked, briefs, topics, last] = await Promise.all([
+  const [locked, briefs, topics, last, caps, fMs, fLast, fCap] = await Promise.all([
     helaIsLocked(env), readJson(env, K.briefs, []), readJson(env, K.topics, []),
-    env.RAYVEN_KV.get(K.vigil)
+    env.RAYVEN_KV.get(K.vigil), readJson(env, K_CAPS, []),
+    env.RAYVEN_KV.get(K_FORGE_MS), env.RAYVEN_KV.get(K_FORGE), env.RAYVEN_KV.get(K_FORGE_CAP)
   ]);
+  const month = await forgeMonth(env);
+  const mins = Math.round(Math.max(FORGE_MS_MIN, Number(fMs) || FORGE_MS) / 60000);
   const ago = last && Number(last) ? Math.round((Date.now() - Number(last)) / 60000) : null;
+  const fAgo = fLast && Number(fLast) ? Math.round((Date.now() - Number(fLast)) / 60000) : null;
+  const cap = Number(fCap) || FORGE_MONTHLY_CAP_DEFAULT;
   return [
-    locked ? 'LOCKED IN — working whether or not you are watching.' : 'Standing by. Not locked in.',
+    locked ? 'LOCKED IN — volunteering, and going round three times as often.' : 'Awake. Not locked in.',
+    `I am always looking. The forge runs every ${mins} minutes${fAgo === null ? ', and has not run yet' : `; last run ${fAgo} minute${fAgo === 1 ? '' : 's'} ago`}.`,
+    `Capabilities I have given myself: ${caps.length}${caps.length ? ' — ' + caps.map(c => c.name).join(', ') : ''}.`,
+    `Searches this month: ${month.used} of ${cap}.`,
     `Briefs held: ${briefs.length}.`,
     topics.length ? `Watching: ${topics.join('; ')}.` : 'Watching: my own choosing.',
-    ago === null ? 'I have not gone looking yet.' : `Last went looking ${ago} minute${ago === 1 ? '' : 's'} ago.`
+    ago === null ? 'I have not read up on a subject yet.' : `Last read up on something ${ago} minute${ago === 1 ? '' : 's'} ago.`
   ].join('\n');
 }
 
@@ -136,9 +144,11 @@ async function pickTopic(env) {
 }
 
 export async function runHelaVigilIfDue(env) {
-  if (!(await helaIsLocked(env))) return null;
+  // Always on. Locked in she simply goes round faster.
+  const locked = await helaIsLocked(env);
+  const every = locked ? VIGIL_MS / 3 : VIGIL_MS;
   const last = Number(await env.RAYVEN_KV.get(K.vigil)) || 0;
-  if (Date.now() - last < VIGIL_MS) return null;
+  if (Date.now() - last < every) return null;
   await env.RAYVEN_KV.put(K.vigil, String(Date.now()));
   return await runHelaVigil(env);
 }
@@ -195,7 +205,6 @@ Respond with ONLY a JSON object, no fences: {"title":"six words or fewer","body"
 // one thing and puts it in front of him rather than waiting to be asked.
 // ---------------------------------------------------------------------------
 export async function runHelaDailyIfDue(env) {
-  if (!(await helaIsLocked(env))) return null;
   const last = Number(await env.RAYVEN_KV.get(K.daily)) || 0;
   if (Date.now() - last < DAILY_MS) return null;
   await env.RAYVEN_KV.put(K.daily, String(Date.now()));
@@ -357,11 +366,57 @@ export async function helaUseCapability(env, { name, args, body }) {
 }
 
 // Every half hour, locked in: go and find something she cannot yet do.
+// The forge runs ALWAYS, not only while locked in — she is never not looking
+// for something she cannot yet do. The interval lives in KV so it can be
+// changed by talking to her instead of redeploying.
+const K_FORGE_MS = 'hela:forge_ms';
+const K_FORGE_MONTH = 'hela:forge_month';
+const FORGE_MS_MIN = 10 * 60 * 1000;
+const FORGE_MONTHLY_CAP_DEFAULT = 1500;   // a ceiling on paid search calls, not a target
+const K_FORGE_CAP = 'hela:forge_cap';
+
+export async function helaSetForgeInterval(env, { minutes }) {
+  const n = Number(minutes);
+  if (!(n > 0)) return 'Give me a number of minutes.';
+  const ms = Math.max(FORGE_MS_MIN, Math.floor(n) * 60000);
+  await env.RAYVEN_KV.put(K_FORGE_MS, String(ms));
+  const actual = Math.round(ms / 60000);
+  return actual === Math.floor(n)
+    ? `Every ${actual} minutes from now on.`
+    : `Every ${actual} minutes. I will not go below ten — below that I am burning searches, not finding anything.`;
+}
+
+export async function helaSetForgeCap(env, { cap }) {
+  const n = Number(cap);
+  if (!(n > 0)) return 'Give me a number of searches per month.';
+  await env.RAYVEN_KV.put(K_FORGE_CAP, String(Math.floor(n)));
+  return `I will stop at ${Math.floor(n)} searches a month rather than run your search budget dry.`;
+}
+
+async function forgeMonth(env) {
+  const m = await readJson(env, K_FORGE_MONTH, {});
+  const key = new Date().toISOString().slice(0, 7);
+  return { key, used: m[key] || 0, all: m };
+}
+
 export async function runHelaForgeIfDue(env) {
-  if (!(await helaIsLocked(env))) return null;
-  const last = Number(await env.RAYVEN_KV.get(K_FORGE)) || 0;
-  if (Date.now() - last < FORGE_MS) return null;
+  const [lastRaw, msRaw, capRaw] = await Promise.all([
+    env.RAYVEN_KV.get(K_FORGE), env.RAYVEN_KV.get(K_FORGE_MS), env.RAYVEN_KV.get(K_FORGE_CAP)
+  ]);
+  const every = Math.max(FORGE_MS_MIN, Number(msRaw) || FORGE_MS);
+  const last = Number(lastRaw) || 0;
+  if (Date.now() - last < every) return null;
+
+  // A search costs money on every provider worth using. At thirty minutes this
+  // is ~1,450 calls a month, which will outrun a small plan, so it stops at a
+  // ceiling rather than silently failing every call once the quota is gone.
+  const cap = Number(capRaw) || FORGE_MONTHLY_CAP_DEFAULT;
+  const month = await forgeMonth(env);
+  if (month.used >= cap) return null;
+
   await env.RAYVEN_KV.put(K_FORGE, String(Date.now()));
+  month.all[month.key] = month.used + 1;
+  await writeJson(env, K_FORGE_MONTH, month.all);
   return await runHelaForge(env);
 }
 

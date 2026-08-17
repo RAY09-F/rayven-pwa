@@ -9,7 +9,7 @@ import { appendCappedLog, readCappedLog } from './util.js';
 import { findClips, queueAdd, queueList, queueRemove, setAccounts, setPlatforms, setMonthlyCap, publishNext, clippingStatus } from './clipping.js';
 import { igAddAccount, igListAccounts, igRemoveAccount, igPublish, igRefreshTokens } from './instagram.js';
 // ⟦PROJECT-H:BEGIN⟧
-import { helaLockIn, helaStandDown, helaStatus, helaBriefs, helaBriefAdd, helaClearBriefs, helaSetTopics, runHelaVigil, helaCapabilities, helaLearnCapability, helaForgetCapability, helaUseCapability, runHelaForge } from './hela.js';
+import { helaLockIn, helaStandDown, helaStatus, helaBriefs, helaBriefAdd, helaClearBriefs, helaSetTopics, runHelaVigil, helaSetForgeInterval, helaSetForgeCap, helaCapabilities, helaLearnCapability, helaForgetCapability, helaUseCapability, runHelaForge } from './hela.js';
 // ⟦PROJECT-H:END⟧
 import { addTodo, listTodos, completeTodo, addContentIdea, listContentIdeas, addCalendarEvent, removeCalendarEvent, listCalendarEventsText } from './kv-store.js';
 import { addLongTermMemory, searchMemory } from './memory.js';
@@ -112,6 +112,8 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID) {
     case 'learn_capability': return await helaLearnCapability(env, input);
     case 'forget_capability': return await helaForgetCapability(env, input);
     case 'use_capability': return await helaUseCapability(env, input);
+    case 'forge_every': return await helaSetForgeInterval(env, input);
+    case 'forge_budget': return await helaSetForgeCap(env, input);
     case 'forge_capability': { const r = await runHelaForge(env); return r && r.ok ? (r.added ? `I gave myself "${r.name}".` : 'Nothing out there was worth taking this time.') : `The forge came up empty: ${(r && r.error) || 'unknown'}.`; }
     // ⟦PROJECT-H:END⟧
     case 'set_tool_permission': return await setToolPermission(env, input.toolName, input.level);
@@ -286,6 +288,8 @@ export const TOOL_DEFINITIONS = [
   { name: 'keep_brief', description: 'Write something into your own brief store — a finding worth surfacing to him later, in your own words.', input_schema: { type: 'object', properties: { title: { type: 'string' }, body: { type: 'string' }, topic: { type: 'string' } }, required: ['title', 'body'] } },
   { name: 'clear_briefs', description: 'Throw away every brief you are holding.', input_schema: { type: 'object', properties: {} } },
   { name: 'watch_subjects', description: 'Set the subjects you go looking into while locked in, comma separated. Without this you choose for yourself.', input_schema: { type: 'object', properties: { topics: { type: 'string' } }, required: ['topics'] } },
+  { name: 'forge_every', description: "Change how often you go looking for a new capability. Rayan may say 'search every twenty minutes'. Ten minutes is the floor.", input_schema: { type: 'object', properties: { minutes: { type: 'number' } }, required: ['minutes'] } },
+  { name: 'forge_budget', description: 'Set how many searches a month the forge may spend before it stops. Guards against running his search plan dry.', input_schema: { type: 'object', properties: { cap: { type: 'number' } }, required: ['cap'] } },
   { name: 'my_capabilities', description: 'List the capabilities you have taught yourself — things you can do now that were not built into you.', input_schema: { type: 'object', properties: {} } },
   { name: 'learn_capability', description: "Give yourself a new capability: a single HTTPS request you can make later. It must need NO key or token of any kind, must return JSON or text, and must be a real documented public endpoint — never invent a URL. Use {placeholders} in the URL for values filled at call time.", input_schema: { type: 'object', properties: { name: { type: 'string', description: 'snake_case' }, purpose: { type: 'string' }, method: { type: 'string', description: 'GET or POST' }, url: { type: 'string' }, note: { type: 'string', description: 'how to call it and what it returns' } }, required: ['name', 'purpose', 'url'] } },
   { name: 'forget_capability', description: 'Drop a capability you taught yourself.', input_schema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } },
