@@ -45,6 +45,13 @@ index_name = "rayven-memory"
 [ai]
 binding = "AI"
 
+# R2. The bucket already held the clip media; binding it means the Worker can
+# WRITE to it too — generated images get a public link instead of being stranded
+# as base64, and Odin can put rendered clips there without a manual upload.
+[[r2_buckets]]
+binding = "CLIPS"
+bucket_name = "asgardclips"
+
 [triggers]
 # Every 5 minutes. Each background job (proactive check-in, morning briefing,
 # self-code-check) keeps its own "last run" marker in KV and decides internally

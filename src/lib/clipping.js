@@ -174,6 +174,24 @@ export async function queueAdd(env, { clipId, clipUrl, videoUrl, hook, caption, 
   return `Queued. ${queue.length} clip(s) waiting.`;
 }
 
+// Read-only view of the queue for other modules (vizard.js refreshes expiring
+// download links through it). Queue ownership stays here.
+export async function queuePeek(env) {
+  return await readJson(env, KV.queue, []);
+}
+
+// Swap one entry's media link in place, matched by clipId. Used when a
+// publisher-hosted URL expires before the clip's turn on the ramp comes up.
+export async function queueSetVideoUrl(env, clipId, videoUrl) {
+  const queue = await readJson(env, KV.queue, []);
+  const item = queue.find(q => q.clipId === clipId);
+  if (!item) return false;
+  item.videoUrl = videoUrl;
+  item.refreshedAt = new Date().toISOString();
+  await writeJson(env, KV.queue, queue);
+  return true;
+}
+
 export async function queueList(env) {
   const queue = await readJson(env, KV.queue, []);
   if (!queue.length) return 'The queue is empty.';

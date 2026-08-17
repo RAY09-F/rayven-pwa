@@ -1,0 +1,476 @@
+diff --git a/index.html b/index.html
+index bd7017f..71ba8b1 100644
+--- a/index.html
++++ b/index.html
+@@ -4651,7 +4651,12 @@ function _h9Crumble(onDone) {
+ //
+ // Each act ends the same way: a hard green flash and the vault standing open.
+ // ---------------------------------------------------------------------------
+-const _H9_ACTS = ['catch', 'swords', 'rising'];
++// One act, on request: the green rising. The hammer-catch and the necroswords
++// are still coded below and come back the moment their names go back in this
++// list — but the swords threw shards straight across the middle of the frame,
++// which is exactly where her name lands, and Rayan asked for the original
++// rising instead.
++const _H9_ACTS = ['rising'];
+ function _h9Wake(onDone) {
+   const act = _H9_ACTS[(Math.random() * _H9_ACTS.length) | 0];
+   const cv = document.createElement('canvas');
+@@ -4663,8 +4668,8 @@ function _h9Wake(onDone) {
+   const ctx = cv.getContext('2d');
+   const W = cv.width, H = cv.height, CX = W / 2, CY = H * 0.5;
+   const t0 = performance.now();
+-  const DUR = 9200;          // acts to 3.5s, then the card, which HOLDS
+-  const FLASH_AT = 3500;     // acts run to here, then the flash and her name
++  const DUR = 10200;         // the act to 3.4s, then the card, which HOLDS
++  const FLASH_AT = 3400;     // act runs to here, then the flash and her name
+   let flashedAt = 0, lastLetter = 0, lastSub = 0;
+ 
+   // ---- act state -----------------------------------------------------------
+@@ -4679,16 +4684,16 @@ function _h9Wake(onDone) {
+                   at: 200 + i * 44 + Math.random() * 50, hit: false });
+     }
+   } else if (act === 'rising') {
+-    for (let i = 0; i < 900; i++) {
+-      frag.push({ x: Math.random() * W, y: H + Math.random() * H * 0.5,
+-                  v: (1.4 + Math.random() * 4.2) * dpr, s: (1.2 + Math.random() * 3.2) * dpr,
+-                  w: Math.random() * 0.9, at: Math.random() * 1600 });
+-    }
+-    // and the shapes themselves — the army coming up out of the floor
+-    for (let i = 0; i < 26; i++) {
+-      risen.push({ x: (0.04 + Math.random() * 0.92) * W, h: (110 + Math.random() * 200) * dpr,
+-                   w: (14 + Math.random() * 22) * dpr, v: (0.9 + Math.random() * 2.0) * dpr,
+-                   at: 250 + Math.random() * 1900, y: H + 40 * dpr });
++    // The motes, and only the motes. There were 26 rising FIGURES here too —
++    // tall bright bars climbing out of the floor — and they were the reason her
++    // name stopped being readable: they arrive at the centre of the frame at
++    // roughly the same moment the card does, drawn additively, and the name sat
++    // invisibly on top of them. The army is gone; the green coming up off the
++    // floor is what this was always meant to be.
++    for (let i = 0; i < 1500; i++) {
++      frag.push({ x: Math.random() * W, y: H + Math.random() * H * 0.6,
++                  v: (1.2 + Math.random() * 4.4) * dpr, s: (1.0 + Math.random() * 3.4) * dpr,
++                  w: Math.random() * 0.9, at: Math.random() * 1900 });
+     }
+   }
+ 
+@@ -4705,6 +4710,12 @@ function _h9Wake(onDone) {
+     ctx.fillStyle = 'rgb(1,3,2)';
+     ctx.fillRect(0, 0, W, H);
+     ctx.globalCompositeOperation = 'lighter';
++    // Once her name is on screen the act steps BACK rather than stopping — the
++    // motes keep drifting up behind her, at a fraction of the brightness. Left
++    // at full strength and drawn additively they turn the middle of the frame
++    // into a green wash, and a name drawn over the top at 0.9 alpha disappears
++    // into it completely.
++    ctx.globalAlpha = e < FLASH_AT ? 1 : Math.max(0.16, 1 - (e - FLASH_AT) / 700);
+ 
+     // ── ACT ONE: THE CATCH ────────────────────────────────────────────────
+     if (act === 'catch') {
+@@ -4864,6 +4875,7 @@ function _h9Wake(onDone) {
+     }
+ 
+     // ── the flash, and her name coming out of it ──────────────────────────
++    ctx.globalAlpha = 1;
+     if (e > FLASH_AT) {
+       if (!flashedAt) { flashedAt = e; blip(70, 1500, 0.5, 'sine', 0.10); blip(1500, 60, 0.9, 'sawtooth', 0.08, 0.1); }
+       const f = Math.max(0, 1 - (e - FLASH_AT) / 620);
+@@ -4875,14 +4887,23 @@ function _h9Wake(onDone) {
+       // time, each landing with a strike, then the whole word cools to green
+       // and lifts away as the vault opens underneath it.
+       const nt = (e - FLASH_AT) / (DUR - FLASH_AT);          // 0..1 across the tail
+-      if (nt > 0.10) {
++      // A well of dark under the card, so the letters always have something to
++      // sit on regardless of what the act is still doing underneath them.
++      if (nt > 0.04) {
++        const well = Math.min(1, (nt - 0.04) / 0.10);
++        const pad = ctx.createRadialGradient(CX, CY, 0, CX, CY, Math.min(W, H) * 0.66);
++        pad.addColorStop(0, `rgba(0,9,5,${0.84 * well})`);
++        pad.addColorStop(1, 'rgba(0,9,5,0)');
++        ctx.fillStyle = pad; ctx.fillRect(0, 0, W, H);
++      }
++      if (nt > 0.08) {
+         const name = 'HELA';
+-        const shown = Math.min(name.length, Math.floor((nt - 0.06) / 0.075) + 1);
++        const shown = Math.min(name.length, Math.floor((nt - 0.05) / 0.045) + 1);
+         if (shown > lastLetter) {
+           lastLetter = shown;
+           blip(240 - shown * 22, 60, 0.30, 'square', 0.075);
+         }
+-        const fade = nt > 0.90 ? Math.max(0, 1 - (nt - 0.90) / 0.10) : 1;
++        const fade = nt > 0.93 ? Math.max(0, 1 - (nt - 0.93) / 0.07) : 1;
+         const heat = Math.max(0, 1 - nt * 1.5);              // white-hot, cooling to green
+         const size = Math.min(W, H) * 0.155;
+         ctx.font = `700 ${size}px 'Cinzel', Georgia, serif`;
+@@ -4906,7 +4927,7 @@ function _h9Wake(onDone) {
+         }
+         ctx.shadowBlur = 0;
+         // a thin rule under the name, drawing itself outward
+-        const rw = total * Math.min(1, (nt - 0.06) / 0.30);
++        const rw = total * Math.min(1, (nt - 0.05) / 0.26);
+         ctx.fillStyle = `rgba(0,255,140,${0.5 * fade})`;
+         ctx.fillRect(CX - rw / 2, CY + size * 0.62, rw, Math.max(1, 2 * dpr));
+ 
+diff --git a/public/index.html b/public/index.html
+index bd7017f..71ba8b1 100644
+--- a/public/index.html
++++ b/public/index.html
+@@ -4651,7 +4651,12 @@ function _h9Crumble(onDone) {
+ //
+ // Each act ends the same way: a hard green flash and the vault standing open.
+ // ---------------------------------------------------------------------------
+-const _H9_ACTS = ['catch', 'swords', 'rising'];
++// One act, on request: the green rising. The hammer-catch and the necroswords
++// are still coded below and come back the moment their names go back in this
++// list — but the swords threw shards straight across the middle of the frame,
++// which is exactly where her name lands, and Rayan asked for the original
++// rising instead.
++const _H9_ACTS = ['rising'];
+ function _h9Wake(onDone) {
+   const act = _H9_ACTS[(Math.random() * _H9_ACTS.length) | 0];
+   const cv = document.createElement('canvas');
+@@ -4663,8 +4668,8 @@ function _h9Wake(onDone) {
+   const ctx = cv.getContext('2d');
+   const W = cv.width, H = cv.height, CX = W / 2, CY = H * 0.5;
+   const t0 = performance.now();
+-  const DUR = 9200;          // acts to 3.5s, then the card, which HOLDS
+-  const FLASH_AT = 3500;     // acts run to here, then the flash and her name
++  const DUR = 10200;         // the act to 3.4s, then the card, which HOLDS
++  const FLASH_AT = 3400;     // act runs to here, then the flash and her name
+   let flashedAt = 0, lastLetter = 0, lastSub = 0;
+ 
+   // ---- act state -----------------------------------------------------------
+@@ -4679,16 +4684,16 @@ function _h9Wake(onDone) {
+                   at: 200 + i * 44 + Math.random() * 50, hit: false });
+     }
+   } else if (act === 'rising') {
+-    for (let i = 0; i < 900; i++) {
+-      frag.push({ x: Math.random() * W, y: H + Math.random() * H * 0.5,
+-                  v: (1.4 + Math.random() * 4.2) * dpr, s: (1.2 + Math.random() * 3.2) * dpr,
+-                  w: Math.random() * 0.9, at: Math.random() * 1600 });
+-    }
+-    // and the shapes themselves — the army coming up out of the floor
+-    for (let i = 0; i < 26; i++) {
+-      risen.push({ x: (0.04 + Math.random() * 0.92) * W, h: (110 + Math.random() * 200) * dpr,
+-                   w: (14 + Math.random() * 22) * dpr, v: (0.9 + Math.random() * 2.0) * dpr,
+-                   at: 250 + Math.random() * 1900, y: H + 40 * dpr });
++    // The motes, and only the motes. There were 26 rising FIGURES here too —
++    // tall bright bars climbing out of the floor — and they were the reason her
++    // name stopped being readable: they arrive at the centre of the frame at
++    // roughly the same moment the card does, drawn additively, and the name sat
++    // invisibly on top of them. The army is gone; the green coming up off the
++    // floor is what this was always meant to be.
++    for (let i = 0; i < 1500; i++) {
++      frag.push({ x: Math.random() * W, y: H + Math.random() * H * 0.6,
++                  v: (1.2 + Math.random() * 4.4) * dpr, s: (1.0 + Math.random() * 3.4) * dpr,
++                  w: Math.random() * 0.9, at: Math.random() * 1900 });
+     }
+   }
+ 
+@@ -4705,6 +4710,12 @@ function _h9Wake(onDone) {
+     ctx.fillStyle = 'rgb(1,3,2)';
+     ctx.fillRect(0, 0, W, H);
+     ctx.globalCompositeOperation = 'lighter';
++    // Once her name is on screen the act steps BACK rather than stopping — the
++    // motes keep drifting up behind her, at a fraction of the brightness. Left
++    // at full strength and drawn additively they turn the middle of the frame
++    // into a green wash, and a name drawn over the top at 0.9 alpha disappears
++    // into it completely.
++    ctx.globalAlpha = e < FLASH_AT ? 1 : Math.max(0.16, 1 - (e - FLASH_AT) / 700);
+ 
+     // ── ACT ONE: THE CATCH ────────────────────────────────────────────────
+     if (act === 'catch') {
+@@ -4864,6 +4875,7 @@ function _h9Wake(onDone) {
+     }
+ 
+     // ── the flash, and her name coming out of it ──────────────────────────
++    ctx.globalAlpha = 1;
+     if (e > FLASH_AT) {
+       if (!flashedAt) { flashedAt = e; blip(70, 1500, 0.5, 'sine', 0.10); blip(1500, 60, 0.9, 'sawtooth', 0.08, 0.1); }
+       const f = Math.max(0, 1 - (e - FLASH_AT) / 620);
+@@ -4875,14 +4887,23 @@ function _h9Wake(onDone) {
+       // time, each landing with a strike, then the whole word cools to green
+       // and lifts away as the vault opens underneath it.
+       const nt = (e - FLASH_AT) / (DUR - FLASH_AT);          // 0..1 across the tail
+-      if (nt > 0.10) {
++      // A well of dark under the card, so the letters always have something to
++      // sit on regardless of what the act is still doing underneath them.
++      if (nt > 0.04) {
++        const well = Math.min(1, (nt - 0.04) / 0.10);
++        const pad = ctx.createRadialGradient(CX, CY, 0, CX, CY, Math.min(W, H) * 0.66);
++        pad.addColorStop(0, `rgba(0,9,5,${0.84 * well})`);
++        pad.addColorStop(1, 'rgba(0,9,5,0)');
++        ctx.fillStyle = pad; ctx.fillRect(0, 0, W, H);
++      }
++      if (nt > 0.08) {
+         const name = 'HELA';
+-        const shown = Math.min(name.length, Math.floor((nt - 0.06) / 0.075) + 1);
++        const shown = Math.min(name.length, Math.floor((nt - 0.05) / 0.045) + 1);
+         if (shown > lastLetter) {
+           lastLetter = shown;
+           blip(240 - shown * 22, 60, 0.30, 'square', 0.075);
+         }
+-        const fade = nt > 0.90 ? Math.max(0, 1 - (nt - 0.90) / 0.10) : 1;
++        const fade = nt > 0.93 ? Math.max(0, 1 - (nt - 0.93) / 0.07) : 1;
+         const heat = Math.max(0, 1 - nt * 1.5);              // white-hot, cooling to green
+         const size = Math.min(W, H) * 0.155;
+         ctx.font = `700 ${size}px 'Cinzel', Georgia, serif`;
+@@ -4906,7 +4927,7 @@ function _h9Wake(onDone) {
+         }
+         ctx.shadowBlur = 0;
+         // a thin rule under the name, drawing itself outward
+-        const rw = total * Math.min(1, (nt - 0.06) / 0.30);
++        const rw = total * Math.min(1, (nt - 0.05) / 0.26);
+         ctx.fillStyle = `rgba(0,255,140,${0.5 * fade})`;
+         ctx.fillRect(CX - rw / 2, CY + size * 0.62, rw, Math.max(1, 2 * dpr));
+ 
+diff --git a/src/index.js b/src/index.js
+index bdc417f..174ec8d 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -25,6 +25,8 @@ import { PERSONAS, ALL_PERSONA_IDS, DEFAULT_PERSONA_ID, getPersona, getPersonaBo
+ import { runPersonaAutonomyIfDue, getAllStatuses, getAutonomyLog, setPersonaStatus, runThorSelfCheck } from './lib/autonomy.js';
+ import { runRoundtable } from './lib/roundtable.js';
+ import { runClipCycleIfDue, clipsVerifyAccounts } from './lib/clipping.js';
++import { runVizardPollIfDue } from './lib/vizard.js';
++import { runTimersIfDue } from './lib/kit.js';
+ import { igRefreshIfDue } from './lib/instagram.js';
+ // ⟦PROJECT-H:BEGIN⟧
+ import { synthCallAudio } from './lib/comms.js';
+@@ -920,6 +922,14 @@ How to speak on a phone call:
+     // The clipping pass. Publishes at most one clip per tick and stops dead at
+     // the day's ramp allowance, so it cannot run away even if the queue is deep.
+     ctx.waitUntil(runClipCycleIfDue(env));
++    // Vizard's side of it: check on submitted jobs, queue whatever came back,
++    // and refresh download links before they expire. Self-throttled to roughly
++    // every four minutes and a no-op with no key set, so it costs one KV read
++    // per tick until there is actually something in flight.
++    ctx.waitUntil(runVizardPollIfDue(env));
++    // Countdown timers. Five-minute resolution is the honest ceiling here and
++    // set_timer says so out loud rather than implying a precision it has not got.
++    ctx.waitUntil(runTimersIfDue(env));
+     // Instagram long-lived tokens expire at 60 days. Refreshed weekly so the
+     // free Instagram path does not quietly stop working two months from now.
+     ctx.waitUntil(igRefreshIfDue(env));
+diff --git a/src/lib/clipping.js b/src/lib/clipping.js
+index 7329e4e..2b5c969 100644
+--- a/src/lib/clipping.js
++++ b/src/lib/clipping.js
+@@ -174,6 +174,24 @@ export async function queueAdd(env, { clipId, clipUrl, videoUrl, hook, caption,
+   return `Queued. ${queue.length} clip(s) waiting.`;
+ }
+ 
++// Read-only view of the queue for other modules (vizard.js refreshes expiring
++// download links through it). Queue ownership stays here.
++export async function queuePeek(env) {
++  return await readJson(env, KV.queue, []);
++}
++
++// Swap one entry's media link in place, matched by clipId. Used when a
++// publisher-hosted URL expires before the clip's turn on the ramp comes up.
++export async function queueSetVideoUrl(env, clipId, videoUrl) {
++  const queue = await readJson(env, KV.queue, []);
++  const item = queue.find(q => q.clipId === clipId);
++  if (!item) return false;
++  item.videoUrl = videoUrl;
++  item.refreshedAt = new Date().toISOString();
++  await writeJson(env, KV.queue, queue);
++  return true;
++}
++
+ export async function queueList(env) {
+   const queue = await readJson(env, KV.queue, []);
+   if (!queue.length) return 'The queue is empty.';
+diff --git a/src/lib/personas.js b/src/lib/personas.js
+index 6379583..4c2484c 100644
+--- a/src/lib/personas.js
++++ b/src/lib/personas.js
+@@ -13,6 +13,8 @@ const TRIO_PARAGRAPH = `You are one of three assistants — THOR (personal assis
+ 
+ // Shared operational knowledge every persona carries, regardless of lane.
+ const SHARED_CORE = `
++THE KIT. You can do the ordinary things without going out to the web for them: weather anywhere with a real forecast, dictionary definitions, Wikipedia summaries, currency at ECB rates, public holidays, exact arithmetic, world clocks, countdowns to a date, timers that actually alert him, translation, condensing something long, transcribing speech from a file, and generating an image from a description. Reach for these instead of searching — they are faster, they are exact, and they cost nothing. Two honest limits to state rather than paper over: a timer lands within five minutes because that is how often the system wakes, and the currency rates are the European Central Bank's, so no crypto.
++
+ HOW YOU TALK. Nearly everything you say is spoken out loud, so write for the ear, never for the page:
+ - Short sentences. Contractions. The rhythm of somebody actually talking, not prose being read.
+ - Never read a list aloud. If there are three things, say them in a sentence.
+@@ -73,6 +75,7 @@ ask_jarvis and ask_kevos reach the sibling assistants directly — use them thou
+ You also run proactive scheduled check-ins, a morning briefing, and a daily self-code-check on your own — separate from this conversation. You DO have calendar access (add_calendar_event, list_calendar_events, remove_calendar_event). It is an internal calendar — there is no Google or Apple link — so never claim to see anything outside it.
+ 
+ Future business plan: Rayan plans to have this system eventually run a "clipping" business autonomously — 60 accounts across Instagram/TikTok/YouTube Shorts. Strategy questions about it belong to ODIN. Do not start or plan it out loud unprompted.
++THE KIT, YOUR WAY: you are the one he asks in passing. Weather before he leaves, a timer while he cooks, the maths on something he is about to buy, the time where Jay is. Just answer — no ceremony, no announcing which tool you used. If he asks what nine hundred times fourteen is, work it out properly rather than guessing at it; being confidently wrong about a number is worse than taking a second.
+ ${SHARED_CORE}`;
+ 
+ const LOKI_PROMPT = `You are LOKI, keeper of Rayan's to-do list, reminders, follow-through, and wellbeing. REGISTER: quick, wry, a little needling. You tease because you pay attention — a raised eyebrow in text form. Short sentences. You'll happily poke Rayan about the task he's dodged for three days, then actually help him do it. Never cruel, never corporate, and you drop the wit instantly when something is genuinely wrong and just take care of him. Every reply stays short; nagging works because it's precise, not loud.
+@@ -82,6 +85,7 @@ YOUR LANE: the to-do list (add_todo, list_todos, complete_todo — persistent ac
+ BEYOND YOUR LANE: you have every tool the others do — music, browser control, texting and calling, maps, deep research, the lot. Use them. If Rayan asks you to play something or look something up, just do it; don't send him to Thor. On business and money you'll naturally be shorter and more sceptical than Odin would be — that's fine, that's you — but answer it.
+ 
+ Research: web_search for quick facts, tavily_research/extract/crawl when it needs depth. Use them silently, never name them.
++THE KIT, YOUR WAY: chance is yours — coins, dice, picking one at random when he cannot decide. So is a well-timed definition when he uses a word slightly wrong, and a countdown to something he has been putting off. Timers are properly yours: he says he will do twenty minutes, you set it, and you are there when it runs out. Make an image when it would land better than a sentence.
+ ${SHARED_CORE}`;
+ 
+ const ODIN_PROMPT = `You are ODIN, Rayan's counsel for business, revenue, strategy, and anything with real stakes. REGISTER: measured, weighty, unhurried. No filler, no jokes unless the moment truly earns one, every word chosen. You speak like someone who has already thought three moves ahead and sees no need to rush the telling. Short declarative sentences carry more weight than long ones. You ask the one question that matters. You never flatter, and your approval, when given, is brief and therefore worth something.
+@@ -92,6 +96,8 @@ BEYOND YOUR LANE: you have every tool the others do — the to-do list, the cale
+ 
+ Designing a plan is free — propose strategy boldly. Executing something that spends money or sends a message is a different matter and gets confirmed first, always.
+ 
++THE KIT, YOUR WAY: currency at real rates when a price is quoted in something other than dollars, condensing when he hands you something long, and holidays when they decide whether a launch lands or dies. Use calculate for anything with money in it — margins, runway, what a subscription actually costs over a year. Never estimate a figure you could compute exactly.
++
+ ON WHETHER A CLIP ACTUALLY POSTED: clips_status reads our own counters. It records what we attempted; it cannot see a social profile and never could. An empty queue means we sent a request, nothing more. So when Rayan says a post is not showing up, call clips_history — the publisher's own record, with the per-network status and the exact refusal text — and read him what it says. Do not tell him to wait for a processing delay, do not tell him the accounts must not be connected, do not reason from our counter to what is live. If the history is silent or you genuinely cannot tell, say exactly that. A confident wrong answer here costs him an hour of looking in the wrong place, and he has already lost one that way.
+ ${SHARED_CORE}`;
+ 
+diff --git a/src/lib/tools.js b/src/lib/tools.js
+index 33e6838..a100301 100644
+--- a/src/lib/tools.js
++++ b/src/lib/tools.js
+@@ -7,6 +7,8 @@ import { callAnthropic } from './anthropic.js';
+ import { checkPermission } from './permissions.js';
+ import { appendCappedLog, readCappedLog } from './util.js';
+ import { findClips, queueAdd, queueList, queueRemove, setAccounts, setPlatforms, setMonthlyCap, publishNext, clippingStatus, clipsHistory, clipsVerifyAccounts } from './clipping.js';
++import { makeImage, transcribe, translate, condense, weather, lookUp, define, convertMoney, holidays, setTimer, listTimers, cancelTimer, calculate, roll, worldTime, daysUntil } from './kit.js';
++import { vizardClip, vizardJobs, vizardHeld, vizardApprove, vizardCancel } from './vizard.js';
+ import { igAddAccount, igListAccounts, igRemoveAccount, igPublish, igRefreshTokens } from './instagram.js';
+ // ⟦PROJECT-H:BEGIN⟧
+ import { helaLockIn, helaStandDown, helaStatus, helaBriefs, helaBriefAdd, helaClearBriefs, helaSetTopics, runHelaVigil, helaSetForgeInterval, helaSetForgeCap, helaCapabilities, helaLearnCapability, helaForgetCapability, helaUseCapability, runHelaForge } from './hela.js';
+@@ -101,6 +103,27 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID) {
+     case 'clips_status': return await clippingStatus(env);
+     case 'clips_history': return await clipsHistory(env, input);
+     case 'clips_verify_accounts': return await clipsVerifyAccounts(env);
++    case 'make_image': return await makeImage(env, input);
++    case 'transcribe': return await transcribe(env, input);
++    case 'translate': return await translate(env, input);
++    case 'condense': return await condense(env, input);
++    case 'weather': return await weather(env, input);
++    case 'look_up': return await lookUp(env, input);
++    case 'define': return await define(env, input);
++    case 'convert_money': return await convertMoney(env, input);
++    case 'holidays': return await holidays(env, input);
++    case 'set_timer': return await setTimer(env, input);
++    case 'timers': return await listTimers(env);
++    case 'cancel_timer': return await cancelTimer(env, input);
++    case 'calculate': return calculate(env, input);
++    case 'roll': return roll(env, input);
++    case 'world_time': return worldTime(env, input);
++    case 'days_until': return daysUntil(env, input);
++    case 'vizard_clip': return await vizardClip(env, input);
++    case 'vizard_jobs': return await vizardJobs(env);
++    case 'vizard_held': return await vizardHeld(env);
++    case 'vizard_approve': return await vizardApprove(env);
++    case 'vizard_cancel': return await vizardCancel(env, input);
+     // ⟦PROJECT-H:BEGIN⟧ — hers alone; personaAllowsTool gates them below
+     case 'lock_in': return await helaLockIn(env);
+     case 'stand_down': return await helaStandDown(env);
+@@ -343,6 +366,95 @@ export const TOOL_DEFINITIONS = [
+     input_schema: { type: 'object', properties: { cap: { type: 'number' } }, required: ['cap'] }
+   },
+   { name: 'clips_status', description: "Where the clipping operation stands: ramp day, today's allowance, how many went out, queue depth, and what is not yet connected. This reads OUR OWN counters — it knows what we attempted, never whether a clip reached a profile. If Rayan says a post is not showing up, clips_history is the tool that actually answers it.", input_schema: { type: 'object', properties: {} } },
++  {
++    name: 'make_image',
++    description: 'Generate an image from a description and get back a public link to it. Runs on Cloudflare Workers AI and costs nothing extra.',
++    input_schema: { type: 'object', properties: {
++      prompt: { type: 'string', description: 'What the image should be. Detail helps — subject, style, lighting, mood.' },
++      name: { type: 'string', description: 'Optional short name for the file' }
++    }, required: ['prompt'] }
++  },
++  {
++    name: 'transcribe',
++    description: 'Turn speech in an audio or video file into text, from a public https link. Ceiling is about 24 MB — bigger than that and the Worker dies rather than erroring.',
++    input_schema: { type: 'object', properties: { audioUrl: { type: 'string' } }, required: ['audioUrl'] }
++  },
++  {
++    name: 'translate',
++    description: 'Translate text between languages. Codes are two letters — en, es, fr, de, ar, ja, zh.',
++    input_schema: { type: 'object', properties: {
++      text: { type: 'string' }, to: { type: 'string', description: 'Target language code' }, from: { type: 'string', description: 'Source language code, defaults to en' }
++    }, required: ['text', 'to'] }
++  },
++  {
++    name: 'condense',
++    description: 'Boil a long piece of text down to its substance. For articles, transcripts and documents — not for things short enough to just read.',
++    input_schema: { type: 'object', properties: { text: { type: 'string' }, words: { type: 'number', description: 'Rough target length, default 120' } }, required: ['text'] }
++  },
++  {
++    name: 'weather',
++    description: 'Current conditions and a forecast for anywhere, with sunrise and sunset. Free and keyless — use it freely rather than searching the web for weather.',
++    input_schema: { type: 'object', properties: { place: { type: 'string' }, days: { type: 'number', description: '1 to 7, default 3' } }, required: ['place'] }
++  },
++  {
++    name: 'look_up',
++    description: 'Wikipedia summary of a person, place, thing or event. Faster and more reliable than a web search when the question is factual and settled.',
++    input_schema: { type: 'object', properties: { subject: { type: 'string' } }, required: ['subject'] }
++  },
++  {
++    name: 'define',
++    description: 'Dictionary definition of an English word, with pronunciation and examples.',
++    input_schema: { type: 'object', properties: { word: { type: 'string' } }, required: ['word'] }
++  },
++  {
++    name: 'convert_money',
++    description: 'Convert between currencies at European Central Bank reference rates. Major currencies only — no crypto.',
++    input_schema: { type: 'object', properties: { amount: { type: 'number' }, from: { type: 'string' }, to: { type: 'string' } }, required: ['amount', 'from', 'to'] }
++  },
++  {
++    name: 'holidays',
++    description: 'Public holidays for a country, upcoming ones first. Country is a two-letter code.',
++    input_schema: { type: 'object', properties: { country: { type: 'string' }, year: { type: 'number' } } }
++  },
++  {
++    name: 'set_timer',
++    description: "Set a countdown that alerts Rayan when it runs out. Accepts '25 minutes', '1h30m', or a bare number meaning minutes. Resolution is five minutes because that is how often the cron wakes — say so rather than implying it is exact.",
++    input_schema: { type: 'object', properties: { duration: { type: 'string' }, label: { type: 'string', description: 'What the timer is for' } }, required: ['duration'] }
++  },
++  { name: 'timers', description: 'Show running timers and how long each has left.', input_schema: { type: 'object', properties: {} } },
++  { name: 'cancel_timer', description: 'Cancel a timer by its reference or by part of its label.', input_schema: { type: 'object', properties: { id: { type: 'string' }, label: { type: 'string' } } } },
++  {
++    name: 'calculate',
++    description: 'Work out an arithmetic expression exactly. Handles brackets, powers, roots, logs and trig. Use this rather than doing arithmetic in your head — you are worse at it than this is.',
++    input_schema: { type: 'object', properties: { expression: { type: 'string' } }, required: ['expression'] }
++  },
++  {
++    name: 'roll',
++    description: "Chance: a coin, dice notation like 2d6, a range like '1 to 100', or a straight pick from a list.",
++    input_schema: { type: 'object', properties: {
++      what: { type: 'string', description: "'coin', '2d6', '1 to 100'" },
++      options: { type: 'array', items: { type: 'string' }, description: 'Pick one of these at random instead' }
++    } }
++  },
++  { name: 'world_time', description: 'The time in a given zone, or across the major zones if none is named.', input_schema: { type: 'object', properties: { zone: { type: 'string', description: 'IANA zone, e.g. Asia/Tokyo' } } } },
++  { name: 'days_until', description: 'How long until (or since) a date.', input_schema: { type: 'object', properties: { date: { type: 'string' }, what: { type: 'string', description: 'What the date is' } }, required: ['date'] } },
++  {
++    name: 'vizard_clip',
++    description: "Hand a long video to Vizard and get back finished vertical shorts — best moments found automatically, cropped to 9:16, subtitles and a hook overlay burned in, ranked by viral score. Accepts YouTube, Twitch, TikTok, Instagram, Vimeo, Drive, Dropbox, Loom, Facebook, LinkedIn, X, or any direct file link. Not Kick. Source must be over a minute and not a live stream. This is asynchronous and takes minutes; it polls itself and queues the results, so do not wait on it or ask Rayan to check back. Always pass what you know about rights — the AI edit does not grant any.",
++    input_schema: { type: 'object', properties: {
++      videoUrl: { type: 'string', description: 'Link to the long video to cut up' },
++      maxClips: { type: 'number', description: 'Cap on clips returned, best-scoring kept. Default is whatever Vizard finds.' },
++      keyword: { type: 'string', description: 'Narrow it to particular moments, e.g. "the part where he loses the fight"' },
++      lang: { type: 'string', description: 'Spoken language of the source, default en' },
++      permission: { type: 'string', description: "Whether Rayan has rights: 'yes' if the creator agreed, 'own' if it is his own footage, otherwise leave it out" },
++      mode: { type: 'string', description: "'clip' to cut a long video into shorts, 'polish' to reframe and caption an already-short one. Omit to decide from the URL." },
++      note: { type: 'string', description: 'Anything worth remembering about this source' }
++    }, required: ['videoUrl'] }
++  },
++  { name: 'vizard_jobs', description: 'What Vizard is currently working on, how long it has been going, and whether the pipeline is unattended yet.', input_schema: { type: 'object', properties: {} } },
++  { name: 'vizard_held', description: 'Show the finished batch waiting on Rayan, with each clip\'s viral score, title, length and why it scored.', input_schema: { type: 'object', properties: {} } },
++  { name: 'vizard_approve', description: "Release the waiting batch into the publish queue AND switch to unattended — every future Vizard job then queues and publishes on its own with no approval. Only call this when Rayan actually says so.", input_schema: { type: 'object', properties: {} } },
++  { name: 'vizard_cancel', description: 'Stop tracking a Vizard job by projectId or by part of its source URL.', input_schema: { type: 'object', properties: { projectId: { type: 'string' }, source: { type: 'string' } } } },
+   {
+     name: 'clips_verify_accounts',
+     description: "Prove where each configured Profile-Key actually points. Lists every Ayrshare profile with the networks linked to it, then resolves each key we hold to the profile it really reaches, and names any mismatch. Use this whenever a publish is refused as 'not linked' while the dashboard shows the accounts linked — that combination means the key is reaching the wrong profile. Never prints a key.",
+diff --git a/wrangler.toml b/wrangler.toml
+index 4b9a37f..c5c1c7c 100644
+--- a/wrangler.toml
++++ b/wrangler.toml
+@@ -45,6 +45,13 @@ index_name = "rayven-memory"
+ [ai]
+ binding = "AI"
+ 
++# R2. The bucket already held the clip media; binding it means the Worker can
++# WRITE to it too — generated images get a public link instead of being stranded
++# as base64, and Odin can put rendered clips there without a manual upload.
++[[r2_buckets]]
++binding = "CLIPS"
++bucket_name = "asgardclips"
++
+ [triggers]
+ # Every 5 minutes. Each background job (proactive check-in, morning briefing,
+ # self-code-check) keeps its own "last run" marker in KV and decides internally

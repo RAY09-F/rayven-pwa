@@ -25,6 +25,8 @@ import { PERSONAS, ALL_PERSONA_IDS, DEFAULT_PERSONA_ID, getPersona, getPersonaBo
 import { runPersonaAutonomyIfDue, getAllStatuses, getAutonomyLog, setPersonaStatus, runThorSelfCheck } from './lib/autonomy.js';
 import { runRoundtable } from './lib/roundtable.js';
 import { runClipCycleIfDue, clipsVerifyAccounts } from './lib/clipping.js';
+import { runVizardPollIfDue } from './lib/vizard.js';
+import { runTimersIfDue } from './lib/kit.js';
 import { igRefreshIfDue } from './lib/instagram.js';
 // ⟦PROJECT-H:BEGIN⟧
 import { synthCallAudio } from './lib/comms.js';
@@ -920,6 +922,14 @@ How to speak on a phone call:
     // The clipping pass. Publishes at most one clip per tick and stops dead at
     // the day's ramp allowance, so it cannot run away even if the queue is deep.
     ctx.waitUntil(runClipCycleIfDue(env));
+    // Vizard's side of it: check on submitted jobs, queue whatever came back,
+    // and refresh download links before they expire. Self-throttled to roughly
+    // every four minutes and a no-op with no key set, so it costs one KV read
+    // per tick until there is actually something in flight.
+    ctx.waitUntil(runVizardPollIfDue(env));
+    // Countdown timers. Five-minute resolution is the honest ceiling here and
+    // set_timer says so out loud rather than implying a precision it has not got.
+    ctx.waitUntil(runTimersIfDue(env));
     // Instagram long-lived tokens expire at 60 days. Refreshed weekly so the
     // free Instagram path does not quietly stop working two months from now.
     ctx.waitUntil(igRefreshIfDue(env));

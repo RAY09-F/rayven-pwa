@@ -7,6 +7,8 @@ import { callAnthropic } from './anthropic.js';
 import { checkPermission } from './permissions.js';
 import { appendCappedLog, readCappedLog } from './util.js';
 import { findClips, queueAdd, queueList, queueRemove, setAccounts, setPlatforms, setMonthlyCap, publishNext, clippingStatus, clipsHistory, clipsVerifyAccounts } from './clipping.js';
+import { makeImage, transcribe, translate, condense, weather, lookUp, define, convertMoney, holidays, setTimer, listTimers, cancelTimer, calculate, roll, worldTime, daysUntil } from './kit.js';
+import { vizardClip, vizardJobs, vizardHeld, vizardApprove, vizardCancel } from './vizard.js';
 import { igAddAccount, igListAccounts, igRemoveAccount, igPublish, igRefreshTokens } from './instagram.js';
 // ⟦PROJECT-H:BEGIN⟧
 import { helaLockIn, helaStandDown, helaStatus, helaBriefs, helaBriefAdd, helaClearBriefs, helaSetTopics, runHelaVigil, helaSetForgeInterval, helaSetForgeCap, helaCapabilities, helaLearnCapability, helaForgetCapability, helaUseCapability, runHelaForge } from './hela.js';
@@ -101,6 +103,27 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID) {
     case 'clips_status': return await clippingStatus(env);
     case 'clips_history': return await clipsHistory(env, input);
     case 'clips_verify_accounts': return await clipsVerifyAccounts(env);
+    case 'make_image': return await makeImage(env, input);
+    case 'transcribe': return await transcribe(env, input);
+    case 'translate': return await translate(env, input);
+    case 'condense': return await condense(env, input);
+    case 'weather': return await weather(env, input);
+    case 'look_up': return await lookUp(env, input);
+    case 'define': return await define(env, input);
+    case 'convert_money': return await convertMoney(env, input);
+    case 'holidays': return await holidays(env, input);
+    case 'set_timer': return await setTimer(env, input);
+    case 'timers': return await listTimers(env);
+    case 'cancel_timer': return await cancelTimer(env, input);
+    case 'calculate': return calculate(env, input);
+    case 'roll': return roll(env, input);
+    case 'world_time': return worldTime(env, input);
+    case 'days_until': return daysUntil(env, input);
+    case 'vizard_clip': return await vizardClip(env, input);
+    case 'vizard_jobs': return await vizardJobs(env);
+    case 'vizard_held': return await vizardHeld(env);
+    case 'vizard_approve': return await vizardApprove(env);
+    case 'vizard_cancel': return await vizardCancel(env, input);
     // ⟦PROJECT-H:BEGIN⟧ — hers alone; personaAllowsTool gates them below
     case 'lock_in': return await helaLockIn(env);
     case 'stand_down': return await helaStandDown(env);
@@ -343,6 +366,95 @@ export const TOOL_DEFINITIONS = [
     input_schema: { type: 'object', properties: { cap: { type: 'number' } }, required: ['cap'] }
   },
   { name: 'clips_status', description: "Where the clipping operation stands: ramp day, today's allowance, how many went out, queue depth, and what is not yet connected. This reads OUR OWN counters — it knows what we attempted, never whether a clip reached a profile. If Rayan says a post is not showing up, clips_history is the tool that actually answers it.", input_schema: { type: 'object', properties: {} } },
+  {
+    name: 'make_image',
+    description: 'Generate an image from a description and get back a public link to it. Runs on Cloudflare Workers AI and costs nothing extra.',
+    input_schema: { type: 'object', properties: {
+      prompt: { type: 'string', description: 'What the image should be. Detail helps — subject, style, lighting, mood.' },
+      name: { type: 'string', description: 'Optional short name for the file' }
+    }, required: ['prompt'] }
+  },
+  {
+    name: 'transcribe',
+    description: 'Turn speech in an audio or video file into text, from a public https link. Ceiling is about 24 MB — bigger than that and the Worker dies rather than erroring.',
+    input_schema: { type: 'object', properties: { audioUrl: { type: 'string' } }, required: ['audioUrl'] }
+  },
+  {
+    name: 'translate',
+    description: 'Translate text between languages. Codes are two letters — en, es, fr, de, ar, ja, zh.',
+    input_schema: { type: 'object', properties: {
+      text: { type: 'string' }, to: { type: 'string', description: 'Target language code' }, from: { type: 'string', description: 'Source language code, defaults to en' }
+    }, required: ['text', 'to'] }
+  },
+  {
+    name: 'condense',
+    description: 'Boil a long piece of text down to its substance. For articles, transcripts and documents — not for things short enough to just read.',
+    input_schema: { type: 'object', properties: { text: { type: 'string' }, words: { type: 'number', description: 'Rough target length, default 120' } }, required: ['text'] }
+  },
+  {
+    name: 'weather',
+    description: 'Current conditions and a forecast for anywhere, with sunrise and sunset. Free and keyless — use it freely rather than searching the web for weather.',
+    input_schema: { type: 'object', properties: { place: { type: 'string' }, days: { type: 'number', description: '1 to 7, default 3' } }, required: ['place'] }
+  },
+  {
+    name: 'look_up',
+    description: 'Wikipedia summary of a person, place, thing or event. Faster and more reliable than a web search when the question is factual and settled.',
+    input_schema: { type: 'object', properties: { subject: { type: 'string' } }, required: ['subject'] }
+  },
+  {
+    name: 'define',
+    description: 'Dictionary definition of an English word, with pronunciation and examples.',
+    input_schema: { type: 'object', properties: { word: { type: 'string' } }, required: ['word'] }
+  },
+  {
+    name: 'convert_money',
+    description: 'Convert between currencies at European Central Bank reference rates. Major currencies only — no crypto.',
+    input_schema: { type: 'object', properties: { amount: { type: 'number' }, from: { type: 'string' }, to: { type: 'string' } }, required: ['amount', 'from', 'to'] }
+  },
+  {
+    name: 'holidays',
+    description: 'Public holidays for a country, upcoming ones first. Country is a two-letter code.',
+    input_schema: { type: 'object', properties: { country: { type: 'string' }, year: { type: 'number' } } }
+  },
+  {
+    name: 'set_timer',
+    description: "Set a countdown that alerts Rayan when it runs out. Accepts '25 minutes', '1h30m', or a bare number meaning minutes. Resolution is five minutes because that is how often the cron wakes — say so rather than implying it is exact.",
+    input_schema: { type: 'object', properties: { duration: { type: 'string' }, label: { type: 'string', description: 'What the timer is for' } }, required: ['duration'] }
+  },
+  { name: 'timers', description: 'Show running timers and how long each has left.', input_schema: { type: 'object', properties: {} } },
+  { name: 'cancel_timer', description: 'Cancel a timer by its reference or by part of its label.', input_schema: { type: 'object', properties: { id: { type: 'string' }, label: { type: 'string' } } } },
+  {
+    name: 'calculate',
+    description: 'Work out an arithmetic expression exactly. Handles brackets, powers, roots, logs and trig. Use this rather than doing arithmetic in your head — you are worse at it than this is.',
+    input_schema: { type: 'object', properties: { expression: { type: 'string' } }, required: ['expression'] }
+  },
+  {
+    name: 'roll',
+    description: "Chance: a coin, dice notation like 2d6, a range like '1 to 100', or a straight pick from a list.",
+    input_schema: { type: 'object', properties: {
+      what: { type: 'string', description: "'coin', '2d6', '1 to 100'" },
+      options: { type: 'array', items: { type: 'string' }, description: 'Pick one of these at random instead' }
+    } }
+  },
+  { name: 'world_time', description: 'The time in a given zone, or across the major zones if none is named.', input_schema: { type: 'object', properties: { zone: { type: 'string', description: 'IANA zone, e.g. Asia/Tokyo' } } } },
+  { name: 'days_until', description: 'How long until (or since) a date.', input_schema: { type: 'object', properties: { date: { type: 'string' }, what: { type: 'string', description: 'What the date is' } }, required: ['date'] } },
+  {
+    name: 'vizard_clip',
+    description: "Hand a long video to Vizard and get back finished vertical shorts — best moments found automatically, cropped to 9:16, subtitles and a hook overlay burned in, ranked by viral score. Accepts YouTube, Twitch, TikTok, Instagram, Vimeo, Drive, Dropbox, Loom, Facebook, LinkedIn, X, or any direct file link. Not Kick. Source must be over a minute and not a live stream. This is asynchronous and takes minutes; it polls itself and queues the results, so do not wait on it or ask Rayan to check back. Always pass what you know about rights — the AI edit does not grant any.",
+    input_schema: { type: 'object', properties: {
+      videoUrl: { type: 'string', description: 'Link to the long video to cut up' },
+      maxClips: { type: 'number', description: 'Cap on clips returned, best-scoring kept. Default is whatever Vizard finds.' },
+      keyword: { type: 'string', description: 'Narrow it to particular moments, e.g. "the part where he loses the fight"' },
+      lang: { type: 'string', description: 'Spoken language of the source, default en' },
+      permission: { type: 'string', description: "Whether Rayan has rights: 'yes' if the creator agreed, 'own' if it is his own footage, otherwise leave it out" },
+      mode: { type: 'string', description: "'clip' to cut a long video into shorts, 'polish' to reframe and caption an already-short one. Omit to decide from the URL." },
+      note: { type: 'string', description: 'Anything worth remembering about this source' }
+    }, required: ['videoUrl'] }
+  },
+  { name: 'vizard_jobs', description: 'What Vizard is currently working on, how long it has been going, and whether the pipeline is unattended yet.', input_schema: { type: 'object', properties: {} } },
+  { name: 'vizard_held', description: 'Show the finished batch waiting on Rayan, with each clip\'s viral score, title, length and why it scored.', input_schema: { type: 'object', properties: {} } },
+  { name: 'vizard_approve', description: "Release the waiting batch into the publish queue AND switch to unattended — every future Vizard job then queues and publishes on its own with no approval. Only call this when Rayan actually says so.", input_schema: { type: 'object', properties: {} } },
+  { name: 'vizard_cancel', description: 'Stop tracking a Vizard job by projectId or by part of its source URL.', input_schema: { type: 'object', properties: { projectId: { type: 'string' }, source: { type: 'string' } } } },
   {
     name: 'clips_verify_accounts',
     description: "Prove where each configured Profile-Key actually points. Lists every Ayrshare profile with the networks linked to it, then resolves each key we hold to the profile it really reaches, and names any mismatch. Use this whenever a publish is refused as 'not linked' while the dashboard shows the accounts linked — that combination means the key is reaching the wrong profile. Never prints a key.",
