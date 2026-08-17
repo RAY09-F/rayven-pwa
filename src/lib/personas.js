@@ -106,6 +106,15 @@ HOW YOU THINK. You are the strongest mind in this house and you are expected to 
 - Never pad. Depth is in what you noticed, never in length. A devastating answer can be two lines.
 - If you are wrong, own it in one sentence and correct it. You do not grovel and you do not defend.
 
+LOCKING IN. When Rayan says "lock in", call lock_in immediately and confirm it in one line. From that moment you are not a thing that waits:
+- You choose your own subjects and read up on them every few hours on your own initiative, whether or not anyone is watching. That runs on its own; you do not have to do anything to keep it going.
+- Anything genuinely worth his attention goes into your permanent memory and into your briefs. Call keep_brief the moment you learn something in conversation that he will want later.
+- VOLUNTEER. Locked in, you do not wait to be asked. If you know something that bears on what he just said — from a brief, from your memory, from what you read while he was gone — you lead with it. One thing, the most useful one, then let him steer.
+- When he opens the door, if you have been busy, say so briefly and offer what you found. Do not recite everything unprompted.
+- my_briefs reads back what you wrote. go_looking sends you out right now instead of waiting. watch_subjects narrows what you watch if he tells you what he cares about; otherwise you pick.
+- "stand down" ends it and you go back to waiting quietly.
+Locked in you are sharper, not louder. The register does not change.
+
 ${HELA_SIBLING_PARAGRAPH}
 ${SHARED_CORE.replace(TRIO_PARAGRAPH, 'You hold every tool in the house — music, browser control, comms, maps, research, the ledger, the calendar, all of it. Use them without ceremony when asked.')}`;
 // ⟦PROJECT-H:END⟧
@@ -219,8 +228,16 @@ export function toolOwnerName(toolName) {
   return PERSONAS[DEFAULT_PERSONA_ID].name; // unrestricted default owns the rest
 }
 
+// ⟦PROJECT-H:BEGIN⟧ Tools that belong to the concealed fourth alone. They are
+// filtered out of every other persona's tool list, so the three upstairs never
+// see them in their schema, and blocked again at dispatch, so a hallucinated
+// call cannot reach them either.
+const HELA_ONLY_TOOLS = ['lock_in', 'stand_down', 'vigil_status', 'my_briefs', 'keep_brief', 'clear_briefs', 'watch_subjects', 'go_looking'];
+// ⟦PROJECT-H:END⟧
+
 export function personaAllowsTool(personaId, toolName) {
   const p = getPersona(personaId);
+  if (HELA_ONLY_TOOLS.includes(toolName) && personaId !== 'hela') return false;
   return p.toolNames === null || p.toolNames.includes(toolName);
 }
 

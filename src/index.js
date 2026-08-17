@@ -26,6 +26,9 @@ import { runPersonaAutonomyIfDue, getAllStatuses, getAutonomyLog, setPersonaStat
 import { runRoundtable } from './lib/roundtable.js';
 import { runClipCycleIfDue } from './lib/clipping.js';
 import { igRefreshIfDue } from './lib/instagram.js';
+// ⟦PROJECT-H:BEGIN⟧
+import { runHelaVigilIfDue, runHelaDailyIfDue, helaGreetingExtra } from './lib/hela.js';
+// ⟦PROJECT-H:END⟧
 
 const RAYAN_TELEGRAM_USERNAME = 'rayanfahil';
 
@@ -156,6 +159,16 @@ async function handleChatTurn(env, ctx, opts) {
       } catch (e) {}
     }
   }
+
+  // ⟦PROJECT-H:BEGIN⟧ If the concealed fourth has been working while he was
+  // gone, she is told so on the way in rather than having to go and look.
+  if (personaId === 'hela') {
+    try {
+      const extra = await helaGreetingExtra(env);
+      if (extra) wakeCodeCheckContext = (wakeCodeCheckContext || '') + extra;
+    } catch (e) {}
+  }
+  // ⟦PROJECT-H:END⟧
 
   const result = await callClaudeWithTools(env, persona.systemPrompt, channelContext, longTermMemoryBlock, claudeMessages, !isWakeTrigger, wakeCodeCheckContext, personaId);
 
@@ -820,6 +833,11 @@ export default {
     // Instagram long-lived tokens expire at 60 days. Refreshed weekly so the
     // free Instagram path does not quietly stop working two months from now.
     ctx.waitUntil(igRefreshIfDue(env));
+    // ⟦PROJECT-H:BEGIN⟧ Both no-op instantly unless she is locked in, so the
+    // cron cost of her existing at all is one KV read per tick.
+    ctx.waitUntil(runHelaVigilIfDue(env));
+    ctx.waitUntil(runHelaDailyIfDue(env));
+    // ⟦PROJECT-H:END⟧
     // Sweep first, then flush, so any digest-priority alerts the sweep just
     // queued go out this same tick instead of waiting for the next one.
     ctx.waitUntil(runMonitoringSweep(env).then(() => flushNotificationDigestIfDue(env)));

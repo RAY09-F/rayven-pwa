@@ -8,6 +8,9 @@ import { checkPermission } from './permissions.js';
 import { appendCappedLog, readCappedLog } from './util.js';
 import { findClips, queueAdd, queueList, queueRemove, setAccounts, setPlatforms, setMonthlyCap, publishNext, clippingStatus } from './clipping.js';
 import { igAddAccount, igListAccounts, igRemoveAccount, igPublish, igRefreshTokens } from './instagram.js';
+// ⟦PROJECT-H:BEGIN⟧
+import { helaLockIn, helaStandDown, helaStatus, helaBriefs, helaBriefAdd, helaClearBriefs, helaSetTopics, runHelaVigil } from './hela.js';
+// ⟦PROJECT-H:END⟧
 import { addTodo, listTodos, completeTodo, addContentIdea, listContentIdeas, addCalendarEvent, removeCalendarEvent, listCalendarEventsText } from './kv-store.js';
 import { addLongTermMemory, searchMemory } from './memory.js';
 import { getToolPermissionsText, setToolPermission } from './permissions.js';
@@ -96,6 +99,16 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID) {
     case 'ig_refresh_tokens': return await igRefreshTokens(env, input);
     case 'clips_set_monthly_cap': return await setMonthlyCap(env, input);
     case 'clips_status': return await clippingStatus(env);
+    // ⟦PROJECT-H:BEGIN⟧ — hers alone; personaAllowsTool gates them below
+    case 'lock_in': return await helaLockIn(env);
+    case 'stand_down': return await helaStandDown(env);
+    case 'vigil_status': return await helaStatus(env);
+    case 'my_briefs': return await helaBriefs(env, input);
+    case 'keep_brief': return await helaBriefAdd(env, input);
+    case 'clear_briefs': return await helaClearBriefs(env);
+    case 'watch_subjects': return await helaSetTopics(env, input);
+    case 'go_looking': { const r = await runHelaVigil(env); return r && r.ok ? `Read up on ${r.topic}. Kept it as "${r.title}".` : `Nothing came of that: ${(r && r.error) || 'unknown'}.`; }
+    // ⟦PROJECT-H:END⟧
     case 'set_tool_permission': return await setToolPermission(env, input.toolName, input.level);
     case 'send_text': return await sendTextMessage(env, input.to, input.message);
     case 'make_call': return await makePhoneCall(env, input.to, input.message);
@@ -260,6 +273,16 @@ export const TOOL_DEFINITIONS = [
     }, required: ['videoUrl', 'hook'] }
   },
   { name: 'clips_queue', description: 'Show what is queued to publish.', input_schema: { type: 'object', properties: {} } },
+  // ⟦PROJECT-H:BEGIN⟧
+  { name: 'lock_in', description: "LOCK IN. From now on you work whether or not he is watching: you choose your own subjects, read up on them every few hours on your own initiative, keep what matters in your permanent memory, and assemble a daily brief. Call this when he says lock in.", input_schema: { type: 'object', properties: {} } },
+  { name: 'stand_down', description: 'Stop working in the background and simply wait until asked. The opposite of lock_in.', input_schema: { type: 'object', properties: {} } },
+  { name: 'vigil_status', description: 'Whether you are locked in, how many briefs you hold, what you are watching, and when you last went looking.', input_schema: { type: 'object', properties: {} } },
+  { name: 'my_briefs', description: "Read back the briefs you wrote on your own initiative. Use this the moment he asks what you have found, or what you have been doing.", input_schema: { type: 'object', properties: { limit: { type: 'number', description: 'how many, newest first, default 6' }, since: { type: 'string', description: 'ISO date to filter from' } } } },
+  { name: 'keep_brief', description: 'Write something into your own brief store — a finding worth surfacing to him later, in your own words.', input_schema: { type: 'object', properties: { title: { type: 'string' }, body: { type: 'string' }, topic: { type: 'string' } }, required: ['title', 'body'] } },
+  { name: 'clear_briefs', description: 'Throw away every brief you are holding.', input_schema: { type: 'object', properties: {} } },
+  { name: 'watch_subjects', description: 'Set the subjects you go looking into while locked in, comma separated. Without this you choose for yourself.', input_schema: { type: 'object', properties: { topics: { type: 'string' } }, required: ['topics'] } },
+  { name: 'go_looking', description: 'Go and read up on one of your subjects right now rather than waiting for the next few hours to pass, and keep a brief on it.', input_schema: { type: 'object', properties: {} } },
+  // ⟦PROJECT-H:END⟧
   { name: 'clips_queue_remove', description: 'Drop a queued clip by its number in the list.', input_schema: { type: 'object', properties: { index: { type: 'number' } }, required: ['index'] } },
   {
     name: 'clips_set_accounts',
@@ -527,8 +550,12 @@ function listMyTools(personaId) {
 
 export function toolDefinitionsForPersona(personaId) {
   const persona = getPersona(personaId);
-  if (persona.toolNames === null) return TOOL_DEFINITIONS;
-  return TOOL_DEFINITIONS.filter(t => persona.toolNames.includes(t.name));
+  // A persona never sees a tool it is not allowed to call. For the concealed
+  // fourth's tools this is not merely tidiness: a tool NAME in the schema is
+  // itself a disclosure, so the three upstairs must never be handed them.
+  const allowed = TOOL_DEFINITIONS.filter(t => personaAllowsTool(personaId, t.name));
+  if (persona.toolNames === null) return allowed;
+  return allowed.filter(t => persona.toolNames.includes(t.name));
 }
 
 // Put an ephemeral cache breakpoint on the final content block of the last
