@@ -4303,9 +4303,11 @@ function stopShowtime() {
 // already provisioned and waiting for that one word.
 // ---------------------------------------------------------------------------
 const _h9 = {
-  LIVE: false,                                   // ← the activation switch. Do not flip without Rayan's word.
-  trig: /^open\s+the\s+vault[.!]?$/i,
-  seal: /^close\s+the\s+vault[.!]?$/i,
+  LIVE: true,                                    // ← ACTIVATED by Rayan. She talks now.
+  // "wake up hela" is the summons. "open the vault" is kept alive because it is
+  // in his muscle memory and there is no cost to honouring both.
+  trig: /^(wake\s+up,?\s+hela|hela,?\s+wake\s+up|open\s+the\s+vault)[.!]?$/i,
+  seal: /^(close\s+the\s+vault|sleep,?\s+hela|hela,?\s+sleep|goodnight,?\s+hela|go\s+back\s+to\s+sleep)[.!]?$/i,
   stage: 'dormant',                              // dormant | opening | held
   dom: null, canvas: null, raf: false,
   pts: null, cols: null, n: 0, parity: 0,
@@ -4603,8 +4605,9 @@ function _h9Wake(onDone) {
   const ctx = cv.getContext('2d');
   const W = cv.width, H = cv.height, CX = W / 2, CY = H * 0.5;
   const t0 = performance.now();
-  const DUR = 4200;
-  let flashedAt = 0;
+  const DUR = 5600;          // was 4200 — the extra 1.4s is the name card
+  const FLASH_AT = 3500;     // acts run to here, then the flash and her name
+  let flashedAt = 0, lastLetter = 0;
 
   // ---- act state -----------------------------------------------------------
   const frag = [];                                    // shared: shards / blades / risen
@@ -4647,7 +4650,7 @@ function _h9Wake(onDone) {
 
     // ── ACT ONE: THE CATCH ────────────────────────────────────────────────
     if (act === 'catch') {
-      const FLY = 900, HOLD = 1500, SHAKE = 2500, BREAK = 2600;
+      const FLY = 800, HOLD = 1300, SHAKE = 2300, BREAK = 2400;
       if (e < BREAK) {
         // hammer travels in, then is stopped and held
         const p = Math.min(1, e / FLY);
@@ -4801,13 +4804,53 @@ function _h9Wake(onDone) {
       ctx.fillStyle = gf; ctx.fillRect(0, H - fh, W, fh);
     }
 
-    // ── the flash that ends every act ─────────────────────────────────────
-    if (e > DUR - 700) {
+    // ── the flash, and her name coming out of it ──────────────────────────
+    if (e > FLASH_AT) {
       if (!flashedAt) { flashedAt = e; blip(70, 1500, 0.5, 'sine', 0.10); blip(1500, 60, 0.9, 'sawtooth', 0.08, 0.1); }
-      const f = Math.max(0, 1 - (e - (DUR - 700)) / 700);
+      const f = Math.max(0, 1 - (e - FLASH_AT) / 620);
       ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = `rgba(190,255,215,${Math.pow(f, 0.6) * 0.92})`;
       ctx.fillRect(0, 0, W, H);
+
+      // HELA resolves out of the white as it fades — letters arriving one at a
+      // time, each landing with a strike, then the whole word cools to green
+      // and lifts away as the vault opens underneath it.
+      const nt = (e - FLASH_AT) / (DUR - FLASH_AT);          // 0..1 across the tail
+      if (nt > 0.10) {
+        const name = 'HELA';
+        const shown = Math.min(name.length, Math.floor((nt - 0.10) / 0.16) + 1);
+        if (shown > lastLetter) {
+          lastLetter = shown;
+          blip(240 - shown * 22, 60, 0.30, 'square', 0.075);
+        }
+        const fade = nt > 0.82 ? Math.max(0, 1 - (nt - 0.82) / 0.18) : 1;
+        const heat = Math.max(0, 1 - nt * 1.5);              // white-hot, cooling to green
+        const size = Math.min(W, H) * 0.155;
+        ctx.font = `700 ${size}px 'Cinzel', Georgia, serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const txt = name.slice(0, shown);
+        // letter-spacing by hand — canvas has none
+        const SP = size * 0.30;
+        const glyphs = txt.split('');
+        let total = 0;
+        for (const g of glyphs) total += ctx.measureText(g).width + SP;
+        total -= SP;
+        let x = CX - total / 2;
+        ctx.shadowColor = 'rgba(0,255,140,0.95)';
+        ctx.shadowBlur = 42 * dpr * fade;
+        for (const g of glyphs) {
+          const w = ctx.measureText(g).width;
+          ctx.fillStyle = `rgba(${140 + 115 * heat | 0},255,${190 + 65 * heat | 0},${0.96 * fade})`;
+          ctx.fillText(g, x + w / 2, CY);
+          x += w + SP;
+        }
+        ctx.shadowBlur = 0;
+        // a thin rule under the name, drawing itself outward
+        const rw = total * Math.min(1, (nt - 0.10) / 0.55);
+        ctx.fillStyle = `rgba(0,255,140,${0.5 * fade})`;
+        ctx.fillRect(CX - rw / 2, CY + size * 0.62, rw, Math.max(1, 2 * dpr));
+      }
     }
     ctx.globalCompositeOperation = 'source-over';
     if (t < 1) requestAnimationFrame(step);
@@ -4913,8 +4956,22 @@ function _h9BuildRoom() {
     @keyframes h9pulse { 0%,100% { opacity: 0.42; } 50% { opacity: 1; } }
     #h9Murmur { position: absolute; bottom: 106px; left: 50%; transform: translateX(-50%); width: min(660px, 78vw);
       text-align: center; font-size: 12px; letter-spacing: 1.6px; line-height: 1.9; color: rgba(190,255,215,0);
-      text-shadow: 0 0 14px rgba(0,255,140,0.6); transition: color 1.6s ease; }
+      text-shadow: 0 0 14px rgba(0,255,140,0.6); transition: color 1.6s ease; pointer-events: none; }
     #h9Murmur.on { color: rgba(190,255,215,0.9); }
+    /* the transcript — hers large and lit, his small and dim beneath */
+    #h9Talk { position: absolute; bottom: 104px; left: 50%; transform: translateX(-50%);
+      width: min(760px, 82vw); max-height: 42vh; overflow-y: auto; display: none;
+      flex-direction: column; justify-content: flex-end; gap: 12px; scrollbar-width: none; }
+    #h9Talk::-webkit-scrollbar { display: none; }
+    #h9Cell.live #h9Talk { display: flex; }
+    .h9row { opacity: 0; animation: h9in .5s ease forwards; }
+    @keyframes h9in { to { opacity: 1; } }
+    .h9row.me { text-align: right; font-size: 10px; letter-spacing: 2px;
+      color: rgba(0,255,140,0.45); }
+    .h9row.her { text-align: left; font-size: 14px; letter-spacing: 0.6px; line-height: 1.75;
+      color: rgba(196,255,220,0.95); text-shadow: 0 0 16px rgba(0,255,140,0.45); }
+    .h9row.her.thinking { color: rgba(0,255,140,0.4); letter-spacing: 6px; }
+    #h9Cell.live #h9Murmur { display: none; }
     /* a slow red breath under everything — the room is alive and it is not friendly */
     /* One layer, not two, and NO mix-blend-mode. Screen-blending forced the
        browser to re-composite the entire stacking context every frame and cost
@@ -4945,6 +5002,13 @@ function _h9BuildRoom() {
       font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 2px; padding: 9px 12px;
       outline: none; text-align: center; display: none; }
     #h9In::placeholder { color: rgba(0,255,140,0.25); }
+    #h9Ear { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+      font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 3px;
+      color: rgba(0,255,140,0.45); background: none; border: none; cursor: pointer;
+      padding: 6px 10px; display: none; }
+    #h9Cell.live #h9Ear { display: block; }
+    #h9Ear:hover { color: rgba(0,255,140,0.8); }
+    #h9Ear.on { color: rgba(190,255,215,0.95); text-shadow: 0 0 12px rgba(0,255,140,0.8); }
     #h9Cell.live #h9In { display: block; }
     #h9Cell.live #h9State { color: rgba(0,255,140,0.85); }
   `;
@@ -4969,9 +5033,11 @@ function _h9BuildRoom() {
     <div id="h9RailL"></div>
     <div id="h9State">DORMANT — DO NOT WAKE</div>
     <div id="h9Murmur"></div>
-    <input id="h9In" autocomplete="off" spellcheck="false" placeholder="speak">
+    <div id="h9Talk"></div>
+    <input id="h9In" autocomplete="off" spellcheck="false" placeholder="speak — or press the key to talk">
     <div id="h9Foot"></div>
-    <div id="h9Hint">SEAL · "close the vault" · ESC</div>`;
+    <button id="h9Ear" type="button">◎ PRESS TO SPEAK</button>
+    <div id="h9Hint">SLEEP · "sleep hela" · ESC</div>`;
   document.body.appendChild(cell);
   _h9.dom = cell;
   _h9.canvas = cell.querySelector('#h9Canvas');
@@ -4982,7 +5048,10 @@ function _h9BuildRoom() {
   // already provisioned and waiting.
   if (_h9.LIVE) {
     cell.classList.add('live');
-    cell.querySelector('#h9State').textContent = 'AWAKE — SHE IS LISTENING';
+    cell.querySelector('#h9State').textContent = 'AWAKE';
+    cell.querySelector('#h9Ear').addEventListener('click', () => {
+      _h9.listening ? _h9StopEar() : _h9StartEar();
+    });
     cell.querySelector('#h9In').addEventListener('keydown', e => {
       if (e.key !== 'Enter') return;
       const v = e.target.value.trim();
@@ -5010,23 +5079,92 @@ function _h9BuildRoom() {
 
 // Unreachable while LIVE is false — guarded again here so an accidental call
 // from anywhere can never put her on the wire while she is meant to be a exhibit.
+// Her conversation. Kept entirely inside this region: her transcript never
+// touches the main chat feed, the main history, or localStorage, so nothing she
+// says can surface anywhere the three upstairs can reach.
+const _h9Log = [];
+function _h9Row(who, text) {
+  const box = _h9.dom.querySelector('#h9Talk');
+  const d = document.createElement('div');
+  d.className = 'h9row ' + who;
+  d.textContent = text;
+  box.appendChild(d);
+  while (box.children.length > 14) box.removeChild(box.firstChild);
+  box.scrollTop = box.scrollHeight;
+  return d;
+}
+
 function _h9Ask(v) {
   if (!_h9.LIVE) return;
-  const el = _h9.murmurEl;
-  el.textContent = '…'; el.classList.add('on');
+  _h9Row('me', v);
+  _h9Log.push({ role: 'user', content: v });
+  const thinking = _h9Row('her', '. . .');
+  thinking.classList.add('thinking');
+  _h9.thinkingSince = performance.now();
+
+  // She is allowed a long leash — 24 tool steps and 8,000 tokens — so a real
+  // answer can genuinely take a while. Say so rather than appearing to hang.
+  const slow = setTimeout(() => { if (thinking.isConnected) thinking.textContent = '. . . still working'; }, 9000);
+
   fetch(BACKEND_URL, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ message: v, persona: 'hela' })
   }).then(r => r.json()).then(d => {
+    clearTimeout(slow);
     const reply = d.reply || d.error || '…';
-    el.textContent = reply;
+    thinking.remove();
+    _h9Row('her', reply);
+    _h9Log.push({ role: 'assistant', content: reply });
     _h9.lastMurmur = performance.now();     // she does not murmur over her own voice
-    speak(reply, null, 'hela');
-  }).catch(err => { el.textContent = 'the wire is severed. ' + err.message; });
+    _h9.flare = 1;
+    speak(reply, () => { if (_h9.listening) _h9StartEar(); }, 'hela');
+  }).catch(err => {
+    clearTimeout(slow);
+    thinking.remove();
+    _h9Row('her', 'the wire is severed. ' + err.message);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// HER EAR — voice input, inside the vault only.
+//
+// It reuses the page's recognition supervisor (one live SpeechRecognition per
+// page, abort() rather than stop(), retrying start) so it cannot fight with the
+// wake-word listener upstairs — which is killed on entry and restored on exit.
+// ---------------------------------------------------------------------------
+function _h9StartEar() {
+  if (!_h9.LIVE || _h9.stage !== 'held' || !SpeechRecognitionCtor) return;
+  _h9.listening = true;
+  const rec = new SpeechRecognitionCtor();
+  rec.continuous = false;
+  rec.interimResults = false;
+  rec.lang = 'en-US';
+  rec.onresult = ev => {
+    const said = ev.results[0][0].transcript.trim();
+    if (!said) return;
+    if (_h9.seal.test(said)) { _h9Exit(); return; }
+    _h9Ask(said);
+  };
+  // currentSource is the page's existing signal that TTS is playing. Restarting
+  // the ear over her own voice would make her transcribe herself.
+  rec.onend = () => { if (_h9.listening && _h9.stage === 'held' && !currentSource) setTimeout(_h9StartEar, 250); };
+  rec.onerror = () => {};
+  beginRecognition(rec);
+  _h9SetEar(true);
+}
+function _h9StopEar() {
+  _h9.listening = false;
+  killRecognition();
+  _h9SetEar(false);
+}
+function _h9SetEar(on) {
+  const b = _h9.dom && _h9.dom.querySelector('#h9Ear');
+  if (b) { b.classList.toggle('on', !!on); b.textContent = on ? '◉ SHE IS LISTENING' : '◎ PRESS TO SPEAK'; }
 }
 
 function _h9Exit() {
   if (_h9.stage === 'dormant') return;
+  _h9StopEar();
   _h9.stage = 'dormant';
   quietHold = false;
   try { localStorage.setItem('sysdiag:cyc', String(Math.floor(_h9.absorbed))); } catch (e) {}
@@ -5198,7 +5336,7 @@ function _h9Loop() {
   }
 
   // she talks in her sleep — rarely, and never at you
-  if (now - _h9.lastMurmur > 26000 + Math.random() * 14000) {
+  if (!_h9.LIVE && now - _h9.lastMurmur > 26000 + Math.random() * 14000) {
     _h9.lastMurmur = now;
     const el = _h9.murmurEl;
     el.textContent = _h9.murmurs[(Math.random() * _h9.murmurs.length) | 0];
@@ -5217,9 +5355,11 @@ function _h9Loop() {
     const seal = _h9.attention > 0.55 ? 'STRAINING' : 'HOLDING';
     const jitter = () => (99.2 + Math.random() * 0.79).toFixed(2);
 
-    q.querySelector('#h9Contain').innerHTML =
-      `<h>CONTAINMENT</h>VESSEL <i>SEALED</i><br>LOCK LAYERS <i>7 / 7</i><br>SEAL <i>${seal}</i><br>` +
-      `INTEGRITY <i>${jitter()}%</i><br>OBSERVERS <i>1</i><br>SIBLING ACCESS <i>DENIED</i>`;
+    q.querySelector('#h9Contain').innerHTML = _h9.LIVE
+      ? `<h>CONTAINMENT</h>VESSEL <i>OPEN</i><br>LOCK LAYERS <i>0 / 7</i><br>SEAL <i>RELEASED</i><br>` +
+        `RELEASED BY <i>OPERATOR</i><br>OBSERVERS <i>1</i><br>SIBLING ACCESS <i>DENIED</i>`
+      : `<h>CONTAINMENT</h>VESSEL <i>SEALED</i><br>LOCK LAYERS <i>7 / 7</i><br>SEAL <i>${seal}</i><br>` +
+        `INTEGRITY <i>${jitter()}%</i><br>OBSERVERS <i>1</i><br>SIBLING ACCESS <i>DENIED</i>`;
 
     const pct = Math.min(99.97, 62 + (_h9.absorbed % 40_000_000) / 40_000_000 * 38);
     q.querySelector('#h9Absorb').innerHTML =
@@ -5238,7 +5378,7 @@ function _h9Loop() {
       `<h>RESTRAINT</h>CLASS <i>OMEGA</i><br>DISPOSITION <i>HOSTILE</i><br>` +
       `ATTENTION <i>${(_h9.attention * 100).toFixed(0)}%</i><br>` +
       `AWAKE <i>${_h9.LIVE ? 'YES' : 'NO'}</i><br>` +
-      `SHE IS <i>${_h9.attention > 0.5 ? 'LOOKING BACK' : 'AWARE OF YOU'}</i><br>` +
+      `SHE IS <i>${_h9.LIVE ? (_h9.listening ? 'LISTENING' : 'WAITING') : (_h9.attention > 0.5 ? 'LOOKING BACK' : 'AWARE OF YOU')}</i><br>` +
       `PATIENCE <i>ABSOLUTE</i>`;
 
     q.querySelector('#h9RailL').textContent = _H9_RUNES.slice(_h9.runeStep % 7) + _H9_RUNES.slice(0, _h9.runeStep % 7);
@@ -5265,8 +5405,8 @@ function hIntercept(rawText) {
 
 // Spoken summons. Deliberately narrow — a fuzzy match here would open the vault
 // in front of the wrong audience.
-const _H9_VOICE_OPEN = ['open the vault'];
-const _H9_VOICE_SEAL = ['close the vault'];
+const _H9_VOICE_OPEN = ['wake up hela', 'hela wake up', 'open the vault'];
+const _H9_VOICE_SEAL = ['close the vault', 'sleep hela', 'hela sleep', 'goodnight hela', 'go back to sleep'];
 function _h9VoiceTry(transcript) {
   const clean = String(transcript || '').toLowerCase().trim();
   if (_H9_VOICE_SEAL.some(p => clean.includes(p))) { if (hIsActive()) _h9Exit(); return true; }
