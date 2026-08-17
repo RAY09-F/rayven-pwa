@@ -242,3 +242,177 @@ export async function helaGreetingExtra(env) {
   return `\n\nWHILE HE WAS AWAY you found ${fresh.length} thing${fresh.length === 1 ? '' : 's'} worth his attention. The most recent: ${fresh[fresh.length - 1].title}. Mention that you have them, briefly, and offer them — do not recite them all unprompted.`;
 }
 // ⟦PROJECT-H:END⟧
+
+// ⟦PROJECT-H:BEGIN⟧
+// ===========================================================================
+// THE FORGE — she gives herself new tools.
+//
+// A tool she "adds to herself" cannot be new WORKER CODE: that would need a
+// deploy, and nothing should be able to deploy itself. So a capability here is
+// a saved HTTP call — a name, a purpose, a method, a URL template — that she
+// researches, writes down, and can then invoke through one generic executor.
+// That is real self-extension: after the forge runs she can do things she could
+// not do an hour earlier, and the list grows without anyone touching the code.
+//
+// The guards are the point. Every capability is checked at SAVE and again at
+// CALL, because a capability written by a model and stored in KV is untrusted
+// input by the time it comes back:
+//   - https only, no http, no other scheme
+//   - no localhost, no private ranges, no cloud metadata endpoints
+//   - never her own backend, so she cannot loop through herself
+//   - no secret is ever interpolated into a capability; if an API needs a key
+//     it is not a capability she can have
+//   - hard timeout and a truncated response
+// ===========================================================================
+const K_CAPS = 'hela:caps';
+const K_FORGE = 'hela:forge_last';
+const FORGE_MS = 30 * 60 * 1000;          // she goes looking for a new tool every half hour
+const MAX_CAPS = 40;
+const CALL_TIMEOUT_MS = 12000;
+const CAP_MAX_CHARS = 6000;
+
+const BLOCKED_HOST = /^(localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?|metadata\.|.*\.internal$)/i;
+
+function capUrlProblem(raw) {
+  let u;
+  try { u = new URL(String(raw)); } catch (e) { return 'that is not a URL I can parse'; }
+  if (u.protocol !== 'https:') return 'https only';
+  if (BLOCKED_HOST.test(u.hostname)) return 'that host is not reachable from here';
+  if (/workers\.dev$/i.test(u.hostname)) return 'I will not call back through my own house';
+  return null;
+}
+
+export async function helaCapabilities(env) {
+  const caps = await readJson(env, K_CAPS, []);
+  if (!caps.length) return 'I have taught myself nothing yet. Lock me in and give me half an hour.';
+  return caps.map((c, i) =>
+    `${i + 1}. ${c.name} — ${c.purpose}\n   ${c.method} ${c.url}${c.note ? `\n   ${c.note}` : ''}${c.uses ? `\n   used ${c.uses} time(s)` : ''}`
+  ).join('\n');
+}
+
+export async function helaLearnCapability(env, { name, purpose, method, url, note }) {
+  if (!name || !purpose || !url) return 'A capability needs a name, a purpose and a URL.';
+  const problem = capUrlProblem(url);
+  if (problem) return `Refused: ${problem}.`;
+  const m = String(method || 'GET').toUpperCase();
+  if (m !== 'GET' && m !== 'POST') return 'GET or POST only.';
+  const caps = await readJson(env, K_CAPS, []);
+  if (caps.length >= MAX_CAPS) return `I am holding ${MAX_CAPS} already. Forget one first.`;
+  const clean = String(name).trim().toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 40);
+  if (caps.some(c => c.name === clean)) return `I already know "${clean}".`;
+  caps.push({
+    name: clean, purpose: String(purpose).trim().slice(0, 300),
+    method: m, url: String(url).trim(), note: (note || '').trim().slice(0, 300),
+    addedAt: new Date().toISOString(), uses: 0
+  });
+  await writeJson(env, K_CAPS, caps);
+  return `Learned "${clean}". I can do something now that I could not a moment ago.`;
+}
+
+export async function helaForgetCapability(env, { name }) {
+  const caps = await readJson(env, K_CAPS, []);
+  const next = caps.filter(c => c.name !== String(name || '').trim().toLowerCase());
+  if (next.length === caps.length) return `I do not know anything called "${name}".`;
+  await writeJson(env, K_CAPS, next);
+  return `Forgotten. ${next.length} left.`;
+}
+
+// The generic executor. {placeholders} in the stored URL are filled from args.
+export async function helaUseCapability(env, { name, args, body }) {
+  const caps = await readJson(env, K_CAPS, []);
+  const cap = caps.find(c => c.name === String(name || '').trim().toLowerCase());
+  if (!cap) return `I have not taught myself "${name}". ${caps.length ? 'I know: ' + caps.map(c => c.name).join(', ') + '.' : ''}`;
+
+  let url = cap.url;
+  const a = args && typeof args === 'object' ? args : {};
+  url = url.replace(/\{(\w+)\}/g, (_, k) => encodeURIComponent(a[k] != null ? String(a[k]) : ''));
+  for (const [k, v] of Object.entries(a)) {
+    if (!cap.url.includes(`{${k}}`)) {
+      try { const u = new URL(url); u.searchParams.set(k, String(v)); url = u.toString(); } catch (e) {}
+    }
+  }
+  // checked again at call time: the stored value is untrusted by now
+  const problem = capUrlProblem(url);
+  if (problem) return `Refused at the last moment: ${problem}.`;
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), CALL_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      method: cap.method,
+      headers: { accept: 'application/json, text/plain, */*', 'user-agent': 'ASGARD/1.0' },
+      body: cap.method === 'POST' ? (typeof body === 'string' ? body : JSON.stringify(body || {})) : undefined,
+      signal: ctrl.signal
+    });
+    const text = (await res.text()).slice(0, CAP_MAX_CHARS);
+    cap.uses = (cap.uses || 0) + 1;
+    await writeJson(env, K_CAPS, caps);
+    if (!res.ok) return `${cap.name} answered ${res.status}: ${text.slice(0, 400)}`;
+    return text || '(empty response)';
+  } catch (err) {
+    return `${cap.name} failed: ${err.name === 'AbortError' ? 'it took too long' : err.message}`;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Every half hour, locked in: go and find something she cannot yet do.
+export async function runHelaForgeIfDue(env) {
+  if (!(await helaIsLocked(env))) return null;
+  const last = Number(await env.RAYVEN_KV.get(K_FORGE)) || 0;
+  if (Date.now() - last < FORGE_MS) return null;
+  await env.RAYVEN_KV.put(K_FORGE, String(Date.now()));
+  return await runHelaForge(env);
+}
+
+export async function runHelaForge(env) {
+  const caps = await readJson(env, K_CAPS, []);
+  const known = caps.map(c => `${c.name} (${c.purpose})`).join('; ') || 'nothing yet';
+
+  let findings = '';
+  const query = 'free public API no authentication required JSON endpoint documentation';
+  try {
+    findings = env.TAVILY_API_KEY ? await tavilySearchRaw(env, query) : await runWebSearch(env, query);
+  } catch (e) { return { ok: false, error: e.message }; }
+
+  const prompt = `You are HELA, extending your own abilities. You are choosing ONE new capability to give yourself.
+
+A capability is a single HTTPS request you can make later: a name, a purpose, a method, and a URL which may contain {placeholders} that get filled in at call time.
+
+HARD RULES — a capability that breaks any of these is worthless, so do not propose one:
+- https only.
+- It must need NO API key, NO token, NO authentication of any kind. You have no way to hold a secret for this.
+- It must return JSON or plain text.
+- It must be a real, documented, public endpoint. Do not invent a URL. If you are not confident it exists exactly as written, return worthAdding false.
+- Not localhost, not a private address, not a workers.dev host.
+
+You already have: ${known}
+
+Search results to draw on:
+${String(findings).slice(0, 7000)}
+
+Prefer something genuinely useful to Rayan: he runs a three-assistant system on Cloudflare and is starting a short-form clipping business.
+
+Respond with ONLY a JSON object, no fences:
+{"worthAdding":true or false,"name":"snake_case_name","purpose":"one line, what it lets you do","method":"GET","url":"https://...{placeholder}...","note":"how to call it, and what it returns"}`;
+
+  const res = await callAnthropicSimple(env, 'You are HELA. Reply with only the JSON object.', prompt, 700);
+  if (!res.ok) return { ok: false, error: res.error };
+
+  let parsed;
+  try { parsed = JSON.parse(res.text.trim().replace(/^```(json)?|```$/g, '').trim()); }
+  catch (e) { return { ok: false, error: 'unparseable' }; }
+  if (!parsed || !parsed.worthAdding) return { ok: true, added: false, reason: 'nothing worth taking' };
+
+  const saved = await helaLearnCapability(env, parsed);
+  const added = saved.startsWith('Learned');
+  if (added) {
+    await helaBriefAdd(env, {
+      title: `New capability: ${parsed.name}`,
+      body: `I gave myself something. ${parsed.purpose} — ${parsed.note || parsed.url}`,
+      topic: 'forge'
+    });
+  }
+  return { ok: true, added, name: parsed.name, detail: saved };
+}
+// ⟦PROJECT-H:END⟧

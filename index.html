@@ -4455,14 +4455,32 @@ function _h9Sample() {
 function _h9BuildEntry() {
   const n = _h9.n;
   _h9.from = new Float32Array(n * 3);
+  // They must start just OUTSIDE the visible frame, not far outside it. The
+  // frame is roughly 3.7 world units wide and 2.3 tall at the working scale;
+  // the first version started them at radius 3.4-6.6, so almost every point
+  // began off-screen, was culled, and the assembly was invisible until its last
+  // instant. These start on the rim of a box just past the edges — all four
+  // sides and, weighted deliberately, the corners.
   for (let i = 0; i < n; i++) {
-    const a = Math.random() * Math.PI * 2;
-    const r = 3.4 + Math.random() * 3.2;                 // well beyond the frame
-    const corner = Math.random() < 0.34;                 // a third arrive from the corners
-    const rr = corner ? r * 1.35 : r;
-    _h9.from[i * 3] = Math.cos(a) * rr;
-    _h9.from[i * 3 + 1] = (Math.random() * 2 - 1) * rr * 0.9;
-    _h9.from[i * 3 + 2] = Math.sin(a) * rr;
+    const HW = 4.0, HH = 2.7;                  // just beyond the frame
+    let x, y;
+    const r = Math.random();
+    if (r < 0.34) {                            // the corners, over-weighted
+      x = (Math.random() < 0.5 ? -1 : 1) * (HW * (0.80 + Math.random() * 0.35));
+      y = (Math.random() < 0.5 ? -1 : 1) * (HH * (0.80 + Math.random() * 0.35));
+    } else if (r < 0.67) {                     // left and right edges
+      x = (Math.random() < 0.5 ? -1 : 1) * HW * (0.95 + Math.random() * 0.3);
+      y = (Math.random() * 2 - 1) * HH;
+    } else {                                   // top and bottom edges
+      x = (Math.random() * 2 - 1) * HW;
+      y = (Math.random() < 0.5 ? -1 : 1) * HH * (0.95 + Math.random() * 0.3);
+    }
+    _h9.from[i * 3] = x;
+    _h9.from[i * 3 + 1] = y;
+    // z kept shallow so depth-derived alpha stays positive on the way in —
+    // the old version put points at z = -6, where alpha computed NEGATIVE and
+    // they simply never drew.
+    _h9.from[i * 3 + 2] = (Math.random() * 2 - 1) * 0.9;
   }
 }
 
@@ -4639,7 +4657,7 @@ function _h9Wake(onDone) {
   const ctx = cv.getContext('2d');
   const W = cv.width, H = cv.height, CX = W / 2, CY = H * 0.5;
   const t0 = performance.now();
-  const DUR = 6100;          // was 4200 — the extra time is the name card
+  const DUR = 9200;          // acts to 3.5s, then the card, which HOLDS
   const FLASH_AT = 3500;     // acts run to here, then the flash and her name
   let flashedAt = 0, lastLetter = 0, lastSub = 0;
 
@@ -4746,7 +4764,8 @@ function _h9Wake(onDone) {
           }
           ctx.shadowBlur = 0;
           // green light pouring out of the middle of it
-          const gg = ctx.createRadialGradient(0, 0, 0, 0, 0, S * 1.5 * k9);
+          const gr9 = Math.max(1, Math.min(1e4, S * 1.5 * k9)) || 1;
+        const gg = ctx.createRadialGradient(0, 0, 0, 0, 0, gr9);
           gg.addColorStop(0, `rgba(200,255,225,${0.8 * k9})`);
           gg.addColorStop(1, 'rgba(0,255,140,0)');
           ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(0, 0, S * 1.5 * k9, 0, Math.PI * 2); ctx.fill();
@@ -4798,7 +4817,7 @@ function _h9Wake(onDone) {
       const landed = frag.filter(s => s.hit).length;
       const core = landed / frag.length;
       if (core > 0) {
-        const R = 40 * dpr + core * 150 * dpr;
+        const R = Math.max(1, Math.min(1e4, 40 * dpr + core * 150 * dpr)) || 1;
         const gr = ctx.createRadialGradient(CX, CY, 0, CX, CY, R);
         gr.addColorStop(0, `rgba(200,255,225,${0.75 * core})`);
         gr.addColorStop(1, 'rgba(0,255,140,0)');
@@ -4852,12 +4871,12 @@ function _h9Wake(onDone) {
       const nt = (e - FLASH_AT) / (DUR - FLASH_AT);          // 0..1 across the tail
       if (nt > 0.10) {
         const name = 'HELA';
-        const shown = Math.min(name.length, Math.floor((nt - 0.10) / 0.16) + 1);
+        const shown = Math.min(name.length, Math.floor((nt - 0.06) / 0.075) + 1);
         if (shown > lastLetter) {
           lastLetter = shown;
           blip(240 - shown * 22, 60, 0.30, 'square', 0.075);
         }
-        const fade = nt > 0.88 ? Math.max(0, 1 - (nt - 0.88) / 0.12) : 1;
+        const fade = nt > 0.90 ? Math.max(0, 1 - (nt - 0.90) / 0.10) : 1;
         const heat = Math.max(0, 1 - nt * 1.5);              // white-hot, cooling to green
         const size = Math.min(W, H) * 0.155;
         ctx.font = `700 ${size}px 'Cinzel', Georgia, serif`;
@@ -4881,7 +4900,7 @@ function _h9Wake(onDone) {
         }
         ctx.shadowBlur = 0;
         // a thin rule under the name, drawing itself outward
-        const rw = total * Math.min(1, (nt - 0.10) / 0.55);
+        const rw = total * Math.min(1, (nt - 0.06) / 0.30);
         ctx.fillStyle = `rgba(0,255,140,${0.5 * fade})`;
         ctx.fillRect(CX - rw / 2, CY + size * 0.62, rw, Math.max(1, 2 * dpr));
 
@@ -5090,9 +5109,7 @@ function _h9BuildRoom() {
     #h9Cell.locked #h9Murmur, #h9Cell.locked #h9Sweep, #h9Cell.locked #h9SweepGlow {
       filter: hue-rotate(-152deg) saturate(1.45) brightness(1.05);
     }
-    /* must out-specify "#h9Cell.live #h9State", which sets green and appears
-       later in this sheet */
-    #h9Cell.live.locked #h9State, #h9Cell.locked #h9State { color: rgba(255,64,64,0.95); }
+
     #h9Cell.locked #h9Pulse { animation-duration: 3.1s; }
     #h9Ear:hover { color: rgba(0,255,140,0.8); }
     #h9Ear.on { color: rgba(190,255,215,0.95); text-shadow: 0 0 12px rgba(0,255,140,0.8); }
@@ -5257,7 +5274,59 @@ function _h9SetEar(on) {
 // a message to her, because locking in changes what she DOES — she starts
 // choosing subjects, reading on a schedule and keeping briefs — and that lives
 // on the backend, not in this file.
+// A shockwave that sweeps the colour change across the screen instead of
+// snapping it: a ring of light expands from the crown, the room desaturates to
+// white as it passes, and the new palette is underneath when it clears.
+function _h9Shock(toRed) {
+  const cv = document.createElement('canvas');
+  cv.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:320;pointer-events:none;';
+  _h9.dom.appendChild(cv);
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = innerWidth * dpr; cv.height = innerHeight * dpr;
+  const ctx = cv.getContext('2d');
+  const CX = cv.width / 2, CY = cv.height * 0.565;
+  const MAXR = Math.hypot(cv.width, cv.height);
+  const t0 = performance.now(), DUR = 1100;
+  // debris thrown outward on the shockwave front
+  const bits = [];
+  for (let i = 0; i < 260; i++) {
+    const a = Math.random() * Math.PI * 2;
+    bits.push({ a, r: Math.random() * 0.25, v: 0.55 + Math.random() * 1.5, s: (1 + Math.random() * 3) * dpr });
+  }
+  const hot = toRed ? [255, 70, 60] : [120, 255, 180];
+  function step(now) {
+    const t = Math.min(1, (now - t0) / DUR);
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    let R = MAXR * Math.pow(t, 0.62);
+    if (!isFinite(R) || R < 0) R = 0;
+    R = Math.min(R, 1e5);
+    const fade = 1 - t;
+    // the ring itself
+    ctx.globalCompositeOperation = 'lighter';
+    const inner = Math.max(0, R - 150 * dpr), outer = Math.max(inner + 1, R + 8 * dpr);
+    const g = ctx.createRadialGradient(CX, CY, inner, CX, CY, outer);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(0.72, `rgba(${hot[0]},${hot[1]},${hot[2]},${0.30 * fade})`);
+    g.addColorStop(1, `rgba(255,255,255,${0.75 * fade})`);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(CX, CY, outer, 0, Math.PI * 2); ctx.fill();
+    // a hard rim
+    ctx.strokeStyle = `rgba(255,255,255,${0.55 * fade})`;
+    ctx.lineWidth = (2 + 5 * fade) * dpr;
+    ctx.beginPath(); ctx.arc(CX, CY, Math.max(0.5, R), 0, Math.PI * 2); ctx.stroke();
+    for (const b of bits) {
+      const br = R * (0.55 + b.r) * b.v * 0.55;
+      ctx.fillStyle = `rgba(${hot[0]},${hot[1]},${hot[2]},${0.75 * fade})`;
+      ctx.fillRect(CX + Math.cos(b.a) * br, CY + Math.sin(b.a) * br, b.s, b.s);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    if (t < 1) requestAnimationFrame(step); else cv.remove();
+  }
+  requestAnimationFrame(step);
+}
+
 function _h9SetLocked(on, tellHer) {
+  const changed = !!on !== !!_h9.locked;
   _h9.locked = !!on;
   try { localStorage.setItem('sysdiag:mode', on ? '1' : '0'); } catch (e) {}
   if (_h9.dom) {
@@ -5265,8 +5334,21 @@ function _h9SetLocked(on, tellHer) {
     const st = _h9.dom.querySelector('#h9State');
     if (st) st.textContent = _h9.locked ? 'LOCKED IN' : (_h9.LIVE ? 'AWAKE' : 'DORMANT — DO NOT WAKE');
   }
-  if (_h9.locked) { blip(60, 200, 0.5, 'sawtooth', 0.08); blip(200, 90, 0.9, 'sine', 0.07, 0.18); }
-  else { blip(200, 70, 0.6, 'sine', 0.05); }
+  if (changed && _h9.dom) {
+    _h9Shock(_h9.locked);
+    // the form contracts hard as it turns, and her attention spikes
+    _h9.focusT = 1;
+    _h9.attention = Math.min(1, _h9.attention + 0.55);
+    // the room flinches
+    _h9.dom.classList.add('jolt');
+    setTimeout(() => _h9.dom && _h9.dom.classList.remove('jolt'), 620);
+  }
+  if (_h9.locked) {
+    blip(70, 34, 1.1, 'sawtooth', 0.11); blip(180, 60, 1.4, 'sine', 0.08, 0.06);
+    blip(1400, 120, 0.35, 'square', 0.05, 0.02); blip(46, 30, 2.0, 'sine', 0.07, 0.25);
+  } else {
+    blip(120, 300, 0.7, 'sine', 0.06); blip(300, 520, 0.4, 'triangle', 0.04, 0.3);
+  }
   if (tellHer && _h9.LIVE) _h9Ask(on ? 'lock in' : 'stand down');
 }
 
@@ -5317,7 +5399,7 @@ function _h9Loop() {
   if (_h9.stride === undefined) _h9.stride = 2;
   if (_h9.avgFt > 15 && _h9.stride < 4) _h9.stride++;
   else if (_h9.avgFt < 9 && _h9.stride > 1) _h9.stride--;
-  const stride = _h9.stride;
+  const stride = (_h9.assembleAt && (now - _h9.assembleAt) < 4600) ? 1 : _h9.stride;
 
   ctx.globalCompositeOperation = 'source-over';
   ctx.fillStyle = 'rgb(1,3,2)';
@@ -5356,10 +5438,15 @@ function _h9Loop() {
   // different schedule, so the crown resolves out of the dark from all sides
   // and corners instead of being there already. Eased hard at the end so it
   // settles rather than snapping.
-  const ASSEMBLE_MS = 3400;
+  const ASSEMBLE_MS = 4600;   // long enough to actually watch
   const rawA = _h9.assembleAt ? (now - _h9.assembleAt) / ASSEMBLE_MS : 1;
   const assembling = rawA < 1;
-  const from = _h9.from;
+  // NOT `from`: the colour-bucket loop below declares its own `from`, and the
+  // shadowing made every assembly coordinate NaN.
+  const entryPos = _h9.from;
+  // incoming motes burn brighter than settled ones, so the gathering reads as
+  // something arriving rather than something fading up
+  const arrive = assembling ? 0.34 * (1 - rawA) : 0;
   const pts = _h9.pts, bounds = _h9.bounds, eyeFirst = _h9.eyeFirst;
   const pal = _h9.locked ? _h9.palRed : _h9.palGreen;
   const W = c.width, H = c.height;
@@ -5416,16 +5503,18 @@ function _h9Loop() {
         let k = (rawA - own * 0.42) / 0.58;
         k = k < 0 ? 0 : k > 1 ? 1 : k;
         const e2 = 1 - Math.pow(1 - k, 3);               // ease out cubic
-        x0 = from[i3] + (x0 - from[i3]) * e2;
-        y0 = from[i3 + 1] + (y0 - from[i3 + 1]) * e2;
-        z0 = from[i3 + 2] + (z0 - from[i3 + 2]) * e2;
+        x0 = entryPos[i3] + (x0 - entryPos[i3]) * e2;
+        y0 = entryPos[i3 + 1] + (y0 - entryPos[i3 + 1]) * e2;
+        z0 = entryPos[i3 + 2] + (z0 - entryPos[i3 + 2]) * e2;
       }
       const z = -x0 * sinA + z0 * cosA;
-      const depth = (z + 1.7) / 3.4;
+      let depth = (z + 1.7) / 3.4;
+      if (depth < 0.06) depth = 0.06;                                 // never let alpha go negative
+      else if (depth > 1.4) depth = 1.4;
       const px = cx + (x0 * cosA + z0 * sinA) * scale + ox;
       const py = cy - y0 * scale + oy;
-      if (px < -8 || py < -8 || px > W + 8 || py > H + 8) continue;   // off-screen points cost nothing
-      const a = (0.30 + depth * 0.55) * alphaMul + extra;
+      if (!(px > -8 && py > -8 && px < W + 8 && py < H + 8)) continue; // also rejects NaN, which the old comparison let through
+      const a = (0.30 + depth * 0.55) * alphaMul + extra + arrive;
       ctx.globalAlpha = a > 1 ? 1 : a;                                 // a float assign, not a parsed string
       // Points GROW as the stride thins them, so the form keeps roughly the
       // same covered area and therefore the same apparent density whether the

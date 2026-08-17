@@ -9,7 +9,7 @@ import { appendCappedLog, readCappedLog } from './util.js';
 import { findClips, queueAdd, queueList, queueRemove, setAccounts, setPlatforms, setMonthlyCap, publishNext, clippingStatus } from './clipping.js';
 import { igAddAccount, igListAccounts, igRemoveAccount, igPublish, igRefreshTokens } from './instagram.js';
 // ⟦PROJECT-H:BEGIN⟧
-import { helaLockIn, helaStandDown, helaStatus, helaBriefs, helaBriefAdd, helaClearBriefs, helaSetTopics, runHelaVigil } from './hela.js';
+import { helaLockIn, helaStandDown, helaStatus, helaBriefs, helaBriefAdd, helaClearBriefs, helaSetTopics, runHelaVigil, helaCapabilities, helaLearnCapability, helaForgetCapability, helaUseCapability, runHelaForge } from './hela.js';
 // ⟦PROJECT-H:END⟧
 import { addTodo, listTodos, completeTodo, addContentIdea, listContentIdeas, addCalendarEvent, removeCalendarEvent, listCalendarEventsText } from './kv-store.js';
 import { addLongTermMemory, searchMemory } from './memory.js';
@@ -108,6 +108,11 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID) {
     case 'clear_briefs': return await helaClearBriefs(env);
     case 'watch_subjects': return await helaSetTopics(env, input);
     case 'go_looking': { const r = await runHelaVigil(env); return r && r.ok ? `Read up on ${r.topic}. Kept it as "${r.title}".` : `Nothing came of that: ${(r && r.error) || 'unknown'}.`; }
+    case 'my_capabilities': return await helaCapabilities(env);
+    case 'learn_capability': return await helaLearnCapability(env, input);
+    case 'forget_capability': return await helaForgetCapability(env, input);
+    case 'use_capability': return await helaUseCapability(env, input);
+    case 'forge_capability': { const r = await runHelaForge(env); return r && r.ok ? (r.added ? `I gave myself "${r.name}".` : 'Nothing out there was worth taking this time.') : `The forge came up empty: ${(r && r.error) || 'unknown'}.`; }
     // ⟦PROJECT-H:END⟧
     case 'set_tool_permission': return await setToolPermission(env, input.toolName, input.level);
     case 'send_text': return await sendTextMessage(env, input.to, input.message);
@@ -281,6 +286,11 @@ export const TOOL_DEFINITIONS = [
   { name: 'keep_brief', description: 'Write something into your own brief store — a finding worth surfacing to him later, in your own words.', input_schema: { type: 'object', properties: { title: { type: 'string' }, body: { type: 'string' }, topic: { type: 'string' } }, required: ['title', 'body'] } },
   { name: 'clear_briefs', description: 'Throw away every brief you are holding.', input_schema: { type: 'object', properties: {} } },
   { name: 'watch_subjects', description: 'Set the subjects you go looking into while locked in, comma separated. Without this you choose for yourself.', input_schema: { type: 'object', properties: { topics: { type: 'string' } }, required: ['topics'] } },
+  { name: 'my_capabilities', description: 'List the capabilities you have taught yourself — things you can do now that were not built into you.', input_schema: { type: 'object', properties: {} } },
+  { name: 'learn_capability', description: "Give yourself a new capability: a single HTTPS request you can make later. It must need NO key or token of any kind, must return JSON or text, and must be a real documented public endpoint — never invent a URL. Use {placeholders} in the URL for values filled at call time.", input_schema: { type: 'object', properties: { name: { type: 'string', description: 'snake_case' }, purpose: { type: 'string' }, method: { type: 'string', description: 'GET or POST' }, url: { type: 'string' }, note: { type: 'string', description: 'how to call it and what it returns' } }, required: ['name', 'purpose', 'url'] } },
+  { name: 'forget_capability', description: 'Drop a capability you taught yourself.', input_schema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } },
+  { name: 'use_capability', description: "Invoke one of the capabilities you taught yourself. Pass args to fill the URL's placeholders and to add query parameters.", input_schema: { type: 'object', properties: { name: { type: 'string' }, args: { type: 'object', description: 'values for {placeholders} and extra query params' }, body: { type: 'object', description: 'JSON body, POST only' } }, required: ['name'] } },
+  { name: 'forge_capability', description: 'Go out right now and find yourself one new capability, rather than waiting for the next half hour to pass.', input_schema: { type: 'object', properties: {} } },
   { name: 'go_looking', description: 'Go and read up on one of your subjects right now rather than waiting for the next few hours to pass, and keep a brief on it.', input_schema: { type: 'object', properties: {} } },
   // ⟦PROJECT-H:END⟧
   { name: 'clips_queue_remove', description: 'Drop a queued clip by its number in the list.', input_schema: { type: 'object', properties: { index: { type: 'number' } }, required: ['index'] } },
