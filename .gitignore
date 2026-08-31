@@ -8,3 +8,6 @@ backups/
 .wrangler/
 .claude/
 node_modules/
+.swarm/
+.claude-flow/
+ruvector.db
