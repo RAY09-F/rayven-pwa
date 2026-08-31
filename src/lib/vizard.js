@@ -112,25 +112,46 @@ async function vizardFetch(env, path, init) {
   return data;
 }
 
-// Their error codes are numeric and the messages are terse, so translate the
-// ones that actually happen into something that says what to do about it.
+// Vizard's error codes, taken from their documentation rather than guessed at.
+// The first version of this map was invented — 4006 was labelled "no upload
+// minutes left" when it actually means "illegal parameter", which sent Rayan to
+// top up a plan that had 581 of 600 credits sitting unused. The raw code and
+// their own message now always ride along with the translation, so a wrong
+// guess here can never again be the only thing anyone sees.
+const VIZARD_CODES = {
+  4001: 'invalid API key — check VIZARD_API_KEY',
+  4002: 'project creation failed on their side',
+  4003: 'rate limit exceeded — wait a minute and try again',
+  4004: 'unsupported video format',
+  4005: 'the video file is broken',
+  4006: 'illegal parameter — something in the request is wrong, not something in your account',
+  4007: 'genuinely out of remaining minutes on the Vizard plan',
+  4008: 'Vizard could not download the video from that URL. It has to be public and directly reachable.',
+  4009: 'that video URL is invalid',
+  4010: 'could not detect the spoken language — name it explicitly'
+};
+
 function explainCode(code, errMsg) {
-  const map = {
-    4001: 'the API key was rejected — check VIZARD_API_KEY',
-    4002: 'that video URL could not be reached. It has to be public, and live streams are not supported',
-    4003: 'unsupported source. Kick is not on their list; download the file and give me a direct link instead',
-    4004: 'the video is too long — their ceiling is 600 minutes',
-    4005: 'that video is over 3 minutes, so it cannot go through edit mode. Let me run it as a clipping job instead',
-    4006: 'no upload minutes left on the Vizard plan this month',
-    4008: 'the video is under a minute, which is too short to cut clips from'
-  };
-  return map[code] || errMsg || `Vizard refused it with code ${code}`;
+  const known = VIZARD_CODES[code];
+  const raw = `[Vizard code ${code}${errMsg ? `: ${errMsg}` : ''}]`;
+  return known ? `${known} ${raw}` : `${errMsg || 'no message given'} ${raw}`;
 }
 
 // ---------------------------------------------------------------------------
 // SUBMIT
 // ---------------------------------------------------------------------------
-export async function vizardClip(env, { videoUrl, maxClips, keyword, lang, permission, mode, note } = {}) {
+// Vizard's preferLength codes. Verified against their docs rather than guessed:
+// 0 auto (cannot be combined with anything), 1 under 30s, 2 thirty to sixty,
+// 3 sixty to ninety, 4 ninety seconds to three minutes.
+const LENGTHS = {
+  short: [1],          // under 30s — punchy, best hit rate on TikTok
+  minute: [2, 3],      // 30-90s, centred on a minute — the default
+  long: [4],           // 90s to 3 min
+  mixed: [1, 2, 3],    // variety under 90s
+  auto: [0]            // let Vizard decide; must be alone
+};
+
+export async function vizardClip(env, { videoUrl, maxClips, keyword, lang, permission, mode, length, note } = {}) {
   const url = String(videoUrl || '').trim();
   if (!url) return 'Give me the link to the long video you want cut up.';
   if (!/^https:\/\//i.test(url)) return 'That needs to be an https link.';
@@ -145,6 +166,18 @@ export async function vizardClip(env, { videoUrl, maxClips, keyword, lang, permi
   const { type, label } = detectSource(url);
   const polish = mode === 'polish' || (mode !== 'clip' && isAlreadyShort(url));
 
+  // videoType 1 is a direct file, and for that Vizard REQUIRES the extension in
+  // its own field — it will not read it off the URL. Omitting it is rejected as
+  // an illegal parameter, which reads like an account problem and is not one.
+  // Every R2-hosted clip goes through this path, so it has to be right.
+  const EXTS = ['mp4', 'mov', 'avi', '3gp'];
+  let ext = '';
+  if (type === 1) {
+    const guess = (hostOf(url) ? new URL(url).pathname : url).toLowerCase().split('.').pop();
+    ext = EXTS.includes(guess) ? guess : '';
+    if (!ext) return `Vizard needs to know the file type, and "${url.split('/').pop().slice(0, 40)}" does not end in one it accepts. Rename the file so it ends in .mp4 (or .mov, .avi, .3gp) and give me the link again.`;
+  }
+
   const body = {
     videoUrl: url,
     videoType: type,
@@ -154,8 +187,17 @@ export async function vizardClip(env, { videoUrl, maxClips, keyword, lang, permi
     headlineSwitch: 1,       // hook overlay in the first 3 seconds
     removeSilenceSwitch: 1   // dead air is what kills retention in the first 2s
   };
+  if (ext) body.ext = ext;
   if (polish) body.getClips = 0;                        // edit an already-short video, do not cut it
-  else body.preferLength = [1, 2];                      // aim at the 30s–90s band
+  // Was [1, 2] with a comment claiming it aimed at 30-90s. It did not: 1 is
+  // UNDER thirty seconds and 2 is thirty to sixty, so it was quietly capping
+  // every clip at a minute. [2, 3] is what that comment meant.
+  // Default is SHORT now, not minute. Completion rate is the strongest ranking
+  // signal there is, and a 20s clip watched to the end beats a 75s clip abandoned
+  // at 30. The Omoggle brief floors at 10s, so under-30s still qualifies -- but see
+  // the 10-second guard in the poller, because code 1 can return clips shorter
+  // than that and those would be rejected after doing the work.
+  else body.preferLength = LENGTHS[String(length || 'short').toLowerCase()] || LENGTHS.short;
   if (maxClips) body.maxClipNumber = Math.min(Math.max(Number(maxClips) || 10, 1), 100);
   if (keyword) body.keyword = String(keyword).slice(0, 200);
 
@@ -219,10 +261,22 @@ function hookFor(clip) {
   return alt.length >= 12 ? alt.slice(0, 120) : '';
 }
 
+// Campaign briefs set a minimum clip length -- the Call of Duty one is 10s, and
+// a clip under it is REJECTED after doing the work: it posts, it gets views, and
+// it earns nothing. Now that the default cut is "under 30 seconds", Vizard can
+// legitimately hand back a 6-second clip, so this floor has to exist. Anything
+// shorter is dropped here rather than published and written off later.
+const MIN_SECONDS = 10;
+
 async function queueClips(env, job, clips) {
   const added = [];
   const skipped = [];
   for (const c of clips) {
+    const secs = Number(c.seconds) || 0;
+    if (secs && secs < MIN_SECONDS) {
+      skipped.push(`${c.videoId} (${secs}s — under the ${MIN_SECONDS}s campaign floor)`);
+      continue;
+    }
     const hook = hookFor(c);
     if (!hook) { skipped.push(`${c.videoId} (no usable hook)`); continue; }
     const res = await queueAdd(env, {
@@ -387,6 +441,43 @@ export async function vizardJobs(env) {
   return lines.join('\n');
 }
 
+// What Vizard itself can publish to. This matters for more than curiosity:
+// Ayrshare costs $299/month and exists solely to hold audited TikTok and
+// YouTube clients. Vizard's Business plan carries 20 social accounts and its
+// own publish endpoint — so if all ten of Rayan's accounts show up here as
+// active, the $299 line item may be replaceable by something already paid for.
+// Read this before the September 13 decision rather than guessing at it.
+export async function vizardAccounts(env) {
+  let data;
+  try { data = await vizardFetch(env, '/project/social-accounts', { method: 'GET' }); }
+  catch (err) { return `Could not read the connected accounts: ${err.message}`; }
+
+  const list = Array.isArray(data) ? data
+    : (Array.isArray(data.socialAccounts) ? data.socialAccounts
+      : (Array.isArray(data.accounts) ? data.accounts : (Array.isArray(data.data) ? data.data : [])));
+  if (!list.length) return `Vizard reports no connected social accounts. Raw reply: ${JSON.stringify(data).slice(0, 300)}`;
+
+  const byPlatform = new Map();
+  const lines = [];
+  for (const a of list) {
+    const p = String(a.platform || '?').toLowerCase();
+    byPlatform.set(p, (byPlatform.get(p) || 0) + 1);
+    const state = String(a.status || 'active').toLowerCase();
+    const expiry = a.expiresAt ? new Date(Number(a.expiresAt) * 1000).toISOString().slice(0, 10) : '';
+    lines.push(`  ${p} ${a.username || a.page || '(unnamed)'}${state !== 'active' ? `  ** ${state.toUpperCase()} **` : ''}${expiry ? `  auth expires ${expiry}` : ''}\n    id ${a.id}`);
+  }
+
+  const tally = [...byPlatform.entries()].map(([p, n]) => `${n} ${p}`).join(', ');
+  const out = [`${list.length} account(s) connected to Vizard — ${tally}.`, ...lines];
+
+  const tt = byPlatform.get('tiktok') || 0;
+  const yt = byPlatform.get('youtube') || 0;
+  if (tt >= 5 && yt >= 5) {
+    out.push('', 'NOTE: five TikTok and five YouTube accounts are visible here, which is the whole set Ayrshare is currently carrying. Vizard can publish to them directly through its own endpoint, on a plan already paid for. That makes the $299/month Ayrshare subscription a genuine question rather than a given — worth settling before September 13.');
+  }
+  return out.join('\n');
+}
+
 export async function vizardCancel(env, { projectId, source } = {}) {
   const jobs = await readJson(env, KV.jobs, []);
   const before = jobs.length;
@@ -396,4 +487,97 @@ export async function vizardCancel(env, { projectId, source } = {}) {
   if (kept.length === before) return 'No job matched that.';
   await writeJson(env, KV.jobs, kept);
   return `Stopped tracking ${before - kept.length} job(s). Vizard may still finish them on their side; the minutes are already spent.`;
+}
+
+
+// One page that answers "why is nothing posting?" without anyone interpreting
+// it. Every stage of the chain, read straight from storage, with a verdict at
+// the top naming the first thing that is actually blocking. Built because four
+// separate times this session an assistant's summary of a state was wrong and
+// the raw state was right.
+export async function pipelineState(env) {
+  const get = async (k, f) => { try { const r = await env.RAYVEN_KV.get(k); return r ? JSON.parse(r) : f; } catch { return f; } };
+  const jobs = await get('vizard:jobs', []);
+  const held = await get('vizard:held', []);
+  const auto = await env.RAYVEN_KV.get('vizard:auto');
+  const queue = await get('clips:queue', []);
+  const accounts = await get('clips:accounts', []);
+  const posted = await get('clips:posted', {});
+  const platforms = await get('clips:platforms', ['tiktok', 'youtube']);
+  const campaign = await get('clips:campaign', null);
+  const startedAt = await env.RAYVEN_KV.get('clips:started_at');
+
+  const day = startedAt ? Math.floor((Date.now() - new Date(startedAt).getTime()) / 864e5) : 0;
+  const perAccount = day <= 3 ? 2 : day <= 7 ? 3 : day <= 11 ? 4 : 5;
+  const today = new Date().toISOString().slice(0, 10);
+  const counts = posted[today] || {};
+  const usedToday = Object.values(counts).reduce((a, b) => a + b, 0);
+  const allowance = perAccount * accounts.length;
+  const heldClips = held.reduce((a, b) => a + ((b.clips || []).length), 0);
+
+  const L = [];
+  L.push('=== VERDICT ===');
+  if (!env.VIZARD_API_KEY) L.push('BLOCKED: VIZARD_API_KEY is not set.');
+  else if (!env.AYRSHARE_API_KEY) L.push('BLOCKED: AYRSHARE_API_KEY is not set.');
+  else if (!accounts.length) L.push('BLOCKED: no publishing accounts configured. Run clips_set_accounts.');
+  else if (heldClips) L.push(`BLOCKED: ${heldClips} finished clip(s) are WAITING FOR YOUR APPROVAL and will never post until released. Say "approve the clips" to Odin, or open /debug-approve-clips to release them right now.`);
+  else if (!queue.length && jobs.length) L.push(`WAITING: nothing queued yet, but ${jobs.length} Vizard job(s) are still processing. Give it time.`);
+  else if (!queue.length && !jobs.length) L.push('IDLE: the queue is empty and no Vizard job is running. Nothing has been sent to clip.');
+  else if (usedToday >= allowance) L.push(`DONE FOR TODAY: ${usedToday} of ${allowance} posts used. The ramp resets at midnight UTC.`);
+  else L.push(`READY: ${queue.length} clip(s) queued, ${allowance - usedToday} of ${allowance} posts still allowed today. The cron publishes one per tick.`);
+
+  L.push('', '=== VIZARD ===');
+  L.push(`Mode: ${auto === '1' ? 'unattended (batches auto-queue)' : 'FIRST BATCH WAITS FOR APPROVAL'}`);
+  L.push(`In flight: ${jobs.length}`);
+  for (const j of jobs) {
+    const mins = Math.round((Date.now() - new Date(j.submittedAt).getTime()) / 60000);
+    L.push(`  ${j.sourceLabel} ${j.mode} - ${mins} min ago - project ${j.projectId}`);
+  }
+  L.push(`Waiting on approval: ${held.length} batch(es), ${heldClips} clip(s)`);
+  for (const b of held) for (const c of (b.clips || [])) L.push(`  ${(c.score || 0).toFixed(1)} "${String(c.title || '').slice(0, 44)}" ${c.seconds || 0}s`);
+
+  L.push('', '=== QUEUE ===');
+  L.push(`${queue.length} clip(s) ready to publish`);
+  for (const q of queue.slice(0, 8)) L.push(`  "${String(q.hook || '').slice(0, 50)}"`);
+
+  L.push('', '=== RAMP ===');
+  L.push(`Day ${day + 1}. Allowance ${perAccount} per account x ${accounts.length} accounts = ${allowance} posts today.`);
+  L.push(`Used today: ${usedToday}`);
+  for (let i = 0; i < accounts.length; i++) L.push(`  account ${i + 1}: ${counts[accounts[i]] || 0} / ${perAccount}`);
+
+  L.push('', '=== SETTINGS ===');
+  L.push(`Posting to: ${platforms.join(', ')}`);
+  L.push(`Campaign: ${campaign ? campaign.name : 'none - captions will be plain'}`);
+  L.push('', 'Read straight from storage. Nothing above is interpreted.');
+  return L.join(String.fromCharCode(10));
+}
+
+
+
+export async function vizardDebugSubmit(env, target) {
+  const url = String(target || '').trim();
+  if (!url.startsWith('https://pub-772ecf10131b467a9a78ef8842e1242e.r2.dev/')) return 'Only asgardclips URLs allowed.';
+  if (!env.VIZARD_API_KEY) return 'VIZARD_API_KEY is not set.';
+  const guess = new URL(url).pathname.toLowerCase().split('.').pop();
+  const body = { videoUrl: url, videoType: 1, ext: ['mp4','mov','avi','3gp'].includes(guess) ? guess : 'mp4', lang: 'en', preferLength: [1], ratioOfClip: 1, subtitleSwitch: 1, headlineSwitch: 1, removeSilenceSwitch: 1 };
+  let status='?', text='';
+  try {
+    const res = await fetch('https://elb-api.vizard.ai/hvizard-server-front/open-api/v1/project/create', { method:'POST', headers:{ VIZARDAI_API_KEY: env.VIZARD_API_KEY, 'content-type':'application/json' }, body: JSON.stringify(body) });
+    status = res.status; text = await res.text();
+  } catch (err) { return `Could not reach Vizard: ${err.message}`; }
+  return ['WHAT WE SENT:', JSON.stringify(body, null, 2), '', `WHAT VIZARD SENT BACK (HTTP ${status}):`, text].join(String.fromCharCode(10));
+}
+
+
+// Throw away everything waiting on approval WITHOUT releasing it and WITHOUT
+// flipping the pipeline to unattended. The counterpart to vizardApprove, and
+// the thing that was missing the moment a batch turned out to be the wrong
+// footage: the only exit from the hold was to publish it.
+export async function discardHeld(env) {
+  const raw = await env.RAYVEN_KV.get('vizard:held');
+  let held = [];
+  try { held = raw ? JSON.parse(raw) : []; } catch { held = []; }
+  const n = held.reduce((a, b) => a + ((b.clips || []).length), 0);
+  await env.RAYVEN_KV.put('vizard:held', JSON.stringify([]));
+  return `Discarded ${n} clip(s) across ${held.length} batch(es). Nothing was published. The pipeline is still in approval mode, so the next batch will wait for you too.`;
 }

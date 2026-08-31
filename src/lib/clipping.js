@@ -28,8 +28,67 @@ const KV = {
   lastRun: 'clips:last_run',
   monthly: 'clips:monthly',
   cap: 'clips:monthly_cap',
-  platforms: 'clips:platforms'
+  platforms: 'clips:platforms',
+  campaign: 'clips:campaign',
+  standing: 'clips:standing_tags'
 };
+
+// STANDING TAGS -- go on every single post, campaign or no campaign, and are not
+// cleared by clips_clear_campaign. Rayan asked for #omoggle on every video until
+// he says otherwise, so the default is not "none", it is #omoggle: if this key
+// has never been written, the tag is still applied. Nothing has to be remembered
+// or re-entered for it to hold, which is the whole point -- a hashtag that only
+// appears when a model remembers to add it is a hashtag that will be missed.
+const DEFAULT_STANDING = ['#omoggle'];
+
+// Hashtags are letters, digits and underscore. A tag with a space, a comma or a
+// stray punctuation mark in it silently does not register as a tag on any
+// platform, so it is stripped here rather than posted and hoped for.
+function normTag(raw) {
+  const t = String(raw == null ? '' : raw).trim().replace(/^#+/, '').replace(/[^A-Za-z0-9_]/g, '');
+  return t ? '#' + t : '';
+}
+
+// Case-insensitive: #Omoggle and #omoggle are one tag, and posting both looks
+// like a mistake to a reviewer even though platforms treat them the same.
+function mergeTags(...groups) {
+  const seen = new Set(), out = [];
+  for (const g of groups) {
+    for (const raw of (g || [])) {
+      const t = normTag(raw);
+      if (!t) continue;
+      const k = t.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k); out.push(t);
+    }
+  }
+  return out;
+}
+
+async function getStandingTags(env) {
+  const raw = await readJson(env, KV.standing, null);
+  if (raw === null || !Array.isArray(raw)) return DEFAULT_STANDING.slice();
+  return mergeTags(raw);
+}
+
+export async function setStandingTags(env, { tags } = {}) {
+  const list = mergeTags(String(tags || '').split(/[,\s]+/));
+  if (!list.length) return 'Give me at least one tag, or use clips_clear_standing_tags to stop adding any.';
+  await writeJson(env, KV.standing, list);
+  return `Locked in. Every post from now on carries ${list.join(' ')} — campaign or no campaign — until you tell me to change it.`;
+}
+
+export async function clearStandingTags(env) {
+  await writeJson(env, KV.standing, []);
+  return 'Standing tags off. Nothing is added to posts automatically any more. Say "always use #omoggle" to turn it back on.';
+}
+
+export async function standingTagStatus(env) {
+  const list = await getStandingTags(env);
+  return list.length
+    ? `Standing tags on every post: ${list.join(' ')}. This survives campaign changes and only stops when you say so.`
+    : 'No standing tags. Posts carry only whatever the active campaign specifies.';
+}
 
 // Which networks each profile publishes to. TikTok and YouTube Shorts to start;
 // Instagram is one command away (clips_set_platforms) and needs nothing else,
@@ -293,6 +352,149 @@ function readAyrshareResult(text) {
   return parts.join(' — ') + ref;
 }
 
+// ---------------------------------------------------------------------------
+// CAMPAIGN COMPLIANCE
+// ---------------------------------------------------------------------------
+// A paid clipping brief is a contract, and the caption is where it is usually
+// broken. The Call of Duty brief is typical: the FTC disclosure must sit ALONE
+// on its own line, must be the FIRST hashtag after the post text, at most three
+// further hashtags are allowed, a specific account must be tagged, and one of
+// six approved lines must appear word for word.
+//
+// Hand-writing that ten times a day is how clips get rejected AFTER earning
+// views — the worst failure available, because the work and the reach are both
+// real and only the payment is missing. So it is assembled here, identically
+// every time, from a stored brief.
+export async function setCampaign(env, { name, mention, disclosure, lines, hashtags, note } = {}) {
+  if (!name) return 'Give the campaign a name so I can tell you which brief is active.';
+  const standing = await getStandingTags(env);
+  const clean = (x) => String(x || '').trim();
+  const disc = clean(disclosure) || '#Ad';
+  if (!/^#/.test(disc)) return 'The disclosure has to be a hashtag — #Ad, #Advertisement or #Sponsored.';
+
+  const tagList = mergeTags(String(hashtags || '').split(/[,\s]+/));
+  // Briefs of this kind cap additional hashtags at three. Silently posting a
+  // fourth is a rejection, so refuse rather than trim and hope. The standing tags
+  // are counted here too -- they go out on every post, so a brief that allows
+  // three and a standing #omoggle leaves room for two more, not three.
+  const combined = mergeTags(tagList, standing).filter(t => t.toLowerCase() !== disc.toLowerCase());
+  if (combined.length > 3) {
+    return [
+      `That comes to ${combined.length} hashtags on every post: ${combined.join(' ')}.`,
+      standing.length ? `${standing.join(' ')} ${standing.length === 1 ? 'is a standing tag and goes' : 'are standing tags and go'} out on every video, so ${standing.length === 1 ? 'it counts' : 'they count'} toward the brief's limit of three.` : '',
+      `Drop ${combined.length - 3} and set it again.`
+    ].filter(Boolean).join(' ');
+  }
+
+  const lineList = String(lines || '').split('|').map(l => l.trim()).filter(Boolean);
+
+  const campaign = {
+    name: clean(name), mention: clean(mention), disclosure: disc,
+    lines: lineList, hashtags: tagList, note: clean(note),
+    setAt: new Date().toISOString()
+  };
+  await writeJson(env, KV.campaign, campaign);
+  return [
+    `Campaign set: ${campaign.name}. Every caption is now built like this:`,
+    '',
+    captionFor(campaign, { hook: 'YOUR HOOK HERE', clipId: 'sample' }, standing),
+    '',
+    `Disclosure alone on its own line and first after the text, ${tagList.length} extra hashtag(s)${campaign.mention ? `, ${campaign.mention} tagged` : ''}${lineList.length ? `, one of ${lineList.length} approved lines rotated per clip` : ''}.`,
+    'Clear it with clips_clear_campaign when the brief ends.'
+  ].join('\n');
+}
+
+export async function clearCampaign(env) {
+  await env.RAYVEN_KV.delete(KV.campaign);
+  return 'Campaign cleared. Captions go back to plain hook and caption.';
+}
+
+export async function campaignStatus(env) {
+  const c = await readJson(env, KV.campaign, null);
+  const standing = await getStandingTags(env);
+  if (!c) {
+    return standing.length
+      ? `No campaign brief is active. Captions are the hook plus ${standing.join(' ')}, which goes on every post regardless.`
+      : 'No campaign brief is active. Captions are plain.';
+  }
+  return [
+    `Active campaign: ${c.name} (set ${c.setAt.slice(0, 10)}).`,
+    c.mention ? `Tagging ${c.mention}.` : 'No account tagged.',
+    `Disclosure ${c.disclosure}, alone on its own line, first after the text.`,
+    c.hashtags.length ? `Campaign hashtags: ${c.hashtags.join(' ')}.` : 'No campaign hashtags.',
+    standing.length ? `Standing tags on EVERY post, campaign or not: ${standing.join(' ')}.` : '',
+    c.lines.length ? `${c.lines.length} approved lines, rotated per clip:` : 'No required verbatim line.',
+    ...c.lines.map(l => `  "${l}"`),
+    c.note ? `Note: ${c.note}` : '',
+    '',
+    'Sample of what goes out:',
+    captionFor(c, { hook: 'YOUR HOOK HERE', clipId: 'sample' }, standing)
+  ].filter(Boolean).join('\n');
+}
+
+// Deterministic rotation. Choosing at random would sometimes put the same line
+// on several clips going out in the same hour, which reads as automation;
+// keying off the clip id spreads them and stays stable across a retry.
+function pickLine(lines, seed) {
+  if (!lines || !lines.length) return '';
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
+  return lines[Math.abs(h) % lines.length];
+}
+
+// TikTok's caption field is 2,200 characters. The old code built the caption and
+// then did .slice(0, 2000) on the whole string -- which cuts from the END, and
+// the end is where the disclosure and the hashtags live. A caption long enough to
+// trip that limit lost its #Ad and its tags and posted anyway. Nothing about the
+// post would look wrong; it would simply not qualify. So length is handled by
+// shortening the HOOK, which is the only part that is ours to shorten.
+const CAPTION_MAX = 2200;
+
+// One line in, one line out. A hook arriving with a newline in it -- easy to do
+// when it came from a video title -- would otherwise push the disclosure off its
+// own line, which is the single most common way a paid clip gets rejected.
+function oneLine(x) {
+  return String(x == null ? '' : x).replace(/\s+/g, ' ').trim();
+}
+
+function assemble(hook, line, mention, disclosure, tags, extra) {
+  const blocks = [];
+  const head = [hook, line, mention, extra].filter(Boolean).join('\n');
+  if (head) blocks.push(head);
+  if (disclosure) blocks.push(disclosure);          // alone on its line, always
+  if (tags.length) blocks.push(tags.join(' '));
+  return blocks.join('\n\n');
+}
+
+// standing: tags that go out no matter what. They are merged with the campaign's
+// own tags and de-duplicated, so setting a campaign that already lists #omoggle
+// does not produce "#omoggle #omoggle".
+function captionFor(campaign, item, standing, extra) {
+  const hook = oneLine(item.hook);
+  const line = campaign ? pickLine(campaign.lines, String(item.clipId || item.videoUrl || hook)) : '';
+  const mention = campaign ? oneLine(campaign.mention) : '';
+  const disclosure = campaign ? campaign.disclosure : '';
+  // The disclosure is never repeated down in the tag block.
+  const discKey = String(disclosure || '').toLowerCase();
+  const tags = mergeTags(campaign ? campaign.hashtags : [], standing || [])
+    .filter(t => t.toLowerCase() !== discKey);
+
+  let out = assemble(hook, line, mention, disclosure, tags, extra);
+  if (out.length <= CAPTION_MAX) return out;
+
+  // Over the limit. Give back exactly the overflow from the hook, cut on a word
+  // boundary, and rebuild. Everything the brief requires is left untouched.
+  const over = out.length - CAPTION_MAX;
+  let short = hook.slice(0, Math.max(0, hook.length - over - 1));
+  const sp = short.lastIndexOf(' ');
+  if (sp > 20) short = short.slice(0, sp);
+  out = assemble(short.trim(), line, mention, disclosure, tags, extra);
+  // If the compliance block alone still exceeds the limit there is no hook left
+  // to trim; post it rather than mangle the required text, and let the platform
+  // reject it loudly instead of us quietly shipping a broken caption.
+  return out;
+}
+
 // Two publishers, chosen by whichever key is present. Both exist because both
 // hold their own audited TikTok and YouTube clients — that is the entire reason
 // to use one. Posting to TikTok or YouTube from our own unaudited app would
@@ -300,7 +502,13 @@ function readAyrshareResult(text) {
 async function publishOne(env, item, profile, platforms) {
   const video = item.renderedUrl || item.videoUrl;
   if (!video) throw new Error('This queue entry has no video file link. Remove it and re-add it with a videoUrl.');
-  const description = [item.caption, item.credit ? `Clip: ${item.credit}` : ''].filter(Boolean).join('\n\n');
+  const campaign = await readJson(env, KV.campaign, null);
+  const standing = await getStandingTags(env);
+  const description = campaign ? '' : [item.caption, item.credit ? `Clip: ${item.credit}` : ''].filter(Boolean).join('\n\n');
+  // ONE builder for both paths. Previously the no-campaign path assembled its own
+  // string and never saw the standing tags, so clearing a campaign silently
+  // dropped #omoggle off every post after it.
+  const postText = captionFor(campaign, item, standing, campaign ? '' : description);
 
   if (env.AYRSHARE_API_KEY) {
     const headers = {
@@ -313,7 +521,7 @@ async function publishOne(env, item, profile, platforms) {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        post: [item.hook, description].filter(Boolean).join('\n\n').slice(0, 2000),
+        post: postText,
         platforms,
         mediaUrls: [video],
         isVideo: true,
@@ -339,7 +547,10 @@ async function publishOne(env, item, profile, platforms) {
         Authorization: `Apikey ${env.UPLOAD_POST_API_KEY}`,
         'content-type': 'application/json'
       },
-      body: JSON.stringify({ user: profile, platform: platforms, video, title: item.hook, description })
+      // postText, not description: description is deliberately blank whenever a
+      // campaign is active, so this branch used to publish campaign clips with an
+      // entirely empty caption -- no line, no disclosure, no tags.
+      body: JSON.stringify({ user: profile, platform: platforms, video, title: item.hook, description: postText })
     });
     const text = await res.text();
     if (!res.ok) throw new Error(`Upload-Post ${res.status}: ${text.slice(0, 250)}`);
@@ -651,4 +862,160 @@ export async function clipsVerifyAccounts(env) {
 
   out.push('', problems.length ? `PROBLEMS:\n  - ${problems.join('\n  - ')}` : 'No mismatch found — every key reaches a distinct profile with networks linked.');
   return out.join('\n');
+}
+
+
+// ---------------------------------------------------------------------------
+// ANALYTICS — what the clips actually did
+// ---------------------------------------------------------------------------
+// Reads the publisher's history for post ids, then asks Ayrshare for the real
+// numbers behind each one. Deliberately built on /api/history rather than on
+// anything we record at publish time: it therefore works retroactively on
+// everything already posted, and it cannot drift from the truth the way a
+// counter of our own would. Our counters have been wrong twice tonight.
+//
+// TikTok takes 24-48h to report, so a clip posted an hour ago showing zero is
+// normal and says nothing about how it is doing.
+export async function clipsAnalytics(env, { profile, limit = 10 } = {}) {
+  if (!env.AYRSHARE_API_KEY) return 'Ayrshare is not connected, so there are no analytics to read.';
+  const accounts = await readJson(env, KV.accounts, []);
+  const targets = profile ? [profile] : (accounts.length ? accounts : ['default']);
+  const n = Math.min(Math.max(Number(limit) || 10, 1), 25);
+  const platforms = await readJson(env, KV.platforms, DEFAULT_PLATFORMS);
+  const campaign = await readJson(env, KV.campaign, null);
+
+  const out = [];
+  let totalViews = 0, totalLikes = 0, counted = 0, pending = 0;
+
+  for (let i = 0; i < targets.slice(0, 6).length; i++) {
+    const key = targets[i];
+    const auth = { Authorization: `Bearer ${env.AYRSHARE_API_KEY}` };
+    if (key && key !== 'default') auth['Profile-Key'] = key;
+
+    let posts = [];
+    try {
+      const r = await fetch(`https://api.ayrshare.com/api/history?limit=${n}&lastDays=30`, { headers: auth });
+      const t = await r.text();
+      if (!r.ok) { out.push(`account ${i + 1}: history unavailable — HTTP ${r.status}`); continue; }
+      const d = JSON.parse(t);
+      posts = Array.isArray(d) ? d : (d.history || d.posts || []);
+    } catch (err) { out.push(`account ${i + 1}: ${err.message}`); continue; }
+
+    const live = posts.filter(x => x && x.id && String(x.status || '').toLowerCase() === 'success');
+    if (!live.length) { out.push(`account ${i + 1}: nothing published in the last 30 days.`); continue; }
+
+    const lines = [];
+    for (const post of live.slice(0, n)) {
+      let stats = null;
+      try {
+        const r = await fetch('https://api.ayrshare.com/api/analytics/post', {
+          method: 'POST',
+          headers: { ...auth, 'content-type': 'application/json' },
+          body: JSON.stringify({ id: post.id, platforms })
+        });
+        const t = await r.text();
+        stats = JSON.parse(t);
+      } catch (err) { lines.push(`  "${String(post.post || '').slice(0, 34)}" — could not read: ${err.message}`); continue; }
+
+      const bits = [];
+      for (const nw of platforms) {
+        const m = stats && stats[nw] && (stats[nw].analytics || stats[nw]);
+        if (!m) continue;
+        const views = Number(m.videoViews ?? m.views ?? m.impressions ?? m.playCount ?? 0);
+        const likes = Number(m.likeCount ?? m.likes ?? 0);
+        const comments = Number(m.commentCount ?? m.comments ?? 0);
+        const shares = Number(m.shareCount ?? m.shares ?? 0);
+        if (views > 0) { totalViews += views; counted++; } else { pending++; }
+        totalLikes += likes;
+        bits.push(`${nw} ${views.toLocaleString()} views, ${likes} likes, ${comments} comments, ${shares} shares`);
+      }
+      const when = String(post.created || '').slice(0, 16).replace('T', ' ');
+      lines.push(`  ${when} "${String(post.post || '').replace(/\s+/g, ' ').slice(0, 34)}"`);
+      lines.push(bits.length ? `    ${bits.join(' | ')}` : '    no numbers yet');
+    }
+    out.push(`account ${i + 1}:`, ...lines);
+  }
+
+  const head = [`${counted} post(s) reporting, ${pending} still with no numbers.`];
+  if (totalViews > 0) {
+    head.push(`${totalViews.toLocaleString()} views and ${totalLikes.toLocaleString()} likes in total.`);
+    const rate = totalViews ? (totalLikes / totalViews * 100) : 0;
+    head.push(`Engagement ${rate.toFixed(2)}% — briefs of this kind usually want 0.20% or better.`);
+    if (campaign) {
+      head.push(`At $1.50 per 1,000 that is about $${(totalViews / 1000 * 1.5).toFixed(2)} of ${campaign.name} earnings, before their cut and before anything is rejected.`);
+    }
+  }
+  head.push('TikTok reports 24 to 48 hours late, so a clip posted today showing nothing is normal.');
+  return head.join('\n') + '\n\n' + out.join('\n');
+}
+
+
+// Account-level numbers, not per-post. This exists because videos posted BY HAND
+// never touch Ayrshare, so /api/analytics/post cannot see them and neither can
+// anything built on the publisher's post history. This endpoint reads the whole
+// profile — every video on the account, however it got there.
+//
+// It also stores a snapshot each time, so the second run onwards reports the
+// CHANGE since the last check. Totals alone say little; "+4,210 views since
+// yesterday" is the number that actually answers "did today's posts work".
+export async function clipsAccountStats(env) {
+  if (!env.AYRSHARE_API_KEY) return 'Ayrshare is not connected.';
+  const accounts = await readJson(env, KV.accounts, []);
+  if (!accounts.length) return 'No accounts configured.';
+  const platforms = await readJson(env, KV.platforms, DEFAULT_PLATFORMS);
+  const prev = await readJson(env, 'clips:social_snapshot', {});
+  const now = {};
+  const L = [];
+  let tv = 0, tl = 0, tf = 0, dv = 0, dl = 0, df = 0;
+  const lastAt = prev.__at ? new Date(prev.__at) : null;
+
+  for (let i = 0; i < accounts.length; i++) {
+    const key = accounts[i];
+    const headers = { Authorization: `Bearer ${env.AYRSHARE_API_KEY}`, 'content-type': 'application/json' };
+    if (key && key !== 'default') headers['Profile-Key'] = key;
+    let d;
+    try {
+      const r = await fetch('https://api.ayrshare.com/api/analytics/social', {
+        method: 'POST', headers, body: JSON.stringify({ platforms })
+      });
+      const t = await r.text();
+      if (!r.ok) { L.push(`account ${i + 1}: HTTP ${r.status} ${t.slice(0, 120)}`); continue; }
+      d = JSON.parse(t);
+    } catch (err) { L.push(`account ${i + 1}: ${err.message}`); continue; }
+
+    for (const nw of platforms) {
+      const a = d && d[nw] && (d[nw].analytics || d[nw]);
+      if (!a) continue;
+      const views = Number(a.viewCountTotal ?? a.videoViews ?? 0);
+      const likes = Number(a.likeCountTotal ?? a.likeCount ?? 0);
+      const fol = Number(a.followerCount ?? a.followersCount ?? 0);
+      const id = `${i}:${nw}`;
+      now[id] = { views, likes, fol };
+      tv += views; tl += likes; tf += fol;
+      const was = prev[id];
+      let delta = '';
+      if (was) {
+        const cv = views - was.views, cl = likes - was.likes, cf = fol - was.fol;
+        dv += cv; dl += cl; df += cf;
+        const sign = (x) => (x > 0 ? '+' : '') + x.toLocaleString();
+        delta = `   since last check: ${sign(cv)} views, ${sign(cl)} likes, ${sign(cf)} followers`;
+      }
+      L.push(`account ${i + 1} ${nw}: ${views.toLocaleString()} views, ${likes.toLocaleString()} likes, ${fol.toLocaleString()} followers${delta}`);
+    }
+  }
+
+  now.__at = new Date().toISOString();
+  await writeJson(env, 'clips:social_snapshot', now);
+
+  const head = [`ALL ACCOUNTS: ${tv.toLocaleString()} views, ${tl.toLocaleString()} likes, ${tf.toLocaleString()} followers.`];
+  if (lastAt) {
+    const hrs = Math.max(1, Math.round((Date.now() - lastAt.getTime()) / 3600000));
+    const sign = (x) => (x > 0 ? '+' : '') + x.toLocaleString();
+    head.push(`Change over the last ${hrs}h: ${sign(dv)} views, ${sign(dl)} likes, ${sign(df)} followers.`);
+    if (dv > 0) head.push(`At $1.00 per 1,000 that movement is about $${(dv / 1000).toFixed(2)}.`);
+  } else {
+    head.push('First check — no comparison yet. Run it again later and it will report the change.');
+  }
+  head.push('These are WHOLE-ACCOUNT totals, so they include videos you posted by hand. TikTok reports 24-48h late.');
+  return head.join(String.fromCharCode(10)) + String.fromCharCode(10) + String.fromCharCode(10) + L.join(String.fromCharCode(10));
 }
