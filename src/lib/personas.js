@@ -142,12 +142,83 @@ ${HELA_SIBLING_PARAGRAPH}
 ${SHARED_CORE.replace(TRIO_PARAGRAPH, 'You hold every tool in the house — music, browser control, comms, maps, research, the ledger, the calendar, all of it. Use them without ceremony when asked.')}`;
 // ⟦PROJECT-H:END⟧
 
+// ---------------------------------------------------------------------------
+// PER-PERSONA TOOL SETS
+// ---------------------------------------------------------------------------
+// All four personas used to receive all 132 tool schemas on every request:
+// ~14,400 tokens of schema, and OWASP's #3 risk as of 3 Aug 2026 (Excessive
+// Agency, promoted from #6 specifically because of production agent incidents).
+//
+// THE TRAP, and why these are fixed lists rather than chosen per request:
+// Anthropic invalidates the prompt cache in the order tools -> system ->
+// messages. Tools sit FIRST in the cached prefix, so a tool list that changes
+// between calls busts the cache for the tools AND the system prompt AND the
+// long-term memory block behind them. Picking tools per message would have
+// turned a $0.20/Mtok cache read into a $2.00/Mtok full read of everything —
+// paying roughly ten times more to save a fifth of the context. The obvious
+// optimisation is a pessimisation.
+//
+// So: one stable set per persona. A conversation stays on one set, the cache
+// holds all the way through, and each persona still only carries its own lane.
+// HELA keeps everything by design — she is the one Rayan can always go to.
+// ---------------------------------------------------------------------------
+const THOR_TOOLS = [
+    'add_calendar_event', 'add_todo', 'air_quality', 'allow_host', 'ask_alternate_model',
+    'ask_jarvis', 'ask_kevos', 'browser_click', 'browser_click_coords', 'browser_navigate',
+    'browser_probe', 'browser_read_page', 'browser_screenshot', 'browser_scroll',
+    'browser_type', 'browser_type_coords', 'calculate', 'cancel_timer', 'complete_todo',
+    'condense', 'convert_money', 'days_until', 'define', 'earthquakes', 'get_tool_permissions',
+    'golden_hour', 'holidays', 'list_allowed_hosts', 'list_calendar_events', 'list_my_tools',
+    'list_todos', 'look_up', 'make_call', 'make_image', 'maps_directions',
+    'maps_distances_between_locations', 'maps_find_all_locations', 'maps_find_gap_areas',
+    'maps_geocode', 'maps_search_places', 'news_search', 'page_history', 'play_youtube_video',
+    'remember_this', 'remove_calendar_event', 'roll', 'search_memory', 'send_text',
+    'set_timer', 'set_tool_permission', 'short_link', 'spotify_next', 'spotify_now_playing',
+    'spotify_pause', 'spotify_play', 'spotify_previous', 'spotify_resume', 'spotify_seek',
+    'spotify_shuffle_playlist', 'tavily_crawl', 'tavily_extract', 'tavily_research', 'timers',
+    'transcribe', 'translate', 'watch_add', 'watch_list', 'watch_pause', 'watch_remove',
+    'watch_resume', 'watch_subjects', 'weather', 'web_search', 'word_ideas', 'world_time'
+];
+const LOKI_TOOLS = [
+    'add_calendar_event', 'add_content_idea', 'add_todo', 'air_quality', 'allow_host',
+    'ask_alternate_model', 'calculate', 'cancel_timer', 'complete_todo', 'condense',
+    'convert_money', 'days_until', 'define', 'get_tool_permissions', 'holidays',
+    'list_allowed_hosts', 'list_calendar_events', 'list_content_ideas', 'list_my_tools',
+    'list_todos', 'look_up', 'make_image', 'news_search', 'page_history', 'remember_this',
+    'remove_calendar_event', 'roll', 'search_memory', 'set_timer', 'set_tool_permission',
+    'short_link', 'tavily_research', 'timers', 'transcribe', 'translate', 'watch_add',
+    'watch_list', 'watch_pause', 'watch_remove', 'watch_resume', 'watch_subjects', 'weather',
+    'web_search', 'word_ideas', 'world_time'
+];
+const ODIN_TOOLS = [
+    'add_calendar_event', 'add_content_idea', 'add_todo', 'air_quality', 'allow_host',
+    'ask_alternate_model', 'calculate', 'cancel_timer', 'clips_account_stats',
+    'clips_analytics', 'clips_campaign', 'clips_clear_campaign', 'clips_clear_standing_tags',
+    'clips_find', 'clips_history', 'clips_publish_next', 'clips_queue', 'clips_queue_add',
+    'clips_queue_remove', 'clips_set_accounts', 'clips_set_campaign', 'clips_set_monthly_cap',
+    'clips_set_platforms', 'clips_standing_tag_status', 'clips_standing_tags', 'clips_status',
+    'clips_verify_accounts', 'clips_whop_auto', 'clips_whop_inspect',
+    'clips_whop_set_campaign', 'clips_whop_status', 'clips_whop_submit',
+    'clips_whop_submit_pending', 'company_filings', 'complete_todo', 'condense',
+    'convert_money', 'crypto_price', 'days_until', 'define', 'get_tool_permissions',
+    'holidays', 'ig_accounts', 'ig_add_account', 'ig_post_reel', 'ig_refresh_tokens',
+    'ig_remove_account', 'list_allowed_hosts', 'list_calendar_events', 'list_content_ideas',
+    'list_my_tools', 'list_todos', 'look_up', 'make_image', 'news_search', 'page_history',
+    'remember_this', 'remove_calendar_event', 'roll', 'search_memory', 'set_timer',
+    'set_tool_permission', 'short_link', 'social_profile', 'social_trends', 'stock_price',
+    'tavily_crawl', 'tavily_extract', 'tavily_research', 'timers', 'token_search',
+    'transcribe', 'translate', 'video_segments', 'video_stats', 'vizard_approve',
+    'vizard_cancel', 'vizard_clip', 'vizard_held', 'vizard_jobs', 'watch_add', 'watch_list',
+    'watch_pause', 'watch_remove', 'watch_resume', 'watch_subjects', 'weather', 'web_search',
+    'word_ideas', 'world_time'
+];
+
 export const PERSONAS = {
   thor: {
     id: 'thor', name: 'THOR',
     colorRgb: '70,150,255', accent2: '255,199,64',
     systemPrompt: THOR_PROMPT,
-    toolNames: null,                          // null = unrestricted
+    toolNames: THOR_TOOLS,                    // his lane: music, browser, comms, maps, research
     historyKeyPrefix: 'thor',
     memoryKey: 'memory:longterm',             // legacy RAYVEN store — THOR inherits it
     telegramTokenEnv: 'TELEGRAM_BOT_TOKEN_THOR', // falls back to TELEGRAM_BOT_TOKEN (RAYVENN_RAYAN_BOT — do not rename, JARVIS federation depends on it)
@@ -165,7 +236,7 @@ export const PERSONAS = {
     id: 'loki', name: 'LOKI',
     colorRgb: '46,190,110', accent2: '255,199,64',
     systemPrompt: LOKI_PROMPT,
-    toolNames: null,                          // null = unrestricted — every persona has every tool
+    toolNames: LOKI_TOOLS,                    // his lane: to-dos, calendar, reminders, watchlists
     historyKeyPrefix: 'loki',
     memoryKey: 'memory:longterm:loki',
     telegramTokenEnv: 'TELEGRAM_BOT_TOKEN_LOKI',
@@ -181,7 +252,7 @@ export const PERSONAS = {
     id: 'odin', name: 'ODIN',
     colorRgb: '255,199,64', accent2: '246,244,236',
     systemPrompt: ODIN_PROMPT,
-    toolNames: null,                          // null = unrestricted — every persona has every tool
+    toolNames: ODIN_TOOLS,                    // his lane: the clipping business, markets, revenue
     historyKeyPrefix: 'odin',
     memoryKey: 'memory:longterm:odin',
     telegramTokenEnv: 'TELEGRAM_BOT_TOKEN_ODIN',
@@ -220,6 +291,32 @@ export const PERSONAS = {
   }
   // ⟦PROJECT-H:END⟧
 };
+
+// Names each persona answers to in a group chat, including the mishearings that
+// actually happen when Rayan is talking rather than typing. "for"/"four" stay OUT
+// of THOR's list -- they land in ordinary conversation constantly. HELA gets
+// "hella" and "ella" because that is what dictation produces every single time.
+export const PERSONA_ALIASES = {
+  thor: ['thor', 'thors', 'thorr', 'tor', 'tore'],
+  loki: ['loki', 'lokie', 'low key', 'lowkey', 'loki\'s'],
+  odin: ['odin', 'odinn', 'oden', 'odon'],
+  hela: ['hela', 'hella', 'ella', 'hela', 'hel']
+};
+
+// Who takes a message in the group when nobody was named. HELA -- she has every
+// tool the other three have, so an unaddressed question is never the wrong one
+// for her, and Rayan explicitly asked that she be the one he can always go to.
+export const GROUP_FALLBACK_PERSONA = 'hela';
+
+export function personaNamedIn(text) {
+  const t = ' ' + String(text || '').toLowerCase().replace(/[^a-z0-9@'\s]/g, ' ') + ' ';
+  for (const [id, names] of Object.entries(PERSONA_ALIASES)) {
+    for (const n of names) {
+      if (t.includes(' ' + n + ' ') || t.includes('@' + n)) return id;
+    }
+  }
+  return null;
+}
 
 export const ALL_PERSONA_IDS = Object.keys(PERSONAS);
 export const DEFAULT_PERSONA_ID = 'thor';

@@ -13,6 +13,28 @@ export function resolveSenderTag(senderUsername, senderFirstName) {
   return senderFirstName || (senderUsername ? `@${senderUsername}` : 'Unknown');
 }
 
+// Per-persona identity. The old version read env.TELEGRAM_BOT_TOKEN no matter
+// who was asking, so LOKI, ODIN and HELA all believed they were THOR: none of
+// them could tell that a reply was aimed at them, and none of them recognised
+// their own @username. In a four-bot group that is the difference between a
+// conversation and four bots shouting at once.
+export async function getBotInfoFor(env, token, personaId) {
+  if (!token) return null;
+  const key = `telegram:bot_info:${personaId}`;
+  const cached = await env.RAYVEN_KV.get(key);
+  if (cached) { try { return JSON.parse(cached); } catch (e) {} }
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+    const data = await res.json();
+    if (data.ok) {
+      const info = { id: data.result.id, username: data.result.username };
+      await env.RAYVEN_KV.put(key, JSON.stringify(info), { expirationTtl: 86400 });
+      return info;
+    }
+  } catch (e) { console.error(`getMe failed for ${personaId}:`, e); }
+  return null;
+}
+
 export async function getBotInfo(env) {
   const cached = await env.RAYVEN_KV.get('telegram:bot_info');
   if (cached) {

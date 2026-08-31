@@ -10,8 +10,7 @@ import { getRecentMemoryBlock, getLongTermMemory, migrateMemoryEmbeddings, getMe
 import { isAffirmative, setToolPermission, getPermissions, GATEABLE_TOOLS, HARD_CONFIRM_TOOLS, DEFAULT_PERMISSION_LEVELS } from './lib/permissions.js';
 import {
   resolveSenderTag, getBotInfo, messageAddressesBot, textMentionsJarvis, textMentionsKevin,
-  sendTelegramMessage
-} from './lib/telegram.js';
+  sendTelegramMessage, getBotInfoFor } from './lib/telegram.js';
 import { executeTool, callClaudeWithTools, getTaskLog } from './lib/tools.js';
 import { handleSpotifyLogin, handleSpotifyCallback, spotifyNowPlayingData, spotifyPause, spotifyResume, spotifyNext, spotifyPrevious } from './lib/spotify.js';
 import { runLokiBriefIfDue, runLokiBrief, runOdinReportIfDue, runOdinReport, getOdinReports } from './lib/reports.js';
@@ -21,11 +20,13 @@ import { getActivityLog } from './lib/activity.js';
 import { readCappedLog } from './lib/util.js';
 import { notify, flushNotificationDigestIfDue, getNotificationLog } from './lib/notifications.js';
 import { runMonitoringSweep, getWatchList } from './lib/monitoring.js';
-import { PERSONAS, ALL_PERSONA_IDS, DEFAULT_PERSONA_ID, getPersona, getPersonaBotToken, getPersonaVoiceId, getPersonaVoiceSettings, historyKeyFor, resolvePersonaId } from './lib/personas.js';
+import { PERSONAS, ALL_PERSONA_IDS, DEFAULT_PERSONA_ID, getPersona, getPersonaBotToken, getPersonaVoiceId, getPersonaVoiceSettings, historyKeyFor, resolvePersonaId, personaNamedIn, GROUP_FALLBACK_PERSONA } from './lib/personas.js';
 import { runPersonaAutonomyIfDue, getAllStatuses, getAutonomyLog, setPersonaStatus, runThorSelfCheck } from './lib/autonomy.js';
 import { runRoundtable } from './lib/roundtable.js';
-import { runClipCycleIfDue, clipsVerifyAccounts } from './lib/clipping.js';
-import { runVizardPollIfDue } from './lib/vizard.js';
+import { runClipCycleIfDue, clipsVerifyAccounts, clipsAnalytics, clipsAccountStats } from './lib/clipping.js';
+import { runVizardPollIfDue, vizardAccounts, vizardDebugSubmit, pipelineState, vizardApprove, discardHeld } from './lib/vizard.js';
+import { runWhopSubmitIfDue, whopInspect, whopStatus, whopSubmitPending } from './lib/whop.js';
+import { channelStartsTainted } from './lib/containment.js';
 import { runTimersIfDue } from './lib/kit.js';
 import { igRefreshIfDue } from './lib/instagram.js';
 // ⟦PROJECT-H:BEGIN⟧
@@ -71,11 +72,42 @@ async function handleChatTurn(env, ctx, opts) {
     }
 
     if (telegramChatType === 'group' || telegramChatType === 'supergroup') {
-      const botInfo = await getBotInfo(env);
-      const addressed = messageAddressesBot(userMessage, botInfo, body.message.reply_to_message);
-      const mentionsOtherAssistant = textMentionsJarvis(userMessage) || textMentionsKevin(userMessage);
-      const shouldRespond = addressed || !mentionsOtherAssistant;
+      // FOUR bots now sit in this group. The old rule was "answer unless someone
+      // else was named", which with one bot meant "answer when spoken to" and
+      // with four means ALL FOUR reply to every single message. Rewritten so a
+      // persona speaks only when it is genuinely the one being addressed.
+      const botInfo = await getBotInfoFor(env, botToken, personaId);
+      const replyToMe = !!(body.message.reply_to_message && botInfo &&
+        body.message.reply_to_message.from && body.message.reply_to_message.from.id === botInfo.id);
+      const atMe = !!(botInfo && botInfo.username &&
+        userMessage.toLowerCase().includes('@' + botInfo.username.toLowerCase()));
+      const named = personaNamedIn(userMessage);          // thor/loki/odin/hela, or null
+      const fromBot = !!(body.message.from && body.message.from.is_bot);
+
+      // A message from another bot is only ever answered if it replied to us or
+      // named us outright. Without this the four of them talk to each other until
+      // something falls over -- Telegram applies no flood protection here at all.
+      if (fromBot && !(replyToMe || atMe || named === personaId)) return null;
+
+      let shouldRespond;
+      if (replyToMe || atMe || named === personaId) shouldRespond = true;
+      else if (named) shouldRespond = false;             // someone else was named
+      else if (textMentionsJarvis(userMessage) || textMentionsKevin(userMessage)) shouldRespond = false;
+      else shouldRespond = personaId === GROUP_FALLBACK_PERSONA;   // nobody named — HELA takes it
+
       if (!shouldRespond) return null;
+
+      // Hop limit. Bot-to-bot exchanges are allowed and are the point, but a
+      // thread of them stops at three so a misunderstanding cannot become a
+      // permanent conversation nobody asked for.
+      if (fromBot) {
+        const hopKey = `tg:hops:${telegramChatId}`;
+        const hops = Number(await env.RAYVEN_KV.get(hopKey)) || 0;
+        if (hops >= 3) return null;
+        await env.RAYVEN_KV.put(hopKey, String(hops + 1), { expirationTtl: 180 });
+      } else {
+        await env.RAYVEN_KV.delete(`tg:hops:${telegramChatId}`);
+      }
     }
   } else {
     userMessage = body.message;
@@ -174,7 +206,9 @@ async function handleChatTurn(env, ctx, opts) {
   }
   // ⟦PROJECT-H:END⟧
 
-  const result = await callClaudeWithTools(env, persona.systemPrompt, channelContext, longTermMemoryBlock, claudeMessages, !isWakeTrigger, wakeCodeCheckContext, personaId);
+  // A Telegram group is untrusted from the first word, whoever is in it —
+  // accounts get compromised and membership changes. Start tainted there.
+  const result = await callClaudeWithTools(env, persona.systemPrompt, channelContext, longTermMemoryBlock, claudeMessages, !isWakeTrigger, wakeCodeCheckContext, personaId, channelStartsTainted(isTelegram, telegramChatType));
 
   ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
 
@@ -402,6 +436,53 @@ export default {
     // lands, and whether anything is suspended. Plain text on purpose: the
     // point is to see the publisher's answer unedited, with no assistant
     // summarising it in between. Prints no keys.
+    // Same principle as /debug-clips-verify: read the service's own answer in a
+    // browser, with no assistant paraphrasing it in between.
+    if (url.pathname === '/debug-discard-held') {
+      return new Response(await discardHeld(env), { headers: { ...corsHeaders, 'content-type': 'text/plain; charset=utf-8' } });
+    }
+
+    // Look at the Whop campaign page and report what is on it. Clicks nothing.
+    if (url.pathname === '/debug-whop-inspect') {
+      return new Response(await whopInspect(env), { headers: { ...corsHeaders, 'content-type': 'text/plain; charset=utf-8' } });
+    }
+
+    if (url.pathname === '/debug-whop-status') {
+      return new Response(await whopStatus(env), { headers: { ...corsHeaders, 'content-type': 'text/plain; charset=utf-8' } });
+    }
+
+    if (url.pathname === '/debug-whop-submit') {
+      return new Response(await whopSubmitPending(env), { headers: { ...corsHeaders, 'content-type': 'text/plain; charset=utf-8' } });
+    }
+
+    if (url.pathname === '/debug-pipeline') {
+      return new Response(await pipelineState(env), { headers: { ...corsHeaders, 'content-type': 'text/plain; charset=utf-8' } });
+    }
+
+    if (url.pathname === '/debug-approve-clips') {
+      return new Response(await vizardApprove(env), { headers: { ...corsHeaders, 'content-type': 'text/plain; charset=utf-8' } });
+    }
+
+    if (url.pathname === '/debug-vizard-submit') {
+      return new Response(await vizardDebugSubmit(env, url.searchParams.get('url')), { headers: { ...corsHeaders, 'content-type': 'text/plain; charset=utf-8' } });
+    }
+
+    if (url.pathname === '/debug-vizard-accounts') {
+      return new Response(await vizardAccounts(env), {
+        headers: { ...corsHeaders, 'content-type': 'text/plain; charset=utf-8' }
+      });
+    }
+
+    if (url.pathname === '/debug-account-stats') {
+      return new Response(await clipsAccountStats(env), { headers: { ...corsHeaders, 'content-type': 'text/plain; charset=utf-8' } });
+    }
+
+    if (url.pathname === '/debug-clips-analytics') {
+      return new Response(await clipsAnalytics(env, { limit: 10 }), {
+        headers: { ...corsHeaders, 'content-type': 'text/plain; charset=utf-8' }
+      });
+    }
+
     if (url.pathname === '/debug-clips-verify') {
       return new Response(await clipsVerifyAccounts(env), {
         headers: { ...corsHeaders, 'content-type': 'text/plain; charset=utf-8' }
@@ -933,6 +1014,12 @@ How to speak on a phone call:
     // every four minutes and a no-op with no key set, so it costs one KV read
     // per tick until there is actually something in flight.
     ctx.waitUntil(runVizardPollIfDue(env));
+    // Whop submission. Whop has no API, so this drives the browser on Rayan's own
+    // machine -- which means it can only work while that machine is awake with
+    // Chrome open. It is OFF until he turns it on, and refuses to turn on until a
+    // submission has already succeeded once by hand, because an automation that
+    // silently fails every 20 minutes is worse than no automation at all.
+    ctx.waitUntil(runWhopSubmitIfDue(env));
     // Countdown timers. Five-minute resolution is the honest ceiling here and
     // set_timer says so out loud rather than implying a precision it has not got.
     ctx.waitUntil(runTimersIfDue(env));
