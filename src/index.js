@@ -17,7 +17,7 @@ import { runLokiBriefIfDue, runLokiBrief, runOdinReportIfDue, runOdinReport, get
 import { handleAgentQuery } from './lib/sibling-agents.js';
 import { runProactiveCheckIn, runProactiveCheckInIfDue, runCodeCheckIfDue, runCodeCheck, runMorningBriefing, runMorningBriefingIfDue } from './lib/checkin.js';
 import { getActivityLog } from './lib/activity.js';
-import { readCappedLog } from './lib/util.js';
+import { readCappedLog, timingSafeEqual } from './lib/util.js';
 import { notify, flushNotificationDigestIfDue, getNotificationLog } from './lib/notifications.js';
 import { runMonitoringSweep, getWatchList } from './lib/monitoring.js';
 import { PERSONAS, ALL_PERSONA_IDS, DEFAULT_PERSONA_ID, getPersona, getPersonaBotToken, getPersonaVoiceId, getPersonaVoiceSettings, historyKeyFor, resolvePersonaId, personaNamedIn, GROUP_FALLBACK_PERSONA } from './lib/personas.js';
@@ -328,6 +328,32 @@ export default {
 
     const url = new URL(request.url);
 
+    // ---- DEBUG ROUTE GATE ------------------------------------------------
+    // Every /debug-* route is an operator tool. Between them they dump private
+    // conversation history, delete it, trip the one manual publishing gate,
+    // submit to a live third-party campaign, and spend real money on billed
+    // APIs -- and none of them had any authentication. The repo is public, so
+    // the full route list is already discoverable; hiding them is not an
+    // option, gating them is.
+    //
+    // One choke point, placed before any route matching, so it covers all 26
+    // that exist today AND any added later. A per-route check would rot the
+    // moment someone adds the 27th and forgets.
+    //
+    // Fails CLOSED: with no DEBUG_SECRET set, every debug route is refused
+    // rather than silently left open. Set it before deploying, or the debug
+    // routes stop working:
+    //   npx wrangler secret put DEBUG_SECRET --name asgrard-backend
+    if (url.pathname.startsWith('/debug-')) {
+      const expected = env.DEBUG_SECRET;
+      const provided = request.headers.get('x-debug-key')
+        || url.searchParams.get('key')
+        || '';
+      if (!expected || !(await timingSafeEqual(provided, expected))) {
+        return new Response('Unauthorized.', { status: 401, headers: corsHeaders });
+      }
+    }
+
     // Cheap latency probe for the frontend telemetry header (real round-trip
     // numbers only — never faked).
     if (url.pathname === '/ping') {
@@ -341,6 +367,21 @@ export default {
     // Per-persona Telegram webhooks: /telegram/thor, /telegram/loki, /telegram/odin.
     // (The legacy bot also still lands on POST / and is treated as THOR below.)
     if (url.pathname.startsWith('/telegram/') && request.method === 'POST') {
+      // Telegram stamps every delivery with this header once secret_token is
+      // registered via setWebhook. Anything arriving without it is not
+      // Telegram, and previously went straight into the agent tool-use loop
+      // with the bot replying to whatever chat.id the forgery named.
+      //
+      // Answer 200, not 401: a non-200 makes Telegram retry in a loop, and a
+      // forged request should learn nothing from the response either way.
+      // Logged so `wrangler tail` shows drops -- if the secret is misconfigured
+      // the bots go quiet, and this line is how you find out why.
+      const webhookSecret = env.TELEGRAM_WEBHOOK_SECRET;
+      const providedSecret = request.headers.get('X-Telegram-Bot-Api-Secret-Token') || '';
+      if (!webhookSecret || !(await timingSafeEqual(providedSecret, webhookSecret))) {
+        console.warn(`Rejected unverified Telegram webhook on ${url.pathname}`);
+        return new Response('OK', { headers: corsHeaders });
+      }
       const personaId = url.pathname.slice('/telegram/'.length);
       // Own-property check, not truthiness: an unknown path segment must 404
       // here rather than fall back to THOR (a stray webhook should never be

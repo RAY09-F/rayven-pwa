@@ -71,7 +71,7 @@ You do NOT have calendar or meeting access — never claim to check his schedule
       res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 400, system: systemBlocks, tools, messages: convo })
+        body: JSON.stringify({ model: 'claude-sonnet-5', max_tokens: 400, system: systemBlocks, tools, messages: convo })
       });
     } catch (err) {
       claudeError = `Network error calling Anthropic: ${err.message}`;
@@ -215,7 +215,7 @@ You do NOT have calendar or meeting access — never claim to check his schedule
       res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 900, system: systemBlocks, tools, messages: convo })
+        body: JSON.stringify({ model: 'claude-sonnet-5', max_tokens: 900, system: systemBlocks, tools, messages: convo })
       });
     } catch (err) {
       claudeError = `Network error calling Anthropic: ${err.message}`;
@@ -327,7 +327,7 @@ ${workerSource}`;
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-sonnet-5',
         max_tokens: 700,
         messages: [{ role: 'user', content: reviewPrompt }]
       })

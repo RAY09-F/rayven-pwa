@@ -19,6 +19,26 @@
 import { PERSONAS, ALL_PERSONA_IDS, DEFAULT_PERSONA_ID, getPersona } from './personas.js';
 
 const EMBEDDING_MODEL = '@cf/baai/bge-base-en-v1.5';
+
+// Cross-encoder rerank. Verified against Cloudflare's published schema rather
+// than assumed: input { query, contexts: [{text}], top_k }, output
+// { response: [{ id, score }] } where id indexes back into contexts.
+// GA, $0.0031 per M input tokens — a 24-candidate rerank is roughly 700 tokens,
+// so about two millionths of a cent. Effectively free at any volume Rayan will
+// reach.
+//
+// Why bother: the embedding above is a BI-encoder. It turns the query and each
+// memory into vectors separately and compares them, which is fast and gives
+// good RECALL but mediocre PRECISION — it will happily rank "he likes espresso"
+// near "what coffee machine did he buy". A cross-encoder reads the query and the
+// candidate TOGETHER and scores the pair, which is far better at ordering but
+// too slow to run over the whole store. The standard answer is to use both:
+// embed to get a wide candidate set, then rerank to order it. That is what the
+// widened topK below is for.
+const RERANK_MODEL = '@cf/baai/bge-reranker-base';
+const RECALL_K = 24;      // candidates fetched
+const RETURN_K = 6;       // candidates kept after reranking
+const FLOOR = 0.12;       // below this a memory is noise, and noise costs context
 const CONFLICT_SIMILARITY_THRESHOLD = 0.92;
 const RECENT_INLINE_COUNT = 15;
 
@@ -198,7 +218,7 @@ export async function searchMemory(env, { query, keyword, dateFrom, dateTo }, pe
   if (query) {
     try {
       const vector = await embed(env, query);
-      const queryResult = await env.VECTORIZE.query(vector, { topK: 10, returnMetadata: 'none' });
+      const queryResult = await env.VECTORIZE.query(vector, { topK: RECALL_K, returnMetadata: 'none' });
       for (const match of (queryResult.matches || [])) {
         if (byId.has(match.id)) ranked.set(match.id, match.score);
       }
@@ -224,8 +244,35 @@ export async function searchMemory(env, { query, keyword, dateFrom, dateTo }, pe
 
   if (!results.length) return "Nothing in memory matches that, sir.";
 
-  results.sort((a, b) => b.score - a.score || (a.item.date < b.item.date ? 1 : -1));
-  results = results.slice(0, 8);
+  // Rerank. The vector score and the flat 0.5 given to keyword hits are not on
+  // the same scale, so sorting them against each other was always slightly
+  // arbitrary — a keyword match could outrank a strong semantic one or vice
+  // versa depending on nothing meaningful. The cross-encoder puts every
+  // candidate on one honest scale, so the union no longer needs the two kinds of
+  // hit to be comparable: recall gets them into the room, rerank orders them.
+  let reranked = false;
+  if (query && results.length > 1) {
+    try {
+      const contexts = results.map(r => ({ text: r.item.fact }));
+      const out = await env.AI.run(RERANK_MODEL, { query, contexts, top_k: Math.min(RETURN_K, contexts.length) });
+      const scored = (out && out.response) || [];
+      if (scored.length) {
+        const picked = scored
+          .filter(x => typeof x.id === 'number' && results[x.id] && x.score >= FLOOR)
+          .map(x => ({ item: results[x.id].item, score: x.score }));
+        if (picked.length) { results = picked; reranked = true; }
+      }
+    } catch (err) {
+      // Falls through to the original ordering. A worse-ordered answer beats no
+      // answer, and this runs on every recall.
+      console.error('Rerank unavailable, using vector order:', err.message);
+    }
+  }
+
+  if (!reranked) {
+    results.sort((a, b) => b.score - a.score || (a.item.date < b.item.date ? 1 : -1));
+    results = results.slice(0, RETURN_K);
+  }
 
   return results.map(r => {
     const supersededNote = r.item.supersededBy ? ' (note: superseded by a more recent memory)' : '';

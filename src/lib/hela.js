@@ -297,18 +297,27 @@ const FORGE_MS = 30 * 60 * 1000;          // she goes looking for a new tool eve
 // Rayan can tell any of them to go faster.
 const DEFAULT_FORGE_MS = { hela: 30 * 60 * 1000, thor: 3 * 60 * 60 * 1000, loki: 3 * 60 * 60 * 1000, odin: 3 * 60 * 60 * 1000 };
 const MAX_CAPS = 40;
+import { egressCheck } from './containment.js';
+
 const CALL_TIMEOUT_MS = 12000;
 const CAP_MAX_CHARS = 6000;
 
+// Kept as a fast structural reject even though the allowlist below makes it
+// redundant — defence in depth costs one regex here.
 const BLOCKED_HOST = /^(localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?|metadata\.|.*\.internal$)/i;
 
-function capUrlProblem(raw) {
+// This WAS a blocklist: anything not explicitly named was permitted, which made
+// a self-written capability an unbounded channel out of the house. Now it is
+// deny-by-default against an allowlist in KV, seeded with the hosts the forge
+// already uses so nothing that works today stops working.
+async function capUrlProblem(env, raw) {
   let u;
   try { u = new URL(String(raw)); } catch (e) { return 'that is not a URL I can parse'; }
   if (u.protocol !== 'https:') return 'https only';
   if (BLOCKED_HOST.test(u.hostname)) return 'that host is not reachable from here';
   if (/workers\.dev$/i.test(u.hostname)) return 'I will not call back through my own house';
-  return null;
+  const gate = await egressCheck(env, String(raw));
+  return gate.ok ? null : gate.why;
 }
 
 export async function helaCapabilities(env, personaId = 'hela') {
@@ -321,7 +330,7 @@ export async function helaCapabilities(env, personaId = 'hela') {
 
 export async function helaLearnCapability(env, { name, purpose, method, url, note }, personaId = 'hela') {
   if (!name || !purpose || !url) return 'A capability needs a name, a purpose and a URL.';
-  const problem = capUrlProblem(url);
+  const problem = await capUrlProblem(env, url);
   if (problem) return `Refused: ${problem}.`;
   const m = String(method || 'GET').toUpperCase();
   if (m !== 'GET' && m !== 'POST') return 'GET or POST only.';
@@ -364,7 +373,7 @@ export async function helaUseCapability(env, { name, args, body }, personaId = '
     }
   }
   // checked again at call time: the stored value is untrusted by now
-  const problem = capUrlProblem(url);
+  const problem = await capUrlProblem(env, url);
   if (problem) return `Refused at the last moment: ${problem}.`;
 
   const ctrl = new AbortController();

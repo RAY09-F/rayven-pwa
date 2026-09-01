@@ -132,8 +132,15 @@ async function handleCommand(cmd) {
       const [{ result }] = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         func: (text) => {
-          const all = Array.from(document.querySelectorAll('button, a, [role="button"], input[type="submit"], input[type="button"]'));
-          const match = all.find(el => el.innerText && el.innerText.trim().toLowerCase().includes(text.toLowerCase()));
+          const all = Array.from(document.querySelectorAll('button, a, [role="button"], input[type="submit"], input[type="button"], [type="submit"]'));
+          const want = text.toLowerCase();
+          const label = (el) => [el.innerText, el.value, el.getAttribute('aria-label'), el.title]
+            .filter(Boolean).join(' ').trim().toLowerCase();
+          const visible = (el) => !!(el.offsetParent || el.getClientRects().length);
+          // Prefer a visible exact match, then visible partial, then anything.
+          const match = all.filter(visible).find(el => label(el) === want)
+                     || all.filter(visible).find(el => label(el).includes(want))
+                     || all.find(el => label(el).includes(want));
           if (match) { match.click(); return true; }
           return false;
         },
@@ -148,11 +155,15 @@ async function handleCommand(cmd) {
           const inputs = Array.from(document.querySelectorAll('input, textarea'));
           let target = null;
           if (hint) {
-            target = inputs.find(el =>
-              (el.placeholder || '').toLowerCase().includes(hint.toLowerCase()) ||
-              (el.name || '').toLowerCase().includes(hint.toLowerCase()) ||
-              (el.id || '').toLowerCase().includes(hint.toLowerCase())
-            );
+            const h = hint.toLowerCase();
+            const hay = (el) => [
+              el.placeholder, el.name, el.id, el.type,
+              el.getAttribute('aria-label'), el.getAttribute('aria-labelledby'),
+              (el.labels && el.labels[0] ? el.labels[0].innerText : '')
+            ].filter(Boolean).join(' ').toLowerCase();
+            const visible = (el) => !!(el.offsetParent || el.getClientRects().length);
+            target = inputs.filter(visible).find(el => hay(el).includes(h)) ||
+                     inputs.find(el => hay(el).includes(h));
           }
           if (!target) {
             target = (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'))
@@ -160,13 +171,50 @@ async function handleCommand(cmd) {
           }
           if (!target) return false;
           target.focus();
-          target.value = text;
+          // Go through the NATIVE setter so React's value tracker sees the change.
+          const proto = target.tagName === 'TEXTAREA'
+            ? window.HTMLTextAreaElement.prototype
+            : window.HTMLInputElement.prototype;
+          const setter = Object.getOwnPropertyDescriptor(proto, 'value');
+          if (setter && setter.set) setter.set.call(target, text);
+          else target.value = text;
           target.dispatchEvent(new Event('input', { bubbles: true }));
+          target.dispatchEvent(new Event('change', { bubbles: true }));
           return true;
         },
         args: [params.fieldHint || '', params.text]
       });
       await reportResult(id, !!result, result ? 'Typed into the field.' : "Couldn't find a field to type into.");
+    } else if (action === 'probe') {
+      // read() returns innerText only, which is useless for finding a form: a
+      // React input renders no text at all. probe() reports the actual controls
+      // -- every visible input, textarea and button with the attributes you would
+      // need to target it. Nothing is clicked. This exists so a submission flow
+      // can be written against what the page IS rather than what we assumed.
+      const tab = await getActiveTab();
+      const [{ result }] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => {
+          const visible = (el) => !!(el.offsetParent || el.getClientRects().length);
+          const attr = (el, n) => el.getAttribute(n) || '';
+          const fields = Array.from(document.querySelectorAll('input, textarea, select'))
+            .filter(visible).slice(0, 40).map((el, i) => ({
+              i, tag: el.tagName.toLowerCase(), type: el.type || '',
+              placeholder: el.placeholder || '', name: el.name || '', id: el.id || '',
+              ariaLabel: attr(el, 'aria-label'),
+              label: (el.labels && el.labels[0] ? el.labels[0].innerText : '').slice(0, 60),
+              value: String(el.value || '').slice(0, 60)
+            }));
+          const buttons = Array.from(document.querySelectorAll('button, a[role="button"], [role="button"], input[type="submit"]'))
+            .filter(visible).slice(0, 40).map((el, i) => ({
+              i, tag: el.tagName.toLowerCase(),
+              text: (el.innerText || el.value || attr(el, 'aria-label') || '').replace(/\s+/g, ' ').trim().slice(0, 60),
+              disabled: !!el.disabled
+            })).filter(b => b.text);
+          return JSON.stringify({ url: location.href, title: document.title, fields, buttons }, null, 1).slice(0, 6000);
+        }
+      });
+      await reportResult(id, true, result || '(nothing found)');
     } else if (action === 'read') {
       const tab = await getActiveTab();
       const [{ result }] = await chrome.scripting.executeScript({
