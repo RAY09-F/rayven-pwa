@@ -400,9 +400,22 @@ export default {
       const doSet = url.searchParams.get('set') === '1';
       const origin = new URL(request.url).origin;
       const out = {};
+      // Scope the WRITE with ?only=thor,loki. Unscoped, set=1 registers every
+      // persona holding a token — which silently includes HELA, who is meant to
+      // stay off Telegram entirely (personas.js: "she does not exist off this
+      // device"). Reads stay unscoped so the report still shows every bot.
+      const onlyParam = url.searchParams.get('only');
+      const only = onlyParam
+        ? onlyParam.split(',').map(s => s.trim()).filter(Boolean)
+        : null;
       for (const personaId of ALL_PERSONA_IDS) {
         const token = getPersonaBotToken(env, personaId);
-        if (!token) { out[personaId] = { status: 'no bot token configured' }; continue; }
+        if (!token) {
+          // Name the missing secret. "no bot token configured" alone sent someone
+          // hunting through the webhook registration for a fault that was never there.
+          out[personaId] = { status: `no bot token configured — set ${getPersona(personaId).telegramTokenEnv}` };
+          continue;
+        }
         // THOR is the legacy RAYVENN_RAYAN_BOT and must stay on POST / — that
         // exact path is the JARVIS federation contract. The others use /telegram/<id>.
         const want = personaId === DEFAULT_PERSONA_ID ? `${origin}/` : `${origin}/telegram/${personaId}`;
@@ -410,9 +423,23 @@ export default {
           const info = await (await fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`)).json();
           const current = (info.result && info.result.url) || '(none)';
           const entry = { current, expected: want, matches: current === want };
-          if (doSet && !entry.matches) {
-            const res = await (await fetch(`https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(want)}`)).json();
+          if (doSet && (!only || only.includes(personaId))) {
+            // Re-register UNCONDITIONALLY, even when the URL already matches.
+            // getWebhookInfo does not report whether a secret_token is set, so a
+            // webhook registered before TELEGRAM_WEBHOOK_SECRET existed is
+            // indistinguishable from a healthy one — while the verification on
+            // /telegram/<persona> silently drops every genuine update. Skipping on
+            // a URL match left exactly those bots dead with no way to see why.
+            // setWebhook is idempotent, so re-setting a healthy one costs nothing.
+            //
+            // secret_token must be registered here or the verification on
+            // /telegram/<persona> drops every genuine update. Harmless for THOR,
+            // which delivers to POST / and ignores the header.
+            const setUrl = `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(want)}`
+              + (env.TELEGRAM_WEBHOOK_SECRET ? `&secret_token=${encodeURIComponent(env.TELEGRAM_WEBHOOK_SECRET)}` : '');
+            const res = await (await fetch(setUrl)).json();
             entry.updated = !!res.ok;
+            entry.secretTokenSent = !!env.TELEGRAM_WEBHOOK_SECRET;
             entry.telegramSaid = res.description || null;
           }
           if (info.result && info.result.last_error_message) {
