@@ -33,6 +33,7 @@ import {
 } from './maps.js';
 import { askSiblingAgent } from './sibling-agents.js';
 import { watchAdd, watchList, watchRemove, watchPause, watchResume } from './monitoring.js';
+import { getPaperSummaryText } from './paperTrading.js';
 import { getPersona, personaAllowsTool, toolOwnerName, DEFAULT_PERSONA_ID } from './personas.js';
 import { marksTainted, isConsequential, wrapUntrusted, describeAction, getAllowedHosts, allowHost } from './containment.js';
 
@@ -157,6 +158,7 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID) {
     case 'news_search': return await newsSearch(env, input);
     case 'crypto_price': return await cryptoPrice(env, input);
     case 'stock_price': return await stockPrice(env, input);
+    case 'paper_trading_status': return await getPaperSummaryText(env, input && input.period);
     case 'company_filings': return await companyFilings(env, input);
     case 'token_search': return await tokenSearch(env, input);
     case 'golden_hour': return await goldenHour(env, input);
@@ -525,6 +527,7 @@ export const TOOL_DEFINITIONS = [
   { name: 'news_search', description: 'Search tech and startup news by keyword, ranked by points and comments.', input_schema: { type: 'object', properties: { query: { type: 'string' }, limit: { type: 'number' } }, required: ['query'] } },
   { name: 'crypto_price', description: 'Live price, 24h and 7d change, market cap and volume for a coin, plus the overall Fear and Greed reading.', input_schema: { type: 'object', properties: { coin: { type: 'string', description: 'bitcoin, eth, sol, or a coinpaprika id like btc-bitcoin' } } } },
   { name: 'stock_price', description: 'Live price and daily change for a US-listed stock ticker.', input_schema: { type: 'object', properties: { ticker: { type: 'string' } }, required: ['ticker'] } },
+  { name: 'paper_trading_status', description: 'Read the live PAPER/SIMULATED trading portfolio and trade history — open positions per agent, P/L, trade count, win rate, and a per-trade breakdown for a window. ALWAYS simulated, never a real trade or real money; state that plainly whenever you use this.', input_schema: { type: 'object', properties: { period: { type: 'string', enum: ['today', 'week', 'all'], description: 'Which window to summarize. Defaults to today.' } } } },
   { name: 'company_filings', description: "A US company's recent SEC filings and sector, straight from the SEC. Authoritative and permanent -- use this over any news summary when the question is about what a company actually reported.", input_schema: { type: 'object', properties: { ticker: { type: 'string' } }, required: ['ticker'] } },
   { name: 'token_search', description: 'On-chain token and DEX pair data — price, liquidity, 24h volume and change. Covers new and small tokens that price APIs miss.', input_schema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
   { name: 'golden_hour', description: "Sunrise, sunset, golden hour, dawn and dusk for any place. Answers 'when should I film today' exactly.", input_schema: { type: 'object', properties: { place: { type: 'string' }, date: { type: 'string', description: 'YYYY-MM-DD, optional' } } } },

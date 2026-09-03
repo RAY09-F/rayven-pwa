@@ -17,6 +17,7 @@
 //     preserves original attribution, so a secondhand memory never reads as
 //     firsthand.
 import { PERSONAS, ALL_PERSONA_IDS, DEFAULT_PERSONA_ID, getPersona } from './personas.js';
+import { callAnthropicSimple } from './anthropic.js';
 
 const EMBEDDING_MODEL = '@cf/baai/bge-base-en-v1.5';
 
@@ -188,6 +189,48 @@ export async function addLongTermMemory(env, fact, personaId = DEFAULT_PERSONA_I
   mem.push(entry);
   await saveRawMemory(env, personaId, mem);
   return "Got it — I'll remember that.";
+}
+
+// Auto-capture: remember_this only fires when the model itself decides to call
+// it mid-turn, which means anything said quietly while the model's attention is
+// on composing a reply can slip past. This runs as a second, independent pass
+// on every message so nothing said depends on the model happening to notice —
+// fired via ctx.waitUntil from index.js so it never adds latency to the reply.
+const EXTRACTION_PROMPT = `Read the message below and pull out anything genuinely worth remembering long-term about the sender: stated preferences, plans, decisions, facts about people/projects/businesses, numbers, deadlines — anything he'd expect not to have to repeat. Ignore small talk, one-off questions with no durable content, and anything obviously transient (e.g. "what's the weather").
+
+Reply with ONLY a JSON array of short, atomic, third-person fact strings ("Rayan ..."), one per fact — no other text. If nothing is worth keeping, reply with exactly: []`;
+
+export async function extractAndSaveFacts(env, text, personaId = DEFAULT_PERSONA_ID) {
+  const message = String(text || '').trim();
+  if (!message) return { saved: 0 };
+
+  const res = await callAnthropicSimple(env, EXTRACTION_PROMPT, message, 300);
+  if (!res.ok) {
+    console.error('Auto-memory extraction call failed:', res.error);
+    return { saved: 0 };
+  }
+
+  let facts;
+  try {
+    const jsonMatch = res.text.match(/\[[\s\S]*\]/);
+    facts = JSON.parse(jsonMatch ? jsonMatch[0] : res.text);
+  } catch (err) {
+    console.error('Auto-memory extraction returned non-JSON:', res.text.slice(0, 200));
+    return { saved: 0 };
+  }
+  if (!Array.isArray(facts) || !facts.length) return { saved: 0 };
+
+  // Sequential, not Promise.all: addLongTermMemory does read-modify-write on one
+  // shared array (getRawMemory -> push -> saveRawMemory), so saving several facts
+  // concurrently would race and drop all but the last write.
+  let saved = 0;
+  for (const fact of facts) {
+    const clean = String(fact || '').trim();
+    if (!clean) continue;
+    await addLongTermMemory(env, clean, personaId);
+    saved++;
+  }
+  return { saved };
 }
 
 function keywordMatches(item, keyword) {

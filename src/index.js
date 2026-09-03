@@ -6,14 +6,16 @@
 // RAYVENN_RAYAN_BOT Telegram bot are unchanged (JARVIS federation depends on
 // all three — see the sibling build brief §14).
 import { loadHistory, saveHistory, sanitizeHistory, MAX_HISTORY, historyLimitFor, getTodos, getCalendarEvents, addCalendarEvent, removeCalendarEvent } from './lib/kv-store.js';
-import { getRecentMemoryBlock, getLongTermMemory, migrateMemoryEmbeddings, getMemoryMap, shareMemory, updateMemoryFact, deleteMemoryFact } from './lib/memory.js';
+import { getRecentMemoryBlock, getLongTermMemory, migrateMemoryEmbeddings, getMemoryMap, shareMemory, updateMemoryFact, deleteMemoryFact, extractAndSaveFacts } from './lib/memory.js';
 import { isAffirmative, setToolPermission, getPermissions, GATEABLE_TOOLS, HARD_CONFIRM_TOOLS, DEFAULT_PERMISSION_LEVELS } from './lib/permissions.js';
 import {
   resolveSenderTag, getBotInfo, messageAddressesBot, textMentionsJarvis, textMentionsKevin,
-  sendTelegramMessage, getBotInfoFor } from './lib/telegram.js';
+  sendTelegramMessage, getBotInfoFor, getRayanPrivateChatId } from './lib/telegram.js';
 import { executeTool, callClaudeWithTools, getTaskLog } from './lib/tools.js';
 import { handleSpotifyLogin, handleSpotifyCallback, spotifyNowPlayingData, spotifyPause, spotifyResume, spotifyNext, spotifyPrevious } from './lib/spotify.js';
 import { runLokiBriefIfDue, runLokiBrief, runOdinReportIfDue, runOdinReport, getOdinReports } from './lib/reports.js';
+import { runPaperTradingCycleIfDue, runPaperTradingDailyReportIfDue, sendPaperTradingReportNow, getPaperStatus, getPaperChartData, INSTRUMENTS } from './lib/paperTrading.js';
+import { fetchKrakenCandles, fetchTwelveDataCandles } from './lib/marketData.js';
 import { handleAgentQuery } from './lib/sibling-agents.js';
 import { runProactiveCheckIn, runProactiveCheckInIfDue, runCodeCheckIfDue, runCodeCheck, runMorningBriefing, runMorningBriefingIfDue } from './lib/checkin.js';
 import { getActivityLog } from './lib/activity.js';
@@ -177,6 +179,20 @@ async function handleChatTurn(env, ctx, opts) {
   }
 
   const isWakeTrigger = !isTelegram && typeof userMessage === 'string' && userMessage.startsWith('[WAKE_TRIGGER]');
+
+  // Auto-capture, fired async so it never adds latency to the reply. Skipped
+  // for wake-greetings (nothing was actually said) and, in a group chat, for
+  // anyone who isn't Rayan (JARVIS/KEVOS/other people's messages don't belong
+  // in Rayan's household memory). The short-length check filters out bare
+  // acks ("ok", "yes", "lol") without an extra import — a wasted call on a
+  // genuinely short-but-meaningful message just comes back with an empty [].
+  const isGroupChat = isTelegram && (telegramChatType === 'group' || telegramChatType === 'supergroup');
+  const rayanIsSender = !isGroupChat || senderTag === 'Rayan';
+  if (!isWakeTrigger && rayanIsSender && typeof userMessage === 'string' && userMessage.trim().length >= 8) {
+    ctx.waitUntil(extractAndSaveFacts(env, userMessage, personaId).catch(err => {
+      console.error('Auto-memory extraction failed:', err.message);
+    }));
+  }
 
   const longTermMemoryBlock = prefetchedMemoryBlock;
 
@@ -421,6 +437,46 @@ export default {
       return json(await getWatchList(env), corsHeaders);
     }
 
+    // Feeds ODIN's HUD paper-trading panel. Unauthenticated like /memory and
+    // /activity -- read-only, and everything in the payload is already
+    // labeled PAPER/SIMULATED so there is nothing here worth gating.
+    if (url.pathname === '/paper-trading/status') {
+      return json(await getPaperStatus(env), corsHeaders);
+    }
+
+    // Feeds the HUD's candlestick + equity-curve panel: recent candles and
+    // entry/exit markers per agent, plus the balance history. Same
+    // unauthenticated, read-only, already-labeled posture as /status above.
+    if (url.pathname === '/paper-trading/charts') {
+      return json(await getPaperChartData(env), corsHeaders);
+    }
+
+    // Manual trigger for testing without waiting for a real candle close.
+    // Debug-gated like every other operator route.
+    if (url.pathname === '/debug-paper-run') {
+      return json(await runPaperTradingCycleIfDue(env), corsHeaders);
+    }
+
+    if (url.pathname === '/debug-paper-report-now') {
+      return json(await sendPaperTradingReportNow(env), corsHeaders);
+    }
+
+    // Raw fetch check, independent of processAgent's NYSE-hours gate -- proves
+    // the provider + credential actually return a real candle without waiting
+    // for the market to be open. Checks the 6 underlying instruments, not the
+    // 10 trading agents (several agents share one instrument's fetch). Never
+    // touches trading state.
+    if (url.pathname === '/debug-market-fetch') {
+      const out = {};
+      for (const m of Object.values(INSTRUMENTS)) {
+        out[m.id] = m.provider === 'kraken'
+          ? await fetchKrakenCandles(m.krakenPair, m.krakenInterval)
+          : await fetchTwelveDataCandles(env, m.tdSymbol, m.baseInterval, 3);
+        if (out[m.id].ok) out[m.id].candles = out[m.id].candles.slice(-2);
+      }
+      return json(out, corsHeaders);
+    }
+
     if (url.pathname === '/debug-memory-migrate') {
       return json(await migrateMemoryEmbeddings(env), corsHeaders);
     }
@@ -492,6 +548,58 @@ export default {
         }
       }
       return json({ origin, applied: doSet, bots: out }, corsHeaders);
+    }
+
+    // Raw getMe + getWebhookInfo for one persona's bot, unedited. No summarizing
+    // layer between Telegram's answer and the screen -- same principle as
+    // /debug-discard-held and /debug-whop-inspect. Built for diagnosing "the bot
+    // isn't replying" without guessing: getMe proves which bot the token
+    // actually points at (catches a token copied from the wrong BotFather
+    // session), and getWebhookInfo's last_error_message/last_error_date is
+    // usually the whole answer to why deliveries are failing.
+    if (url.pathname === '/debug-telegram-diag') {
+      const personaId = url.searchParams.get('persona') || DEFAULT_PERSONA_ID;
+      if (!Object.prototype.hasOwnProperty.call(PERSONAS, personaId)) {
+        return new Response('Unknown persona.', { status: 404, headers: corsHeaders });
+      }
+      const token = getPersonaBotToken(env, personaId);
+      if (!token) return json({ persona: personaId, error: `no bot token configured — set ${getPersona(personaId).telegramTokenEnv}` }, corsHeaders);
+      const [getMe, getWebhookInfo] = await Promise.all([
+        fetch(`https://api.telegram.org/bot${token}/getMe`).then(r => r.json()).catch(err => ({ error: err.message })),
+        fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`).then(r => r.json()).catch(err => ({ error: err.message }))
+      ]);
+      return json({ persona: personaId, getMe, getWebhookInfo }, corsHeaders);
+    }
+
+    // Exercises the exact same downstream path a real Telegram delivery takes
+    // (dedupe -> handleChatTurn -> Claude -> saveHistory -> sendTelegramMessage),
+    // for LOKI/ODIN whose real webhook path requires TELEGRAM_WEBHOOK_SECRET --
+    // a value we deliberately never read back out to test with, since guessing
+    // wrong and rotating it would break real delivery. Gated by DEBUG_SECRET
+    // instead, which is a separate credential from TELEGRAM_WEBHOOK_SECRET and
+    // touches nothing Telegram-side. Sends a REAL message to Rayan's real chat.
+    if (url.pathname === '/debug-persona-test') {
+      const personaId = url.searchParams.get('persona') || DEFAULT_PERSONA_ID;
+      if (!Object.prototype.hasOwnProperty.call(PERSONAS, personaId)) {
+        return new Response('Unknown persona.', { status: 404, headers: corsHeaders });
+      }
+      const botToken = getPersonaBotToken(env, personaId);
+      if (!botToken) return json({ persona: personaId, error: `no bot token configured — set ${getPersona(personaId).telegramTokenEnv}` }, corsHeaders);
+      const chatId = await getRayanPrivateChatId(env);
+      if (!chatId) return json({ persona: personaId, error: 'No stored rayan:private_chat_id yet — message any bot privately once first.' }, corsHeaders);
+      const text = url.searchParams.get('text') || `diagnostic ping from Claude — please reply if you can see this, ${getPersona(personaId).name}`;
+      const now = Date.now();
+      const body = {
+        update_id: now,
+        message: {
+          message_id: now,
+          date: Math.floor(now / 1000),
+          chat: { id: Number(chatId), type: 'private' },
+          from: { id: Number(chatId), username: 'rayanfahil', first_name: 'Rayan', is_bot: false },
+          text
+        }
+      };
+      return ackTelegramAndProcess(env, ctx, body, personaId, botToken, corsHeaders);
     }
 
     if (url.pathname === '/debug-autonomy') {
@@ -1074,6 +1182,12 @@ How to speak on a phone call:
     ctx.waitUntil(runPersonaAutonomyIfDue(env));
     ctx.waitUntil(runLokiBriefIfDue(env));
     ctx.waitUntil(runOdinReportIfDue(env));
+    // Paper trading: fully simulated, no real money. Each of the five markets
+    // checks its own last-processed-candle KV key, so this is a no-op tick for
+    // any market that hasn't produced a new candle yet -- safe to call every
+    // 5 minutes even though the fastest strategy only closes a candle hourly.
+    ctx.waitUntil(runPaperTradingCycleIfDue(env));
+    ctx.waitUntil(runPaperTradingDailyReportIfDue(env));
     // The clipping pass. Publishes at most one clip per tick and stops dead at
     // the day's ramp allowance, so it cannot run away even if the queue is deep.
     ctx.waitUntil(runClipCycleIfDue(env));
