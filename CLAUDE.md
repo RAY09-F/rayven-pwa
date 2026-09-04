@@ -86,6 +86,15 @@ Wake matching is multi-variant + fuzzy (greeting word + misheard-name lists) —
 
 **Reactor rendering — do not reintroduce `THREE.WebGPURenderer`.** It was tried and is broken: on any machine without a real WebGPU adapter (most of them) it silently falls back to an internal WebGL2 path whose node-material auto-compiler requires a per-vertex `uv` attribute for textured Points that plain point sprites never carry — draw calls happen, vertex counts and FPS report fine, but literally zero pixels paint. The fix (live) is classic `THREE.WebGLRenderer` + a hand-written GLSL `ShaderMaterial` (`gl_PointSize`/`gl_PointCoord`, no node-graph compilation). Verify any renderer change against actual screenshot pixels, not a `drawImage()`-from-canvas probe (read-timing false-negative against a live WebGL context) and not just a forced 2D fallback path (that testing gap is what let the bug ship).
 
+### `public/fx/asgard-fx.js` — the FX layer
+
+A single dependency-free script loaded by the hall as `<script src="/fx/asgard-fx.js">` right before `</body>`. It owns two `pointer-events:none` canvases (`#fxBack` behind the reactor, `#fxOver` above it) and draws a per-realm living backdrop plus reactive effects. The hall only ever calls `window.AsgardFX.*` from inside `try/catch` at existing state-change points (wake, listening, thinking, TTS start/stop/error, persona switch, send/receive, alert on/off, vault open/close), so a missing or broken FX file can never take the hall down.
+
+- Persona → realm map lives in `REALM_OF` inside the file: `rayven` and `thor` draw the storm, `loki`/`odin` their own realms, and the vault gets its own look while open (the layers move *inside* `#h9Cell`, above her canvas, and back out on close — nothing of hers is read or restyled).
+- It lives only under `public/` (there is no root copy to sync). The hall hook lines are in both `index.html` and `public/index.html` — keep them identical.
+- `?fx=0` disables it, `?debug=1` shows FPS / tier / render path. Quality governor drops a tier after 3 s under 45 FPS; only `asgardfx:mute` and `asgardfx:tier` are ever stored.
+- The moving backdrop is a GLSL ES 1.00 shader on its own offscreen WebGL2→WebGL1 context, upscaled from quarter size; if that context is lost or unavailable it falls back to a pre-rendered 2D gradient and the particles keep running. It is a *second* GL context beside the reactor's — expect context loss on weak GPUs, which is handled.
+
 Frontend verification lives as a Playwright suite pattern — serve the file statically, mock the backend origin, assert on DOM/canvas. Rebuild that harness rather than eyeballing changes.
 
 Repo of record: `github.com/RAY09-F/rayven-pwa` (public).
