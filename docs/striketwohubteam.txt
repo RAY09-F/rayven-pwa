@@ -1,0 +1,135 @@
+ASGARD — STRIKE TWO: THE HUB AND THE COUNCILS PAGE
+==================================================
+For Claude Code, running in ~/rayven-pwa on Rayan's Chromebook.
+Run this ONLY after strike-one-hall.txt has been deployed — it reuses the FX
+engine that Strike One built. Read this whole file first, then go. Do not ask
+questions. Do not stop until it is deployed.
+
+PREREQUISITE CHECK (first thing you do)
+Confirm public/fx/asgard-fx.js exists and the hall loads it. If it does not,
+stop and tell Rayan: "Strike One hasn't run yet — run that first." Do not
+rebuild the engine here.
+
+EVERY HARD RULE FROM strike-one-hall.txt STILL APPLIES. Re-read them if this
+is a fresh session: the anchor-patch method, the 120-line inspection windows,
+never reading a whole big file, no npm installs, no backend edits, no new
+secrets, no character likenesses, Hela never appears anywhere outside the
+hall, and the full performance rule list (clamped deltas, no filters on
+animated layers, pooled particles, quality governor, ?fx=0, ?debug=1, tiers,
+context-loss handling, localStorage limited to mute and tier).
+
+======================================================================
+STEP 0 — INVENTORY, AND ONE DECISION FOR RAYAN
+======================================================================
+List every page under public/: what links to it, what routes it calls, and
+roughly how big it is. Report it to Rayan in five lines with this proposal:
+  · the HUB is the front door
+  · the HALL is the product
+  · team.html is the councils
+  · any leftover per-persona pages (thor/, loki/, odin/) get a 301 redirect
+    from the Worker to /?p=<god> — never deleted, never emptied
+Ask him to confirm the redirect in one line, then carry on. If he doesn't
+answer within the session, leave those pages exactly as they are and note it.
+
+Also confirm: the Worker still serves public/ as static assets, and the CLIPS
+R2 bucket has no public access (r2.dev off, no custom domain). If the bucket
+IS public, say so plainly — that is a finding, not a detail — and change
+nothing about it yourself.
+
+======================================================================
+STEP 1 — THE HUB: "THE BIFROST"
+======================================================================
+This is the page people see first. It should stop them.
+
+  · A full-screen fragment-shader light bridge running into depth fog, with a
+    star field behind it and colour banding that shifts slowly along its
+    length. On the 2D fallback tier: a layered gradient bridge with animated
+    scanlines and drifting stars — still handsome, never a blank page.
+  · Three realm portals floating over it — storm blue, emerald, gold — each a
+    ring of particles around a slowly rotating solid (reuse the engine's
+    shapes). They respond to the pointer with parallax, and to device tilt on
+    the phone, but ONLY after a tap-to-allow (iOS requires the gesture; never
+    prompt on load).
+  · Hovering or tapping a portal spins it up, brightens its realm colour, and
+    dims the other two. Clicking opens the hall at that persona.
+  · A boot sequence on first visit: the bridge draws itself from the horizon
+    outward, the three portals ignite in sequence, the title lands. Skippable
+    with any tap or key, and remembered in localStorage so it plays once —
+    this is Rayan's own page, that is fine. Under 4 seconds. Hard time
+    backstop so a thrown frame can never leave the page half-drawn.
+  · A live status strip along the bottom, polled every 30 seconds:
+      GET /healthz?public=1   if it exists (a public shape returning only
+                              gods awake, councillor count, extension online,
+                              paper P&L)
+      GET /council/status     if it exists
+      GET /paper-trading/status
+    Render as: "3 GODS AWAKE · 20 COUNCILLORS · BROWSER LINKED · PAPER P&L
+    +1.4% · SIMULATED". Any route that 404s or fails hides its own segment
+    silently — never an error, never a broken strip, never a spinner that
+    stays forever. Paper numbers ALWAYS carry the word SIMULATED.
+  · A low Bifrost hum from the engine's synth, starting only after the first
+    tap, with a visible mute control.
+  · NO HINT OF HELA. Not in the markup, not in a comment, not in a fetch, not
+    in the status strip, not in the boot text.
+
+Build it as public/fx/hub.js plus the smallest possible edits to the hub page
+(script tag + init + the strip container). If the hub page is small enough to
+read safely, you may restructure its body; if it is large, use the anchor
+method.
+
+======================================================================
+STEP 2 — THE COUNCILS PAGE (team.html)
+======================================================================
+This page already has a hand-built software 3D renderer and a CONFIG block at
+the top of its script. KEEP BOTH. Do not rewrite the renderer. Do not change
+any councillor name, colour, role line, theme line, tool wedge, or the live
+tag sources. Do not touch Odin's five ids.
+
+Add, via public/fx/team.js and the smallest possible hooks:
+
+  · COUNCIL IN SESSION. When a councillor is running — the page can tell from
+    the live data it already polls — its gem ignites, a stream of light
+    particles flows down its tether toward the god at the centre, and the
+    rest of the room dims slightly. When it finishes, one expanding ring on
+    that gem and the room comes back. If nothing in the current data says
+    "running", drive this from any change in a councillor's last-run
+    timestamp instead, and say so in your report.
+  · A depth-of-field vignette: the outer ring of the room falls slightly out
+    of focus (pre-rendered blur snapshot, NOT a live filter — Rule 9).
+  · A slow idle camera drift — a few degrees of rotation and a breath of
+    scale over 30 seconds, so the room is never dead still.
+  · A night-watch palette after 21:00 local: cooler, dimmer, the gems keeping
+    their colour but the room going to deep blue-black.
+  · Pointer proximity already spins nodes up; add a soft light that follows
+    the pointer across the floor.
+  · The room switch (THOR · LOKI · ODIN) uses the engine's realm-shift wipe.
+
+If team.html's renderer exposes nothing on `window` for fx/team.js to hook,
+ship only the overlay effects (vignette, palette, dim, pointer light, wipe)
+and say so plainly in your report — do not refactor the renderer to make the
+rest possible.
+
+======================================================================
+STEP 3 — CHECK, DEPLOY, REPORT
+======================================================================
+- Run scripts/check-scripts.mjs on every page you patched, and `node --check`
+  on every fx file.
+- Overlap check at three widths — 1440, 1024 and 420 — for the hub's portals
+  and strip and for all three council rooms. Nothing may overlap or clip.
+- Confirm ?fx=0 gives a plain working page on both, and ?debug=1 shows FPS,
+  tier and RENDER PATH.
+- Deploy:
+  ```
+  cd ~/rayven-pwa && npx wrangler deploy
+  ```
+  Confirm `Deployed asgrard-backend` plus a version id. Nothing printed means
+  the Chromebook ran out of memory — tell Rayan to restart and rerun.
+- ```
+  git add -A && git commit -m "Strike two: hub and councils" && git push
+  ```
+- Then one short plain-English message: both URLs, what he should see on each,
+  the ?debug=1 instruction (with the terminal closed), and the checklist —
+  open the hub, tap once for sound, click each portal and confirm it lands in
+  the hall on the right god; open the councils page, watch for a gem igniting
+  when something runs, switch rooms; then both on the phone. Plus anything
+  you skipped and why.

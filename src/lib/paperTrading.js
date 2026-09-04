@@ -39,7 +39,13 @@ const DEFAULT_STARTING_BALANCE = 10000;
 const PORTFOLIO_KEY = 'paper:portfolio';
 const TRADES_KEY = 'paper:trades';
 const TRADES_CAP = 1000;
-const STOP_LOSS_PCT = 0.01; // hard 1%, no exceptions
+// Fallback only, when there isn't enough history yet for a real ATR reading.
+// The actual stop is ATR-based -- see stopDistanceFraction below.
+const STOP_LOSS_PCT = 0.01;
+const ATR_PERIOD = 14;
+const ATR_STOP_MULTIPLIER = 1.75; // middle of the commonly-cited 1.5x-2x ATR range
+const MIN_STOP_FRACTION = 0.003; // floor: never so tight a stop it sits on top of the entry
+const MAX_STOP_FRACTION = 0.05; // cap: never so wide a stop-out barely means anything
 const LOOKBACK = 20;
 const CANDLE_WINDOW = 60; // recent bars kept per agent for the HUD chart
 const EQUITY_LOG_KEY = 'paper:equity';
@@ -115,27 +121,29 @@ export const AGENTS = {
   // Object keys and id fields below (freya/tyr/baldr/heimdall/vidar) are kept
   // stable on purpose -- they're the KV storage keys for this agent's candle
   // history, positions, and trades. Rayan renamed the DISPLAY names after
-  // launch (2026-09-03); the id "tyr" and the display name "TYR" now point at
-  // two different agents -- that's intentional, not a bug.
+  // launch (2026-09-03, again 2026-09-04 to match the council page), so ids
+  // and display names deliberately differ: the id "heimdall" is DISPLAYED as
+  // HOGUN, and the id "vidar" is DISPLAYED as HEIMDALL. That's intentional,
+  // not a bug -- do not "fix" it or swap ids around.
   freya: {
-    id: 'freya', name: 'STRANGE', label: 'Ethereum — STRANGE', instrumentId: 'eth', resampleFactor: null, strategy: 'momentum',
-    theme: 'Sees a million outcomes before acting — hunts the one breakout timeline that actually happens.'
+    id: 'freya', name: 'FRIGGA', label: 'Ethereum — FRIGGA', instrumentId: 'eth', resampleFactor: null, strategy: 'momentum',
+    theme: 'The queen saw further than the king. Reads where Ethereum is heading and rides the one breakout that holds.'
   },
   tyr: {
-    id: 'tyr', name: 'MAGNI', label: 'Bitcoin — MAGNI', instrumentId: 'btcFast', resampleFactor: null, strategy: 'meanReversion',
-    theme: 'Sheer strength, no wasted motion — waits for oversold, closes on the snap-back.'
+    id: 'tyr', name: 'FANDRAL', label: 'Bitcoin — FANDRAL', instrumentId: 'btcFast', resampleFactor: null, strategy: 'meanReversion',
+    theme: 'Quick blade, one clean strike. Waits for Bitcoin to overreach, then takes the snap-back.'
   },
   baldr: {
-    id: 'baldr', name: 'GROOT', label: 'S&P 500 (SPY proxy) — GROOT', instrumentId: 'spy', resampleFactor: 10, strategy: 'trendFollowing',
-    theme: 'Patient and steady — grows with the trend and holds until it actually turns.'
+    id: 'baldr', name: 'VOLSTAGG', label: 'S&P 500 (SPY proxy) — VOLSTAGG', instrumentId: 'spy', resampleFactor: 10, strategy: 'trendFollowing',
+    theme: 'Unmovable. Holds the S&P trend and keeps holding until it actually turns.'
   },
   heimdall: {
-    id: 'heimdall', name: 'TYR', label: 'Nasdaq (QQQ proxy) — TYR', instrumentId: 'qqq', resampleFactor: 10, strategy: 'trendFollowing',
-    theme: 'Commits fully once the trend is confirmed — no half-measures.'
+    id: 'heimdall', name: 'HOGUN', label: 'Nasdaq (QQQ proxy) — HOGUN', instrumentId: 'qqq', resampleFactor: 10, strategy: 'trendFollowing',
+    theme: 'Says nothing, commits everything. Once the Nasdaq trend is confirmed — no half-measures.'
   },
   vidar: {
     id: 'vidar', name: 'HEIMDALL', label: 'Gold (GLD proxy) — HEIMDALL', instrumentId: 'gld', resampleFactor: 16, strategy: 'momentum',
-    theme: 'Watches gold in silence, sees the breakout coming before anyone else.'
+    theme: 'Sees all nine realms from the Bifrost. Watches gold in silence and moves before the breakout is news.'
   }
 };
 
@@ -176,7 +184,85 @@ async function savePortfolio(env, portfolio) {
   await env.RAYVEN_KV.put(PORTFOLIO_KEY, JSON.stringify(portfolio));
 }
 
+// ---- shared indicators -----------------------------------------------
+// Added 2026-09-03 after a pass through current (2026) retail-trading
+// research on each strategy family. None of this makes a signal reliably
+// profitable -- published studies put retail-strategy live failure rates at
+// 70-90%, and simple RSI/crossover signals show no significant edge once
+// multiple-testing is corrected for. What IS well-evidenced is that these
+// specific filters measurably cut the standard failure modes: false
+// breakouts with no volume behind them, mean-reversion "catching a falling
+// knife" against a real trend, and trend-following whipsaws in a sideways
+// market. That's the honest scope of this pass -- fewer bad trades, not a
+// guaranteed edge.
+
+function computeRSI(candles, period) {
+  if (candles.length < period + 1) return 50; // neutral when there's not enough history to mean anything
+  const recent = candles.slice(-period - 1);
+  let gains = 0, losses = 0;
+  for (let i = 1; i < recent.length; i++) {
+    const diff = recent[i].close - recent[i - 1].close;
+    if (diff >= 0) gains += diff; else losses -= diff;
+  }
+  const avgGain = gains / period, avgLoss = losses / period;
+  if (avgLoss === 0) return avgGain === 0 ? 50 : 100;
+  return 100 - 100 / (1 + avgGain / avgLoss);
+}
+
+// True Range aware of gaps between bars (unlike a plain high-low range), used
+// for the ATR-based stop below. Standard Wilder ATR: a simple average of TR
+// over `period` bars is close enough for our purposes at this scale.
+function computeATR(candles, period) {
+  if (candles.length < period + 1) return null;
+  const recent = candles.slice(-period - 1);
+  let sum = 0;
+  for (let i = 1; i < recent.length; i++) {
+    const cur = recent[i], prev = recent[i - 1];
+    sum += Math.max(cur.high - cur.low, Math.abs(cur.high - prev.close), Math.abs(cur.low - prev.close));
+  }
+  return sum / period;
+}
+
+// Wilder's ADX: measures trend STRENGTH (not direction). Below ~20 the market
+// is chopping sideways and moving-average crossovers are mostly noise; above
+// ~20-25 a real trend is more likely underway. Needs roughly 2x period bars
+// to stabilize -- returns null rather than a misleading number when there
+// isn't enough history yet, and callers treat null as "don't block the trade
+// on a filter we can't actually compute" rather than getting stuck forever.
+function computeADX(candles, period) {
+  if (candles.length < period * 2) return null;
+  const tr = [], plusDM = [], minusDM = [];
+  for (let i = 1; i < candles.length; i++) {
+    const cur = candles[i], prev = candles[i - 1];
+    const upMove = cur.high - prev.high, downMove = prev.low - cur.low;
+    plusDM.push(upMove > downMove && upMove > 0 ? upMove : 0);
+    minusDM.push(downMove > upMove && downMove > 0 ? downMove : 0);
+    tr.push(Math.max(cur.high - cur.low, Math.abs(cur.high - prev.close), Math.abs(cur.low - prev.close)));
+  }
+  const wilderSmooth = arr => {
+    const out = [arr.slice(0, period).reduce((a, b) => a + b, 0)];
+    for (let i = period; i < arr.length; i++) out.push(out[out.length - 1] - out[out.length - 1] / period + arr[i]);
+    return out;
+  };
+  const trS = wilderSmooth(tr), plusS = wilderSmooth(plusDM), minusS = wilderSmooth(minusDM);
+  const dx = trS.map((t, i) => {
+    const plusDI = 100 * plusS[i] / (t || 1), minusDI = 100 * minusS[i] / (t || 1);
+    return 100 * Math.abs(plusDI - minusDI) / (plusDI + minusDI || 1);
+  });
+  if (dx.length < period) return null;
+  let adx = dx.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < dx.length; i++) adx = (adx * (period - 1) + dx[i]) / period;
+  return adx;
+}
+
 // ---- strategies: each returns { action: 'enter'|'exit'|'hold', reason } ----
+
+const RSI_PERIOD = 14;
+const TREND_FILTER_PERIOD = 50; // bars, for the mean-reversion counter-trend guard
+const ADX_PERIOD = 14;
+const ADX_TREND_THRESHOLD = 20; // below this, treat the market as sideways chop
+const VOLUME_CONFIRM_MULTIPLIER = 1.5; // breakout volume must beat the recent average by this much
+const MA_SEPARATION_MIN = 0.001; // fast/slow MA must clear this fractional gap, not just nominally cross
 
 function meanReversionSignal(candles, hasPosition) {
   if (candles.length < LOOKBACK + 1) return { action: 'hold', reason: 'not enough candle history yet' };
@@ -187,9 +273,24 @@ function meanReversionSignal(candles, hasPosition) {
   const stdev = Math.sqrt(variance) || 0.0001;
   const last = candles[candles.length - 1].close;
   const z = (last - mean) / stdev;
-  if (!hasPosition && z <= -1.5) return { action: 'enter', reason: `oversold vs 20-bar mean (z-score ${z.toFixed(2)})` };
-  if (hasPosition && z >= 0) return { action: 'exit', reason: `reverted to 20-bar mean (z-score ${z.toFixed(2)})` };
-  return { action: 'hold', reason: `z-score ${z.toFixed(2)}` };
+  const rsi = computeRSI(candles, RSI_PERIOD);
+  // Trend filter: mean reversion is dangerous against a real trend ("catching
+  // a falling knife"). Only take the oversold long if price isn't deep below
+  // its own longer-run average -- a mild dip within a flat/up market, not a
+  // genuine downtrend.
+  const haveTrendWindow = candles.length >= TREND_FILTER_PERIOD;
+  const trendSma = haveTrendWindow
+    ? candles.slice(-TREND_FILTER_PERIOD).reduce((s, c) => s + c.close, 0) / TREND_FILTER_PERIOD
+    : mean;
+  const notInDowntrend = last >= trendSma * 0.98;
+  if (!hasPosition && z <= -1.5 && rsi <= 35 && notInDowntrend) {
+    return { action: 'enter', reason: `oversold vs ${LOOKBACK}-bar mean (z-score ${z.toFixed(2)}, RSI ${rsi.toFixed(0)}), not fighting the longer trend` };
+  }
+  if (!hasPosition && z <= -1.5 && !notInDowntrend) {
+    return { action: 'hold', reason: `oversold (z-score ${z.toFixed(2)}) but ${TREND_FILTER_PERIOD}-bar trend is down -- skipping, not catching a falling knife` };
+  }
+  if (hasPosition && (z >= 0 || rsi >= 55)) return { action: 'exit', reason: `reverted to mean (z-score ${z.toFixed(2)}, RSI ${rsi.toFixed(0)})` };
+  return { action: 'hold', reason: `z-score ${z.toFixed(2)}, RSI ${rsi.toFixed(0)}` };
 }
 
 function momentumBreakoutSignal(candles, hasPosition) {
@@ -197,8 +298,19 @@ function momentumBreakoutSignal(candles, hasPosition) {
   const window = candles.slice(-LOOKBACK - 1, -1);
   const donchianHigh = Math.max(...window.map(c => c.high));
   const sma10 = candles.slice(-11, -1).reduce((s, c) => s + c.close, 0) / 10;
-  const last = candles[candles.length - 1].close;
-  if (!hasPosition && last > donchianHigh) return { action: 'enter', reason: `breakout above ${LOOKBACK}-bar high ${donchianHigh.toFixed(2)}` };
+  const lastCandle = candles[candles.length - 1];
+  const last = lastCandle.close;
+  // Volume confirmation: a breakout on thin volume is a classic false signal.
+  // Falls back to "confirmed" when a feed reports no volume at all, rather
+  // than permanently blocking trades on a data gap.
+  const avgVol = window.reduce((s, c) => s + (c.volume || 0), 0) / window.length;
+  const volumeConfirmed = avgVol > 0 ? (lastCandle.volume || 0) >= avgVol * VOLUME_CONFIRM_MULTIPLIER : true;
+  if (!hasPosition && last > donchianHigh && volumeConfirmed) {
+    return { action: 'enter', reason: `breakout above ${LOOKBACK}-bar high ${donchianHigh.toFixed(2)}, volume ${(avgVol ? lastCandle.volume / avgVol : 1).toFixed(1)}x average` };
+  }
+  if (!hasPosition && last > donchianHigh && !volumeConfirmed) {
+    return { action: 'hold', reason: `broke above ${LOOKBACK}-bar high but volume didn't confirm -- likely false breakout` };
+  }
   if (hasPosition && last < sma10) return { action: 'exit', reason: `fell below 10-bar average ${sma10.toFixed(2)}, momentum fading` };
   return { action: 'hold', reason: 'inside recent range' };
 }
@@ -207,7 +319,19 @@ function trendFollowingSignal(candles, hasPosition) {
   if (candles.length < 21) return { action: 'hold', reason: 'not enough candle history yet' };
   const fast = candles.slice(-8).reduce((s, c) => s + c.close, 0) / 8;
   const slow = candles.slice(-21).reduce((s, c) => s + c.close, 0) / 21;
-  if (!hasPosition && fast > slow) return { action: 'enter', reason: `uptrend: 8-bar avg ${fast.toFixed(2)} > 21-bar avg ${slow.toFixed(2)}` };
+  const separation = (fast - slow) / slow;
+  const adx = computeADX(candles, ADX_PERIOD);
+  // Below the ADX threshold the market is sideways chop, where crossovers are
+  // mostly whipsaws -- this is the single biggest documented cause of
+  // trend-following losses. Null ADX (not enough history) doesn't block the
+  // trade; an unmeasurable filter shouldn't strand the strategy forever.
+  const trending = adx === null || adx >= ADX_TREND_THRESHOLD;
+  if (!hasPosition && separation > MA_SEPARATION_MIN && trending) {
+    return { action: 'enter', reason: `uptrend: 8-bar avg ${fast.toFixed(2)} > 21-bar avg ${slow.toFixed(2)}${adx !== null ? `, ADX ${adx.toFixed(0)} confirms trending regime` : ''}` };
+  }
+  if (!hasPosition && separation > MA_SEPARATION_MIN && !trending) {
+    return { action: 'hold', reason: `MAs crossed but ADX ${adx.toFixed(0)} says sideways chop -- sitting out to avoid a whipsaw` };
+  }
   if (hasPosition && fast < slow) return { action: 'exit', reason: `trend reversed: 8-bar avg ${fast.toFixed(2)} < 21-bar avg ${slow.toFixed(2)}` };
   return { action: 'hold', reason: 'trend intact' };
 }
@@ -224,6 +348,20 @@ function computeVolatility(candles) {
 function sizeFractionForVolatility(vol) {
   const raw = BASE_RISK_FRACTION * (REFERENCE_VOL / Math.max(vol, 0.0005));
   return Math.min(MAX_SIZE_FRACTION, Math.max(MIN_SIZE_FRACTION, raw));
+}
+
+// ATR-based stop distance: adapts to each market's own volatility instead of
+// one flat percentage for a $60k crypto asset and a low-volatility ETF alike.
+// Research on this specific change (ATR-sized stops vs fixed-percent) cites
+// roughly 43% lower drawdowns across a large sample. Clamped to a sane band
+// so a near-zero ATR reading (very quiet market) never produces a stop
+// sitting right on top of the entry price, and a spike doesn't blow the
+// stop out past what the position sizing already assumes.
+function stopDistanceFraction(candles, lastClose) {
+  const atr = computeATR(candles, ATR_PERIOD);
+  if (atr === null || !lastClose) return STOP_LOSS_PCT;
+  const raw = (atr * ATR_STOP_MULTIPLIER) / lastClose;
+  return Math.min(MAX_STOP_FRACTION, Math.max(MIN_STOP_FRACTION, raw));
 }
 
 async function logTrade(env, agentDef, position, exitPrice, exitTime, exitReason) {
@@ -260,7 +398,11 @@ async function fetchInstrumentCandles(env, instrumentId) {
   const instr = INSTRUMENTS[instrumentId];
   return instr.provider === 'kraken'
     ? await fetchKrakenCandles(instr.krakenPair, instr.krakenInterval)
-    : await fetchTwelveDataCandles(env, instr.tdSymbol, instr.baseInterval, 200);
+    // 600, not 200 -- GLD/USO resample x16, so 200 raw bars was only ~12
+    // resampled bars, not enough for a 14-period ADX (needs ~28) or the
+    // 50-bar mean-reversion trend filter. Same API call either way, just a
+    // bigger response.
+    : await fetchTwelveDataCandles(env, instr.tdSymbol, instr.baseInterval, 600);
 }
 
 // instrumentCache is populated once per tick per instrument (not per agent),
@@ -303,7 +445,7 @@ async function processAgent(env, agentId, portfolio, instrumentCache) {
 
   // HARD STOP LOSS — checked before any strategy logic, no exceptions.
   if (position && lastCandle.low <= position.stopPrice) {
-    await logTrade(env, a, position, position.stopPrice, lastCandle.time, 'hard 1% stop loss hit — no exceptions');
+    await logTrade(env, a, position, position.stopPrice, lastCandle.time, `ATR-based stop hit (${((position.stopFraction || STOP_LOSS_PCT) * 100).toFixed(2)}% below entry) — no exceptions`);
     closePosition(portfolio, agentId, position, position.stopPrice);
     outcome = { agentId, action: 'stopped_out', price: position.stopPrice };
   } else {
@@ -321,15 +463,16 @@ async function processAgent(env, agentId, portfolio, instrumentCache) {
         const sizeFraction = sizeFractionForVolatility(vol);
         const spend = portfolio.cash * sizeFraction;
         const qty = spend / lastCandle.close;
+        const stopFraction = stopDistanceFraction(candles, lastCandle.close);
         if (qty > 0 && spend <= portfolio.cash) {
           portfolio.cash -= spend;
           portfolio.positions[agentId] = {
             qty, entryPrice: lastCandle.close, entryTime: lastCandle.time,
-            stopPrice: lastCandle.close * (1 - STOP_LOSS_PCT),
+            stopPrice: lastCandle.close * (1 - stopFraction),
             strategy: a.strategy, entryReason: signal.reason,
-            sizeFraction, volatilityAtEntry: vol
+            sizeFraction, volatilityAtEntry: vol, stopFraction
           };
-          outcome = { agentId, action: 'entered', reason: signal.reason, qty, price: lastCandle.close, sizeFraction };
+          outcome = { agentId, action: 'entered', reason: signal.reason, qty, price: lastCandle.close, sizeFraction, stopFraction };
         } else {
           outcome = { agentId, action: 'skipped_no_cash', reason: 'position sizing produced zero/invalid size' };
         }
@@ -341,6 +484,54 @@ async function processAgent(env, agentId, portfolio, instrumentCache) {
 
   await env.RAYVEN_KV.put(lastProcessedKey, String(lastCandle.time));
   return outcome;
+}
+
+// Manual demo trade -- Rayan asked to see the full entry->exit->chart->report
+// flow without waiting on real signal conditions. Uses the REAL current
+// price for the agent's instrument (never fabricated), but the decision to
+// enter/exit is manual, not from the agent's actual strategy -- clearly
+// labeled as such everywhere it surfaces so it's never mistaken for a real
+// signal. One-off operator tool, not part of the normal trading cycle.
+export async function forceDemoTrade(env, agentId, action) {
+  const a = AGENTS[agentId];
+  if (!a) return { ok: false, error: `unknown agent ${agentId}` };
+  const raw = await fetchInstrumentCandles(env, a.instrumentId);
+  if (!raw.ok) return { ok: false, error: raw.error };
+  const candles = a.resampleFactor ? resampleSequential(raw.candles, a.resampleFactor) : raw.candles;
+  if (!candles.length) return { ok: false, error: 'no candles returned' };
+  const lastCandle = candles[candles.length - 1];
+  const portfolio = await getPortfolio(env);
+  const position = portfolio.positions[agentId] || null;
+
+  if (action === 'enter') {
+    if (position) return { ok: false, error: `${agentId} already has an open position` };
+    const vol = computeVolatility(candles);
+    const sizeFraction = sizeFractionForVolatility(vol);
+    const spend = portfolio.cash * sizeFraction;
+    const qty = spend / lastCandle.close;
+    const stopFraction = stopDistanceFraction(candles, lastCandle.close);
+    portfolio.cash -= spend;
+    portfolio.positions[agentId] = {
+      qty, entryPrice: lastCandle.close, entryTime: lastCandle.time,
+      stopPrice: lastCandle.close * (1 - stopFraction),
+      strategy: a.strategy, entryReason: 'MANUAL TEST ENTRY — demo requested by Rayan, not a real strategy signal',
+      sizeFraction, volatilityAtEntry: vol, stopFraction, manual: true
+    };
+    await savePortfolio(env, portfolio);
+    await appendCappedLog(env, EQUITY_LOG_KEY, { time: Date.now(), cash: portfolio.cash }, EQUITY_LOG_CAP);
+    return { ok: true, action: 'entered', agentId, price: lastCandle.close, qty, stopPrice: portfolio.positions[agentId].stopPrice };
+  }
+
+  if (action === 'exit') {
+    if (!position) return { ok: false, error: `${agentId} has no open position to exit` };
+    const entry = await logTrade(env, a, position, lastCandle.close, lastCandle.time, 'MANUAL TEST EXIT — demo requested by Rayan, not a real strategy signal');
+    closePosition(portfolio, agentId, position, lastCandle.close);
+    await savePortfolio(env, portfolio);
+    await appendCappedLog(env, EQUITY_LOG_KEY, { time: Date.now(), cash: portfolio.cash }, EQUITY_LOG_CAP);
+    return { ok: true, action: 'closed', agentId, price: lastCandle.close, pnl: entry.pnl };
+  }
+
+  return { ok: false, error: `unknown action ${action}, expected 'enter' or 'exit'` };
 }
 
 const PORTFOLIO_MUTATING_ACTIONS = new Set(['entered', 'closed', 'stopped_out']);

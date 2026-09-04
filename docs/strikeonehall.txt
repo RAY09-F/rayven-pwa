@@ -1,0 +1,262 @@
+ASGARD — STRIKE ONE: MAKE THE HALL LOOK INSANE. ALL FOUR.
+=========================================================
+For Claude Code, running in ~/rayven-pwa on Rayan's Chromebook (ChromeOS
+Crostini, 2.7 GB RAM, no swap). Read this whole file first, then go. Do not
+ask questions. Do not stop until it is deployed. If something can't be done,
+skip it, note it at the end, keep going.
+
+WHO YOU WORK FOR
+Rayan has zero coding experience. Plain English, no jargon. He cannot merge
+code by hand — you make every edit yourself. The only thing you ever ask him
+for is a decision or a secret, and there are none in this file.
+
+WHAT YOU ARE BUILDING
+New files under public/fx/, wired into the hall (the main page) with the
+smallest possible edits. They give THOR, LOKI, ODIN and HELA each a
+full-screen living backdrop and reactive effects that respond to wake,
+listening, thinking, speaking and switching. Nothing the hall does today
+changes: chat, voice, wake words, the reactor and the forms in the ring, the
+memory map, Hela's vault and her phrases all keep working exactly as now.
+
+======================================================================
+HARD RULES
+======================================================================
+1. NEVER read the whole hall file. It is roughly 300 KB in one file and
+   loading it into context will kill this session. Find anchors with
+   `grep -n`. Inspect with `sed -n 'A,Bp'` in windows of at most 120 lines.
+   Never print a line longer than 2,000 characters — use awk substr windows
+   on long or minified lines.
+2. Make every hall edit with a tiny Node script you write first,
+   scripts/patch.mjs <file> <anchorFile> <replacementFile>: it REPLACES the
+   anchor text with the replacement text, requires the anchor to appear
+   EXACTLY once (else it exits non-zero and changes nothing), and prints only
+   the byte delta. To insert rather than replace, the replacement file begins
+   with the anchor verbatim. No regex. No multi-edit.
+3. Hall edits are limited to: ONE <script src="/fx/asgard-fx.js"></script>
+   before </body>, ONE AsgardFX.init(...) call, and ONE AsgardFX.* call at
+   each EXISTING point listed in "WHERE TO HOOK" below. Wrap every single
+   call in try/catch so a missing or broken FX file can never break the hall.
+   Nothing else in the hall changes. If a look you want needs more than a
+   hook, build it inside the FX file instead — never widen the hall edit.
+4. If index.html AND public/index.html both exist: work out which one the
+   Worker actually serves (check the wrangler config's assets/site settings
+   and how the route is handled). Patch the served one. If they differ in
+   content, do NOT cp one over the other — report it and leave both. If they
+   are already identical, apply the same patch to both and confirm with
+   `cmp`.
+5. Do not add an audio analyser to the hall. If it already exposes a TTS
+   level, pass it. If it does not, call AsgardFX.setState('speaking') with no
+   level and synthesize the level inside the FX file from a timer — wrapping
+   the audio element in createMediaElementSource breaks playback on iOS.
+6. HELA STAYS SECRET. Her look lives INSIDE asgard-fx.js — there is no
+   public/fx/hela.js, because a public file name is a disclosure. Nothing
+   about her goes in localStorage, in any other page, or in any comment in a
+   file the hub or team page loads. Never touch her memory, her history, her
+   vault text box behaviour, or any KV. This whole file is frontend only:
+   no backend edits, no new secrets, no new routes.
+7. Names are text labels only. No character likenesses, no logos, no film
+   imagery. Generic objects are fine and encouraged: hammer, spear, horned
+   crown, gem, ravens/birds, storm, runes, smoke, embers, a throne.
+8. No npm installs. No build step. Plain JavaScript, no bundler. If Three.js
+   is used anywhere, load it from the three CDN mirrors the hall already uses
+   (jsdelivr → unpkg → esm.sh) so one blocked CDN can't silently drop
+   everything; otherwise pure WebGL and canvas.
+9. PERFORMANCE IS THE DESIGN. Every rule below was earned by a bug in a past
+   build; all are mandatory:
+   - Two full-screen canvases with pointer-events:none — one BEHIND the
+     reactor (backdrop, z-index below the UI), one ABOVE it (flashes, trails,
+     transcript effects, below any modal). Never intercept clicks.
+   - DPR capped at 1.5. No canvas resize inside the frame loop (resize on a
+     debounced resize event only).
+   - Static layers pre-rendered once to an offscreen canvas.
+   - NEVER a CSS filter or backdrop-filter on an animated layer — it halved
+     the frame rate once. Glass panels use a pre-rendered blurred snapshot of
+     the backdrop instead.
+   - Clamp requestAnimationFrame deltas to >= 0. A negative first-frame delta
+     produced NaN once and silently killed an entire wake sequence.
+   - Write off-screen tests positively (`if (x > -8 && x < w+8)`) so NaN is
+     REJECTED rather than passed through.
+   - Clamp every createRadialGradient radius to a finite positive number.
+   - Additive blending ('lighter') only on small layers, never full-screen.
+   - Adaptive stride when thinning particles, with sqrt(stride) size
+     compensation so density looks constant.
+   - Every effect has a hard time backstop: if an animation hasn't finished
+     by its deadline it force-completes. A thrown frame must never leave
+     Rayan with a mute assistant.
+   - Quality governor: if FPS < 45 for 3 seconds, drop one tier — halve
+     particles → bloom off → DPR 1 → static backdrop. Never drop below a
+     static backdrop.
+   - `?fx=0` disables the layer entirely. `?debug=1` shows FPS, tier and
+     RENDER PATH in a corner. prefers-reduced-motion freezes motion.
+   - Render tiers webgl2 → webgl1 (write the shaders once in GLSL ES 1.00 so
+     both work) → canvas 2D that still looks handsome.
+   - Handle webglcontextlost and webglcontextrestored. The hall already holds
+     a GL context for its 3D forms; a second full-screen context on a 2.7 GB
+     machine is exactly where context loss happens. On loss: fall back to 2D,
+     don't throw.
+   - localStorage holds only the mute flag and the quality tier. Nothing else.
+
+======================================================================
+STEP 1 — SURVEY (do this before writing a line of the engine)
+======================================================================
+- `git branch pre-strike-one-backup` so the starting point is parked. Do not
+  switch branches.
+- Work out which hall file is served (Rule 4).
+- grep the hall for the hook points and write down the exact anchor line for
+  each one in docs/STRIKE_ONE_ANCHORS.md:
+    · wake sequence start, per persona (thor / loki / odin, and Hela's)
+    · speech recognition start and stop (listening)
+    · the moment a request is sent to the backend (thinking)
+    · TTS audio play start, and end
+    · a TTS or API error path
+    · persona switch
+    · reply text arriving in the transcript
+    · Hela vault open, close, "lock in", "stand down"
+  If a point genuinely does not exist, say so in that file and skip its hook
+  — do not invent one, and do not refactor the hall to create one.
+- Note the id or class of the transcript container (the FX layer will watch it
+  with a MutationObserver rather than being wired into it).
+- Note the existing z-index range so the two canvases slot in correctly.
+
+======================================================================
+STEP 2 — THE ENGINE: public/fx/asgard-fx.js
+======================================================================
+One file. Everything below lives in it.
+
+CORE
+- Tier detection (webgl2 / webgl1 / 2d), context creation, resize handling,
+  visibility handling (pause the loop when the tab is hidden).
+- A frame loop with clamped delta, an FPS meter, and the quality governor.
+- Fake bloom: render the glow pass to a quarter-resolution offscreen canvas,
+  then draw it back up scaled with smoothing on. Never a CSS filter.
+- A pooled particle system — no per-frame allocation, ever.
+- A WebAudio micro-SFX synth: short synthesized tones and noise bursts for
+  send, receive, wake, switch, thunder, and a low realm hum. No audio files.
+  Silent until the first user tap (autoplay policy). Mute toggle remembered.
+- A realm-shift transition: a 600 ms diagonal light-slice wipe — the old
+  realm dissolves, the new one ignites behind it.
+- Kinetic transcript: a MutationObserver on the transcript container; when
+  reply text lands, reveal it word by word timed to the speaking level, with
+  a per-realm glow on the leading word. If the hall writes the whole reply at
+  once, animate the reveal over the measured speech duration.
+- Per-realm cursor and touch trail.
+
+PUBLIC API — the only thing the hall calls
+  AsgardFX.init({ persona })
+  AsgardFX.setPersona(id)                  'thor' | 'loki' | 'odin' | 'hela'
+  AsgardFX.setState(state, level)          'idle' | 'listening' | 'thinking'
+                                           | 'speaking'; level 0..1 optional
+  AsgardFX.wake(id)
+  AsgardFX.pulse(kind)                     'send' | 'receive' | 'error' |
+                                           'switch' | 'vault-open' |
+                                           'vault-close' | 'lock-in' |
+                                           'stand-down'
+  AsgardFX.mute(bool)
+Every method must be safe to call before init and safe to call twice.
+
+======================================================================
+STEP 3 — THE FOUR REALMS. Go hard. This is the whole point.
+======================================================================
+Per-realm modules: public/fx/thor.js, loki.js, odin.js (Hela's is inside the
+engine, Rule 6).
+
+THOR — a storm supercell
+  Idle: layered fractal-noise clouds lit from inside, drifting at two speeds;
+  rain streaks in three depth layers with parallax; distant sheet lightning
+  behind the clouds every 6–14 seconds, no sound.
+  Listening: the clouds lean toward the centre; a static charge crawls around
+  the reactor ring; rain slows slightly.
+  Thinking: rain slows further; one slow bolt builds and glows behind the
+  cloud layer without breaking through.
+  Speaking: forked lightning STRIKES on speech peaks. Four passes per bolt —
+  outer glow, body, core, white filament — with 2 to 4 forks, per-frame
+  flicker, a screen flash scaled to the peak, and synthesized thunder whose
+  delay and volume follow the flash size.
+  Wake: the entire sky ignites once, twelve arrival points, then 26 bolts
+  outward, flash, ring.
+  Trail: micro-lightning. Palette: storm blue, white, a little gold.
+
+LOKI — emerald and gold mischief
+  Idle: emerald mist over a green-black horizon; rune particles (simple
+  angular strokes, invented — not a real alphabet) drifting in depth; an
+  occasional single-frame scanline slip, like a skipped moment.
+  Listening: the mist parts toward the centre.
+  Thinking: the runes converge into a slow-turning sigil behind the form;
+  green scanline "time slips" flicker across the screen at increasing rate.
+  Speaking: the gem glow beats in a heartbeat pattern with the voice;
+  mirror-shard duplicates of the transcript flicker for a single frame and
+  vanish.
+  Wake: the sigil snaps shut and shatters into runes that scatter outward.
+  Trail: green embers. Palette: emerald, black, gold edge.
+
+ODIN — a throne hall at golden hour
+  Idle: slow gold dust in a slanted low sun; deep navy behind; far bird
+  silhouettes crossing every 20–40 seconds; a faint horizon glow.
+  Listening: the dust drifts inward toward the centre.
+  Thinking: a single slow iris ring closes toward the centre — abstract, the
+  suggestion of one eye, never a drawn face.
+  Speaking: gold shockwave rings leave the centre on each phrase; the sun
+  flares on the loudest peaks.
+  Wake: the sun rises over 1.2 seconds, dust catches the light, one deep
+  chord.
+  Trail: gold motes. Palette: gold, navy, bone.
+
+HELA — only while the vault is open
+  Idle: rising necro-green embers; black smoke tendrils at the frame edges;
+  antler-like shadow silhouettes drifting far back, barely visible; a slow
+  pulse under everything.
+  Lock in: the whole layer hue-shifts to red the way her existing
+  hue-rotate(-152deg) does — match it exactly. Embers become sparks, tendrils
+  speed up, one shockwave sweeps out from the crown.
+  Stand down: back to green over the same duration.
+  Vault close: everything drains out the bottom of the frame in 700 ms.
+  Never any text of her own. Her box behaviour is untouched (Rule 6).
+
+======================================================================
+STEP 4 — WIRE IT UP
+======================================================================
+- Patch the served hall file with the script tag, the init call, and one hook
+  per anchor from STEP 1, each in try/catch (Rules 2 and 3).
+- Write scripts/check-scripts.mjs: it splits a big HTML file's <script>
+  blocks, skips type=importmap / application/json / x-shader blocks, saves
+  type=module blocks as .mjs and the rest as .js, runs `node --check` on each
+  and prints only PASS or FAIL per block. Run it on the hall after every
+  patch. Run `node --check` on every fx file too.
+- If any hook point didn't exist, the FX layer must still look alive: fall
+  back to the MutationObserver and a timer so idle, thinking and speaking
+  still read correctly.
+
+======================================================================
+STEP 5 — DEPLOY
+======================================================================
+```
+cd ~/rayven-pwa && npx wrangler deploy
+```
+Confirm it prints `Deployed asgrard-backend` and a version id. If it drops
+back to the prompt printing nothing, that is the Chromebook running out of
+memory — tell Rayan to restart the Chromebook and rerun the same line, and
+stop there.
+
+Then:
+```
+git add -A && git commit -m "Strike one: Asgard FX layer" && git push
+```
+
+======================================================================
+STEP 6 — TELL RAYAN, IN PLAIN ENGLISH
+======================================================================
+One short message, no file listings:
+- the URL to open
+- what he should see for each of the four
+- that adding `?debug=1` to the end of the URL shows FPS, tier and RENDER
+  PATH, and that he should close the Linux terminal first because Claude Code
+  running alongside makes the number look worse than it is
+- the checklist: say the wake word and confirm the wake sequence still plays
+  AND he still gets a spoken reply; switch persona; open and close the vault
+  with the phrases; tap once and confirm sound; then the same on the phone
+  from the home-screen icon
+- anything you skipped and why
+- what "insane" would need next, in one sentence, if you had to cut something
+
+RENDER PATH must read WebGL on his machine. If it reads 2D, say so — that is
+a real finding, not a detail.

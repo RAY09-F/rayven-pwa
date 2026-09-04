@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#030406">
+<title>Odin's High Seat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=JetBrains+Mono:wght@300;400;600&display=swap">
+<style>
+/* ---------------------------------------------------------------------------
+   HLIÐSKJÁLF — Odin's high seat. The trading council as a constellation.
+   One visual world, deliberately dark: this is a room in ASGARD, not a page.
+   Tokens: ground #030406 · bone #E6E1D4 · ash #7C7A70 · odin gold #FFC740
+   --------------------------------------------------------------------------- */
+:root{
+  --ground:#030406; --ground2:#07090d; --line:#1a1d24;
+  --bone:#E6E1D4; --ash:#7C7A70; --ash2:#4a4b46;
+  --gold:#FFC740; --gold2:#FFF6D8;
+  --good:#5FD38A; --bad:#E0554E;
+  --hela:#39ff88; --hela2:#0b3a1e;
+  --display:'Cinzel','Times New Roman',Georgia,serif;
+  --mono:'JetBrains Mono','SFMono-Regular',Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--ground);color:var(--bone);overflow:hidden}
+body{font:400 12px/1.45 var(--mono);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+#room{position:fixed;inset:0;background:var(--ground)}
+#stage{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair;touch-action:none}
+
+/* --- top instrument strip ------------------------------------------------ */
+#bar{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;gap:18px;
+  padding:9px 16px 8px;background:linear-gradient(180deg,rgba(3,4,6,.96),rgba(3,4,6,.72) 70%,rgba(3,4,6,0));pointer-events:none}
+#bar > *{pointer-events:auto}
+.mark{display:flex;flex-direction:column;gap:2px;min-width:0}
+.mark .word{font:800 17px/1 var(--display);letter-spacing:.22em;color:var(--gold);text-shadow:0 0 18px rgba(255,199,64,.35);white-space:nowrap}
+.mark .sub{font:300 8.5px/1 var(--mono);letter-spacing:.24em;color:var(--ash);white-space:nowrap}
+.readout{display:flex;gap:14px;margin-left:auto;flex-wrap:nowrap}
+.chip{display:flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:0}
+.chip b{font:600 12px/1 var(--mono);color:var(--bone);font-variant-numeric:tabular-nums;white-space:nowrap}
+.chip i{font:300 7.5px/1 var(--mono);letter-spacing:.2em;color:var(--ash);font-style:normal;white-space:nowrap}
+.chip.sim b{color:var(--gold);letter-spacing:.14em;font-size:9px;padding-top:2px}
+.chip .up{color:var(--good)} .chip .down{color:var(--bad)}
+.doors{display:flex;gap:4px}
+.doors a{font:600 9px/1 var(--mono);letter-spacing:.18em;color:var(--ash);text-decoration:none;padding:7px 9px;border:1px solid var(--line);
+  border-radius:2px;background:rgba(7,9,13,.7);transition:color .18s,border-color .18s}
+.doors a:hover,.doors a:focus-visible{color:var(--bone);border-color:#3a3d47;outline:none}
+.doors a.odin{color:var(--gold);border-color:#4a3a12}
+
+/* --- the hover/tap card ---------------------------------------------------- */
+.card{position:absolute;z-index:6;width:262px;max-width:calc(100vw - 24px);padding:12px 14px 12px;
+  background:rgba(5,7,11,.94);border:1px solid var(--line);border-radius:3px;box-shadow:0 12px 40px rgba(0,0,0,.6);pointer-events:none}
+.card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--accent,var(--gold))}
+.card h3{font:800 13px/1.1 var(--display);letter-spacing:.16em;color:var(--accent,var(--gold))}
+.card .kicker{font:300 8px/1.6 var(--mono);letter-spacing:.2em;color:var(--ash);margin-top:3px}
+.card p{font:400 11px/1.5 var(--mono);color:var(--bone);margin-top:8px}
+.card .live{margin-top:9px;padding-top:8px;border-top:1px dashed #23262e;font:400 10px/1.6 var(--mono);color:var(--ash)}
+.card .live b{color:var(--bone);font-weight:600}
+.card .live .up{color:var(--good)} .card .live .down{color:var(--bad)}
+.card .fn{margin-top:8px;display:flex;flex-wrap:wrap;gap:4px}
+.card .fn span{font:400 9px/1 var(--mono);color:#a9c4cf;background:rgba(191,217,230,.07);border:1px solid rgba(191,217,230,.14);padding:4px 6px;border-radius:2px}
+
+/* --- the command line ------------------------------------------------------ */
+#console{position:absolute;left:0;right:0;bottom:0;z-index:5;display:flex;flex-direction:column;align-items:center;gap:7px;
+  padding:10px 16px 12px;background:linear-gradient(0deg,rgba(3,4,6,.97),rgba(3,4,6,.8) 60%,rgba(3,4,6,0))}
+.reply{position:absolute;bottom:calc(100% - 4px);left:50%;transform:translateX(-50%);width:min(640px,100% - 32px);max-height:112px;overflow:auto;padding:9px 12px;cursor:pointer;font:400 11.5px/1.55 var(--mono);color:var(--bone);
+  background:rgba(7,9,13,.9);border:1px solid var(--line);border-left:2px solid var(--gold);border-radius:2px;white-space:pre-wrap}
+.reply.err{border-left-color:var(--bad);color:#e8c9c7}
+.reply.wait{color:var(--ash)}
+#cmd{display:flex;align-items:center;gap:8px;width:min(640px,100%);padding:0 10px 0 12px;height:42px;
+  background:rgba(7,9,13,.92);border:1px solid #23262e;border-radius:3px;transition:border-color .2s,box-shadow .2s}
+#cmd:focus-within{border-color:#5a4a1e;box-shadow:0 0 0 1px rgba(255,199,64,.18),0 0 24px rgba(255,199,64,.08)}
+#cmd .prompt{font:600 14px/1 var(--mono);color:var(--gold)}
+#say{flex:1;min-width:0;height:100%;background:none;border:0;outline:none;color:var(--bone);font:400 13px/1 var(--mono);letter-spacing:.02em}
+#say::placeholder{color:var(--ash2)}
+#voice{font:600 8.5px/1 var(--mono);letter-spacing:.16em;color:var(--ash);background:none;border:1px solid var(--line);border-radius:2px;
+  padding:7px 8px;cursor:pointer;white-space:nowrap}
+#voice.on{color:var(--gold);border-color:#4a3a12}
+#voice:focus-visible{outline:1px solid var(--gold)}
+.foot{display:flex;gap:18px;width:min(640px,100%);justify-content:space-between;font:300 8px/1 var(--mono);letter-spacing:.2em;color:var(--ash2);
+  font-variant-numeric:tabular-nums}
+.foot .ok{color:var(--good)}
+
+/* --- the vault -------------------------------------------------------------- */
+#vault{position:absolute;inset:0;z-index:4;background:#010302}
+#vaultFx{position:absolute;inset:0;width:100%;height:100%;display:block}
+#vault .plate{position:absolute;left:0;right:0;top:22%;padding:60px 0;text-align:center;pointer-events:none;opacity:0;transition:opacity 1.6s ease;background:radial-gradient(ellipse 34% 60% at 50% 50%,rgba(57,255,136,.10),rgba(57,255,136,0) 70%)}
+#vault.in .plate{opacity:1}
+#vault .plate h1{font:800 clamp(44px,9vw,86px)/1 var(--display);letter-spacing:.34em;color:var(--hela);text-shadow:0 0 28px rgba(57,255,136,.45),0 0 70px rgba(57,255,136,.18);padding-left:.34em}
+#vault .plate p{font:300 9px/1 var(--mono);letter-spacing:.42em;color:#2f8f57;margin-top:14px;padding-left:.42em}
+#vTalk{position:absolute;left:50%;top:58%;transform:translateX(-50%);width:min(640px,calc(100% - 32px));font:400 12.5px/1.6 var(--mono);color:#9ff5c2;text-align:center;white-space:pre-wrap;text-shadow:0 0 12px rgba(57,255,136,.25)}
+#vTalk .me{color:#3d8f5f}
+body.vault #bar,body.vault #card{visibility:hidden}
+body.vault #console{background:linear-gradient(0deg,rgba(1,3,2,.97),rgba(1,3,2,.85) 60%,rgba(1,3,2,0))}
+body.vault #cmd{border-color:var(--hela2);background:rgba(1,6,3,.9)}
+body.vault #cmd:focus-within{border-color:#1f7a44;box-shadow:0 0 0 1px rgba(57,255,136,.18),0 0 24px rgba(57,255,136,.08)}
+body.vault #cmd .prompt,body.vault #voice.on{color:var(--hela);border-color:#1f5a34}
+body.vault #say{color:#c9ffe0}
+body.vault .reply{display:none}
+
+/* --- small screens ---------------------------------------------------------- */
+@media (max-width:760px){
+  #bar{flex-wrap:wrap;gap:8px 10px;padding:8px 10px 6px}
+  .mark{order:1}
+  .doors{order:2;margin-left:auto}
+  .readout{order:3;flex-basis:100%;justify-content:space-between;gap:8px;margin-left:0;padding-top:2px;border-top:1px solid var(--line)}
+  .readout .chip{align-items:flex-start}
+  .mark .word{font-size:14px;letter-spacing:.18em}
+  .mark .sub{display:none}
+  .chip.hide-sm{display:none}
+  .doors a{padding:6px 6px;letter-spacing:.1em;font-size:8px}
+  .doors a.hall{display:none}
+  #console{padding:8px 10px 10px;gap:6px}
+  #cmd{height:40px}
+  .foot{letter-spacing:.14em}
+  .card{left:12px!important;right:12px;top:auto!important;bottom:110px;width:auto}
+}
+@media (prefers-reduced-motion:reduce){ #vault .plate{transition:none} }
+</style>
+</head>
+<body>
+<div id="room">
+  <canvas id="stage" aria-label="Odin's trading council — six agents in the middle, their tools around them"></canvas>
+
+  <header id="bar">
+    <div class="mark">
+      <span class="word">HLIÐSKJÁLF</span>
+      <span class="sub">ODIN'S HIGH SEAT · THE TRADING COUNCIL</span>
+    </div>
+    <div class="readout" id="readout" aria-live="polite">
+      <span class="chip sim"><b>PAPER · SIM</b><i>NO REAL MONEY</i></span>
+      <span class="chip"><b id="rCash">—</b><i>CASH</i></span>
+      <span class="chip"><b id="rToday">—</b><i>TODAY</i></span>
+      <span class="chip hide-sm"><b id="rAll">—</b><i>ALL-TIME</i></span>
+      <span class="chip hide-sm"><b id="rTrades">—</b><i>TRADES</i></span>
+      <span class="chip hide-sm"><b id="rWin">—</b><i>WIN RATE</i></span>
+      <span class="chip"><b id="rOpen">—</b><i>IN TRADE</i></span>
+    </div>
+    <nav class="doors" aria-label="Other rooms">
+      <a href="/?persona=thor">THOR</a>
+      <a href="/?persona=loki">LOKI</a>
+      <a class="odin" href="/?persona=odin">ODIN</a>
+      <a class="hall" href="/">THE HALL</a>
+    </nav>
+  </header>
+
+  <div id="card" class="card" hidden></div>
+
+  <div id="vault" hidden>
+    <canvas id="vaultFx"></canvas>
+    <div class="plate"><h1>HELA</h1><p>DAUGHTER OF ODIN</p></div>
+    <div id="vTalk"></div>
+  </div>
+
+  <footer id="console">
+    <div id="reply" class="reply" hidden></div>
+    <form id="cmd" autocomplete="off">
+      <span class="prompt">›</span>
+      <input id="say" type="text" placeholder="Speak to Odin" aria-label="Speak to Odin" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button type="button" id="voice" class="on" aria-pressed="true">VOICE ON</button>
+    </form>
+    <div class="foot"><span id="clock">—</span><span id="link">LINK —</span><span id="fps">— FPS</span></div>
+  </footer>
+</div>
+
+<script>
+/* ===========================================================================
+   CONFIG — the only block most edits ever need.
+   Agents: name, colours, market, strategy, the theme line from paperTrading.js,
+   and the four tools that sit in that agent's wedge of the outer ring.
+   Tools: display name + the real backend tool names behind it.
+   =========================================================================== */
+const BACKEND_URL = 'https://asgrard-backend.rayanfahil2.workers.dev';
+const POLL_MS = 30000;
+
+const ODIN = {
+  key: 'odin', name: 'ODIN', role: 'ALL-FATHER · THE SOURCE',
+  color: '#FFC740', color2: '#FFF6D8', text: '#FFD98A',
+  theme: 'The only one at this table with a voice and the tools. The five report to him; he answers to Rayan.'
+};
+
+const AGENTS = [
+  { key: 'strange',  name: 'STRANGE',  market: 'ETHEREUM',        strategy: 'MOMENTUM',        color: '#FF7A1A', color2: '#FFC28A', text: '#FF9440',
+    theme: 'Sees a million outcomes before acting — hunts the one breakout timeline that actually happens.',
+    tools: ['websearch', 'news', 'trends', 'watchlist'] },
+  { key: 'magni',    name: 'MAGNI',    market: 'BITCOIN',         strategy: 'MEAN REVERSION',  color: '#8B5CF6', color2: '#3B82F6', text: '#A78BFA',
+    theme: 'Sheer strength, no wasted motion — waits for oversold, closes on the snap-back.',
+    tools: ['markets', 'trading', 'reminders', 'fx'] },
+  { key: 'groot',    name: 'GROOT',    market: 'S&P 500 · SPY',   strategy: 'TREND FOLLOWING', color: '#B5713A', color2: '#E0A66A', text: '#D2915A',
+    theme: 'Patient and steady — grows with the trend and holds until it actually turns.',
+    tools: ['calendar', 'workorders', 'memory', 'analytics'] },
+  { key: 'tyr',      name: 'TYR',      market: 'NASDAQ · QQQ',    strategy: 'TREND FOLLOWING', color: '#B3121B', color2: '#FF5C63', text: '#E8404A',
+    theme: 'Commits fully once the trend is confirmed — no half-measures.',
+    tools: ['pnl', 'audit', 'filings', 'comms'] },
+  { key: 'heimdall', name: 'HEIMDALL', market: 'GOLD · GLD',      strategy: 'MOMENTUM',        color: '#F2C14E', color2: '#FFFFFF', text: '#F7D77E',
+    theme: 'Watches gold in silence, sees the breakout coming before anyone else.',
+    tools: ['browser', 'map', 'world', 'voice'] }
+];
+
+const TOOLS = {
+  websearch:  { name: 'WEB SEARCH',  of: ['web_search', 'tavily_research', 'tavily_extract'] },
+  news:       { name: 'NEWS',        of: ['news_search'] },
+  trends:     { name: 'TRENDS',      of: ['social_trends', 'social_profile'] },
+  watchlist:  { name: 'WATCHLIST',   of: ['watch_add', 'watch_list', 'watch_pause', 'watch_resume'] },
+  markets:    { name: 'MARKETS',     of: ['stock_price', 'crypto_price', 'token_search'] },
+  trading:    { name: 'TRADING',     of: ['paper_trading_status'], note: 'PAPER · SIMULATED' },
+  reminders:  { name: 'REMINDERS',   of: ['set_timer', 'timers', 'cancel_timer'] },
+  fx:         { name: 'FX & CALC',   of: ['convert_money', 'calculate'] },
+  calendar:   { name: 'CALENDAR',    of: ['list_calendar_events', 'add_calendar_event'] },
+  workorders: { name: 'WORK ORDERS', of: ['add_todo', 'list_todos', 'complete_todo'] },
+  memory:     { name: 'MEMORY',      of: ['search_memory', 'remember_this'] },
+  analytics:  { name: 'ANALYTICS',   of: ['video_stats', 'video_segments', 'page_history'] },
+  pnl:        { name: 'P&L',         of: ['paper_trading_status'], note: 'PAPER · SIMULATED', live: 'pnl' },
+  audit:      { name: 'AUDIT',       of: ['audit_recent', 'audit_turn', 'audit_why'] },
+  filings:    { name: 'FILINGS',     of: ['company_filings'] },
+  comms:      { name: 'COMMS',       of: ['send_text', 'make_call', 'telegram'] },
+  browser:    { name: 'BROWSER',     of: ['browser_navigate', 'browser_read_page', 'browser_click', 'browser_screenshot'] },
+  map:        { name: 'MAP',         of: ['maps_search_places', 'maps_directions', 'maps_geocode'] },
+  world:      { name: 'WORLD',       of: ['weather', 'air_quality', 'earthquakes', 'golden_hour'] },
+  voice:      { name: 'VOICE',       of: ['transcribe', 'translate', 'condense'] }
+};
+const TOOL_INK = { c: '#BFD9E6', dim: '#6C8797', text: '#A9C4CF' };
+
+// Summons and seal — copied word for word from the hall, so muscle memory works here too.
+const VAULT_OPEN = /^(wake\s+up,?\s+hela|hela,?\s+wake\s+up|open\s+the\s+vault)[.!]?$/i;
+const VAULT_SEAL = /^(close\s+the\s+vault|sleep,?\s+hela|hela,?\s+sleep|goodnight,?\s+hela|go\s+back\s+to\s+sleep)[.!]?$/i;
+
+/* ===========================================================================
+   Helpers
+   =========================================================================== */
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function rgba(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+function money(v) {
+  if (v == null || !isFinite(v)) return '—';
+  const s = (v < 0 ? '−' : v > 0 ? '+' : '') + '$' + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return s;
+}
+function cash(v) { return (v == null || !isFinite(v)) ? '—' : '$' + v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
+// Seeded noise so the starburst is the same shape every load.
+function seeded(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+
+/* ===========================================================================
+   Stage — sizing, layout, static layer
+   =========================================================================== */
+const stage = $('stage');
+const ctx = stage.getContext('2d', { alpha: false });
+let W = 0, H = 0, DPR = 1, staticLayer = null, sctx = null;
+let layout = null;       // { cx, cy, k, odin, agents:[{x,y,r,...}], tools:[{x,y,r,...}], edges }
+let nodes = [];          // flat hit list
+let toolsPerAgent = 4;
+
+function measureFrame() {
+  const bar = $('bar').getBoundingClientRect();
+  const con = $('console').getBoundingClientRect();
+  return { top: bar.bottom + 4, bottom: con.top - 4 };
+}
+
+function buildLayout() {
+  const frame = measureFrame();
+  const availH = Math.max(240, frame.bottom - frame.top);
+  const cx = W / 2, cy = frame.top + availH / 2;
+  toolsPerAgent = W < 520 ? 2 : (W < 960 ? 3 : 4);
+  const labelHalf = W < 520 ? 44 : 62;
+  let rx2 = W / 2 - labelHalf - 14;
+  let ry2 = availH / 2 - 44;
+  rx2 = Math.min(rx2, ry2 * 1.55);
+  ry2 = Math.min(ry2, rx2 * 1.7);
+  const Rmin = Math.min(rx2, ry2);
+  const k = clamp(Rmin / 326, 0.46, 1.12);
+
+  const odin = { kind: 'odin', ...ODIN, x: cx, y: cy, r: 62 * k, burst: (W < 520 ? 92 : 104) * k };
+  const ringK = W < 520 ? 0.56 : 0.5;
+  const rx1 = rx2 * ringK, ry1 = ry2 * ringK;
+  const agents = AGENTS.map((a, i) => {
+    const th = (-90 + i * 72) * Math.PI / 180;
+    return { kind: 'agent', ...a, i, th, x: cx + rx1 * Math.cos(th), y: cy + ry1 * Math.sin(th), r: 34 * k };
+  });
+  const tools = [];
+  agents.forEach((ag, i) => {
+    const step = 72 / (toolsPerAgent + 1);
+    const keys = ag.tools.slice(0, toolsPerAgent);
+    keys.forEach((key, j) => {
+      const off = (j - (keys.length - 1) / 2) * step;
+      const th = (-90 + i * 72 + off) * Math.PI / 180;
+      tools.push({ kind: 'tool', key, ...TOOLS[key], owner: ag, th, x: cx + rx2 * Math.cos(th), y: cy + ry2 * Math.sin(th), r: 20 * k });
+    });
+  });
+  const edges = [];
+  agents.forEach(a => edges.push({ a: odin, b: a, kind: 'crown' }));
+  tools.forEach(t => edges.push({ a: t.owner, b: t, kind: 'tether' }));
+  layout = { cx, cy, k, rx2, ry2, odin, agents, tools, edges };
+  nodes = [odin, ...agents, ...tools];
+}
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, window.innerWidth < 760 ? 2 : 1.5);
+  W = window.innerWidth; H = window.innerHeight;
+  stage.width = Math.round(W * DPR); stage.height = Math.round(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  staticLayer = document.createElement('canvas');
+  staticLayer.width = stage.width; staticLayer.height = stage.height;
+  sctx = staticLayer.getContext('2d', { alpha: false });
+  sctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  buildLayout();
+  buildSprites();
+  drawStatic();
+}
+
+// --- geometry ---------------------------------------------------------------
+function hexPath(c, x, y, r, rot) {
+  c.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = rot + i * Math.PI / 3;
+    const px = x + r * Math.cos(a), py = y + r * Math.sin(a);
+    i ? c.lineTo(px, py) : c.moveTo(px, py);
+  }
+  c.closePath();
+}
+function spokes(c, x, y, r, color, alpha, gap) {
+  c.fillStyle = rgba(color, alpha);
+  for (let i = 0; i < 6; i++) {
+    const a = i * Math.PI / 3;
+    for (let d = gap * 1.6; d < r * 0.92; d += gap) {
+      c.fillRect(Math.round(x + d * Math.cos(a)) - 0.5, Math.round(y + d * Math.sin(a)) - 0.5, 1, 1);
+    }
+  }
+}
+
+// --- glow sprites (drawn once, blitted per frame — no shadowBlur anywhere) ---
+const sprites = {};
+function makeGlow(color, inner) {
+  const S = 128, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const g = cv.getContext('2d');
+  const grd = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  grd.addColorStop(0, rgba(inner || color, 0.95));
+  grd.addColorStop(0.18, rgba(color, 0.55));
+  grd.addColorStop(0.45, rgba(color, 0.14));
+  grd.addColorStop(1, rgba(color, 0));
+  g.fillStyle = grd; g.fillRect(0, 0, S, S);
+  return cv;
+}
+function buildSprites() {
+  sprites.odin = makeGlow(ODIN.color, ODIN.color2);
+  sprites.white = makeGlow('#FFFFFF', '#FFFFFF');
+  sprites.tool = makeGlow(TOOL_INK.c, '#FFFFFF');
+  AGENTS.forEach(a => { sprites[a.key] = makeGlow(a.color, a.color2); });
+}
+function glow(c, sprite, x, y, radius, alpha) {
+  c.globalAlpha = alpha;
+  c.drawImage(sprite, Math.round(x - radius), Math.round(y - radius), radius * 2, radius * 2);
+  c.globalAlpha = 1;
+}
+
+// --- static layer: ground, lines, hex frames, labels --------------------------
+function drawStatic() {
+  const c = sctx, L = layout, k = L.k;
+  c.fillStyle = '#030406'; c.fillRect(0, 0, W, H);
+  // the seat's ambient light — one wide, faint gold pool under the whole council
+  const pool = c.createRadialGradient(L.cx, L.cy, 0, L.cx, L.cy, Math.max(L.rx2, L.ry2) * 1.15);
+  pool.addColorStop(0, 'rgba(255,199,64,0.075)'); pool.addColorStop(0.5, 'rgba(255,199,64,0.02)'); pool.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = pool; c.fillRect(0, 0, W, H);
+
+  // the faint web: every councillor can reach every tool
+  c.lineWidth = 1; c.strokeStyle = 'rgba(255,255,255,0.038)';
+  c.beginPath();
+  L.agents.forEach(a => L.tools.forEach(t => { if (t.owner !== a) { c.moveTo(a.x, a.y); c.lineTo(t.x, t.y); } }));
+  c.stroke();
+
+  // the white tethers: tool → its councillor
+  c.strokeStyle = 'rgba(255,255,255,0.5)'; c.lineWidth = 1;
+  c.beginPath();
+  L.tools.forEach(t => { c.moveTo(t.owner.x, t.owner.y); c.lineTo(t.x, t.y); });
+  c.stroke();
+  // the crown lines: Odin → councillor (gold, heavier)
+  c.strokeStyle = 'rgba(255,214,120,0.62)'; c.lineWidth = 1.6;
+  c.beginPath();
+  L.agents.forEach(a => { c.moveTo(L.odin.x, L.odin.y); c.lineTo(a.x, a.y); });
+  c.stroke();
+
+  // tool sigils
+  const tl = Math.round(10 * Math.max(k, 0.8));
+  c.textAlign = 'center'; c.textBaseline = 'top';
+  L.tools.forEach(t => {
+    const r = t.r;
+    c.fillStyle = '#030406'; hexPath(c, t.x, t.y, r * 1.02, 0); c.fill();
+    c.lineWidth = 1; c.strokeStyle = rgba(TOOL_INK.c, 0.55); hexPath(c, t.x, t.y, r, 0); c.stroke();
+    c.strokeStyle = rgba(TOOL_INK.c, 0.22); hexPath(c, t.x, t.y, r * 0.66, Math.PI / 6); c.stroke();
+    spokes(c, t.x, t.y, r, TOOL_INK.c, 0.5, 3);
+    c.font = `400 ${tl}px ${cssVar('--mono')}`;
+    c.fillStyle = TOOL_INK.text;
+    let label = t.name;
+    if (t.live === 'pnl' && live.today != null) label += '  ' + money(live.today.pnl);
+    c.fillText(label, Math.round(t.x), Math.round(t.y + r + 6));
+  });
+
+  // councillor frames + names directly beneath
+  const nl = Math.round(15 * Math.max(k, 0.78)), sl = Math.round(8.5 * Math.max(k, 0.85));
+  L.agents.forEach(a => {
+    const r = a.r;
+    c.fillStyle = '#030406'; hexPath(c, a.x, a.y, r * 1.04, 0); c.fill();
+    c.lineWidth = 1.4; c.strokeStyle = rgba(a.color, 0.85); hexPath(c, a.x, a.y, r, 0); c.stroke();
+    c.lineWidth = 1; c.strokeStyle = rgba(a.color2, 0.28); hexPath(c, a.x, a.y, r * 0.72, Math.PI / 6); c.stroke();
+    spokes(c, a.x, a.y, r, a.color2, 0.55, 4);
+    c.font = `800 ${nl}px ${cssVar('--display')}`;
+    c.fillStyle = a.text;
+    c.fillText(a.name, Math.round(a.x), Math.round(a.y + r + 8));
+    if (k >= 0.7) {
+      c.font = `300 ${sl}px ${cssVar('--mono')}`;
+      c.fillStyle = '#8b8a80';
+      c.fillText(a.market + ' · ' + a.strategy, Math.round(a.x), Math.round(a.y + r + 8 + nl + 5));
+    }
+  });
+
+  // Odin's name under the seat
+  const o = L.odin, ol = Math.round(19 * Math.max(k, 0.78));
+  c.font = `800 ${ol}px ${cssVar('--display')}`; c.fillStyle = ODIN.text;
+  c.fillText('ODIN', Math.round(o.x), Math.round(o.y + o.r + 14 * k + 6));
+  if (k >= 0.7) {
+    c.font = `300 ${Math.round(8.5 * Math.max(k, 0.85))}px ${cssVar('--mono')}`; c.fillStyle = '#8b8a80';
+    c.fillText(ODIN.role, Math.round(o.x), Math.round(o.y + o.r + 14 * k + 6 + ol + 5));
+  }
+}
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+/* ===========================================================================
+   Live state — /paper-trading/status, polled, never invented
+   =========================================================================== */
+const live = { ok: false, today: null, all: null, cash: null, open: {}, agents: {}, at: 0, fails: 0 };
+async function poll() {
+  try {
+    const res = await fetch(BACKEND_URL + '/paper-trading/status', { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const d = await res.json();
+    live.ok = true; live.fails = 0; live.at = Date.now();
+    live.today = d.today || null; live.all = d.allTime || null; live.cash = d.currentCash;
+    // Match by display NAME — the backend's ids (freya/tyr/baldr…) deliberately
+    // do not line up with display names after the rename, so never key on id.
+    live.open = {}; live.agents = {};
+    Object.entries(d.agents || {}).forEach(([id, a]) => { if (a && a.name) live.agents[a.name] = { id, ...a }; });
+    Object.entries(d.openPositions || {}).forEach(([id, p]) => { const nm = p.name || (d.agents && d.agents[id] && d.agents[id].name); if (nm) live.open[nm] = p; });
+    renderReadout();
+    drawStatic();
+  } catch (e) {
+    live.ok = false; live.fails++;
+    renderReadout();
+  }
+}
+function renderReadout() {
+  const set = (id, v, cls) => { const el = $(id); el.textContent = v; el.className = cls || ''; };
+  if (!live.ok) { ['rCash', 'rToday', 'rAll', 'rTrades', 'rWin', 'rOpen'].forEach(id => set(id, '—')); return; }
+  set('rCash', cash(live.cash));
+  const tp = live.today ? live.today.pnl : null;
+  set('rToday', money(tp), tp > 0 ? 'up' : tp < 0 ? 'down' : '');
+  const ap = live.all ? live.all.pnl : null;
+  set('rAll', money(ap), ap > 0 ? 'up' : ap < 0 ? 'down' : '');
+  set('rTrades', live.all ? String(live.all.trades) : '—');
+  set('rWin', live.all && live.all.winRatePct != null ? live.all.winRatePct.toFixed(0) + '%' : '—');
+  const n = Object.keys(live.open).length;
+  set('rOpen', String(n), n ? 'up' : '');
+}
+
+/* ===========================================================================
+   Frame loop — static blit, then the living parts
+   =========================================================================== */
+const burst = (() => { const rnd = seeded(0x0d1a); return Array.from({ length: 72 }, (_, i) => ({ a: (i / 72) * Math.PI * 2 + rnd() * 0.05, len: 0.45 + rnd() * 0.55, ph: rnd() * Math.PI * 2, w: 0.6 + rnd() * 0.9 })); })();
+const pulses = [];
+let bootAt = 0, last = 0, hover = null, paused = false, pointer = { x: 0, y: 0, has: false };
+let frameMs = 16.7, fpsAcc = 0, fpsN = 0, fpsShown = 0;
+
+function spawnPulse(edge, dir) {
+  if (pulses.length > 26) return;
+  pulses.push({ e: edge, t: dir > 0 ? 0 : 1, dir, v: (0.32 + Math.random() * 0.28), col: edge.kind === 'crown' ? ODIN.color : (dir > 0 ? '#FFFFFF' : edge.a.color) });
+}
+
+function frame(now) {
+  if (paused) return;
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, Math.max(0.001, (now - (last || now)) / 1000)); last = now;
+  const t0 = performance.now();
+  const L = layout, k = L.k;
+  const boot = bootAt ? clamp((now - bootAt) / 2400, 0, 1) : 1;
+  const time = now / 1000;
+
+  // parallax — the whole seat leans a few pixels toward the hand
+  const px = pointer.has ? (pointer.x / W - 0.5) * 8 : 0, py = pointer.has ? (pointer.y / H - 0.5) * 6 : 0;
+  ctx.setTransform(DPR, 0, 0, DPR, Math.round(px * DPR), Math.round(py * DPR));
+  ctx.drawImage(staticLayer, 0, 0, W, H);
+
+  // councillor light
+  L.agents.forEach((a, i) => {
+    const alive = !!live.open[a.name];
+    const breathe = 0.5 + 0.5 * Math.sin(time * (alive ? 2.6 : 1.1) + i * 1.3);
+    glow(ctx, sprites[a.key], a.x, a.y, a.r * (2.2 + breathe * 0.35), (0.42 + breathe * 0.22) * boot);
+    // the turning inner frame
+    if (!REDUCED) {
+      ctx.lineWidth = 1; ctx.strokeStyle = rgba(a.color2, 0.55 + breathe * 0.25);
+      hexPath(ctx, a.x, a.y, a.r * 0.46, time * (i % 2 ? -0.35 : 0.35)); ctx.stroke();
+    }
+    ctx.fillStyle = rgba(a.color2, 0.9); ctx.beginPath(); ctx.arc(a.x, a.y, a.r * 0.13, 0, 7); ctx.fill();
+    if (alive) {
+      ctx.font = `600 ${Math.round(7.5 * Math.max(k, 0.85))}px ${cssVar('--mono')}`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillStyle = rgba('#5FD38A', 0.6 + breathe * 0.4);
+      ctx.fillText('● IN TRADE', Math.round(a.x), Math.round(a.y - a.r - 15 * k));
+    }
+  });
+
+  // tool light — small, cool, steady
+  L.tools.forEach((t, i) => {
+    const s = 0.5 + 0.5 * Math.sin(time * 0.8 + i * 0.9);
+    glow(ctx, sprites[t.owner.key], t.x, t.y, t.r * 1.9, (0.16 + s * 0.1) * boot);
+    glow(ctx, sprites.tool, t.x, t.y, t.r * 0.9, (0.3 + s * 0.15) * boot);
+    ctx.fillStyle = rgba('#FFFFFF', 0.85); ctx.beginPath(); ctx.arc(t.x, t.y, Math.max(1.6, t.r * 0.11), 0, 7); ctx.fill();
+  });
+
+  // the seat itself: starburst, rune ring, white-hot core
+  const o = L.odin, ign = clamp(boot * 1.6, 0, 1);
+  glow(ctx, sprites.odin, o.x, o.y, o.burst * 1.55, 0.55 * ign);
+  ctx.lineCap = 'round';
+  burst.forEach((b, i) => {
+    const flick = REDUCED ? 0.7 : 0.55 + 0.45 * Math.sin(time * 2.1 + b.ph);
+    const rot = REDUCED ? 0 : time * 0.05;
+    const a = b.a + rot, r0 = o.r * 0.42, r1 = o.r * 0.42 + (o.burst - o.r * 0.42) * b.len * (0.75 + 0.25 * flick) * ign;
+    ctx.strokeStyle = rgba(i % 3 ? ODIN.color : ODIN.color2, (0.22 + 0.5 * flick) * ign);
+    ctx.lineWidth = b.w;
+    ctx.beginPath(); ctx.moveTo(o.x + r0 * Math.cos(a), o.y + r0 * Math.sin(a)); ctx.lineTo(o.x + r1 * Math.cos(a), o.y + r1 * Math.sin(a)); ctx.stroke();
+  });
+  ctx.lineCap = 'butt';
+  // rune ring: 24 ticks turning slowly the other way
+  ctx.strokeStyle = rgba(ODIN.color, 0.7 * ign); ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  for (let i = 0; i < 24; i++) {
+    const a = i * Math.PI / 12 - (REDUCED ? 0 : time * 0.12), rr = o.r * 0.86, len = i % 6 === 0 ? o.r * 0.16 : o.r * 0.08;
+    ctx.moveTo(o.x + rr * Math.cos(a), o.y + rr * Math.sin(a)); ctx.lineTo(o.x + (rr + len) * Math.cos(a), o.y + (rr + len) * Math.sin(a));
+  }
+  ctx.stroke();
+  ctx.strokeStyle = rgba(ODIN.color2, 0.35 * ign); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(o.x, o.y, o.r * 0.84, 0, 7); ctx.stroke();
+  const beat = 0.5 + 0.5 * Math.sin(time * 1.4);
+  glow(ctx, sprites.white, o.x, o.y, o.r * (0.62 + beat * 0.08), (0.75 + beat * 0.25) * ign);
+  ctx.fillStyle = rgba('#FFFFFF', 0.95 * ign); ctx.beginPath(); ctx.arc(o.x, o.y, o.r * 0.13 + beat * 1.2, 0, 7); ctx.fill();
+
+  // pulses — tools report inward, Odin's word goes outward
+  if (boot >= 1 && !REDUCED) {
+    if (Math.random() < dt * 4.5) { const e = L.edges[(Math.random() * L.edges.length) | 0]; spawnPulse(e, e.kind === 'crown' ? 1 : -1); }
+    Object.keys(live.open).forEach(nm => { if (Math.random() < dt * 1.2) { const e = L.edges.find(x => x.kind === 'crown' && x.b.name === nm); if (e) spawnPulse(e, -1); } });
+  }
+  for (let i = pulses.length - 1; i >= 0; i--) {
+    const p = pulses[i]; p.t += p.dir * p.v * dt;
+    if (p.t < 0 || p.t > 1) { pulses.splice(i, 1); continue; }
+    const x = lerp(p.e.a.x, p.e.b.x, p.t), y = lerp(p.e.a.y, p.e.b.y, p.t);
+    glow(ctx, p.col === ODIN.color ? sprites.odin : sprites.white, x, y, 9 * k + 4, 0.8);
+    ctx.fillStyle = rgba(p.col === ODIN.color ? ODIN.color2 : '#FFFFFF', 0.95); ctx.beginPath(); ctx.arc(x, y, 1.6, 0, 7); ctx.fill();
+  }
+
+  // hover: lift the node and its lines
+  if (hover) {
+    const n = hover, col = n.kind === 'tool' ? TOOL_INK.c : n.color;
+    ctx.lineWidth = 1.2; ctx.strokeStyle = rgba('#FFFFFF', 0.55);
+    ctx.beginPath();
+    L.edges.forEach(e => { if (e.a === n || e.b === n) { ctx.moveTo(e.a.x, e.a.y); ctx.lineTo(e.b.x, e.b.y); } });
+    ctx.stroke();
+    ctx.lineWidth = 1.4; ctx.strokeStyle = rgba(col, 0.95);
+    if (n.kind === 'odin') { ctx.beginPath(); ctx.arc(n.x, n.y, n.burst * 0.98, 0, 7); ctx.stroke(); }
+    else { hexPath(ctx, n.x, n.y, n.r * 1.28, 0); ctx.stroke(); }
+  }
+
+  // boot: the council is revealed outward from the seat
+  if (boot < 1) {
+    const R = easeOut(boot) * Math.hypot(W, H) * 0.62;
+    ctx.fillStyle = '#030406';
+    ctx.beginPath(); ctx.rect(-20, -20, W + 40, H + 40); ctx.arc(o.x, o.y, Math.max(1, R), 0, Math.PI * 2, true); ctx.fill('evenodd');
+  }
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+  // frame time → footer, twice a second, never per frame
+  frameMs = frameMs * 0.9 + (performance.now() - t0) * 0.1;
+  fpsAcc += dt; fpsN++;
+  if (fpsAcc >= 0.5) { const f = Math.round(fpsN / fpsAcc); if (f !== fpsShown) { fpsShown = f; $('fps').textContent = `${f} FPS · ${frameMs.toFixed(1)} MS`; } fpsAcc = 0; fpsN = 0; }
+}
+
+/* ===========================================================================
+   Pointer — hover / tap → the card
+   =========================================================================== */
+function nodeAt(x, y) {
+  let best = null, bd = Infinity;
+  for (const n of nodes) {
+    const rr = n.kind === 'odin' ? n.r * 1.3 : n.r * 1.35 + 10;
+    const d = Math.hypot(n.x - x, n.y - y);
+    if (d < rr && d < bd) { best = n; bd = d; }
+  }
+  return best;
+}
+function showCard(n) {
+  const card = $('card');
+  if (!n) { card.hidden = true; return; }
+  let html = '';
+  if (n.kind === 'odin') {
+    card.style.setProperty('--accent', ODIN.color);
+    html = `<h3>ODIN</h3><div class="kicker">${ODIN.role}</div><p>${ODIN.theme}</p>`;
+    html += `<div class="live">${live.ok ? `CASH <b>${cash(live.cash)}</b> · ALL-TIME <b class="${live.all && live.all.pnl > 0 ? 'up' : live.all && live.all.pnl < 0 ? 'down' : ''}">${money(live.all && live.all.pnl)}</b> · <b>${live.all ? live.all.trades : '—'}</b> TRADES<br>PAPER · SIMULATED — NO REAL MONEY` : 'LIVE LINK UNAVAILABLE FROM HERE'}</div>`;
+  } else if (n.kind === 'agent') {
+    card.style.setProperty('--accent', n.text);
+    const p = live.open[n.name], a = live.agents[n.name];
+    html = `<h3>${n.name}</h3><div class="kicker">${n.market} · ${n.strategy}${a && a.hoursNote ? '<br>' + a.hoursNote.toUpperCase() : ''}</div><p>${n.theme}</p>`;
+    if (!live.ok) html += `<div class="live">LIVE LINK UNAVAILABLE FROM HERE · PAPER · SIMULATED</div>`;
+    else if (p) html += `<div class="live"><b class="up">● IN TRADE</b> since ${new Date(p.entryTime).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}<br>ENTRY <b>$${Number(p.entryPrice).toLocaleString('en-US', { maximumFractionDigits: 2 })}</b> · STOP <b>$${Number(p.stopPrice).toLocaleString('en-US', { maximumFractionDigits: 2 })}</b><br>PAPER · SIMULATED</div>`;
+    else html += `<div class="live"><b>WATCHING</b> · flat, waiting for its setup<br>PAPER · SIMULATED</div>`;
+  } else {
+    card.style.setProperty('--accent', TOOL_INK.c);
+    html = `<h3 style="color:${TOOL_INK.text}">${n.name}</h3><div class="kicker">TOOL · IN ${n.owner.name}'S REACH${n.note ? ' · ' + n.note : ''}</div>`;
+    html += `<div class="fn">${n.of.map(f => `<span>${f}</span>`).join('')}</div>`;
+    if (n.live === 'pnl') html += `<div class="live">${live.ok && live.today ? `TODAY <b class="${live.today.pnl > 0 ? 'up' : live.today.pnl < 0 ? 'down' : ''}">${money(live.today.pnl)}</b> · ${live.today.trades} TRADES · ${live.today.wins}W ${live.today.losses}L` : 'LIVE LINK UNAVAILABLE FROM HERE'}</div>`;
+  }
+  card.innerHTML = html;
+  card.hidden = false;
+  if (W >= 760) {
+    const cw = 262, ch = card.offsetHeight;
+    let x = n.x + (n.kind === 'odin' ? n.burst : n.r) + 18, y = n.y - ch / 2;
+    if (x + cw > W - 12) x = n.x - (n.kind === 'odin' ? n.burst : n.r) - 18 - cw;
+    y = clamp(y, $('bar').offsetHeight + 6, $('console').offsetTop - ch - 6);
+    card.style.left = Math.round(x) + 'px'; card.style.top = Math.round(y) + 'px';
+  }
+}
+stage.addEventListener('pointermove', e => {
+  pointer.x = e.clientX; pointer.y = e.clientY; pointer.has = e.pointerType === 'mouse';
+  const n = nodeAt(e.clientX, e.clientY);
+  if (n !== hover) { hover = n; showCard(n); stage.style.cursor = n ? 'pointer' : 'crosshair'; }
+});
+stage.addEventListener('pointerdown', e => {
+  const n = nodeAt(e.clientX, e.clientY);
+  hover = n; showCard(n);
+});
+stage.addEventListener('pointerleave', () => { pointer.has = false; });
+
+/* ===========================================================================
+   The command line — Odin answers; the summons opens the vault
+   =========================================================================== */
+let voiceOn = true;
+try { voiceOn = localStorage.getItem('highseat:voice') !== 'off'; } catch (e) {}
+const voiceBtn = $('voice');
+function paintVoice() { voiceBtn.textContent = voiceOn ? 'VOICE ON' : 'VOICE OFF'; voiceBtn.classList.toggle('on', voiceOn); voiceBtn.setAttribute('aria-pressed', String(voiceOn)); }
+paintVoice();
+voiceBtn.addEventListener('click', () => { voiceOn = !voiceOn; paintVoice(); try { localStorage.setItem('highseat:voice', voiceOn ? 'on' : 'off'); } catch (e) {} });
+
+let audioEl = null;
+async function speak(text, persona) {
+  if (!voiceOn || !text) return;
+  try {
+    const res = await fetch(BACKEND_URL + '/tts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text, persona }) });
+    if (!res.ok) return;
+    const url = URL.createObjectURL(await res.blob());
+    if (audioEl) { try { audioEl.pause(); } catch (e) {} }
+    audioEl = new Audio(url); audioEl.onended = () => URL.revokeObjectURL(url);
+    await audioEl.play();
+  } catch (e) { /* voice is a courtesy, never a blocker */ }
+}
+async function ask(message, persona) {
+  const res = await fetch(BACKEND_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message, persona }) });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const d = await res.json();
+  if (d.error) throw new Error(d.error);
+  return d.reply || '';
+}
+
+const reply = $('reply'), say = $('say');
+reply.addEventListener('click', () => { reply.hidden = true; });
+let typer = 0;
+function showReply(text, cls) {
+  clearInterval(typer);
+  reply.hidden = false; reply.className = 'reply' + (cls ? ' ' + cls : '');
+  if (cls || REDUCED) { reply.textContent = text; return; }
+  let i = 0; reply.textContent = '';
+  typer = setInterval(() => { i += 3; reply.textContent = text.slice(0, i); if (i >= text.length) clearInterval(typer); }, 28);
+}
+$('cmd').addEventListener('submit', async e => {
+  e.preventDefault();
+  const text = say.value.trim(); if (!text) return;
+  say.value = '';
+  if (vault.open) { vaultSay(text); return; }
+  if (VAULT_OPEN.test(text)) { openVault(); return; }
+  if (VAULT_SEAL.test(text)) return;
+  showReply('…', 'wait');
+  try {
+    const r = await ask(text, 'odin');
+    showReply(r || '(Odin said nothing.)');
+    speak(r, 'odin');
+  } catch (err) {
+    showReply(`Odin can't be reached from here (${err.message}). Open the real room at ${BACKEND_URL.replace('https://', '')}/team.html`, 'err');
+  }
+});
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { if (vault.open) sealVault(); else { hover = null; showCard(null); reply.hidden = true; } }
+  if (e.key === '/' && document.activeElement !== say) { e.preventDefault(); say.focus(); }
+});
+
+/* ===========================================================================
+   The vault — HELA. Same phrases as the hall. One line on screen at a time,
+   the box empties when it closes, nothing is ever cleared on the server.
+   =========================================================================== */
+const vault = { open: false, raf: 0, cols: [], glyphs: null, last: 0 };
+const vEl = $('vault'), vFx = $('vaultFx'), vTalk = $('vTalk');
+function vRow(who, text, keep) {
+  if (!keep) vTalk.innerHTML = '';
+  const d = document.createElement('div'); d.className = who; d.textContent = text; vTalk.appendChild(d);
+}
+function buildGlyphAtlas() {
+  const chars = '0123456789ABCDEF·:;+-=<>/\\|^~#%&*'.split('');
+  const size = 14, cv = document.createElement('canvas'); cv.width = size * chars.length; cv.height = size + 4;
+  const g = cv.getContext('2d'); g.font = `400 ${size - 1}px ${cssVar('--mono')}`; g.textBaseline = 'top'; g.textAlign = 'left';
+  chars.forEach((ch, i) => { g.fillStyle = '#39ff88'; g.fillText(ch, i * size + 2, 2); });
+  return { cv, size, n: chars.length };
+}
+function vaultResize() {
+  vFx.width = Math.round(W * DPR); vFx.height = Math.round(H * DPR);
+  const g = vFx.getContext('2d'); g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  g.fillStyle = '#010302'; g.fillRect(0, 0, W, H);
+  const step = 18, n = Math.ceil(W / step);
+  vault.cols = Array.from({ length: n }, (_, i) => ({ x: i * step + 4, y: -Math.random() * H, v: 60 + Math.random() * 120, len: 6 + (Math.random() * 14) | 0 }));
+}
+function vaultFrame(now) {
+  if (!vault.open) return;
+  vault.raf = requestAnimationFrame(vaultFrame);
+  const g = vFx.getContext('2d');
+  const dt = Math.min(0.05, (now - (vault.last || now)) / 1000); vault.last = now;
+  g.fillStyle = '#010302'; g.fillRect(0, 0, W, H);
+  const at = vault.glyphs, s = at.size;
+  vault.cols.forEach(c => {
+    c.y += c.v * dt * (REDUCED ? 0.3 : 1);
+    if (c.y - c.len * s > H) { c.y = -Math.random() * 200; c.v = 60 + Math.random() * 120; }
+    const head = Math.floor(c.y / s);
+    for (let i = 0; i < c.len; i++) {
+      const yy = (head - i) * s; if (yy < -s || yy > H) continue;
+      const gi = ((head * 7 + i * 13 + c.x) >>> 0) % at.n;
+      g.globalAlpha = i === 0 ? 0.95 : 0.5 * (1 - i / c.len);
+      g.drawImage(at.cv, gi * s, 0, s, s + 4, c.x, yy, s, s + 4);
+    }
+  });
+  g.globalAlpha = 1;
+}
+function openVault() {
+  if (vault.open) return;
+  vault.open = true; paused = true;
+  if (!vault.glyphs) vault.glyphs = buildGlyphAtlas();
+  vaultResize();
+  document.body.classList.add('vault');
+  vEl.hidden = false; requestAnimationFrame(() => vEl.classList.add('in'));
+  hover = null; showCard(null);
+  say.placeholder = '…'; say.focus();
+  vault.last = 0; vault.raf = requestAnimationFrame(vaultFrame);
+}
+function sealVault() {
+  if (!vault.open) return;
+  vault.open = false; cancelAnimationFrame(vault.raf);
+  vEl.classList.remove('in'); vEl.hidden = true;
+  document.body.classList.remove('vault');
+  vTalk.innerHTML = ''; say.value = ''; say.placeholder = 'Speak to Odin';
+  if (audioEl) { try { audioEl.pause(); } catch (e) {} }
+  paused = false; last = 0; requestAnimationFrame(frame);
+}
+async function vaultSay(text) {
+  if (VAULT_SEAL.test(text)) { sealVault(); return; }
+  vRow('me', text, false);
+  vRow('her', '. . .', true);
+  try {
+    const r = await ask(text, 'hela');
+    vRow('her', r || '…', false);
+    speak(r, 'hela');
+  } catch (err) {
+    vRow('her', 'she cannot hear you from this window. open the real room.', false);
+  }
+}
+
+/* ===========================================================================
+   Boot
+   =========================================================================== */
+function tickClock() {
+  const d = new Date();
+  $('clock').textContent = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) + ' · ' + d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
+}
+async function ping() {
+  try { const r = await fetch(BACKEND_URL + '/ping', { cache: 'no-store' }); const ok = r.ok; $('link').textContent = ok ? 'LINK ●' : 'LINK —'; $('link').className = ok ? 'ok' : ''; }
+  catch (e) { $('link').textContent = 'LINK —'; $('link').className = ''; }
+}
+let resizeT = 0;
+window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { resize(); if (vault.open) vaultResize(); }, 120); });
+
+resize();
+bootAt = performance.now();
+requestAnimationFrame(frame);
+tickClock(); setInterval(tickClock, 1000);
+ping(); setInterval(ping, 60000);
+poll(); setInterval(poll, POLL_MS);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => drawStatic());
+</script>
+</body>
+</html>

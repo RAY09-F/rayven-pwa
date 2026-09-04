@@ -2816,6 +2816,7 @@ function switchPersona(personaId, opts = {}) {
   clearCaption();
   fireShockwave();
   sfxSwitch();
+  try { window.AsgardFX && AsgardFX.setPersona(personaId); } catch (e) {}
   if (!opts.silent) setVoiceStatus(`${UI_PERSONAS[personaId].name} has the floor.`);
 }
 
@@ -3327,6 +3328,7 @@ function killRecognition() {
   const r = liveRecognition;
   liveRecognition = null;
   if (!r) return;
+  try { window.AsgardFX && AsgardFX.setState('idle'); } catch (e) {}
   try { r.onend = null; r.onerror = null; r.onresult = null; } catch (e) {}
   try { r.abort ? r.abort() : r.stop(); } catch (e) {}
 }
@@ -3740,6 +3742,7 @@ window.AsgardDebug = Object.assign(window.AsgardDebug || {}, {
 
 function runWakeFx(personaId) {
   const token = ++wakeFxToken;
+  try { window.AsgardFX && AsgardFX.wake(personaId); } catch (e) {}
   if (REDUCED_MOTION) { clearWakeFx(); return Promise.resolve(); }
   // The originals are kept, not replaced. localStorage 'asgard:wake' = 'classic'
   // brings back the hammer charge, the mind stone and the crown at any time.
@@ -4458,6 +4461,7 @@ function startContinuousAwakeListening() {
   convoRecognition.onend = () => { if (awake && !micMuted && !listeningPaused) setTimeout(() => { if (awake && !micMuted && !listeningPaused) startContinuousAwakeListening(); }, 120); };
   convoRecognition.onerror = () => { if (awake && !micMuted && !listeningPaused) setTimeout(() => { if (awake && !micMuted && !listeningPaused) startContinuousAwakeListening(); }, 120); };
   beginRecognition(convoRecognition);
+  try { window.AsgardFX && AsgardFX.setState('listening'); } catch (e) {}
   updateMicVisual();
 }
 
@@ -4639,23 +4643,28 @@ function speak(text, onDone, personaOverride) {
       source.onended = () => {
         currentSource = null;
         stopAudioReactive();
+        try { window.AsgardFX && AsgardFX.setState('idle'); } catch (e) {}
         const cb = currentOnDone; currentOnDone = null;
         if (cb) cb();
       };
       source.start(0);
       startAudioReactive();
+      try { window.AsgardFX && AsgardFX.setState('speaking'); } catch (e) {}
     })
     .catch(err => {
       console.error('ElevenLabs TTS failed, browser voice fallback:', err);
+      try { window.AsgardFX && AsgardFX.pulse('error'); } catch (e) {}
       if ('speechSynthesis' in window) {
         const utter = new SpeechSynthesisUtterance(cleaned);
         utter.rate = parseFloat($('rateSlider').value);
         utter.pitch = Math.max(0, Math.min(2, 1 + parseFloat($('pitchSlider').value) / 12));
         synthPulseTimer = setTimeout(() => {}, 0); // marks synthetic-pulse mode
         startAudioReactive();
+        try { window.AsgardFX && AsgardFX.setState('speaking'); } catch (e) {}
         const finish = () => {
           if (synthPulseTimer !== null) { clearTimeout(synthPulseTimer); synthPulseTimer = null; }
           stopAudioReactive();
+          try { window.AsgardFX && AsgardFX.setState('idle'); } catch (e) {}
           const cb = currentOnDone; currentOnDone = null;
           if (cb) cb();
         };
@@ -5385,6 +5394,7 @@ function _h9Wake(onDone) {
 function _h9Enter() {
   if (_h9.stage !== 'dormant') return;
   _h9.stage = 'opening';
+  try { window.AsgardFX && AsgardFX.pulse('vault-open'); } catch (e) {}
   quietHold = true;                       // nothing leaves this device while the vault is open
   stopSpeaking();
   killRecognition();                      // the mic upstairs goes out with the lights
@@ -5400,6 +5410,7 @@ function _h9Enter() {
 
 function _h9Reveal() {
   _h9.stage = 'held';
+  try { window.AsgardFX && AsgardFX.wake('hela'); } catch (e) {}
   // _h9Build() used to run here, allocating and counting-sorting 22,000 points
   // for the crown. Nothing draws them any more, so it is not called — that is
   // several megabytes and a sort this machine no longer has to do on open.
@@ -5804,6 +5815,7 @@ function _h9SetLocked(on, tellHer) {
   }
   if (changed && _h9.dom) {
     _h9Shock(_h9.locked);
+    try { window.AsgardFX && AsgardFX.pulse(_h9.locked ? 'lock-in' : 'stand-down'); } catch (e) {}
     // the form contracts hard as it turns, and her attention spikes
     _h9.focusT = 1;
     _h9.attention = Math.min(1, _h9.attention + 0.55);
@@ -5823,6 +5835,7 @@ function _h9SetLocked(on, tellHer) {
 function _h9Exit() {
   if (_h9.stage === 'dormant') return;
   _h9StopEar();
+  try { window.AsgardFX && AsgardFX.pulse('vault-close'); } catch (e) {}
   // leaving ends lock-in, on both sides
   if (_h9.locked) {
     _h9.locked = false;
@@ -6111,6 +6124,7 @@ async function sendMessage(text) {
     : text;
 
   try {
+    try { window.AsgardFX && AsgardFX.setState('thinking'); } catch (e) {}
     const response = await fetch(BACKEND_URL, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -6119,6 +6133,7 @@ async function sendMessage(text) {
     const data = await response.json();
     const replyText = data.reply || data.error || '(no reply)';
     typingDiv.remove();
+    try { window.AsgardFX && AsgardFX.pulse('receive'); } catch (e) {}
     if (guestName) pushMsgLocalOnly('assistant', replyText); else pushMsg('assistant', replyText);
     speak(replyText, () => {
       window.Reactor && window.Reactor.setState(awake ? 'listening' : 'idle');
@@ -6128,6 +6143,7 @@ async function sendMessage(text) {
     typingDiv.remove();
     appendMsgDom('assistant', `Connection error: ${err.message}`);
     sfxError();
+    try { window.AsgardFX && AsgardFX.pulse('error'); } catch (e) {}
     window.Reactor && window.Reactor.setState(awake ? 'listening' : 'idle');
     resumeListeningAfterSpeech();
   }
@@ -7746,5 +7762,7 @@ function bootIntoHud() {
   else addEventListener('DOMContentLoaded', start);
 })();
 </script>
+<script src="/fx/asgard-fx.js"></script>
+<script>try { window.AsgardFX && AsgardFX.init({ persona: document.documentElement.getAttribute('data-persona') || 'thor' }); } catch (e) {}</script>
 </body>
 </html>

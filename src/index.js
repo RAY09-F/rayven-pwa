@@ -14,7 +14,7 @@ import {
 import { executeTool, callClaudeWithTools, getTaskLog } from './lib/tools.js';
 import { handleSpotifyLogin, handleSpotifyCallback, spotifyNowPlayingData, spotifyPause, spotifyResume, spotifyNext, spotifyPrevious } from './lib/spotify.js';
 import { runLokiBriefIfDue, runLokiBrief, runOdinReportIfDue, runOdinReport, getOdinReports } from './lib/reports.js';
-import { runPaperTradingCycleIfDue, runPaperTradingDailyReportIfDue, sendPaperTradingReportNow, getPaperStatus, getPaperChartData, INSTRUMENTS } from './lib/paperTrading.js';
+import { runPaperTradingCycleIfDue, runPaperTradingDailyReportIfDue, sendPaperTradingReportNow, getPaperStatus, getPaperChartData, forceDemoTrade, INSTRUMENTS } from './lib/paperTrading.js';
 import { fetchKrakenCandles, fetchTwelveDataCandles } from './lib/marketData.js';
 import { handleAgentQuery } from './lib/sibling-agents.js';
 import { runProactiveCheckIn, runProactiveCheckInIfDue, runCodeCheckIfDue, runCodeCheck, runMorningBriefing, runMorningBriefingIfDue } from './lib/checkin.js';
@@ -449,6 +449,14 @@ export default {
     // unauthenticated, read-only, already-labeled posture as /status above.
     if (url.pathname === '/paper-trading/charts') {
       return json(await getPaperChartData(env), corsHeaders);
+    }
+
+    // One-off manual demo entry/exit -- real current price, manual decision,
+    // clearly labeled everywhere as a test, not a real strategy signal.
+    if (url.pathname === '/debug-paper-force-trade') {
+      const agentId = url.searchParams.get('agent');
+      const action = url.searchParams.get('action');
+      return json(await forceDemoTrade(env, agentId, action), corsHeaders);
     }
 
     // Manual trigger for testing without waiting for a real candle close.
