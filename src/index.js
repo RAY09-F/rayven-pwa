@@ -29,6 +29,9 @@ import { runClipCycleIfDue, clipsVerifyAccounts, clipsAnalytics, clipsAccountSta
 import { runVizardPollIfDue, vizardAccounts, vizardDebugSubmit, pipelineState, vizardApprove, discardHeld } from './lib/vizard.js';
 import { runWhopSubmitIfDue, whopInspect, whopStatus, whopSubmitPending } from './lib/whop.js';
 import { channelStartsTainted } from './lib/containment.js';
+import { loadConversation, saveConversation, tickTaint, isTainted } from './lib/conversation.js';
+import { matchApprovalReply, resolveApproval } from './lib/approvals.js';
+import { runTick } from './lib/tick.js';
 import { runTimersIfDue } from './lib/kit.js';
 import { igRefreshIfDue } from './lib/instagram.js';
 // ⟦PROJECT-H:BEGIN⟧
@@ -141,28 +144,44 @@ async function handleChatTurn(env, ctx, opts) {
   // was even called. Firing them together makes it one. The only cost is a wasted
   // history/memory read on the rare pending-confirmation turn, which is free
   // because it happens in parallel anyway.
-  const [pendingRaw, prefetchedHistoryRaw, prefetchedMemoryBlock] = await Promise.all([
+  const [pendingRaw, prefetchedConvo, prefetchedMemoryBlock] = await Promise.all([
     env.RAYVEN_KV.get(pendingKey),
-    loadHistory(env, memoryKey),
+    loadConversation(env, memoryKey),
     getRecentMemoryBlock(env, personaId)
   ]);
+  // The conversation object (Phase 1): turns plus meta -- the taint bit, the
+  // domains visited, the _spool. Saved back under the same key, one write.
+  const meta = prefetchedConvo.meta;
+  const isGroupChat = isTelegram && (telegramChatType === 'group' || telegramChatType === 'supergroup');
+  const rayanIsSender = !isGroupChat || senderTag === 'Rayan';
+  const rayanPrivate = !isTelegram || (telegramChatType === 'private' && senderTag === 'Rayan');
+
+  // APPROVE 1234 / REJECT 1234 (Phase 1.5) -- honoured only from Rayan on his
+  // private surfaces, resolved without a model call, never saved to history.
+  const approvalReply = matchApprovalReply(userMessage);
+  if (approvalReply && rayanPrivate) {
+    const r = await resolveApproval(env, approvalReply.id, approvalReply.decision, (e, t, i, p) => executeTool(e, t, i, p));
+    if (!smoke) ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
+    return { reply: await sendReply(r.text) };
+  }
+
   if (pendingRaw && isAffirmative(userMessage)) {
     const pending = JSON.parse(pendingRaw);
     await env.RAYVEN_KV.delete(pendingKey);
-    const execResult = await executeTool(env, pending.toolName, pending.toolInput, personaId);
-    let history = sanitizeHistory(await loadHistory(env, memoryKey));
+    const execResult = await executeTool(env, pending.toolName, pending.toolInput, personaId, { tainted: isTainted(meta), meta });
+    let history = sanitizeHistory(prefetchedConvo.turns);
     history.push({ role: 'user', content: historyEntryContent });
     history.push({ role: 'assistant', content: `Confirmed. ${execResult}` });
     const _hl = historyLimitFor(persona);
     if (history.length > _hl) history = history.slice(-_hl);
-    await saveHistory(env, memoryKey, history);
-    ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
+    if (!smoke) await saveConversation(env, memoryKey, history, meta);
+    if (!smoke) ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
     return { reply: await sendReply(`Confirmed. ${execResult}`) };
   } else if (pendingRaw) {
     await env.RAYVEN_KV.delete(pendingKey);
   }
 
-  let history = sanitizeHistory(prefetchedHistoryRaw);
+  let history = sanitizeHistory(prefetchedConvo.turns);
   history.push({ role: 'user', content: historyEntryContent });
   const _hl2 = historyLimitFor(persona);
   if (history.length > _hl2) history = history.slice(-_hl2);
@@ -190,8 +209,6 @@ async function handleChatTurn(env, ctx, opts) {
   // in Rayan's household memory). The short-length check filters out bare
   // acks ("ok", "yes", "lol") without an extra import — a wasted call on a
   // genuinely short-but-meaningful message just comes back with an empty [].
-  const isGroupChat = isTelegram && (telegramChatType === 'group' || telegramChatType === 'supergroup');
-  const rayanIsSender = !isGroupChat || senderTag === 'Rayan';
   if (!smoke && !isWakeTrigger && rayanIsSender && typeof userMessage === 'string' && userMessage.trim().length >= 8) {
     ctx.waitUntil(extractAndSaveFacts(env, userMessage, personaId).catch(err => {
       console.error('Auto-memory extraction failed:', err.message);
@@ -227,8 +244,11 @@ async function handleChatTurn(env, ctx, opts) {
   // ⟦PROJECT-H:END⟧
 
   // A Telegram group is untrusted from the first word, whoever is in it —
-  // accounts get compromised and membership changes. Start tainted there.
-  const result = await callClaudeWithTools(env, persona.systemPrompt, channelContext, longTermMemoryBlock, claudeMessages, !isWakeTrigger, wakeCodeCheckContext, personaId, channelStartsTainted(isTelegram, telegramChatType));
+  // accounts get compromised and membership changes. So is a private chat
+  // with anyone who is not Rayan (Rule 15). The bit persists in meta.
+  tickTaint(meta);   // one turn older: a taint clears once its turns have rolled out of the window
+  const convo = { meta, channel: isTelegram ? (isGroupChat ? 'telegram-group' : 'telegram') : 'web', sender: senderTag };
+  const result = await callClaudeWithTools(env, persona.systemPrompt, channelContext, longTermMemoryBlock, claudeMessages, !isWakeTrigger, wakeCodeCheckContext, personaId, channelStartsTainted(isTelegram, telegramChatType, senderTag === 'Rayan'), convo);
 
   if (!smoke) ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
 
@@ -251,7 +271,7 @@ async function handleChatTurn(env, ctx, opts) {
 
   history.push({ role: 'assistant', content: reply });
   if (history.length > _hl2) history = history.slice(-_hl2);
-  if (!smoke) await saveHistory(env, memoryKey, history);
+  if (!smoke) await saveConversation(env, memoryKey, history, meta);
 
   return { reply: await sendReply(reply) };
 }
@@ -665,6 +685,24 @@ export default {
       return ackTelegramAndProcess(env, ctx, body, personaId, botToken, corsHeaders);
     }
 
+    // asgard-upgrade Phase 1: exercise the approvals inbox end to end with a
+    // harmless tool (world_time). Sends Rayan the real "[APPROVAL nnnn]"
+    // Telegram message so the whole path is proven, not just the KV write.
+    if (url.pathname === '/admin/approval-test') {
+      const { createApproval } = await import('./lib/approvals.js');
+      const r = await createApproval(env, { persona: 'thor', tool: 'world_time', input: { zone: 'Asia/Tokyo' }, tainted: true, sources: ['web_search'], provenance: 'derived from web_search at (debug test)', channel: 'debug' });
+      return json(r, corsHeaders);
+    }
+
+    // Run the tick collector now and show the pointer key it maintains.
+    if (url.pathname === '/admin/tick') {
+      const { readTickLast, readRecentTicks } = await import('./lib/tick.js');
+      const result = await runTick(env);
+      const last = await readTickLast(env);
+      const recent = url.searchParams.get('full') === '1' ? await readRecentTicks(env, 3) : undefined;
+      return json({ result, last, recent }, corsHeaders);
+    }
+
     if (url.pathname === '/debug-autonomy') {
       return json(await runPersonaAutonomyIfDue(env), corsHeaders);
     }
@@ -841,7 +879,7 @@ export default {
     // Per-persona web conversation history, for the searchable history panel.
     if (url.pathname === '/history' && request.method === 'GET') {
       const personaId = resolvePersonaId(url.searchParams.get('persona'));
-      const history = sanitizeHistory(await loadHistory(env, historyKeyFor(personaId, 'web')));
+      const history = sanitizeHistory((await loadConversation(env, historyKeyFor(personaId, 'web'))).turns);
       // Only plain text turns — tool_use/tool_result blocks are internal.
       const turns = history
         .filter(m => typeof m.content === 'string')
@@ -1243,50 +1281,44 @@ How to speak on a phone call:
 
   async scheduled(event, env, ctx) {
     // Each subsystem below tracks its own "last run" KV state and decides
-    // internally whether it's actually due this tick, and each runs in its own
-    // waitUntil so one subsystem failing never blocks the others.
-    ctx.waitUntil(runProactiveCheckInIfDue(env));
-    ctx.waitUntil(runMorningBriefingIfDue(env));
-    ctx.waitUntil(runCodeCheckIfDue(env));
-    ctx.waitUntil(runPersonaAutonomyIfDue(env));
-    ctx.waitUntil(runLokiBriefIfDue(env));
-    ctx.waitUntil(runOdinReportIfDue(env));
-    // Paper trading: fully simulated, no real money. Each of the five markets
-    // checks its own last-processed-candle KV key, so this is a no-op tick for
-    // any market that hasn't produced a new candle yet -- safe to call every
-    // 5 minutes even though the fastest strategy only closes a candle hourly.
-    ctx.waitUntil(runPaperTradingCycleIfDue(env));
-    ctx.waitUntil(runPaperTradingDailyReportIfDue(env));
-    // The clipping pass. Publishes at most one clip per tick and stops dead at
-    // the day's ramp allowance, so it cannot run away even if the queue is deep.
-    ctx.waitUntil(runClipCycleIfDue(env));
-    // Vizard's side of it: check on submitted jobs, queue whatever came back,
-    // and refresh download links before they expire. Self-throttled to roughly
-    // every four minutes and a no-op with no key set, so it costs one KV read
-    // per tick until there is actually something in flight.
-    ctx.waitUntil(runVizardPollIfDue(env));
-    // Whop submission. Whop has no API, so this drives the browser on Rayan's own
-    // machine -- which means it can only work while that machine is awake with
-    // Chrome open. It is OFF until he turns it on, and refuses to turn on until a
-    // submission has already succeeded once by hand, because an automation that
-    // silently fails every 20 minutes is worse than no automation at all.
-    ctx.waitUntil(runWhopSubmitIfDue(env));
-    // Countdown timers. Five-minute resolution is the honest ceiling here and
-    // set_timer says so out loud rather than implying a precision it has not got.
-    ctx.waitUntil(runTimersIfDue(env));
-    // Instagram long-lived tokens expire at 60 days. Refreshed weekly so the
-    // free Instagram path does not quietly stop working two months from now.
-    ctx.waitUntil(igRefreshIfDue(env));
-    // ⟦PROJECT-H:BEGIN⟧ Both no-op instantly unless she is locked in, so the
-    // cron cost of her existing at all is one KV read per tick.
-    ctx.waitUntil(runHelaVigilIfDue(env));
-    ctx.waitUntil(runHelaDailyIfDue(env));
-    // The forge. One persona per tick, in rotation, so four of them searching
-    // costs the same as one did — each still comes round on its own interval.
-    ctx.waitUntil(runForgeRotation(env, ALL_PERSONA_IDS));
-    // ⟦PROJECT-H:END⟧
-    // Sweep first, then flush, so any digest-priority alerts the sweep just
-    // queued go out this same tick instead of waiting for the next one.
-    ctx.waitUntil(runMonitoringSweep(env).then(() => flushNotificationDigestIfDue(env)));
+    // internally whether it's actually due this tick. They all run together;
+    // one failing never blocks the others. The TICK runs last, after every
+    // job has settled, and writes one key with everything the tick produced
+    // (asgard-upgrade Phase 1.4, Rule 5b) -- only if there is anything to write.
+    const job = (fn) => fn(env).catch(err => console.error('cron job failed:', err && err.message));
+    const jobs = [
+      job(runProactiveCheckInIfDue),
+      job(runMorningBriefingIfDue),
+      job(runCodeCheckIfDue),
+      job(runPersonaAutonomyIfDue),
+      job(runLokiBriefIfDue),
+      job(runOdinReportIfDue),
+      // Paper trading: fully simulated, no real money. Each market checks its
+      // own last-processed-candle KV key, so this is a no-op for any market
+      // that hasn't produced a new candle yet.
+      job(runPaperTradingCycleIfDue),
+      job(runPaperTradingDailyReportIfDue),
+      // The clipping pass (retired business; publishes at most one clip per
+      // tick inside the ramp, and only if there is a queue and a publisher).
+      job(runClipCycleIfDue),
+      // Vizard: no-op with no jobs in flight.
+      job(runVizardPollIfDue),
+      // Whop submission: OFF until Rayan turns it on.
+      job(runWhopSubmitIfDue),
+      // Countdown timers, five-minute resolution.
+      job(runTimersIfDue),
+      // Instagram long-lived tokens, refreshed weekly.
+      job(igRefreshIfDue),
+      // ⟦PROJECT-H:BEGIN⟧ Both no-op instantly unless she is locked in.
+      job(runHelaVigilIfDue),
+      job(runHelaDailyIfDue),
+      // The forge: one persona per tick, in rotation by clock slot.
+      job((e) => runForgeRotation(e, ALL_PERSONA_IDS)),
+      // ⟦PROJECT-H:END⟧
+      // Sweep first, then flush, so any digest-priority alerts the sweep just
+      // queued go out this same tick instead of waiting for the next one.
+      job((e) => runMonitoringSweep(e).then(() => flushNotificationDigestIfDue(e)))
+    ];
+    ctx.waitUntil(Promise.allSettled(jobs).then(() => runTick(env)).catch(err => console.error('tick failed:', err && err.message)));
   }
 };

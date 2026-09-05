@@ -194,7 +194,9 @@ const THOR_TOOLS = [
     'spotify_pause', 'spotify_play', 'spotify_previous', 'spotify_resume', 'spotify_seek',
     'spotify_shuffle_playlist', 'tavily_crawl', 'tavily_extract', 'tavily_research', 'timers',
     'transcribe', 'translate', 'watch_add', 'watch_list', 'watch_pause', 'watch_remove',
-    'watch_resume', 'watch_subjects', 'weather', 'web_search', 'word_ideas', 'world_time'
+    'watch_resume', 'watch_subjects', 'weather', 'web_search', 'word_ideas', 'world_time',
+    // asgard-upgrade Phase 1.5 (appended, never re-sorted -- Rule 6)
+    'approvals_list', 'approve', 'reject'
 ];
 const LOKI_TOOLS = [
     'add_calendar_event', 'add_content_idea', 'add_todo', 'air_quality', 'allow_host',
@@ -205,7 +207,9 @@ const LOKI_TOOLS = [
     'remove_calendar_event', 'roll', 'search_memory', 'set_timer', 'set_tool_permission',
     'short_link', 'tavily_research', 'timers', 'transcribe', 'translate', 'watch_add',
     'watch_list', 'watch_pause', 'watch_remove', 'watch_resume', 'watch_subjects', 'weather',
-    'web_search', 'word_ideas', 'world_time'
+    'web_search', 'word_ideas', 'world_time',
+    // asgard-upgrade Phase 1.5 (appended, never re-sorted -- Rule 6)
+    'approvals_list', 'approve', 'reject'
 ];
 const ODIN_TOOLS = [
     'add_calendar_event', 'add_content_idea', 'add_todo', 'air_quality', 'allow_host',
@@ -220,7 +224,9 @@ const ODIN_TOOLS = [
     'tavily_crawl', 'tavily_extract', 'tavily_research', 'timers', 'token_search',
     'transcribe', 'translate', 'video_segments', 'video_stats', 'watch_add', 'watch_list',
     'watch_pause', 'watch_remove', 'watch_resume', 'watch_subjects', 'weather', 'web_search',
-    'word_ideas', 'world_time'
+    'word_ideas', 'world_time',
+    // asgard-upgrade Phase 1.5 (appended, never re-sorted -- Rule 6)
+    'approvals_list', 'approve', 'reject'
 ];
 
 export const PERSONAS = {

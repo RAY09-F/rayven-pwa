@@ -27,6 +27,9 @@
 // eventually consistent so ordering between them is not guaranteed anyway.
 // ---------------------------------------------------------------------------
 
+import { spoolPush } from './conversation.js';
+import { tickLog, readRecentTicks } from './tick.js';
+
 const RETAIN_DAYS = 90;
 const MAX_EVENTS = 60;
 const INDEX_KEY = 'audit:index';
@@ -107,31 +110,29 @@ export async function recordTool(trace, name, input, result, meta = {}) {
   });
 }
 
-export async function commitTrace(env, trace) {
+// Phase 1.4 (asgard-upgrade): one audit line per turn. On the reply path it
+// rides INSIDE the conversation's _spool (zero extra KV writes, Rule 5a) and
+// the next cron tick drains it into the tick key. In cron it goes straight
+// into the tick buffer. The old per-turn keys (audit:<day>:<id> + audit:index)
+// are no longer written; what they hold is still readable as "legacy" below.
+export function traceLine(trace) {
+  return {
+    id: trace.id, at: trace.at, persona: trace.persona, channel: trace.channel, sender: trace.sender || null,
+    councillor: trace.councillor || null, startTainted: !!trace.startTainted, durationMs: Date.now() - trace.t0,
+    triggeringEventId: trace.triggeringEventId || null,
+    events: trace.events.map(e => ({ i: e.i, ms: e.ms, kind: e.kind, name: e.name, args: e.args, url: e.url, outBytes: e.outBytes, outHash: e.outHash, tainted: !!e.tainted, cause: e.cause, ok: e.ok, note: e.note }))
+  };
+}
+
+export async function commitTrace(env, trace, meta) {
   if (!trace || !trace.events.length) return;
   try {
-    const day = trace.at.slice(0, 10);
-    const key = `audit:${day}:${trace.id}`;
-    const body = {
-      id: trace.id, at: trace.at, persona: trace.persona, channel: trace.channel,
-      sender: trace.sender, startTainted: trace.startTainted,
-      durationMs: Date.now() - trace.t0,
-      events: trace.events
-    };
-    await env.RAYVEN_KV.put(key, JSON.stringify(body), { expirationTtl: RETAIN_DAYS * 86400 });
-    // A rolling index, because KV list() is not available on every plan path and
-    // a bounded array is cheaper to read than a prefix scan.
-    let idx = [];
-    try { idx = JSON.parse(await env.RAYVEN_KV.get(INDEX_KEY) || '[]'); } catch (e) {}
-    if (!Array.isArray(idx)) idx = [];
-    idx.unshift({ k: key, at: trace.at, p: trace.persona, n: trace.events.length,
-                  tainted: trace.events.some(e => e.tainted) });
-    if (idx.length > INDEX_KEEP) idx = idx.slice(0, INDEX_KEEP);
-    await env.RAYVEN_KV.put(INDEX_KEY, JSON.stringify(idx));
+    const line = traceLine(trace);
+    if (meta && typeof meta === 'object') spoolPush(meta, 'audit', line);
+    else tickLog('audit', line);
   } catch (e) {
-    // An audit failure must never take the turn down with it. Losing a log line
-    // is bad; losing the user's answer because logging threw is worse.
-    console.log('audit write failed:', e && e.message);
+    // An audit failure must never take the turn down with it.
+    console.log('audit spool failed:', e && e.message);
   }
 }
 
@@ -139,33 +140,45 @@ export async function commitTrace(env, trace) {
 // Reading it back
 // ---------------------------------------------------------------------------
 
-export async function auditRecent(env, { limit = 12 } = {}) {
+async function recentTurns(env, limit) {
+  // newest first: every audit line the recent ticks hold (drained from spools
+  // and produced in cron), then the legacy per-turn index if nothing is there.
+  const ticks = await readRecentTicks(env, 40);
+  const turns = [];
+  for (const t of ticks) {
+    for (const e of [...(t.drained || []), ...(t.audit || [])]) if (e && e.kind === 'audit' || (e && e.events)) turns.push(e);
+  }
+  turns.sort((a, b) => (b.ts || Date.parse(b.at) || 0) - (a.ts || Date.parse(a.at) || 0));
+  if (turns.length) return turns.slice(0, limit);
   let idx = [];
   try { idx = JSON.parse(await env.RAYVEN_KV.get(INDEX_KEY) || '[]'); } catch (e) {}
-  if (!idx.length) return 'Nothing recorded yet.';
-  const rows = idx.slice(0, Math.min(Number(limit) || 12, 40)).map(r =>
-    `  ${r.at.slice(0, 16).replace('T', ' ')}  ${String(r.p || '?').padEnd(5)} ` +
-    `${String(r.n).padStart(2)} events${r.tainted ? '  ⚠ read untrusted content' : ''}  ${r.k.split(':').pop()}`);
-  return [`${idx.length} turns recorded, most recent first:`, ...rows,
-          '', 'Ask about any id to see what happened in it.'].join('\n');
+  const out = [];
+  for (const r of idx.slice(0, limit)) { let t; try { t = JSON.parse(await env.RAYVEN_KV.get(r.k) || 'null'); } catch (e) { continue; } if (t) out.push({ ...t, legacy: true }); }
+  return out;
+}
+
+export async function auditRecent(env, { limit = 12 } = {}) {
+  const turns = await recentTurns(env, Math.min(Number(limit) || 12, 40));
+  if (!turns.length) return 'Nothing recorded yet.';
+  const rows = turns.map(t =>
+    `  ${String(t.at || '').slice(0, 16).replace('T', ' ')}  ${String(t.persona || '?').padEnd(5)} ` +
+    `${String((t.events || []).length).padStart(2)} events${(t.events || []).some(e => e.tainted) ? '  ⚠ read untrusted content' : ''}${t.councillor ? `  via ${t.councillor}` : ''}  ${t.id}${t.legacy ? '  (legacy)' : ''}`);
+  return [`${turns.length} recent turns, most recent first:`, ...rows, '', 'Ask about any id to see what happened in it.'].join('\n');
 }
 
 export async function auditTrace(env, { id } = {}) {
   if (!id) return 'Which turn? Give me the short id from the list.';
-  let idx = [];
-  try { idx = JSON.parse(await env.RAYVEN_KV.get(INDEX_KEY) || '[]'); } catch (e) {}
-  const hit = idx.find(r => r.k.endsWith(':' + String(id).trim()));
-  if (!hit) return `No turn with id ${id} — it may have aged past the ${RETAIN_DAYS}-day window.`;
-  let t;
-  try { t = JSON.parse(await env.RAYVEN_KV.get(hit.k) || 'null'); } catch (e) {}
-  if (!t) return `The index knows about ${id} but the record itself is gone.`;
+  const turns = await recentTurns(env, 400);
+  const t = turns.find(x => x.id === String(id).trim());
+  if (!t) return `No turn with id ${id} in the recent ticks — it may have aged past the ${RETAIN_DAYS}-day window (older days are copied to R2 under asgard/audit/).`;
   const lines = [
-    `Turn ${t.id} — ${t.at.replace('T', ' ').slice(0, 19)}`,
-    `${t.persona} on ${t.channel}${t.sender ? ` from ${t.sender}` : ''}, ${t.durationMs}ms, ${t.events.length} events`,
+    `Turn ${t.id} — ${String(t.at || '').replace('T', ' ').slice(0, 19)}`,
+    `${t.persona} on ${t.channel}${t.sender ? ` from ${t.sender}` : ''}${t.councillor ? ` via ${t.councillor}` : ''}, ${t.durationMs}ms, ${(t.events || []).length} events`,
     t.startTainted ? 'Started tainted — the channel itself is untrusted.' : '',
+    t.triggeringEventId ? `Triggered by event ${t.triggeringEventId}.` : '',
     ''
   ].filter(Boolean);
-  for (const e of t.events) {
+  for (const e of (t.events || [])) {
     const args = Object.keys(e.args || {}).length
       ? '  ' + Object.entries(e.args).map(([k, v]) => `${k}=${v}`).join(' ') : '';
     lines.push(
@@ -182,17 +195,14 @@ export async function auditTrace(env, { id } = {}) {
 
 // The question the whole file exists for.
 export async function auditWhy(env, { tool = 'send_text', limit = 200 } = {}) {
-  let idx = [];
-  try { idx = JSON.parse(await env.RAYVEN_KV.get(INDEX_KEY) || '[]'); } catch (e) {}
+  const turns = await recentTurns(env, Math.min(Number(limit) || 200, 400));
   const out = [];
-  for (const r of idx.slice(0, Math.min(Number(limit) || 200, 400))) {
-    let t; try { t = JSON.parse(await env.RAYVEN_KV.get(r.k) || 'null'); } catch (e) { continue; }
-    if (!t) continue;
-    for (const e of t.events) {
+  for (const t of turns) {
+    for (const e of (t.events || [])) {
       if (e.name !== tool) continue;
-      const untrusted = t.events.filter(x => x.tainted && x.i < e.i);
+      const untrusted = (t.events || []).filter(x => x.tainted && x.i < e.i);
       out.push(
-        `${t.at.replace('T', ' ').slice(0, 19)}  turn ${t.id}  ${e.name}` +
+        `${String(t.at || '').replace('T', ' ').slice(0, 19)}  turn ${t.id}  ${e.name}` +
         (untrusted.length
           ? `\n   AFTER reading untrusted content from: ` +
             untrusted.map(u => u.url || u.name).join(', ')

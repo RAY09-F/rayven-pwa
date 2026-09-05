@@ -2,6 +2,8 @@
 // unchanged from worker.js, just made explicit-env functions instead of closures
 // over the request handler's `env`.
 
+import { unwrap, wrap } from './conversation.js';
+
 export const MAX_HISTORY = 30;
 // A persona may keep a deeper conversation than the house default. Anyone
 // without an override stays at MAX_HISTORY exactly as before.
@@ -9,17 +11,28 @@ export function historyLimitFor(persona) {
   return (persona && persona.historyTurns) || MAX_HISTORY;
 }
 
+// History keys hold a { v:2, turns, meta } envelope since asgard-upgrade
+// Phase 1 (see conversation.js). These two keep their old array-in, array-out
+// contract for every caller that only cares about turns; the envelope's meta is
+// remembered per key inside this isolate so a load-then-save round trip never
+// drops the taint bit or the spool.
+const metaCache = new Map();
+
 export async function loadHistory(env, key) {
   try {
     const stored = await env.RAYVEN_KV.get(key);
-    return stored ? JSON.parse(stored) : [];
+    const { turns, meta } = unwrap(stored);
+    metaCache.set(key, meta);
+    return turns;
   } catch (e) {
     return [];
   }
 }
 
-export async function saveHistory(env, key, history) {
-  try { await env.RAYVEN_KV.put(key, JSON.stringify(history)); } catch (e) { console.error('History save failed:', e); }
+export async function saveHistory(env, key, history, meta) {
+  const m = meta || metaCache.get(key) || {};
+  metaCache.set(key, m);
+  try { await env.RAYVEN_KV.put(key, wrap(history, m)); } catch (e) { console.error('History save failed:', e); }
 }
 
 export function sanitizeHistory(history) {

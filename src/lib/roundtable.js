@@ -6,6 +6,7 @@ import { PERSONAS, getPersona } from './personas.js';
 import { callAnthropic } from './anthropic.js';
 import { addLongTermMemory } from './memory.js';
 import { setPersonaStatus } from './autonomy.js';
+import { provenance } from './conversation.js';
 
 const ROUNDS = 2; // debate rounds before standings
 
@@ -66,9 +67,9 @@ export async function runRoundtable(env, personaIds, topic) {
     // Save the exchange to every participant's memory, from their own side.
     const date = new Date().toISOString().slice(0, 10);
     await addLongTermMemory(env,
-      `Roundtable with ${PERSONAS[b].name} on "${cleanTopic}" (${date}). My standing: ${standingA} ${PERSONAS[b].name}'s standing: ${standingB}`, a);
+      `Roundtable with ${PERSONAS[b].name} on "${cleanTopic}" (${date}). My standing: ${standingA} ${PERSONAS[b].name}'s standing: ${standingB}`, a, null, provenance('roundtable', a, 'trusted-tool'));
     await addLongTermMemory(env,
-      `Roundtable with ${PERSONAS[a].name} on "${cleanTopic}" (${date}). My standing: ${standingB} ${PERSONAS[a].name}'s standing: ${standingA}`, b);
+      `Roundtable with ${PERSONAS[a].name} on "${cleanTopic}" (${date}). My standing: ${standingB} ${PERSONAS[a].name}'s standing: ${standingA}`, b, null, provenance('roundtable', b, 'trusted-tool'));
 
     return { ok: true, topic: cleanTopic, transcript };
   } catch (err) {

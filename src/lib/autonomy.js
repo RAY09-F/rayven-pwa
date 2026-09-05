@@ -13,6 +13,7 @@ import { getContentIdeas } from './kv-store.js';
 import { notify } from './notifications.js';
 import { callAnthropicSimple } from './anthropic.js';
 import { addLongTermMemory, getRecentMemoryBlock } from './memory.js';
+import { provenance } from './conversation.js';
 
 const AUTONOMY_LOG_KEY = 'agent:autonomy:log';
 const AUTONOMY_LOG_CAP = 200;
@@ -156,7 +157,7 @@ async function runOdinPulse(env) {
     title: 'ODIN — counsel', body: counsel,
     dedupeKey: `odin:pulse:${todayStamp()}`
   });
-  await addLongTermMemory(env, `Strategy counsel I gave on ${todayStamp()}: ${counsel}`, 'odin');
+  await addLongTermMemory(env, `Strategy counsel I gave on ${todayStamp()}: ${counsel}`, 'odin', null, provenance('odin-pulse', 'odin', 'trusted-tool'));
   await logAutonomy(env, 'odin', 'Strategy pulse delivered.', counsel);
   return counsel;
 }

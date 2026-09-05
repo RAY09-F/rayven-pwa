@@ -9,11 +9,11 @@ If a session dies: "continue asgard-upgrade.txt from the progress file".
 | Phase | Status | Commit |
 |---|---|---|
 | 0 — survey, manifest, smoke | DONE, deployed, smoke ALL PASS on the live URL | asgard-upgrade phase 0 |
-| 1 — containment | not started (waiting on the plan decision, Hard Rule 5) | |
+| 1 — containment | DONE, deployed, smoke ALL PASS, end-to-end test passed | asgard-upgrade phase 1 |
 | 2 — councils | not started | |
 | 3 — routines + events | not started | |
 
-**WAITING ON RAYAN:** confirm the Workers Paid plan (Hard Rule 5). See "Plan" below.
+Plan: Rayan confirmed the Workers Paid plan on 2026-09-05. Part A continues.
 
 ## Phase 0 — what was done (2026-09-04/05)
 
@@ -63,6 +63,62 @@ printed. New routes: GET /admin/tools.json, GET /admin/webhooks (header X-Asgard
 Live result 2026-09-05 06:07 UTC: ALL PASS. Webhooks: thor → /, loki → /telegram/loki, odin →
 /telegram/odin, hela unregistered (correct). Odin's bot shows a stale "Connection reset by peer"
 from 2026-09-02 00:00:59 UTC with 0 pending — not a live bug.
+
+## Phase 1 — containment (2026-09-05)
+
+What already existed and was kept: the per-turn taint bit and the consequential→confirm escalation in
+the tool loop, the egress allowlist (egress:allowed_hosts, allow_host, egressCheck), JSON-wrapping of
+untrusted tool results, the audit trace with parameter SHAPES and hashes and a causal index.
+
+Built:
+- 1.1 The conversation object. Every history key now holds { v:2, turns, meta } under the SAME key
+  (src/lib/conversation.js; legacy arrays read transparently). meta carries the taint bit with its
+  sources and timestamps, the browser domains visited, and the _spool ring buffer (50). The taint
+  persists across turns and clears only once the tainted turns have rolled out of the history window
+  (a countdown from the persona's history cap). A private Telegram chat with anyone who is not Rayan
+  now starts tainted (Rule 15); groups already did. While tainted: SMS, calls, social posting,
+  capability creation, long-term memory writes, allow_host and browser_navigate to a NEW domain are
+  QUEUED AS APPROVALS (containment.APPROVAL_WHILE_TAINTED); every other consequential tool keeps the
+  live-confirmation escalation. Memory provenance { source, persona, ts, trust } is written by every
+  writer (remember_this, auto-capture, vigil, Odin's pulse, roundtable, check-in, briefing, shares);
+  older entries read as legacy and are never rewritten; entries from untrusted content are labelled
+  inline when shown to a persona.
+- 1.2 allow_host while tainted → approval (the tool to request a host). Egress guards unchanged.
+  Hard Rule 16 helper r2KeyAllowedForTools() + R2_PROTECTED_PREFIXES exist for any future R2 tool
+  (today no tool lists, reads or deletes R2).
+- 1.3 Untrusted results are JSON { source, trust:'UNTRUSTED', content }; the handling instruction is
+  ONE text block placed after the tool_result blocks in the same user message.
+- 1.4 The audit line (persona, councillor slot, tool, arg shapes + hashes, causal index,
+  triggeringEventId slot) rides in the conversation's _spool on the reply path — the two per-turn KV
+  writes (audit:<day>:<id> + audit:index) are GONE. src/lib/tick.js runs last in every cron tick,
+  drains every spool entry newer than the previous tick's lastDrained from the 8 known conversation
+  keys (4 web + 4 private Telegram) without rewriting them, and writes ONE tick:YYYY-MM-DD:HHMM key
+  only if non-empty, plus the single-writer pointer tick:last (lastDrained, last 60 tick keys, the
+  Rule 5e day counter, R2 watermark). audit_recent / audit_turn / audit_why read the recent ticks
+  (legacy index as fallback). Once a day the tick keys of the day 31 days back are COPIED to R2
+  asgard/audit/YYYY-MM-DD.json; nothing in KV is deleted.
+- 1.5 src/lib/approvals.js: one key `approvals` (cap 50, 7-day expiry). Creating one sends
+  "[APPROVAL 1234] … Reply APPROVE 1234 or REJECT 1234" to Rayan's private chat from the persona's
+  own bot, with the literal recipient/body (describeAction, never the model) and the provenance.
+  "approve 1234" / "reject 1234" are honoured only on Rayan's private surfaces (private Telegram
+  from him, or the web), resolved without a model call. Tools approvals_list / approve / reject
+  were APPENDED to the master order and to the three visible gods' lists. Hard-confirm tools keep
+  the live confirmation on top: approving a text or call stages it for the existing "say yes" step.
+- Rule 5e: writeBudget() reads tick:last; new writers (approvals) refuse past 2,500/day.
+
+Verified live 2026-09-05 06:21 UTC: smoke ALL PASS; /admin/approval-test → Telegram message sent →
+"approve 2711" ran world_time → second approve refused; a Loki tool turn spooled an audit line;
+/admin/tick drained it into tick:2026-09-05:0621. New admin routes: /admin/approval-test, /admin/tick.
+
+## KV write budget table — Phase 1
+
+| feature | worst-case KV writes/day | change |
+|---|---|---|
+| audit trail on the reply path | 0 (was 2 per turn) | −2/turn |
+| approvals (create + resolve) | ≤2 per approval; bounded by tainted consequential asks | new |
+| tick key + tick:last | ≤2 per non-empty tick, ≤576/day worst case, typically <50 | new |
+| daily R2 audit copy | 0 KV (1 R2 put) | new |
+| everything else | unchanged | |
 
 ## Plan (Hard Rule 5)
 

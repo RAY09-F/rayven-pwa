@@ -9,6 +9,7 @@ import { getRecentMemoryBlock, addLongTermMemory } from './memory.js';
 import { askAgentForCheckIn } from './sibling-agents.js';
 import { sendTelegramMessage, getRayanPrivateChatId } from './telegram.js';
 import { runWebSearch, tavilySearch } from './search.js';
+import { provenance } from './conversation.js';
 
 // How often the unprompted "hey sir, checking in" Telegram message is allowed to
 // fire. This never actually ran before Phase 0 (no cron trigger existed), so
@@ -93,7 +94,7 @@ You do NOT have calendar or meeting access — never claim to check his schedule
       } else if (toolUse.name === 'ask_kevos') {
         toolResult = await askAgentForCheckIn('KEVOS', env.KEVOS_AGENT_URL, env.AGENT_KEY_RAYVEN_KEVOS, toolUse.input.question);
       } else if (toolUse.name === 'remember_this') {
-        toolResult = await addLongTermMemory(env, toolUse.input.fact);
+        toolResult = await addLongTermMemory(env, toolUse.input.fact, 'thor', null, provenance('check-in', 'thor', 'trusted-tool'));
       } else {
         toolResult = 'Unknown tool.';
       }
@@ -237,7 +238,7 @@ You do NOT have calendar or meeting access — never claim to check his schedule
       } else if (toolUse.name === 'tavily_research') {
         toolResult = await tavilySearch(env, toolUse.input.query);
       } else if (toolUse.name === 'remember_this') {
-        toolResult = await addLongTermMemory(env, toolUse.input.fact);
+        toolResult = await addLongTermMemory(env, toolUse.input.fact, 'thor', null, provenance('morning-briefing', 'thor', 'trusted-tool'));
       } else {
         toolResult = 'Unknown tool.';
       }

@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-09-05T06:07:03.479Z",
-  "count": 138,
+  "generatedAt": "2026-09-05T06:21:12.016Z",
+  "count": 141,
   "perPersona": {
     "thor": [
       "web_search",
@@ -76,7 +76,10 @@
       "watch_list",
       "watch_remove",
       "watch_pause",
-      "watch_resume"
+      "watch_resume",
+      "approvals_list",
+      "approve",
+      "reject"
     ],
     "loki": [
       "web_search",
@@ -122,7 +125,10 @@
       "watch_list",
       "watch_remove",
       "watch_pause",
-      "watch_resume"
+      "watch_resume",
+      "approvals_list",
+      "approve",
+      "reject"
     ],
     "odin": [
       "web_search",
@@ -179,7 +185,10 @@
       "watch_list",
       "watch_remove",
       "watch_pause",
-      "watch_resume"
+      "watch_resume",
+      "approvals_list",
+      "approve",
+      "reject"
     ],
     "hela": [
       "web_search",
@@ -319,7 +328,10 @@
       "watch_list",
       "watch_remove",
       "watch_pause",
-      "watch_resume"
+      "watch_resume",
+      "approvals_list",
+      "approve",
+      "reject"
     ]
   },
   "tools": [
@@ -2431,6 +2443,45 @@
         },
         "required": [
           "match"
+        ]
+      }
+    },
+    {
+      "name": "approvals_list",
+      "description": "Show every action waiting for Rayan's approval — things a session that had read untrusted content asked for and that were queued instead of run.",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "approve",
+      "description": "Approve a queued action by its four-digit number. Only when Rayan himself says so in this conversation. Texts and calls still get the live \"say yes\" on top.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "the four-digit approval number"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "reject",
+      "description": "Reject a queued action by its four-digit number.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
         ]
       }
     }

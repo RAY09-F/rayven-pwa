@@ -15,6 +15,7 @@ import { callAnthropicSimple } from './anthropic.js';
 import { tavilySearchRaw, runWebSearch } from './search.js';
 import { addLongTermMemory, getLongTermMemory } from './memory.js';
 import { notify } from './notifications.js';
+import { provenance } from './conversation.js';
 
 const K = {
   locked: 'hela:locked',
@@ -195,7 +196,7 @@ Respond with ONLY a JSON object, no fences: {"title":"six words or fewer","body"
   // Anything she judges genuinely worth telling also goes into her own
   // permanent memory, so she still knows it long after the brief scrolls away.
   if (parsed.worthTelling) {
-    try { await addLongTermMemory(env, `[found while locked in] ${parsed.title}: ${parsed.body}`, 'hela'); } catch (e) {}
+    try { await addLongTermMemory(env, `[found while locked in] ${parsed.title}: ${parsed.body}`, 'hela', null, provenance('vigil', 'hela', 'untrusted-content')); } catch (e) {}
   }
   return { ok: true, topic, title: parsed.title, worthTelling: !!parsed.worthTelling };
 }

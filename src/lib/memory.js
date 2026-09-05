@@ -19,6 +19,7 @@
 import { MODELS } from './models.js';
 import { PERSONAS, ALL_PERSONA_IDS, DEFAULT_PERSONA_ID, getPersona } from './personas.js';
 import { callAnthropicSimple } from './anthropic.js';
+import { provenance } from './conversation.js';
 
 const EMBEDDING_MODEL = MODELS.embedding;
 
@@ -127,7 +128,8 @@ export async function getRecentMemoryBlock(env, personaId = DEFAULT_PERSONA_ID) 
 
   const formatItem = (m) => {
     const shared = m.sharedFrom ? ` (told to you by ${m.sharedFrom.toUpperCase()})` : '';
-    return `- [${m.date}]${m.supersededBy ? ' (superseded by a newer memory)' : ''}${shared} ${m.fact}`;
+    const trust = m.prov && m.prov.trust === 'untrusted-content' ? ' (from outside content, not from Rayan)' : '';
+    return `- [${m.date}]${m.supersededBy ? ' (superseded by a newer memory)' : ''}${shared}${trust} ${m.fact}`;
   };
 
   let block = '';
@@ -151,12 +153,16 @@ export async function getRecentMemoryBlock(env, personaId = DEFAULT_PERSONA_ID) 
   return block;
 }
 
-export async function addLongTermMemory(env, fact, personaId = DEFAULT_PERSONA_ID, sharedFrom = null) {
+// prov: the Phase 1.1 provenance shape { source, persona, ts, trust } built by
+// conversation.provenance(). Entries saved before it have none and are read as
+// 'legacy' -- they are never rewritten.
+export async function addLongTermMemory(env, fact, personaId = DEFAULT_PERSONA_ID, sharedFrom = null, prov = null) {
   const cleanFact = String(fact).trim();
   const mem = await getRawMemory(env, personaId);
   const id = crypto.randomUUID();
   const entry = { id, date: new Date().toISOString().slice(0, 10), fact: cleanFact, supersededBy: null };
   if (sharedFrom) entry.sharedFrom = sharedFrom;
+  if (prov && typeof prov === 'object') entry.prov = prov;
 
   let vector = null;
   try {
@@ -228,7 +234,7 @@ export async function extractAndSaveFacts(env, text, personaId = DEFAULT_PERSONA
   for (const fact of facts) {
     const clean = String(fact || '').trim();
     if (!clean) continue;
-    await addLongTermMemory(env, clean, personaId);
+    await addLongTermMemory(env, clean, personaId, null, provenance('auto-capture', personaId, 'rayan'));
     saved++;
   }
   return { saved };
@@ -359,6 +365,7 @@ export async function shareMemory(env, memId, fromPersonaId, toPersonaId) {
     sharedFrom: item.sharedFrom || fromPersonaId, // original attribution survives re-shares
     sharedFromId: memId
   };
+  if (item.prov) copy.prov = { ...item.prov, source: `shared:${item.prov.source}` };
   targetMem.push(copy);
   await saveRawMemory(env, toPersonaId, targetMem);
   try {

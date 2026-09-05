@@ -35,7 +35,9 @@ import { askSiblingAgent } from './sibling-agents.js';
 import { watchAdd, watchList, watchRemove, watchPause, watchResume } from './monitoring.js';
 import { getPaperSummaryText } from './paperTrading.js';
 import { getPersona, personaAllowsTool, toolOwnerName, DEFAULT_PERSONA_ID } from './personas.js';
-import { marksTainted, isConsequential, wrapUntrusted, describeAction, getAllowedHosts, allowHost } from './containment.js';
+import { marksTainted, isConsequential, wrapUntrusted, describeAction, getAllowedHosts, allowHost, needsApprovalWhileTainted, UNTRUSTED_HANDLING } from './containment.js';
+import { createApproval, resolveApproval, listApprovals, APPROVAL_TOOL_DEFINITIONS } from './approvals.js';
+import { isTainted, markTainted, noteDomain, taintProvenance, spoolPush, provenance } from './conversation.js';
 
 // Task Observer — every tool execution gets timed and logged (which tool, when,
 // success/failure, duration) via the same capped-KV-log pattern as agent:log/
@@ -44,12 +46,14 @@ import { marksTainted, isConsequential, wrapUntrusted, describeAction, getAllowe
 const TASK_LOG_KEY = 'task:log';
 const TASK_LOG_CAP = 500;
 
-export async function executeTool(env, name, input, personaId = DEFAULT_PERSONA_ID) {
+// ctx (optional): { tainted, meta } from the turn that is calling -- so a
+// memory write can carry honest provenance and a tool can see the session.
+export async function executeTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {}) {
   const startedAt = Date.now();
   let success = true;
   let error = null;
   try {
-    return await runTool(env, name, input, personaId);
+    return await runTool(env, name, input, personaId, ctx);
   } catch (err) {
     success = false;
     error = err.message;
@@ -75,13 +79,17 @@ export async function getTaskLog(env) {
   return await readCappedLog(env, TASK_LOG_KEY);
 }
 
-async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID) {
+async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {}) {
   switch (name) {
     case 'web_search': return await runWebSearch(env, input.query);
     case 'tavily_research': return await tavilySearch(env, input.query);
     case 'tavily_extract': return await tavilyExtract(env, input.url);
     case 'tavily_crawl': return await tavilyCrawl(env, input.url, input.instructions);
-    case 'remember_this': return await addLongTermMemory(env, input.fact, personaId);
+    case 'remember_this': return await addLongTermMemory(env, input.fact, personaId, null, provenance('remember_this', personaId, ctx && ctx.tainted ? 'untrusted-content' : 'rayan'));
+    // Phase 1.5 -- the approvals inbox
+    case 'approvals_list': return await listApprovals(env);
+    case 'approve': return (await resolveApproval(env, input && input.id, 'approve', (e, t, i, p) => executeTool(e, t, i, p))).text;
+    case 'reject': return (await resolveApproval(env, input && input.id, 'reject', (e, t, i, p) => executeTool(e, t, i, p))).text;
     case 'search_memory': return await searchMemory(env, input, personaId);
     case 'add_todo': return await addTodo(env, input.text);
     case 'list_todos': return await listTodos(env);
@@ -768,6 +776,9 @@ export const TOOL_DEFINITIONS = [
     input_schema: { type: 'object', properties: { match: { type: 'string' } }, required: ['match'] }
   }
 ];
+// Rule 6: new tools are APPENDED to the master order, never re-sorted, so the
+// array a persona sees stays byte-identical between calls.
+TOOL_DEFINITIONS.push(...APPROVAL_TOOL_DEFINITIONS);
 
 // Tool schemas a given persona is allowed to see. Thor (toolNames: null) gets
 // everything; restricted personas get only their allow-list. The prompt-level
@@ -807,19 +818,28 @@ function withMessageCacheBreakpoint(messages) {
   return messages;
 }
 
-export async function callClaudeWithTools(env, personaAndBaseline, channelAndSender, longTermMemoryBlock, initialMessages, allowTools, extraContext, personaId = DEFAULT_PERSONA_ID, startTainted = false) {
+// convo (optional): { meta, channel, sender } -- the conversation object the
+// reply will save. When present the taint bit is read from and persisted into
+// it and the audit line rides in its _spool (Rule 5a). Cron callers pass
+// nothing and their audit line goes to the tick buffer instead.
+export async function callClaudeWithTools(env, personaAndBaseline, channelAndSender, longTermMemoryBlock, initialMessages, allowTools, extraContext, personaId = DEFAULT_PERSONA_ID, startTainted = false, convo = null) {
   // THE TAINT BIT. One boolean, and it is the only real security boundary in
   // this system. It flips the moment anything somebody else wrote enters the
   // conversation, and from then on nothing consequential runs without Rayan
   // seeing the literal payload first. Cheap version of Microsoft's FIDES,
   // which cut successful injections from 163 to 1 on AgentDojo while
   // completing MORE tasks — containment is not a tax on capability.
-  let tainted = !!startTainted;
-  const taintSources = [];
-  // One trace per turn, one KV write at the end. taintCause holds the index of
-  // the event that first brought untrusted content in; every consequential
-  // action after it records that index. That single field is the causal chain.
-  const trace = newTrace({ personaId, channel: 'chat', startTainted });
+  const meta = convo && convo.meta && typeof convo.meta === 'object' ? convo.meta : {};
+  const channel = (convo && convo.channel) || 'chat';
+  const _pp = getPersona(personaId);
+  const historyCap = _pp.historyTurns || 30;
+  if (startTainted) markTainted(meta, channel, historyCap);
+  let tainted = !!startTainted || isTainted(meta);
+  const taintSources = isTainted(meta) ? meta.tainted.sources.map(x => x.source) : [];
+  // One trace per turn. taintCause holds the index of the event that first
+  // brought untrusted content in; every consequential action after it records
+  // that index. That single field is the causal chain.
+  const trace = newTrace({ personaId, channel, sender: convo && convo.sender, startTainted: tainted });
   let taintCause = 0;
   const systemBlocks = [
     { type: 'text', text: personaAndBaseline, cache_control: { type: 'ephemeral' } },
@@ -849,7 +869,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   for (let iteration = 0; iteration < maxIter; iteration++) {
     const result = await callAnthropic(env, systemBlocks, toolsForThisCall, messages, maxTok);
     lastResult = result;
-    if (!result.ok) { record(trace, 'error', 'anthropic', { note: `HTTP ${result.status || '?'}`, ok: false }); await commitTrace(env, trace); return result; }
+    if (!result.ok) { record(trace, 'error', 'anthropic', { note: `HTTP ${result.status || '?'}`, ok: false }); await commitTrace(env, trace, convo ? meta : null); return result; }
 
     const data = result.data;
     if (data.stop_reason === 'tool_use') {
@@ -864,6 +884,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
       if (!toolUseBlocks.length) break;
 
       const toolResults = [];
+      let anyUntrusted = false;
       for (const blk of toolUseBlocks) {
         let toolResult;
         if (!personaAllowsTool(personaId, blk.name)) {
@@ -877,6 +898,17 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
           if (tainted && isConsequential(blk.name) && permLevel !== 'off') permLevel = 'confirm';
           if (permLevel === 'off') {
             toolResult = `That tool (${blk.name}) is currently turned off, sir.`;
+          } else if (tainted && needsApprovalWhileTainted(blk.name, blk.input, meta)) {
+            // Phase 1.1/1.5: not run, not "confirmed" -- QUEUED for Rayan with the
+            // literal recipient, body and where the content came from. The one
+            // extra write the reply path is allowed.
+            const prov = 'derived from ' + (taintProvenance(meta) || taintSources.join(', ') || 'untrusted content');
+            const ap = await createApproval(env, { persona: personaId, tool: blk.name, input: blk.input, tainted, sources: taintSources, provenance: prov, channel });
+            record(trace, 'policy', blk.name, { note: ap.ok ? `queued as approval ${ap.id}` : `approval refused: ${ap.error}`, tainted, cause: taintCause, ok: false });
+            if (ap.ok) spoolPush(meta, 'approval', { id: ap.id, tool: blk.name, persona: personaId, writes: 1 });
+            toolResult = ap.ok
+              ? `HELD FOR RAYAN'S APPROVAL (#${ap.id}). This session has read content written by someone else (${prov}), so ${blk.name} was queued instead of run. Rayan has the exact details on Telegram and can reply APPROVE ${ap.id} or REJECT ${ap.id}. Tell him it is waiting on him; never say it happened.`
+              : `Could not queue that for approval: ${ap.error}. Nothing was done.`;
           } else if (permLevel === 'confirm') {
             await env.RAYVEN_KV.put(`pending:${personaId}`, JSON.stringify({ toolName: blk.name, toolInput: blk.input, personaId, created: Date.now() }), { expirationTtl: 300 });
             // Built by string concatenation from the raw arguments, never by the
@@ -892,7 +924,8 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
             // leave its tool_use unanswered. Now the failure becomes the result,
             // which is both survivable and something the model can react to.
             try {
-              toolResult = await executeTool(env, blk.name, blk.input, personaId);
+              toolResult = await executeTool(env, blk.name, blk.input, personaId, { tainted, meta });
+              if (blk.name === 'browser_navigate') noteDomain(meta, blk.input && blk.input.url);
               // Anything that returns text somebody else wrote taints the rest
               // of the session, and gets JSON-wrapped so a payload cannot break
               // out of its own field and imitate conversation structure.
@@ -901,6 +934,8 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
               if (marksTainted(blk.name)) {
                 if (!tainted) { tainted = true; taintCause = evIdx; }
                 if (!taintSources.includes(blk.name)) taintSources.push(blk.name);
+                markTainted(meta, blk.name, historyCap);
+                anyUntrusted = true;
                 toolResult = wrapUntrusted(blk.name, toolResult);
               }
             } catch (err) {
@@ -913,12 +948,15 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
       }
 
       messages.push({ role: 'assistant', content: data.content });
-      messages.push({ role: 'user', content: toolResults });
+      // Phase 1.3: the handling instruction is a text block AFTER the
+      // tool_result blocks in the same user message -- the API's shape --
+      // never inside the untrusted payload itself.
+      messages.push({ role: 'user', content: anyUntrusted ? [...toolResults, { type: 'text', text: UNTRUSTED_HANDLING }] : toolResults });
       continue;
     }
-    await commitTrace(env, trace);
+    await commitTrace(env, trace, convo ? meta : null);
     return result;
   }
-  await commitTrace(env, trace);
+  await commitTrace(env, trace, convo ? meta : null);
   return lastResult;
 }
