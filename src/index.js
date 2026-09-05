@@ -39,6 +39,7 @@ import { healthReport, publicHealth, runSystemCheckIfDue } from './lib/healthz.j
 import { buildVault, runVaultBackupIfDue } from './lib/vault.js';
 import { collectBatchesIfAny } from './lib/batch.js';
 import { runPollersIfDue } from './lib/pollers.js';
+import { ledger, ledgerBackend, ledgerAvailable } from './lib/ledger.js';
 import { resumeBatchedRoutine } from './lib/routines.js';
 import { handleMcp } from './lib/mcp.js';
 import { openGroups, groupsByKeywords, toolsForConversation, coreFor, openGroupNames, groupOf } from './tools/meta.js';
@@ -500,6 +501,9 @@ async function handleCallbackQuery(env, cq, botToken) {
   await editMessageText(env, botToken, chat.id, cq.message.message_id, `${original}\n\n— ${m[1] === 'approve' ? 'APPROVED' : 'REJECTED'} by the button: ${String(r && r.text || '').slice(0, 800)}`);
 }
 
+// Phase 9: the ledger class must be exported from the entry module for the binding to resolve.
+export { AsgardLedger } from './ledger-do.js';
+
 export default {
   async fetch(request, env, ctx) {
     const corsHeaders = {
@@ -539,6 +543,19 @@ export default {
       const obj = await env.CLIPS.get(key).catch(() => null);
       if (!obj) return new Response('Gone.', { status: 404, headers: corsHeaders });
       return new Response(obj.body, { headers: { ...corsHeaders, 'content-type': (obj.httpMetadata && obj.httpMetadata.contentType) || 'application/octet-stream', 'cache-control': 'private, no-store', 'x-robots-tag': 'noindex' } });
+    }
+    // Phase 9: prove the ledger works regardless of the flag (writes one probe row, reads it back, reports counts).
+    if (url.pathname === '/admin/ledger-test' && request.method === 'GET') {
+      const provided = request.headers.get('X-Asgard-Admin') || '';
+      const expected = env.ADMIN_TOKEN || '';
+      if (!expected || !(await timingSafeEqual(provided, expected))) return json({ error: 'X-Asgard-Admin required' }, corsHeaders, 401);
+      if (!ledgerAvailable(env)) return json({ ok: false, backend: ledgerBackend(env), error: 'no LEDGER binding' }, corsHeaders);
+      try {
+        const ping = await ledger.ping(env);
+        await ledger.put(env, 'probe', { at: new Date().toISOString() });
+        const back = await ledger.get(env, 'probe');
+        return json({ ok: true, backend: ledgerBackend(env), tables: ping.tables, probe: back, counts: await ledger.counts(env) }, corsHeaders);
+      } catch (e) { return json({ ok: false, backend: ledgerBackend(env), error: String(e && e.message || e) }, corsHeaders); }
     }
     // Phase 7.0: live tool testing without a model turn, the toolbox preview, and CORE token counts (all ADMIN_TOKEN).
     if ((url.pathname === '/admin/tool-test' || url.pathname === '/admin/toolbox' || url.pathname === '/admin/core-tokens') && request.method === 'GET') {

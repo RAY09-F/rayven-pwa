@@ -493,3 +493,37 @@ the store (2 writes); ownership is enforced (Loki cannot switch on Thor's). The 
 
 **Rayan's 7.0 checklist could not be asked** (asleep). Keyed groups were not built; the no-key catalogue was built
 regardless. The list of keys that would unlock more is in `docs/TOOL_TESTS.md`.
+
+## Phase 8 — skipped on purpose
+Section 3 (Strike Three) replaces Phase 8: `public/fx/cores/` exists (Loki, Thor, Odin arc cores, the council,
+the hub page), so nothing here was rebuilt. See `docs/STRIKE_THREE_PROGRESS.md`.
+
+## Phase 9 — storage relief (the ledger)
+- `src/ledger-do.js`: **`AsgardLedger`**, one SQLite-backed Durable Object (`DurableObject` from `cloudflare:workers`
+  — a runtime module, no npm) with tables tick, audit, events, routines, routine_runs, council_state, cost, kv.
+  Exported from the entry module; binding `LEDGER`; migration `v1-ledger` (`new_sqlite_classes`). **Never
+  git-revert that migration commit** — removing a bound class needs a `deleted_classes` migration.
+- `src/lib/ledger.js`: the one accessor. `LEDGER_BACKEND` (wrangler var) `kv` | `do`.
+- **Copy-forward, never move:** with `do`, new tick bodies (+ their audit lines and events) and the daily cost
+  summary go to the ledger only; `tick:last` lives in the ledger (copied forward from KV on the first read);
+  routines and councillor state are **dual-written** (KV and ledger) for the trial; `readRecentTicks` reads the
+  ledger. Existing `tick:` / `audit` KV keys are neither deleted nor read-migrated — so the audit tools and the
+  HUD's council log show only ledger ticks from the flip onwards until history accrues (expected). Memory,
+  history, the paper book and trade log, capabilities and config keys never touch the ledger.
+- `GET /admin/ledger-test` proves the object regardless of the flag (tables, a probe row, counts).
+- Deployed first with `kv` (42370bed…): smoke ALL PASS, the object answered with all tables. Then flipped to **`do`**
+  (29267926…): smoke ALL PASS, `/admin/tick` forced (empty at that moment, so no row yet), `/council/status` and
+  `/status` still answer. Rollback for THIS phase only: set `LEDGER_BACKEND = "kv"` and redeploy.
+- Note for future sessions: the Node import probe of `src/index.js` no longer works (`cloudflare:workers` resolves
+  only in the runtime); probe `src/lib/tools.js` or `src/lib/routines.js` instead.
+
+## WAITING ON RAYAN (Part B + C)
+- Look at everything visual (the list is in `docs/STRIKE_THREE_PROGRESS.md`, NEEDS RAYAN'S EYES).
+- The three hall pictures for `/halls-preview` (`public/img/`).
+- Secrets, only if wanted, by name (Rule 4): `NTFY_TOPIC` (phone pushes), `DISCORD_WEBHOOK_URL`, `GITHUB_TOKEN`
+  (revives github_activity), `NASA_API_KEY` (optional), `CF_ANALYTICS_TOKEN` + `CF_ACCOUNT_ID` (optional health
+  detail), `ELEVENLABS_VOICE_ID` (optional). Keyed tool groups (Notion, Todoist, Finnhub, FRED, Adzuna, USAJobs,
+  TMDB, Ticketmaster, CoinGecko Demo, Whop, Steam, smart home) wait for the 7.0 checklist answer.
+- A real `@ASGARD status` from JARVIS or KEVOS in the group (the path is live, only a probe has run).
+- The ledger trial: two clean weeks on `do`, then decide whether KV's ceilings apply to KV writers only (9.3).
+- `public/hela3.html` and `public/h9.html` predate this work; nothing deletes them without you.

@@ -62,3 +62,23 @@ crons = ["*/5 * * * *"]
 # derived from an incoming request URL.
 [vars]
 TELEGRAM_WEBHOOK_HOST = "https://asgrard-backend.rayanfahil2.workers.dev"
+# Phase 9: 'kv' | 'do' — see the ledger block at the end of this file.
+LEDGER_BACKEND = "do"
+
+# ---------------------------------------------------------------------------
+# asgard-upgrade Phase 9: the ledger. One SQLite-backed Durable Object holding
+# the state the upgrade introduced (ticks, audit, events, routine runs, council
+# state, cost). COPY-FORWARD only: nothing in KV is deleted or read-migrated.
+# LEDGER_BACKEND selects the path: 'kv' = exactly today's behaviour; 'do' = new
+# ticks/audit/events/cost go to the ledger, routines and councillor state are
+# written to BOTH for the trial. Rollback for this phase: set LEDGER_BACKEND
+# back to 'kv' and redeploy. NEVER git-revert the migration below — removing
+# a bound class needs a deleted_classes migration and the reverted config
+# will not deploy.
+[[durable_objects.bindings]]
+name = "LEDGER"
+class_name = "AsgardLedger"
+
+[[migrations]]
+tag = "v1-ledger"
+new_sqlite_classes = ["AsgardLedger"]

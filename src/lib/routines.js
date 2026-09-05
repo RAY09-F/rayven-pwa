@@ -32,6 +32,7 @@ import { createApproval } from './approvals.js';
 import { COUNCIL, councilOf, runCouncillor, recordCouncilRun, getCouncilStatus } from './council.js';
 import { callAnthropicSimple } from './anthropic.js';
 import { costLine, costReportText } from './cost.js';
+import { ledger, mirror } from './ledger.js';
 import { submitAndRemember } from './batch.js';
 import { MODELS } from './models.js';
 import { TIERS } from './council.js';
@@ -58,7 +59,7 @@ async function readJson(env, key, fallback) { try { const raw = await env.RAYVEN
 async function readIndex(env) { const i = await readJson(env, INDEX_KEY, []); return Array.isArray(i) ? i : []; }
 async function writeIndex(env, index) { await env.RAYVEN_KV.put(INDEX_KEY, JSON.stringify(index)); noteWrites(1); }
 async function readRoutine(env, id) { return await readJson(env, keyFor(id), null); }
-async function writeRoutine(env, r) { await env.RAYVEN_KV.put(keyFor(r.id), JSON.stringify(r)); noteWrites(1); }
+async function writeRoutine(env, r) { await env.RAYVEN_KV.put(keyFor(r.id), JSON.stringify(r)); noteWrites(1); await mirror(env, () => ledger.putRoutine(env, r.id, r.owner, r)); }   // Phase 9: dual-written to the ledger during the trial
 
 function slug(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'routine'; }
 

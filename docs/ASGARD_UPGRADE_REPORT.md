@@ -92,6 +92,12 @@ tonight at nine", "earthquake over 4.0 within 100 miles → tell me", "new job m
 **Phone pushes and Discord** wait for two secrets (`NTFY_TOPIC`, `DISCORD_WEBHOOK_URL`); the tools tell you exactly
 what to type.
 
+## Storage (Part C, Phase 9)
+
+A new ledger (one Durable Object with SQLite) now takes the upgrade's own bookkeeping — ticks, audit lines,
+events, cost — off the KV write budget, and mirrors routines and councillor state for a two-week trial. Nothing
+was moved or deleted; the flag `LEDGER_BACKEND` in `wrangler.toml` switches back to `kv` in one deploy.
+
 ## What costs money and roughly how much
 
 - Claude: Sonnet 5 for the gods ($2 / $10 per million tokens), Haiku for the
@@ -119,7 +125,7 @@ what to type.
 
 ## Not built, and why
 
-- 6.1 tool subsets — superseded by Part C's toolbox mechanism.
+- 6.1 tool subsets — superseded by Part C's toolbox mechanism (built: each god sees ~40 core tools, the rest open by keyword or `find_tools`).
 - 6.4 new embedding index — the current embedder is already the free Workers
   AI model, so the spec says defer.
 - 6.5 Cloudflare Browser Rendering as a reader — needs either an npm package

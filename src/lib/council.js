@@ -17,6 +17,7 @@
 // rename a key on either side.
 // ===========================================================================
 import { MODELS } from './models.js';
+import { ledger, mirror } from './ledger.js';
 import { TOOL_DEFINITIONS, callClaudeWithTools } from './tools.js';
 import { PERSONAS, getPersona, getPersonaBotToken } from './personas.js';
 import { spoolPush } from './conversation.js';
@@ -150,7 +151,7 @@ export async function recordCouncilRun(env, id, { summary, detail, didSomething 
   if (!didSomething) return;
   const state = await readCouncilState(env, id);
   const next = { ...state, ...(patch || {}), lastRun: line.time, lastSummary: line.summary, runs: (state.runs || 0) + 1 };
-  try { await env.RAYVEN_KV.put(stateKeyFor(id), JSON.stringify(next)); noteWrites(1); } catch (e) { console.error('council state write failed:', id, e && e.message); }
+  try { await env.RAYVEN_KV.put(stateKeyFor(id), JSON.stringify(next)); noteWrites(1); await mirror(env, () => ledger.putCouncil(env, id, next)); } catch (e) { console.error('council state write failed:', id, e && e.message); }   // Phase 9: dual-written to the ledger during the trial
 }
 
 // ---- 2.2 the runner ----------------------------------------------------------

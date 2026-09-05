@@ -12,6 +12,7 @@
 // prefix scan), the Rule 5e write counter for the UTC day, and the R2 copy
 // watermark. Only the tick writes it, so there is no overlapping writer.
 import { emptyCost, addCost } from './cost.js';
+import { ledger, ledgerBackend } from './ledger.js';
 import { loadConversation } from './conversation.js';
 import { historyKeyFor, ALL_PERSONA_IDS } from './personas.js';
 
@@ -35,6 +36,8 @@ function utcDay(ts = Date.now()) { return new Date(ts).toISOString().slice(0, 10
 function tickKeyFor(ts = Date.now()) { const d = new Date(ts); return `tick:${d.toISOString().slice(0, 10)}:${String(d.getUTCHours()).padStart(2, '0')}${String(d.getUTCMinutes()).padStart(2, '0')}`; }
 
 export async function readTickLast(env) {
+  // Phase 9: with the ledger on, the pointer lives there (copied forward from KV on the first read).
+  if (ledgerBackend(env) === 'do') { try { const v = await ledger.get(env, 'tick:last'); if (v) return v; } catch (e) {} }
   try { const raw = await env.RAYVEN_KV.get(LAST_KEY); return raw ? JSON.parse(raw) : {}; } catch (e) { return {}; }
 }
 
@@ -125,7 +128,7 @@ export async function runTick(env, hooks = {}) {
   // first tick of a new UTC day: yesterday's total becomes its ONE summary key
   let costWrite = 0;
   if (last.day && last.day !== today && last.costToday && last.costToday.calls > 0) {
-    try { await env.RAYVEN_KV.put(`cost:${last.day}`, JSON.stringify(last.costToday)); costWrite = 1; } catch (e) { console.error('cost summary write failed:', e && e.message); }
+    try { if (ledgerBackend(env) === 'do') await ledger.putCost(env, last.day, last.costToday); else { await env.RAYVEN_KV.put(`cost:${last.day}`, JSON.stringify(last.costToday)); costWrite = 1; } } catch (e) { console.error('cost summary write failed:', e && e.message); }
   }
   const next = {
     day: today,
@@ -146,17 +149,24 @@ export async function runTick(env, hooks = {}) {
   let wrote = false;
   if (!empty) {
     const body = { key, at: new Date().toISOString(), lastDrained: newest, drained, audit: buffer.audit, autonomy: buffer.autonomy, events: buffer.events, notes: buffer.notes, cost: buffer.cost, writesThisTick };
-    try { await env.RAYVEN_KV.put(key, JSON.stringify(body)); wrote = true; next.writesToday += 1; next.recent.push(key); if (next.recent.length > RECENT_KEEP) next.recent = next.recent.slice(-RECENT_KEEP); }
-    catch (e) { console.error('tick write failed:', e && e.message); }
+    // Phase 9: with the ledger on, the tick body, its audit lines and events go to the ledger (single path); KV keeps only what it already has.
+    if (ledgerBackend(env) === 'do') {
+      try { await ledger.putTick(env, key, body.at, body); if (buffer.audit.length) await ledger.putAudit(env, key, buffer.audit); if (buffer.events.length) await ledger.putEvents(env, buffer.events); wrote = true; next.recent.push(key); if (next.recent.length > RECENT_KEEP) next.recent = next.recent.slice(-RECENT_KEEP); }
+      catch (e) { console.error('ledger tick write failed, falling back to KV:', e && e.message); try { await env.RAYVEN_KV.put(key, JSON.stringify(body)); wrote = true; next.writesToday += 1; next.recent.push(key); } catch (e2) {} }
+    } else {
+      try { await env.RAYVEN_KV.put(key, JSON.stringify(body)); wrote = true; next.writesToday += 1; next.recent.push(key); if (next.recent.length > RECENT_KEEP) next.recent = next.recent.slice(-RECENT_KEEP); }
+      catch (e) { console.error('tick write failed:', e && e.message); }
+    }
   }
-  next.writesToday += 1;   // the pointer write itself, counted before it is stored
-  try { await env.RAYVEN_KV.put(LAST_KEY, JSON.stringify(next)); } catch (e) {}
+  if (ledgerBackend(env) === 'do') { try { await ledger.put(env, 'tick:last', next); } catch (e) { next.writesToday += 1; try { await env.RAYVEN_KV.put(LAST_KEY, JSON.stringify(next)); } catch (e2) {} } }
+  else { next.writesToday += 1; try { await env.RAYVEN_KV.put(LAST_KEY, JSON.stringify(next)); } catch (e) {} }   // the pointer write itself, counted before it is stored
   buffer.audit.length = 0; buffer.autonomy.length = 0; buffer.events.length = 0; buffer.notes.length = 0; buffer.cost.length = 0; buffer.writes = 0;
   return { ok: true, key: wrote ? key : null, drained: drained.length, writesToday: next.writesToday };
 }
 
 // For the audit tools: the last n tick bodies, newest first.
 export async function readRecentTicks(env, n = 12) {
+  if (ledgerBackend(env) === 'do') { try { return await ledger.recentTicks(env, n); } catch (e) { console.error('ledger read failed, reading KV:', e && e.message); } }
   const last = await readTickLast(env);
   const keys = (Array.isArray(last.recent) ? last.recent : []).slice(-Math.max(1, Math.min(n, RECENT_KEEP))).reverse();
   const out = [];
