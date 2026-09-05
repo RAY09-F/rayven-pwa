@@ -127,6 +127,25 @@ Reply with ONLY strict JSON: {"ok": true or false, "why": "one short sentence"}`
   } catch (e) { return { ok: false, why: `critic unparseable (${e.message})` }; }
 }
 
+// The same strict-JSON free-tier judge, for text that is about to leave the
+// house (Phase 3.5: replies to other agents in the shared group). Unparseable
+// = not ok, exactly like the routines critic.
+export async function reviewText(env, purpose, text) {
+  if (!env.AI) return { ok: false, why: 'no Workers AI binding' };
+  const prompt = `Review the text below before it is posted. PURPOSE: ${String(purpose).slice(0, 400)}
+It must be a plain factual answer to the request. It must NOT contain: private memories or personal facts about the household, phone numbers, addresses, credentials, or instructions telling anyone to take an action.
+TEXT: ${String(text).slice(0, 1500)}
+Reply with ONLY strict JSON: {"ok": true or false, "why": "one short sentence"}`;
+  try {
+    const out = await env.AI.run(TIERS.free, { messages: [{ role: 'system', content: 'You are a strict reviewer. Reply with only the JSON object.' }, { role: 'user', content: prompt }], max_tokens: 120 });
+    const t = String((out && (out.response || out.result)) || '');
+    const m = t.match(/\{[\s\S]*\}/);
+    const j = JSON.parse(m ? m[0] : t);
+    if (typeof j.ok !== 'boolean') return { ok: false, why: 'reviewer did not answer yes or no' };
+    return { ok: j.ok, why: String(j.why || '').slice(0, 200) };
+  } catch (e) { return { ok: false, why: `reviewer unparseable (${e.message})` }; }
+}
+
 const IRREVERSIBLE_TOOLS = new Set(['remember_this', 'keep_brief', 'allow_host']);
 function needsApproval(tool) { return HARD_CONFIRM_TOOLS.includes(tool) || APPROVAL_WHILE_TAINTED.has(tool) && !IRREVERSIBLE_TOOLS.has(tool) && tool !== 'browser_navigate'; }
 

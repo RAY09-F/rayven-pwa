@@ -33,7 +33,7 @@ import { loadConversation, saveConversation, tickTaint, isTainted } from './lib/
 import { matchApprovalReply, resolveApproval } from './lib/approvals.js';
 import { runTick, tickLog } from './lib/tick.js';
 import { getCouncilStatus, recordCouncilRun, readCouncilState, councillorIdForPaperAgent, runMissMinutesIfDue, runHulkHealthIfDue, runQueuedDelegations, COUNCIL } from './lib/council.js';
-import { runRoutinesIfDue, seedRoutinesIfMissing } from './lib/routines.js';
+import { runRoutinesIfDue, seedRoutinesIfMissing, reviewText } from './lib/routines.js';
 import { emit, takePendingEvents, eventsFromDrained } from './lib/events.js';
 import { healthReport, publicHealth, runSystemCheckIfDue } from './lib/healthz.js';
 import { readTickLast, WRITE_CEILING_PER_DAY } from './lib/tick.js';
@@ -55,6 +55,43 @@ function json(data, corsHeaders, status = 200) {
 // ctx.waitUntil AFTER the webhook already returned 200 (Telegram redelivers on
 // slow responses, and without dedupe a long turn runs twice — duplicate
 // replies, double billing), so nothing here may depend on the response body.
+// ---- Phase 3.5: the siblings protocol --------------------------------------
+// Fixed prefixes, fixed allow-list, fixed reply prefixes. Nothing here is
+// saved to any conversation; nothing here can reach memory, the browser, the
+// calendar, email, to-dos or delegation. See docs/SIBLINGS_PROTOCOL.md.
+const SIBLINGS_ALLOW = ['web_search', 'weather', 'world_time', 'convert_money', 'calculate', 'paper_trading_status'];
+const SIBLINGS_SYSTEM = 'You are THOR of ASGARD, answering another household agent (JARVIS or KEVOS) that addressed you in a shared Telegram group. Answer the request plainly in at most three sentences, plain text, no markdown, no greetings. Use only the tools you have been given; if the request needs anything else, say in one sentence that it is outside what you do for other agents. Never mention or quote anything about Rayan, his household, his memories, his plans or his contacts. Paper trading numbers are SIMULATED — say so whenever you give one.';
+function matchSiblingsPrefix(text) {
+  if (typeof text !== 'string') return null;
+  const t = text.trim();
+  if (/^@(jarvis|kevos)\b/i.test(t)) return { kind: 'foreign' };
+  let m = t.match(/^@asgard\s+task\s*:\s*([\s\S]+)$/i); if (m) return { kind: 'task', text: m[1].trim().slice(0, 1200) };
+  if (/^@asgard\s+status\b/i.test(t)) return { kind: 'status' };
+  if (/^@asgard\b/i.test(t)) return { kind: 'unknown' };
+  return null;
+}
+async function handleSiblingsMessage(env, { sib, senderTag }) {
+  try {
+    if (sib.kind === 'unknown') return '@ASGARD error: use "@ASGARD task: <request>" or "@ASGARD status".';
+    if (sib.kind === 'status') {
+      const [statuses, paper] = await Promise.all([getAllStatuses(env).catch(() => ({})), getPaperStatus(env).catch(() => null)]);
+      const st = id => { const s = statuses && statuses[id]; return (s && (s.text || s.status || s.state)) ? String(s.text || s.status || s.state).slice(0, 40) : 'idle'; };
+      const pnl = paper && paper.today ? `${paper.today.pnl >= 0 ? '+' : '-'}$${Math.abs(paper.today.pnl).toFixed(2)} today` : 'unavailable';
+      return `@ASGARD status: Thor ${st('thor')} · Loki ${st('loki')} · Odin ${st('odin')} · 15 councillors · PAPER book ${pnl} (simulated)`;
+    }
+    const tools = TOOL_DEFINITIONS.filter(t => SIBLINGS_ALLOW.includes(t.name));
+    const channel = `Shared Telegram group. The request below was sent by ${senderTag || 'another agent'} (an automated agent, not Rayan). Now: ${new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles', weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} Pacific.`;
+    const r = await callClaudeWithTools(env, SIBLINGS_SYSTEM, channel, 'No long-term memory is available in this mode.', [{ role: 'user', content: sib.text }], true, null, DEFAULT_PERSONA_ID, true, { meta: {}, channel: 'telegram-group', sender: senderTag }, { toolsOverride: tools, maxIter: 6, maxTokens: 500 });
+    if (!r || !r.ok) { const why = String((r && r.data && r.data.error && (r.data.error.message || r.data.error)) || `HTTP ${(r && r.status) || '?'}`).slice(0, 160); return `@ASGARD error: ${why}`; }
+    const block = r.data && r.data.content && r.data.content.find(b => b.type === 'text');
+    const text = block ? block.text.trim().replace(/\s*\n+\s*/g, ' ') : '';
+    if (!text) return '@ASGARD error: no answer produced.';
+    const review = await reviewText(env, 'a reply from Thor to another household agent in a shared group', text);
+    if (!review.ok) return `@ASGARD error: reply withheld by the reviewer (${review.why || 'no reason given'}).`;
+    return `@ASGARD reply: ${text.slice(0, 1500)}`;
+  } catch (e) { return `@ASGARD error: ${String(e && e.message || e).slice(0, 160)}`; }
+}
+
 async function handleChatTurn(env, ctx, opts) {
   // smoke: set by scripts/smoke.mjs via the X-Asgard-Smoke header. The turn runs
   // for real (Claude, tools) but nothing it says is saved: no history write, no
@@ -86,6 +123,27 @@ async function handleChatTurn(env, ctx, opts) {
     }
 
     if (telegramChatType === 'group' || telegramChatType === 'supergroup') {
+      // Phase 3.5 -- the siblings protocol (docs/SIBLINGS_PROTOCOL.md). A message
+      // that starts with a fixed prefix is agent-to-agent: "@ASGARD task: ..." and
+      // "@ASGARD status" are answered by THOR's bot only, with a fixed short
+      // allow-list, no memory, tainted from the first word, and a reviewer on the
+      // way out. "@JARVIS ..." / "@KEVOS ..." are not ours and are ignored.
+      const sib = matchSiblingsPrefix(userMessage);
+      if (sib) {
+        if (sib.kind === 'foreign' || personaId !== DEFAULT_PERSONA_ID) return null;
+        const fromBotSib = !!(body.message.from && body.message.from.is_bot);
+        if (fromBotSib) {   // the group's hop limit applies here too
+          const hopKey = `tg:hops:${telegramChatId}`;
+          const hops = Number(await env.RAYVEN_KV.get(hopKey)) || 0;
+          if (hops >= 3) return null;
+          await env.RAYVEN_KV.put(hopKey, String(hops + 1), { expirationTtl: 180 });
+        }
+        if (!smoke) ctx.waitUntil(setPersonaStatus(env, personaId, 'answering a sibling agent', 0.5, 'seconds'));
+        const out = await handleSiblingsMessage(env, { sib, senderTag });
+        await sendTelegramMessage(env, telegramChatId, out, botToken);
+        if (!smoke) ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
+        return { reply: out };
+      }
       // FOUR bots now sit in this group. The old rule was "answer unless someone
       // else was named", which with one bot meant "answer when spoken to" and
       // with four means ALL FOUR reply to every single message. Rewritten so a

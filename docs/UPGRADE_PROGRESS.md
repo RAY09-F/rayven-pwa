@@ -282,3 +282,26 @@ src/lib/models.js (new), src/lib/anthropic.js, checkin.js, sibling-agents.js, me
 constants), src/lib/hela.js (forge rotation), src/lib/vizard.js (idle stamp), public/team.html
 (five names + themes), scripts/smoke.mjs, scripts/gen-tools-json.mjs, scripts/gen-manifest.mjs,
 docs/ASGARD_MANIFEST.md, docs/TOOLS.json, docs/UPGRADE_PROGRESS.md.
+
+---
+
+# PART B (2026-09-05, Rayan asleep — built in one autonomous run)
+
+Everything below was deployed, smoke-tested (`scripts/smoke.mjs` + `scripts/smoke-fx.mjs` ALL PASS),
+committed and pushed phase by phase. Anything that needed Rayan's eyes or a decision is under
+**WAITING ON RAYAN** at the end of this part.
+
+## Phase 3.5 — the siblings protocol (Korg)
+- `docs/SIBLINGS_PROTOCOL.md` — the whole contract for Jay and Kevin: `@ASGARD task: …`, `@ASGARD status`,
+  `@JARVIS …` / `@KEVOS …` ignored; replies `@ASGARD reply: | status: | error:`.
+- `src/index.js`: the group handler recognises the prefixes before any persona logic. Only THOR's bot answers;
+  the other bots return silently. A task runs `callClaudeWithTools` with a FIXED allow-list
+  (web_search, weather, world_time, convert_money, calculate, paper_trading_status), an empty memory block,
+  `startTainted = true`, a fresh throwaway meta (nothing is saved to any conversation), maxIter 6, and a
+  short system prompt that forbids quoting anything about Rayan. The reply passes `reviewText()` (new export in
+  `routines.js`: the same free-tier strict-JSON judge as the routines critic) or goes out as `@ASGARD error:`.
+  Bot senders keep the group's 3-hop limit. `@ASGARD status` is one line: three god statuses, 15 councillors,
+  today's PAPER P&L labelled simulated.
+- Verified: deployed 9b6e17ce…, smoke ALL PASS; a Telegram-shaped group probe (`@ASGARD status` from a
+  bot sender) to the legacy webhook ran the whole path and reached the Telegram send, which refused the fake
+  chat id ("chat not found") — the code path is live. A real group message from JARVIS/KEVOS has not been seen.
