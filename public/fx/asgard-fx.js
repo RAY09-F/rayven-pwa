@@ -28,7 +28,7 @@
   const PINQ = DEBUG && q.get('q') !== null ? clamp(parseInt(q.get('q'), 10) || 0, 0, 4) : -1;   // ?debug=1&q=N pins the quality tier for testing
   const REDUCED = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const LS = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
-  const KEY_MUTE = 'asgardfx:mute', KEY_TIER = 'asgardfx:tier';
+  const KEY_MUTE = 'asgardfx:mute', KEY_TIER = 'asgardfx:tier', KEY_STILL = 'asgardfx:still';   // the three keys this layer may hold — never a fourth
 
   // Safe radial gradient: every radius finite and positive, or a flat fill.
   function radial(ctx, x, y, r0, r1) {
@@ -179,7 +179,7 @@
     listen: 0, think: 0, speak: 0,        // smoothed 0..1 state weights the shaders read
     t: 0, dt: 0, frame: 0, fps: 60, lowSince: 0,
     tier: '2d', path: '2D', quality: clamp(LS.get(KEY_TIER) === null ? 2 : (parseInt(LS.get(KEY_TIER), 10) || 0), 0, 4),   // a browser with no measured tier starts one tier down with bloom off (Strike Three, unverified hardware)
-    hidden: false, glLost: false,
+    hidden: false, glLost: false, still: LS.get(KEY_STILL) === '1',
     wake: null, wipe: null, pending: null,
     helaOpen: false, switchSfx: false, helaPhase: 'off', helaT: 0, helaRed: 0, helaLock: false, helaDrain: 0,
     peakAt: 0, prevLevel: 0, lowLevelSince: 0, phraseArmed: true, receiveAt: -1e9, wakeAt: -1e9,
@@ -304,7 +304,7 @@
     get stride() { return S.quality >= 1 ? 2 : 1; },
     get strideSize() { return S.quality >= 1 ? Math.SQRT2 : 1; },
     get bloom() { return S.quality < 2; },
-    get animated() { return S.quality < 4 && !REDUCED; },
+    get animated() { return S.quality < 4 && !REDUCED && !S.still; },   // still mode: motion off, everything stays lit and dimensional
     onScreen(x, y, m) { m = m || 8; return x > -m && x < S.w + m && y > -m && y < S.h + m; },
     flash(strength, color, dur) { if (S.flashes.length < 6) S.flashes.push({ a: clamp(finite(strength, 0), 0, 1), c: color || [255, 255, 255], t: 0, d: dur || 0.25 }); },
     ring(x, y, color, speed, width, maxR) { if (S.rings.length < 12) S.rings.push({ x: finite(x, S.cx), y: finite(y, S.cy), c: color || [255, 255, 255], r: 0, v: finite(speed, 600), w: finite(width, 3), m: finite(maxR, Math.max(S.w, S.h)), a: 1 }); },
@@ -742,7 +742,8 @@
     'html.asgard-arc #coreCanvas{display:none!important}',
     'html.asgard-arc[data-persona="loki"] .panel{background:rgba(10,22,24,.92);border-color:rgba(63,214,155,.16)}',
     'html.asgard-arc[data-persona="loki"] .panel-title{color:#7FBFA9}',
-    'html.asgard-arc[data-persona="loki"] #chatLog .msg.assistant{color:#EAF2EE}'
+    'html.asgard-arc[data-persona="loki"] #chatLog .msg.assistant{color:#EAF2EE}',
+    '@media (max-width:560px){#asgardFxCouncil .afx-sheet{position:fixed;left:8px!important;right:8px;width:auto;top:auto!important;bottom:96px;transform:none!important;max-height:38vh;overflow:auto}}'
   ].join('\n');
 
   // -------------------------------------------------- persona switch
@@ -1012,7 +1013,7 @@
     try { drawCore(); } catch (e) { coreFailed(e); }
     try { drawOverlay(dt); } catch (e) { if (DEBUG) console.warn(e); }
     stepReveal(dt);
-    if (dbg && (S.frame & 7) === 0) dbg.textContent = 'FPS ' + S.fps.toFixed(0) + '  TIER ' + S.tier + '  RENDER PATH ' + (S.glLost ? '2D (context lost)' : S.path) + '\nQ' + S.quality + '  ' + S.persona + '/' + S.state + '  lvl ' + S.level.toFixed(2) + '  p ' + P.count() + coreDebug();
+    if (dbg && (S.frame & 7) === 0) dbg.textContent = 'FPS ' + S.fps.toFixed(0) + '  TIER ' + S.tier + '  RENDER PATH ' + (S.glLost ? '2D (context lost)' : S.path) + '\nQ' + S.quality + (S.still ? ' STILL' : '') + '  ' + S.persona + '/' + S.state + '  lvl ' + S.level.toFixed(2) + '  p ' + P.count() + coreDebug();
   }
 
   // ----------------------------------------------------------- events
@@ -1048,6 +1049,7 @@
     window.addEventListener('touchstart', onGesture, { passive: true });
     watchTranscript();
     if (!document.getElementById('chatLog')) setTimeout(watchTranscript, 1500);
+    try { makeTray(); } catch (e) {}
     // The hall stamps the active persona on <html data-persona>; following it
     // here means the layer is right even if a switch happens somewhere unhooked.
     try {
@@ -1086,7 +1088,37 @@
     if (kind === 'lock-in' || kind === 'stand-down') { if (S.persona === 'hela') HELA.pulse(kind); return; }
     const r = activeRealm(); if (r && r.pulse) { try { r.pulse(kind, E); } catch (e) {} }
   };
-  FX.mute = function (m) { SFX.setMuted(!!m); };
-  FX.status = function () { return { helaPhase: S.helaPhase, helaDrain: S.helaDrain, pending: S.pending, hallLevel: readHallLevel(), tier: S.tier, path: S.glLost ? '2D (context lost)' : S.path, fps: S.fps, quality: S.quality, persona: S.persona, state: S.state, level: S.level, particles: P.count(), realms: Object.keys(REALMS), core: { want: C.want, hall: C.hall, id: C.id, mode: C.mode, tris: C.tris, calls: C.calls, err: C.err, council: COU.active ? COU.mod.selected() || 'none selected' : 'off' } }; };
+  FX.mute = function (m) { SFX.setMuted(!!m); syncTray(); };
+  FX.still = function (on) { S.still = !!on; LS.set(KEY_STILL, S.still ? '1' : '0'); S.staticDrawn = null; C.force = 3; C.skyDirty = true; syncTray(); };
+  // ------------------------------------------------------------ tray
+  // Two 44px controls in the lower-left corner, above the debug overlay: FX
+  // SOUND and STILL. Injected here, like every other control this layer owns —
+  // never a hall edit. Hidden while the vault is open (body.hud-hidden).
+  let tray = null, trayBtns = null;
+  function makeTray() {
+    if (tray || !document.body) return;
+    const st = document.createElement('style'); st.id = 'asgardFxTrayStyle';
+    st.textContent = '#asgardFxTray{position:fixed;left:8px;bottom:52px;z-index:9998;display:flex;gap:6px}' +
+      '#asgardFxTray button{min-width:44px;min-height:44px;padding:0 10px;border-radius:8px;border:1px solid rgba(200,209,220,.28);background:rgba(11,10,18,.7);color:#C8D1DC;font:600 10px/1.1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}' +
+      '#asgardFxTray button span{font-size:9px;letter-spacing:.1em;color:rgba(200,209,220,.7)}' +
+      '#asgardFxTray button[aria-pressed="true"]{border-color:#E7C24A;color:#F6DE86}' +
+      '#asgardFxTray button:focus-visible{outline:2px solid #E7C24A;outline-offset:2px}' +
+      'body.hud-hidden #asgardFxTray{display:none}' +
+      '@media (max-width:560px){#asgardFxTray{bottom:auto;top:8px;left:auto;right:8px}}';
+    document.head.appendChild(st);
+    tray = document.createElement('div'); tray.id = 'asgardFxTray'; tray.setAttribute('role', 'group'); tray.setAttribute('aria-label', 'Effects controls');
+    const mk = (label, title, onClick) => { const b = document.createElement('button'); b.type = 'button'; b.title = title; const t = document.createElement('b'); t.textContent = label; const s = document.createElement('span'); b.appendChild(t); b.appendChild(s); b.addEventListener('click', onClick); tray.appendChild(b); return b; };
+    trayBtns = {
+      sound: mk('FX sound', 'Turn the effects layer\'s own sounds on or off', () => FX.mute(!SFX.muted)),
+      still: mk('Still', 'Still mode: stop the motion, keep the room lit', () => FX.still(!S.still))
+    };
+    document.body.appendChild(tray); syncTray();
+  }
+  function syncTray() {
+    if (!trayBtns) return;
+    trayBtns.sound.setAttribute('aria-pressed', SFX.muted ? 'false' : 'true'); trayBtns.sound.lastChild.textContent = SFX.muted ? 'off' : 'on';
+    trayBtns.still.setAttribute('aria-pressed', S.still ? 'true' : 'false'); trayBtns.still.lastChild.textContent = S.still ? 'on' : 'off';
+  }
+  FX.status = function () { return { helaPhase: S.helaPhase, helaDrain: S.helaDrain, pending: S.pending, hallLevel: readHallLevel(), tier: S.tier, path: S.glLost ? '2D (context lost)' : S.path, fps: S.fps, quality: S.quality, persona: S.persona, state: S.state, level: S.level, particles: P.count(), realms: Object.keys(REALMS), still: S.still, reduced: REDUCED, core: { want: C.want, hall: C.hall, id: C.id, mode: C.mode, tris: C.tris, calls: C.calls, err: C.err, council: COU.active ? COU.mod.selected() || 'none selected' : 'off' } }; };
   if (DISABLED) { FX.init = function () {}; }
 })();

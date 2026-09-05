@@ -21,7 +21,7 @@ collected under NEEDS RAYAN'S EYES at the bottom.
 | 3.2 — Loki's hall | BUILT, deployed, smoke ALL PASS, **look unverified** | strike-three phase 2 |
 | 3.3 — Thor and Odin | BUILT, deployed, smoke ALL PASS, **look unverified** | strike-three phase 3 |
 | 3.4 — hub + council page | DONE as far as this branch allows (see below) | strike-three phase 4 |
-| 3.5 — phone, still mode, access | not started | |
+| 3.5 — phone, still mode, access | BUILT, deployed, smoke ALL PASS, **layout unverified** | strike-three phase 5 |
 
 ## Section 2 — the blueprint
 
@@ -223,8 +223,42 @@ the hall file is byte-identical to before Strike Three.
   one script block still PASS), deployed fd557e6a…, `smoke-fx` (team.js live,
   exactly one overlay tag, CONFIG intact) and backend `smoke` ALL PASS.
 
+## Phase 5 — the phone, still mode, and access (2026-09-05)
+
+- **Still mode (5.3):** `asgardfx:still` is the third and last localStorage key
+  (mute, tier, still). When on, every motion stops — sky, particles, cores,
+  gems — while the room stays lit and dimensional (the core is drawn once,
+  then the preserved canvas holds the frame); `prefers-reduced-motion` does
+  the same automatically. `AsgardFX.still(on)` toggles it; `?debug=1` shows
+  `STILL` on the Q line.
+- **The tray:** two 44px controls injected by the FX layer (never a hall
+  edit), lower-left above the debug overlay, top-right on phones: **FX SOUND
+  on/off** (the effects layer's own synth; the hall's own ♪ toggle is
+  separate and untouched) and **STILL on/off**. Keyboard-reachable buttons
+  with `aria-pressed` and the written state beside each. Hidden while the
+  vault is open.
+- **Phone (5.1–5.2):** the cores already step the camera back on narrow
+  screens so the relic and its ring fit; advisor names drop their role line
+  under 560px; the advisor sheet becomes a fixed, readable panel above the
+  composer (max 38% of the height, scrollable). Every new control is ≥44px,
+  every hover has a tap, keyboard focus is visible (citrine outline), every
+  colour-coded state has words beside it. No device tilt anywhere; sound
+  starts only after a gesture (unchanged). The desktop layout was **not**
+  shrunk or restructured — the hall's own responsive rules are untouched.
+- `?fx=0` still gives the plain page on every page touched (hall, fx-lab,
+  team.html); `?debug=1` shows FPS, tier, RENDER PATH, CORE and STILL.
+- **5.4 overlap check at 1440 / 1024 / 420 could not be done here** (no
+  pixels). It is the first question below.
+- Verified without eyes: `node --check`, `check-scripts`, deployed, `smoke-fx`
+  and backend `smoke` ALL PASS; the live engine carries the still key and the tray.
+
 ## NEEDS RAYAN'S EYES
 
+0. **Overlap at three widths.** On the hall, with the window at full width,
+   then narrowed to about 1024, then on the phone: does anything sit on top of
+   anything else — the two new buttons lower-left (FX SOUND, STILL), the
+   advisor names, the advisor sheet, the debug text? Press STILL: does all
+   motion stop while the room stays lit? Press it again: does it resume?
 1. **The spike.** Close the Linux terminal first. Open
    https://asgrard-backend.rayanfahil2.workers.dev/fx-lab?debug=1 on the
    Chromebook. Tell me: (1) the FPS number, (2) whether RENDER PATH says
