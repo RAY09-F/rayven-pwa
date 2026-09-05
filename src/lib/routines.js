@@ -435,3 +435,6 @@ export async function seedRoutinesIfMissing(env) {
   await writeIndex(env, index);
   return missing.length;
 }
+
+// Phase 5.1: the vault export reads routines raw.
+export { readIndex as readRoutinesIndex, readRoutine as readRoutineRaw };

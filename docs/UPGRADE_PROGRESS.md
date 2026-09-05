@@ -361,3 +361,32 @@ committed and pushed phase by phase. Anything that needed Rayan's eyes or a deci
   submitting a mocked batch, the collector journaling the reviews, status carrying stats, the read-out quoting the
   notes) PASS; deployed bea98019…, smoke ALL PASS; live `/paper-trading/status` carries `stats`; Odin ran the
   backtest. The first real batch submits after the next NYSE close (Tuesday 2026-09-08, Monday is Labor Day).
+
+## Phase 5 — the Obsidian + Hermes foundation
+- **5.1 `GET /admin/vault.json`** (`src/lib/vault.js`, header `X-Asgard-Admin`): `[{ path, content }]` laid out as an
+  Obsidian vault — `MEMORY.md` (last 40 live entries per persona, a rendering), `USER.md` (who Rayan is + the
+  personas' SHARED_CORE + the rules that never bend), `personas/<god>.md` (full prompts), `councils/<god>/<id>.md`
+  (prompt, tools, duty, state), `memory/<god>/YYYY-MM-DD.md` (with provenance), `history/<god>/latest.md`,
+  `trading/journal.md` + `trading/<trader>.md` (stats + after-close reviews), `routines/<id>.md` (sentence + JSON),
+  `tools/TOOLS.md` + `tools/TOOLS.json` (generated live from the registry, with permission level and personas),
+  `MIGRATION.md`. The hidden realm's persona, five councillors and `capabilities/hela.md` appear ONLY with
+  `X-Asgard-Vault: hela`. Building the vault writes nothing.
+- **5.2 `scripts/export-vault.mjs`** (token from `~/.asgard-admin-token`, `--hela` opts her in) → `~/asgard-vault/`.
+  Ran live: **55 files**. Nightly: `runVaultBackupIfDue` (03:30 Pacific, marker `system:vault_backup_last`) puts the
+  full export INCLUDING the hidden realm to R2 `asgard-vault/YYYY-MM-DD.json`. One R2 put + one KV write a night.
+- **5.3 `docs/MIGRATION.md`** — what copies, what needs a machine (Hermes, Obsidian, the extension's browser; the
+  Pi 4 / 4 GB figure is quoted as "verify before buying"), what stays on Cloudflare and why, and the order (run both
+  side by side for a month).
+- **5.4 `POST /mcp`** (`src/lib/mcp.js`): JSON-RPC 2.0, stateless (no session id ever), `initialize` →
+  `capabilities: { tools: {} }`, `tools/list`, `tools/call`, `ping`, batch arrays, notifications → 202. Bearer =
+  ADMIN_TOKEN (401 otherwise). Exposes Thor's tools whose permission level is auto or notify, minus hard-confirm
+  and consequential ones, never the hidden realm's: **73 tools**. Refused calls answer "requires live confirmation;
+  not available over MCP". Every call runs `executeTool` with `tainted: true`. **Protocol shape: 2025-06-18** — the
+  spec site's newest revision (2026-07-28 in its URLs) could not be read from here (client-rendered pages), so the
+  server echoes a client's requested version when it is a known revision and otherwise answers 2025-06-18 and
+  names the versions it speaks. `scripts/mcp-smoke.mjs` lists tools and calls weather.
+- Verified: Node harness (vault files, hidden-by-default, 15 vs 20 councillors, zero writes; MCP initialize /
+  negotiate / 202 / list / call / refuse / 401 / -32601) — one harness check failed only because the mock seeded
+  the memory key in a shape the memory module does not use; the live export renders the memory folder fine.
+  Deployed 21c1f674…; smoke ALL PASS; **mcp-smoke ALL PASS live**; **export-vault wrote 55 files live**, and
+  `MEMORY.md`, `USER.md` and the three persona files read correctly.

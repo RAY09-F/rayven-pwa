@@ -420,3 +420,6 @@ export function historyKeyFor(personaId, channel, chatId) {
   }
   return personaId === DEFAULT_PERSONA_ID ? 'web:main' : `web:${personaId}`;
 }
+
+// Phase 5.1: the vault export renders the shared core into USER.md.
+export { SHARED_CORE, TRIO_PARAGRAPH };

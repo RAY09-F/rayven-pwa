@@ -36,6 +36,8 @@ import { getCouncilStatus, recordCouncilRun, readCouncilState, councillorIdForPa
 import { runRoutinesIfDue, seedRoutinesIfMissing, reviewText } from './lib/routines.js';
 import { emit, takePendingEvents, eventsFromDrained } from './lib/events.js';
 import { healthReport, publicHealth, runSystemCheckIfDue } from './lib/healthz.js';
+import { buildVault, runVaultBackupIfDue } from './lib/vault.js';
+import { handleMcp } from './lib/mcp.js';
 import { readTickLast, WRITE_CEILING_PER_DAY } from './lib/tick.js';
 import { runTimersIfDue } from './lib/kit.js';
 import { igRefreshIfDue } from './lib/instagram.js';
@@ -474,6 +476,20 @@ export default {
     }
 
     const url = new URL(request.url);
+
+    // Phase 5.4: Asgard as an MCP server. JSON-RPC 2.0 over POST, stateless,
+    // Bearer = ADMIN_TOKEN, auto/notify tools only, every call tainted.
+    if (url.pathname === '/mcp') {
+      return handleMcp(request, env, (e, t, i, p, c) => executeTool(e, t, i, p, c), { ...corsHeaders, 'Access-Control-Allow-Headers': corsHeaders['Access-Control-Allow-Headers'] + ', authorization, mcp-protocol-version' });
+    }
+    // Phase 5.1: the vault export. Hidden material only with X-Asgard-Vault: hela.
+    if (url.pathname === '/admin/vault.json' && request.method === 'GET') {
+      const provided = request.headers.get('X-Asgard-Admin') || '';
+      const expected = env.ADMIN_TOKEN || '';
+      if (!expected || !(await timingSafeEqual(provided, expected))) return json({ error: 'X-Asgard-Admin required' }, corsHeaders, 401);
+      const includeHidden = (request.headers.get('X-Asgard-Vault') || '').toLowerCase() === 'hela';
+      return json(await buildVault(env, { includeHidden }), corsHeaders);
+    }
 
     // ---- DEBUG ROUTE GATE ------------------------------------------------
     // Every /debug-* route is an operator tool. Between them they dump private
@@ -1444,6 +1460,8 @@ How to speak on a phone call:
       // traders' self-reviews submitted as ONE Message Batch (cheap tier, off the
       // live bill); on later ticks the collected reviews land in each journal.
       job(runPaperCloseTasksIfDue),
+      // Phase 5.2: the nightly vault backup to R2 (03:30 Pacific, includes the hidden realm — it is a backup).
+      job(runVaultBackupIfDue),
       // The legacy daily paper report is replaced by ODIN's market-close ROUTINE
       // (Phase 3.4), which honours config:paper:report:hour and defaults to 13:05.
       // The clipping pass (retired business; publishes at most one clip per
