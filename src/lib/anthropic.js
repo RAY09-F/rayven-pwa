@@ -67,7 +67,7 @@ export async function callAnthropicSimple(env, systemPrompt, userText, maxTokens
     const data = await res.json();
     const textBlock = data.content && data.content.find(b => b.type === 'text');
     if (!textBlock) return { ok: false, error: 'No text content in Claude response.' };
-    return { ok: true, text: textBlock.text };
+    return { ok: true, text: textBlock.text, usage: data.usage || null, model: model || MODELS.sonnet };
   } catch (err) {
     return { ok: false, error: `Network error calling Anthropic: ${err.message}` };
   }

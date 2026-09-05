@@ -31,6 +31,8 @@ import { APPROVAL_WHILE_TAINTED } from './containment.js';
 import { createApproval } from './approvals.js';
 import { COUNCIL, councilOf, runCouncillor, recordCouncilRun, getCouncilStatus } from './council.js';
 import { callAnthropicSimple } from './anthropic.js';
+import { costLine, costReportText } from './cost.js';
+import { submitAndRemember } from './batch.js';
 import { MODELS } from './models.js';
 import { TIERS } from './council.js';
 import { getCalendarEvents, listCalendarEventsText, getTodos } from './kv-store.js';
@@ -75,7 +77,7 @@ function validateSteps(steps, owner) {
     if (s.tool) { if (!personaAllowsTool(owner, s.tool)) return `step ${i + 1}: ${owner} may not call ${s.tool}`; continue; }
     if (s.delegate) { const c = String(s.delegate.councillor || '').toLowerCase().replace(/[\s-]+/g, '_'); if (!councilOf(owner).includes(c)) return `step ${i + 1}: no councillor "${s.delegate.councillor}" on ${owner}'s council`; if (!s.delegate.task) return `step ${i + 1}: delegate needs a task`; continue; }
     if (s.compose) { if (!s.compose.instruction) return `step ${i + 1}: compose needs an instruction`; continue; }
-    if (s.read) { if (!['calendar', 'timers', 'activity', 'memory', 'council', 'health', 'paper', 'conversations', 'todos'].includes(s.read)) return `step ${i + 1}: unknown read "${s.read}"`; continue; }
+    if (s.read) { if (!['calendar', 'timers', 'activity', 'memory', 'council', 'health', 'paper', 'conversations', 'todos', 'cost'].includes(s.read)) return `step ${i + 1}: unknown read "${s.read}"`; continue; }
     if (s.memory_append) { if (!s.memory_append.text) return `step ${i + 1}: memory_append needs text`; if (s.memory_append.persona === 'hela' && owner !== 'hela') return `step ${i + 1}: not yours`; continue; }
     if (typeof s.say === 'string') continue;
     return `step ${i + 1}: unknown step shape`;
@@ -161,6 +163,7 @@ async function readStep(env, s, owner, ctx) {
     case 'council': { const c = await getCouncilStatus(env); const rows = Object.entries(c.councils).flatMap(([g, list]) => list.map(x => `${g}/${x.name}: ${x.runs} runs, last ${x.lastRun ? x.lastRun.slice(0, 16).replace('T', ' ') : 'never'}${x.lastSummary ? ' — ' + x.lastSummary.slice(0, 80) : ''}`)); return { text: rows.join('\n'), summary: 'council status' }; }
     case 'health': { const h = await healthReport(env); const paper = h.paper ? `paper P&L all-time ${h.paper.allTimePnl >= 0 ? '+' : '-'}$${Math.abs(h.paper.allTimePnl).toFixed(2)}, today ${h.paper.todayPnl >= 0 ? '+' : '-'}$${Math.abs(h.paper.todayPnl).toFixed(2)}` : 'paper: unavailable'; return { text: [`KV writes by the upgrade today: ${h.kv.upgradeWritesToday} of ${h.kv.upgradeCeiling} (account-wide: ${typeof h.kv.account === 'string' ? h.kv.account : JSON.stringify(h.kv.account)})`, `model spend: ${h.modelSpend}`, `extension: ${h.extension.online ? 'online' : 'offline'}`, `missing secrets: ${h.secrets.missing.join(', ') || 'none'}`, `optional not set: ${h.secrets.optionalMissing.join(', ') || 'none'}`, `problems: ${h.problems.join('; ') || 'none'}`, paper].join('\n'), summary: 'health' }; }
     case 'paper': { const period = s.period || 'today'; return { text: await getPaperSummaryText(env, period), summary: `paper ${period}` }; }
+    case 'cost': { return { text: await costReportText(env, s.days || 7), summary: 'model spend' }; }   // Phase 6.6
     case 'conversations': {
       // today's turns from the named gods' web + private Telegram chats, text only, never Hela's
       const gods = (Array.isArray(s.personas) ? s.personas : ['thor', 'loki', 'odin']).filter(p => p !== 'hela' && PERSONAS[p]);
@@ -177,14 +180,18 @@ async function readStep(env, s, owner, ctx) {
 }
 
 // ---- run one routine ----------------------------------------------------------
-export async function runRoutine(env, routine, event, execute) {
+// resume (Phase 6.2): { stepIndex, steps, text, runAt } -- continue a run whose
+// compose step went through the Batch API, with the composed text filled in.
+export async function runRoutine(env, routine, event, execute, resume = null) {
   const owner = routine.owner;
-  const ctx = { steps: [], event: event || null, date: dateCtx() };
+  const ctx = { steps: resume ? resume.steps.slice() : [], event: event || null, date: dateCtx() };
   const t0 = Date.now();
-  const run = { at: new Date().toISOString(), event: event ? event.event : null, steps: [], ok: true };
+  const run = { at: resume ? resume.runAt : new Date().toISOString(), event: event ? event.event : null, steps: resume ? [{ i: resume.stepIndex, summary: `composed via the Batch API: ${String(resume.text).slice(0, 60)}` }] : [], ok: true, ...(resume ? { resumedAt: new Date().toISOString() } : {}) };
   let writes = 0;
-  let lastText = '';
-  for (const [i, raw] of routine.steps.entries()) {
+  let lastText = resume ? String(resume.text) : '';
+  if (resume) ctx.steps[resume.stepIndex] = { text: String(resume.text), summary: 'composed (batch)' };
+  for (let i = resume ? resume.stepIndex + 1 : 0; i < routine.steps.length; i++) {
+    const raw = routine.steps[i];
     const s = fill(raw, ctx);
     let res;
     try {
@@ -212,8 +219,19 @@ export async function runRoutine(env, routine, event, execute) {
         const model = s.compose.tier === 'cheap' ? MODELS.haiku : MODELS.sonnet;
         const system = getPersona(owner).systemPrompt;
         const user = `[ROUTINE "${routine.name}" — you are composing, not chatting. Everything below is real data from your own tools; do not invent anything beyond it. Plain text only, no markdown. If there is genuinely nothing worth saying, reply with exactly NOTHING.]\n\n${s.compose.instruction}\n\nRESULTS SO FAR:\n${ctx.steps.map((st, k) => `[step ${k}] ${String(st.text).slice(0, 2500)}`).join('\n\n')}`;
+        if (s.compose.batch) {
+          // Phase 6.2: off the live bill. Submit, remember where we were, and stop; the tick's
+          // collector resumes this run (from the next step) when the batch comes back.
+          const sub = await submitAndRemember(env, 'routine-compose', [{ custom_id: `${routine.id}:${i}:${Date.now()}`.slice(0, 64), model, max_tokens: s.compose.maxTokens || 700, system, messages: [{ role: 'user', content: user }] }], { routineId: routine.id, stepIndex: i, steps: ctx.steps.map(x => ({ text: x.text, summary: x.summary })), event: event || null, runAt: run.at, model });
+          if (!sub.ok) throw new Error(`batch submit failed: ${sub.error}`);
+          writes += 1;
+          run.steps.push({ i, summary: 'compose submitted to the Batch API; the run resumes when it comes back (up to 24 h)' });
+          run.batched = sub.id; run.delivered = 'waiting for the batch'; run.ms = Date.now() - t0; run.writes = writes;
+          return run;
+        }
         const r = await callAnthropicSimple(env, system, user, s.compose.maxTokens || 700, model);
         if (!r.ok) throw new Error(r.error);
+        if (r.usage) tickLog('cost', costLine({ persona: owner, councillor: null, model, usage: r.usage, source: `routine:${routine.id}` }));   // Phase 6.6
         res = { text: r.text.trim(), summary: `composed ${r.text.trim().slice(0, 60)}` };
       } else if (s.read) {
         res = await readStep(env, s, owner, ctx);
@@ -420,11 +438,51 @@ const SEEDS = [
   { id: 'thor-darcy-hygiene', owner: 'thor', name: 'Memory hygiene', intent: 'Darcy\'s 03:00 pass: read the day\'s conversations with Thor, Loki and Odin (never Hela) and APPEND a dated summary to long-term memory; never remove anything', trigger: { kind: 'schedule', at: '03:00', days: [0, 1, 2, 3, 4, 5, 6], tz: DEFAULT_TZ }, deliver: 'silent', intro: false,
     steps: [{ read: 'conversations', personas: ['thor', 'loki', 'odin'] }, { compose: { instruction: 'From the day\'s conversations (step 0), write ONE dated line for long-term memory beginning "Day summary $date.today:" — decisions, plans, preferences and facts worth keeping, third person ("Rayan ..."), at most 60 words. If nothing durable was said, reply NOTHING.', tier: 'cheap' } }, { memory_append: { persona: 'thor', text: '$steps[1].text' } }] },
   { id: 'hela-gorr-weekly', owner: 'hela', hidden: true, name: 'Capability audit', intent: 'Gorr\'s weekly test of Hela\'s saved capabilities; flags broken ones, deletes nothing', trigger: { kind: 'schedule', at: '02:00', days: [0], tz: DEFAULT_TZ }, onlyIf: { key: 'hela:locked', equals: '1' }, deliver: 'silent', intro: false,
-    steps: [{ delegate: { councillor: 'gorr', task: 'Test every saved capability with use_capability using sensible sample arguments. For each, report name, whether it answered, and the exact error if not. Then call flag_capability for each broken one with that error. Never forget or delete anything.' } }] }
+    steps: [{ delegate: { councillor: 'gorr', task: 'Test every saved capability with use_capability using sensible sample arguments. For each, report name, whether it answered, and the exact error if not. Then call flag_capability for each broken one with that error. Never forget or delete anything.' } }] },
+  // Phase 6.9: the quarterly re-check. Owner Thor, no model call (a plain sentence), first of Mar/Jun/Sep/Dec.
+  { id: 'thor-quarterly-recheck', owner: 'thor', name: 'Quarterly re-check', intent: 'on the first of March, June, September and December: one reminder to re-run the architecture review', trigger: { kind: 'schedule', at: '09:00', dayOfMonth: [1], months: [3, 6, 9, 12], tz: DEFAULT_TZ }, deliver: 'telegram',
+    steps: [{ say: 'Time to re-run the architecture review — models, prices and specs change. (Thor\'s quarterly reminder; no model was called for this.)' }] }
 ];
+
+// Phase 6.2: a batched compose step came back -- continue the run from the next step.
+export async function resumeBatchedRoutine(env, entry, results, execute) {
+  const meta = entry && entry.meta ? entry.meta : {};
+  const r = meta.routineId ? await readRoutine(env, meta.routineId) : null;
+  if (!r) return { note: 'routine no longer exists' };
+  const res = (results || []).find(x => x && x.text);
+  let run;
+  if (!res) run = { at: meta.runAt || new Date().toISOString(), resumedAt: new Date().toISOString(), ok: false, error: `batch returned no text (${(results || []).map(x => x && x.error).filter(Boolean).join('; ') || 'empty'})`, steps: [], delivered: null };
+  else {
+    if (res.usage) tickLog('cost', costLine({ persona: r.owner, councillor: null, model: meta.model || MODELS.haiku, usage: res.usage, source: `routine-batch:${r.id}`, batch: true }));
+    run = await runRoutine(env, r, meta.event || null, execute, { stepIndex: Number(meta.stepIndex) || 0, steps: Array.isArray(meta.steps) ? meta.steps : [], text: String(res.text).trim(), runAt: meta.runAt || new Date().toISOString() });
+  }
+  r.runs = [...(r.runs || []), run].slice(-MAX_RUNS_KEPT);
+  r.failures = run.ok ? 0 : (r.failures || 0) + 1;
+  await writeRoutine(env, r);
+  return { note: `resumed "${r.name}": ${run.ok ? run.delivered : run.error}` };
+}
 
 export async function seedRoutinesIfMissing(env) {
   const index = await readIndex(env);
+  // Phase 6.2, one-time: the weekly world note and Darcy's hygiene compose through the Batch API from now on.
+  try {
+    for (const id of ['thor-jane-world-note', 'thor-darcy-hygiene']) {
+      if (!index.some(e => e.id === id)) continue;
+      const r = await readRoutine(env, id); if (!r || !Array.isArray(r.steps)) continue;
+      const cs = r.steps.filter(st => st && st.compose && !st.compose.batch);
+      if (cs.length) { for (const st of cs) st.compose.batch = true; await writeRoutine(env, r); }
+    }
+  } catch (e) { console.error('batch flag patch failed:', e && e.message); }
+  // Phase 6.6, one-time: the stored Sunday report learns to read the model spend (seeds only insert when missing).
+  try {
+    const sor = index.some(e => e.id === 'odin-state-of-realm') ? await readRoutine(env, 'odin-state-of-realm') : null;
+    if (sor && Array.isArray(sor.steps) && !sor.steps.some(st => st && st.read === 'cost')) {
+      const ci = sor.steps.findIndex(st => st && st.compose);
+      sor.steps.splice(ci < 0 ? sor.steps.length : ci, 0, { read: 'cost', days: 7 });
+      if (ci >= 0) sor.steps[ci + 1].compose.instruction = String(sor.steps[ci + 1].compose.instruction).replace(/"model spend: not tracked yet"/i, 'the model spend for the week from the cost step (estimated dollars, by persona)') + ' The cost step gives this week\'s estimated model spend — quote it in one sentence.';
+      await writeRoutine(env, sor);
+    }
+  } catch (e) { console.error('sunday routine cost patch failed:', e && e.message); }
   const missing = SEEDS.filter(s => !index.some(e => e.id === s.id));
   if (!missing.length) return 0;
   for (const s of missing) {

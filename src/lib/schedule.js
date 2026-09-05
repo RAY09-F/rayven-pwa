@@ -25,6 +25,8 @@ export function validateSchedule(s) {
   if (typeof s.at !== 'string' || !/^\d{2}:\d{2}$/.test(s.at)) return "at must be 'HH:MM'";
   const [h, m] = s.at.split(':').map(Number); if (h > 23 || m > 59) return 'at is not a real time';
   if (s.days != null && (!Array.isArray(s.days) || !s.days.every(d => Number.isInteger(d) && d >= 0 && d <= 6))) return 'days must be a list of 0..6';
+  if (s.dayOfMonth != null && (!Array.isArray(s.dayOfMonth) || !s.dayOfMonth.every(d => Number.isInteger(d) && d >= 1 && d <= 31))) return 'dayOfMonth must be a list of 1..31';
+  if (s.months != null && (!Array.isArray(s.months) || !s.months.every(d => Number.isInteger(d) && d >= 1 && d <= 12))) return 'months must be a list of 1..12';
   if (s.tz != null) { try { new Intl.DateTimeFormat('en-US', { timeZone: s.tz }); } catch (e) { return `unknown time zone ${s.tz}`; } }
   return null;
 }
@@ -40,6 +42,9 @@ export function isDue(schedule, state = {}, now = Date.now()) {
   const p = localParts(now, tz);
   const days = Array.isArray(schedule.days) && schedule.days.length ? schedule.days : [0, 1, 2, 3, 4, 5, 6];
   if (!days.includes(p.weekday)) return false;
+  // Phase 6.9: optional day-of-month and month filters (the quarterly re-check). Not cron syntax: plain lists.
+  if (Array.isArray(schedule.dayOfMonth) && schedule.dayOfMonth.length && !schedule.dayOfMonth.includes(Number(p.date.slice(8, 10)))) return false;
+  if (Array.isArray(schedule.months) && schedule.months.length && !schedule.months.includes(Number(p.date.slice(5, 7)))) return false;
   const [h, m] = schedule.at.split(':').map(Number);
   if (p.minutes < h * 60 + m) return false;
   if (state.lastRunDate === p.date) return false;               // once per local day
@@ -58,5 +63,8 @@ export function describeSchedule(s) {
   if (s.every != null) return `every ${s.every} minutes`;
   const names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const days = Array.isArray(s.days) && s.days.length < 7 ? s.days.map(d => names[d]).join('/') : 'daily';
-  return `${days} at ${s.at} ${(s.tz || DEFAULT_TZ).split('/').pop().replace('_', ' ')}`;
+  const mn = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const dom = Array.isArray(s.dayOfMonth) && s.dayOfMonth.length ? ` on day ${s.dayOfMonth.join('/')}` : '';
+  const mos = Array.isArray(s.months) && s.months.length ? ` of ${s.months.map(m => mn[m - 1]).join('/')}` : '';
+  return `${days}${dom}${mos} at ${s.at} ${(s.tz || DEFAULT_TZ).split('/').pop().replace('_', ' ')}`;
 }

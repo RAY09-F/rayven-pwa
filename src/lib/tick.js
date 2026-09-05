@@ -11,6 +11,7 @@
 // last 60 tick keys (so the audit tools can read recent history without a
 // prefix scan), the Rule 5e write counter for the UTC day, and the R2 copy
 // watermark. Only the tick writes it, so there is no overlapping writer.
+import { emptyCost, addCost } from './cost.js';
 import { loadConversation } from './conversation.js';
 import { historyKeyFor, ALL_PERSONA_IDS } from './personas.js';
 
@@ -20,7 +21,7 @@ const RECENT_KEEP = 60;
 const R2_AUDIT_AGE_DAYS = 30;
 
 // In-isolate buffer for lines produced during THIS cron invocation.
-const buffer = { audit: [], autonomy: [], events: [], notes: [], writes: 0 };
+const buffer = { audit: [], autonomy: [], events: [], notes: [], cost: [], writes: 0 };
 
 export function tickLog(kind, entry) {
   const list = buffer[kind] || buffer.notes;
@@ -116,7 +117,16 @@ export async function runTick(env, hooks = {}) {
   // writes made by new writers on the reply path ride in their spool entries
   const spoolWrites = drained.reduce((s, e) => s + (Number(e.writes) || 0), 0);
   const writesThisTick = buffer.writes + spoolWrites;
-  const empty = !drained.length && !buffer.audit.length && !buffer.autonomy.length && !buffer.events.length && !buffer.notes.length && writesThisTick === 0;
+  const empty = !drained.length && !buffer.audit.length && !buffer.autonomy.length && !buffer.events.length && !buffer.notes.length && !buffer.cost.length && writesThisTick === 0;
+  // Phase 6.6: roll this tick's cost lines (spooled on the reply path + buffered in cron) into the day's running total.
+  const costLines = [...drained.filter(e => e && e.kind === 'cost'), ...buffer.cost];
+  const costToday = (last.day === today && last.costToday) ? last.costToday : emptyCost(today);
+  for (const l of costLines) addCost(costToday, l);
+  // first tick of a new UTC day: yesterday's total becomes its ONE summary key
+  let costWrite = 0;
+  if (last.day && last.day !== today && last.costToday && last.costToday.calls > 0) {
+    try { await env.RAYVEN_KV.put(`cost:${last.day}`, JSON.stringify(last.costToday)); costWrite = 1; } catch (e) { console.error('cost summary write failed:', e && e.message); }
+  }
   const next = {
     day: today,
     writesToday: (last.day === today ? (last.writesToday || 0) : 0) + writesThisTick,
@@ -125,21 +135,23 @@ export async function runTick(env, hooks = {}) {
     recent: Array.isArray(last.recent) ? last.recent.slice(-RECENT_KEEP) : [],
     r2CopiedThrough: (r2 && r2.r2CopiedThrough) || last.r2CopiedThrough || null,
     r2AttemptDay: (r2 && r2.r2AttemptDay) || last.r2AttemptDay || null,
-    routineRunsDay: last.routineRunsDay || null, routineRunsToday: last.routineRunsToday || 0
+    routineRunsDay: last.routineRunsDay || null, routineRunsToday: last.routineRunsToday || 0,
+    costToday
   };
+  next.writesToday += costWrite;
   if (patchLast) Object.assign(next, patchLast);
-  if (empty && !r2 && !patchLast) return { ok: true, skipped: 'empty tick' };
+  if (empty && !r2 && !patchLast && !costWrite) return { ok: true, skipped: 'empty tick' };
 
   const key = tickKeyFor();
   let wrote = false;
   if (!empty) {
-    const body = { key, at: new Date().toISOString(), lastDrained: newest, drained, audit: buffer.audit, autonomy: buffer.autonomy, events: buffer.events, notes: buffer.notes, writesThisTick };
+    const body = { key, at: new Date().toISOString(), lastDrained: newest, drained, audit: buffer.audit, autonomy: buffer.autonomy, events: buffer.events, notes: buffer.notes, cost: buffer.cost, writesThisTick };
     try { await env.RAYVEN_KV.put(key, JSON.stringify(body)); wrote = true; next.writesToday += 1; next.recent.push(key); if (next.recent.length > RECENT_KEEP) next.recent = next.recent.slice(-RECENT_KEEP); }
     catch (e) { console.error('tick write failed:', e && e.message); }
   }
   next.writesToday += 1;   // the pointer write itself, counted before it is stored
   try { await env.RAYVEN_KV.put(LAST_KEY, JSON.stringify(next)); } catch (e) {}
-  buffer.audit.length = 0; buffer.autonomy.length = 0; buffer.events.length = 0; buffer.notes.length = 0; buffer.writes = 0;
+  buffer.audit.length = 0; buffer.autonomy.length = 0; buffer.events.length = 0; buffer.notes.length = 0; buffer.cost.length = 0; buffer.writes = 0;
   return { ok: true, key: wrote ? key : null, drained: drained.length, writesToday: next.writesToday };
 }
 

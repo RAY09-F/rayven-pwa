@@ -205,7 +205,9 @@ const THOR_TOOLS = [
     'watch_resume', 'watch_subjects', 'weather', 'web_search', 'word_ideas', 'world_time',
     // asgard-upgrade Phase 1.5 (appended, never re-sorted -- Rule 6)
     'approvals_list', 'approve', 'reject', 'delegate',
-    'routine_create', 'routine_list', 'routine_pause', 'routine_resume', 'routine_delete', 'routine_run_now', 'routine_history'
+    'routine_create', 'routine_list', 'routine_pause', 'routine_resume', 'routine_delete', 'routine_run_now', 'routine_history',
+    // asgard-upgrade Phase 4.2 / 6.6 (appended): Thor answers "how ready are we" and "what did you cost this week"
+    'trading_readiness', 'trading_status', 'cost_report'
 ];
 const LOKI_TOOLS = [
     'add_calendar_event', 'add_content_idea', 'add_todo', 'air_quality', 'allow_host',
@@ -239,7 +241,9 @@ const ODIN_TOOLS = [
     'approvals_list', 'approve', 'reject', 'delegate',
     'routine_create', 'routine_list', 'routine_pause', 'routine_resume', 'routine_delete', 'routine_run_now', 'routine_history',
     // asgard-upgrade Phase 4.2 (appended): the PAPER kill switch and readiness
-    'trading_halt', 'trading_resume', 'trading_status', 'trading_readiness', 'paper_backtest'
+    'trading_halt', 'trading_resume', 'trading_status', 'trading_readiness', 'paper_backtest',
+    // asgard-upgrade Phase 6.6 (appended): Odin reports the spend on Sundays
+    'cost_report'
 ];
 
 export const PERSONAS = {

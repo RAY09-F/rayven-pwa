@@ -4,6 +4,9 @@
 // unchanged from worker.js aside from switching from env-closures to explicit
 // env params. Later phases append new tool definitions + executeTool cases here.
 import { callAnthropic } from './anthropic.js';
+import { tickLog } from './tick.js';
+import { costLine, costReportText } from './cost.js';
+import { MODELS } from './models.js';
 import { checkPermission } from './permissions.js';
 import { newTrace, record, recordTool, commitTrace, auditRecent, auditTrace, auditWhy } from './audit.js';
 import { appendCappedLog, readCappedLog } from './util.js';
@@ -184,6 +187,8 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {
     case 'trading_status': return await tradingStatusText(env);
     case 'trading_readiness': return await tradingReadinessText(env);
     case 'paper_backtest': return await paperBacktestText(env, input && input.agent, input && input.days);
+    // Phase 6.6 -- "what did you cost this week"
+    case 'cost_report': return await costReportText(env, (input && Number(input.days)) || 7);
     case 'company_filings': return await companyFilings(env, input);
     case 'token_search': return await tokenSearch(env, input);
     case 'golden_hour': return await goldenHour(env, input);
@@ -814,7 +819,8 @@ TOOL_DEFINITIONS.push(
   { name: 'trading_resume', description: 'Lift a PAPER trading halt so new simulated positions may open again on the next signal. Simulated only.', input_schema: { type: 'object', properties: {} } },
   { name: 'trading_status', description: 'The PAPER book\'s risk state in plain English: halt on/off, the risk caps and whether any is hit today, the fill model (slippage and commission assumptions), cash, open positions. Simulated only — say so.', input_schema: { type: 'object', properties: {} } },
   { name: 'trading_readiness', description: 'How ready the trading system is: answers "mode: paper. No live path exists." and lists the gates a future real-money switch would require and whether each is met. Nothing here can enable live trading. Use when Rayan asks how ready we are or whether anything is real.', input_schema: { type: 'object', properties: {} } },
-  { name: 'paper_backtest', description: 'Replay one PAPER councillor\'s strategy over the candles already cached by the live cycle (never a new market-data call) and report win rate, P&L, avg win/loss, max drawdown and a Sharpe-style ratio. Answers "insufficient cached history" under 5 trading days. Simulated only — say so.', input_schema: { type: 'object', properties: { agent: { type: 'string', description: 'councillor name or agent id, e.g. FRIGGA or freya' }, days: { type: 'integer', description: 'how many recent trading days to replay (default: all cached)' } }, required: ['agent'] } }
+  { name: 'paper_backtest', description: 'Replay one PAPER councillor\'s strategy over the candles already cached by the live cycle (never a new market-data call) and report win rate, P&L, avg win/loss, max drawdown and a Sharpe-style ratio. Answers "insufficient cached history" under 5 trading days. Simulated only — say so.', input_schema: { type: 'object', properties: { agent: { type: 'string', description: 'councillor name or agent id, e.g. FRIGGA or freya' }, days: { type: 'integer', description: 'how many recent trading days to replay (default: all cached)' } }, required: ['agent'] } },
+  { name: 'cost_report', description: 'What the models cost: today so far and the last days, in estimated dollars from list prices, by persona and tier. Use when Rayan asks what you cost, what this week cost, or how much is being spent.', input_schema: { type: 'object', properties: { days: { type: 'integer', description: 'how many past days to include (default 7)' } } } }
 );
 
 // Tool schemas a given persona is allowed to see. Thor (toolNames: null) gets
@@ -913,6 +919,12 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   for (let iteration = 0; iteration < maxIter; iteration++) {
     const result = await callAnthropic(env, systemBlocks, toolsForThisCall, messages, maxTok, opts.model);
     lastResult = result;
+    // Phase 6.6: every call's usage becomes a cost line -- in the conversation's spool on the
+    // reply path, in the tick buffer for cron -- rolled up by the tick, never a write here.
+    if (result && result.ok && result.data && result.data.usage) {
+      const line = costLine({ persona: personaId, councillor: opts.councillor || null, model: opts.model || _p.model || MODELS.sonnet, usage: result.data.usage, source: convo ? channel : 'cron' });
+      if (convo) spoolPush(meta, 'cost', line); else tickLog('cost', line);
+    }
     if (result && typeof result === 'object') result.actions = actions;
     if (!result.ok) { record(trace, 'error', 'anthropic', { note: `HTTP ${result.status || '?'}`, ok: false }); await commitTrace(env, trace, convo ? meta : null); return result; }
 

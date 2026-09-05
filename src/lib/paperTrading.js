@@ -32,7 +32,9 @@ import { appendCappedLog, readCappedLog } from './util.js';
 import { getPersonaBotToken } from './personas.js';
 import { sendTelegramMessage, getRayanPrivateChatId } from './telegram.js';
 import { getBroker, getHalt, setHalt, tradingReadiness, fillModelFor } from './broker.js';
-import { submitAndRemember, collectBatchesIfAny } from './batch.js';
+import { submitAndRemember } from './batch.js';
+import { tickLog } from './tick.js';
+import { costLine } from './cost.js';
 import { MODELS } from './models.js';
 import { minutesToNyseClose, nyseCalendarLastYear, nyseCloseMinutes, NYSE_HOLIDAYS } from './marketData.js';
 
@@ -934,14 +936,14 @@ export async function paperBacktestText(env, agentQuery, days) { return (await p
 // self-review per named trader (cheap tier, off the live bill), and on later ticks
 // the collected reviews land in each trader's journal (one write per trader per day).
 function nyPartsNow() { const fmt = new Intl.DateTimeFormat('en-US', { timeZone: TZ_NY, hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', weekday: 'short' }); const p = Object.fromEntries(fmt.formatToParts(new Date()).map(x => [x.type, x.value])); return { date: `${p.year}-${p.month}-${p.day}`, minutes: parseInt(p.hour, 10) * 60 + parseInt(p.minute, 10), weekday: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(p.weekday) }; }
+// (Batch collection moved to the tick hook in index.js -- Phase 6.2 -- where every collector, this one included, runs once per tick.)
 export async function runPaperCloseTasksIfDue(env) {
-  const collected = await collectBatchesIfAny(env, { 'trader-reviews': collectTraderReviews });
   const { date, minutes, weekday } = nyPartsNow();
   const closeMin = nyseCloseMinutes(date);
-  if (weekday < 1 || weekday > 5 || NYSE_HOLIDAYS.has(date)) return { ok: true, skipped: 'not a trading day', collected };
-  if (minutes < closeMin || minutes >= closeMin + 10) return { ok: true, skipped: 'not the close window', collected };
+  if (weekday < 1 || weekday > 5 || NYSE_HOLIDAYS.has(date)) return { ok: true, skipped: 'not a trading day' };
+  if (minutes < closeMin || minutes >= closeMin + 10) return { ok: true, skipped: 'not the close window' };
   const last = await env.RAYVEN_KV.get(CLOSE_LAST_KEY);
-  if (last === date) return { ok: true, skipped: 'close tasks already done today', collected };
+  if (last === date) return { ok: true, skipped: 'close tasks already done today' };
   const [portfolio, trades] = await Promise.all([getPortfolio(env), readCappedLog(env, TRADES_KEY)]);
   for (const id of Object.keys(AGENTS)) { try { await updateAgentStats(env, id, trades, portfolio, { sample: true }); } catch (e) { console.error('close sample failed', id, e.message); } }
   const requests = COUNCIL_TRADERS.map(id => {
@@ -959,12 +961,13 @@ export async function runPaperCloseTasksIfDue(env) {
   await env.RAYVEN_KV.put(CLOSE_LAST_KEY, date);
   return { ok: true, date, sampled: Object.keys(AGENTS).length, reviewsSubmitted: sub.ok, batch: sub.id || null, error: sub.error || null };
 }
-async function collectTraderReviews(env, entry, results) {
+export async function collectTraderReviews(env, entry, results) {
   let n = 0;
   for (const r of results) {
     if (!r.custom_id || !r.text) continue;
     const id = r.custom_id.split(':').pop(); if (!AGENTS[id]) continue;
     await appendCappedLog(env, JOURNAL_KEY(id), { date: (entry.meta && entry.meta.date) || r.custom_id.slice(0, 10), text: String(r.text).trim().slice(0, 600), label: 'PAPER' }, JOURNAL_CAP); n++;
+    if (r.usage) tickLog('cost', costLine({ persona: 'odin', councillor: id, model: MODELS.haiku, usage: r.usage, source: 'trader-review', batch: true }));   // Phase 6.6
   }
   return { note: `${n} review(s) journaled` };
 }

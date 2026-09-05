@@ -10,11 +10,11 @@ import { getRecentMemoryBlock, getLongTermMemory, migrateMemoryEmbeddings, getMe
 import { isAffirmative, setToolPermission, getPermissions, GATEABLE_TOOLS, HARD_CONFIRM_TOOLS, DEFAULT_PERMISSION_LEVELS } from './lib/permissions.js';
 import {
   resolveSenderTag, getBotInfo, messageAddressesBot, textMentionsJarvis, textMentionsKevin,
-  sendTelegramMessage, getBotInfoFor, getRayanPrivateChatId } from './lib/telegram.js';
+  sendTelegramMessage, getBotInfoFor, getRayanPrivateChatId , answerCallbackQuery, editMessageText } from './lib/telegram.js';
 import { executeTool, callClaudeWithTools, getTaskLog, TOOL_DEFINITIONS, toolDefinitionsForPersona } from './lib/tools.js';
 import { handleSpotifyLogin, handleSpotifyCallback, spotifyNowPlayingData, spotifyPause, spotifyResume, spotifyNext, spotifyPrevious } from './lib/spotify.js';
 import { runLokiBriefIfDue, runLokiBrief, runOdinReportIfDue, runOdinReport, getOdinReports } from './lib/reports.js';
-import { runPaperTradingCycleIfDue, runPaperTradingDailyReportIfDue, sendPaperTradingReportNow, getPaperStatus, getPaperChartData, forceDemoTrade, INSTRUMENTS, runPaperCloseTasksIfDue } from './lib/paperTrading.js';
+import { runPaperTradingCycleIfDue, runPaperTradingDailyReportIfDue, sendPaperTradingReportNow, getPaperStatus, getPaperChartData, forceDemoTrade, INSTRUMENTS, runPaperCloseTasksIfDue, collectTraderReviews } from './lib/paperTrading.js';
 import { fetchKrakenCandles, fetchTwelveDataCandles } from './lib/marketData.js';
 import { handleAgentQuery } from './lib/sibling-agents.js';
 import { runProactiveCheckIn, runProactiveCheckInIfDue, runCodeCheckIfDue, runCodeCheck, runMorningBriefing, runMorningBriefingIfDue } from './lib/checkin.js';
@@ -37,6 +37,8 @@ import { runRoutinesIfDue, seedRoutinesIfMissing, reviewText } from './lib/routi
 import { emit, takePendingEvents, eventsFromDrained } from './lib/events.js';
 import { healthReport, publicHealth, runSystemCheckIfDue } from './lib/healthz.js';
 import { buildVault, runVaultBackupIfDue } from './lib/vault.js';
+import { collectBatchesIfAny } from './lib/batch.js';
+import { resumeBatchedRoutine } from './lib/routines.js';
 import { handleMcp } from './lib/mcp.js';
 import { readTickLast, WRITE_CEILING_PER_DAY } from './lib/tick.js';
 import { runTimersIfDue } from './lib/kit.js';
@@ -122,6 +124,16 @@ async function handleChatTurn(env, ctx, opts) {
 
     if (telegramChatType === 'private' && senderUsername === RAYAN_TELEGRAM_USERNAME && personaId === DEFAULT_PERSONA_ID) {
       await env.RAYVEN_KV.put('rayan:private_chat_id', String(telegramChatId));
+    }
+    // Phase 6.7: /council -- this god's five and their last run, straight from the registry, no model call.
+    // Private chats only (in the group every bot would answer). The concealed fourth's council is never listed.
+    if (telegramChatType === 'private' && /^\/council(@\w+)?\s*$/i.test(String(userMessage).trim()) && !getPersona(personaId).hidden) {
+      const c = await getCouncilStatus(env);
+      const ago = iso => { if (!iso) return 'never'; const s = (Date.now() - Date.parse(iso)) / 1000; return s < 3600 ? `${Math.max(1, Math.round(s / 60))} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : `${Math.round(s / 86400)} d ago`; };
+      const rows = (c.councils[personaId] || []).map(x => `• ${x.name} — ${x.role}: ${x.runs} run${x.runs === 1 ? '' : 's'}, last ${ago(x.lastRun)}${x.lastSummary ? ` — ${String(x.lastSummary).slice(0, 70)}` : ''}`);
+      const text = rows.length ? `${persona.name}'s council:\n${rows.join('\n')}` : `${persona.name} has no council listed.`;
+      if (!smoke) await sendTelegramMessage(env, telegramChatId, text, botToken);
+      return { reply: text };
     }
 
     if (telegramChatType === 'group' || telegramChatType === 'supergroup') {
@@ -455,12 +467,32 @@ async function ackTelegramAndProcess(env, ctx, body, personaId, botToken, corsHe
     if (seen) return new Response('OK', { headers: corsHeaders });
     await env.RAYVEN_KV.put(dedupeKey, '1', { expirationTtl: 3600 });
   }
+  // Phase 6.7: the APPROVE / REJECT buttons on approval messages.
+  if (body && body.callback_query) {
+    ctx.waitUntil(handleCallbackQuery(env, body.callback_query, botToken).catch(err => console.error(`Telegram callback failed (${personaId}):`, err.message)));
+    return new Response('OK', { headers: corsHeaders });
+  }
   if (body && body.message && typeof body.message === 'object' && body.message.chat) {
     ctx.waitUntil(handleChatTurn(env, ctx, { personaId, isTelegram: true, body, botToken }).catch(err => {
       console.error(`Telegram turn failed (${personaId}):`, err.message);
     }));
   }
   return new Response('OK', { headers: corsHeaders });
+}
+
+// A button press is honoured only from Rayan, in a private chat (Rule 15) --
+// exactly the rule the typed APPROVE/REJECT reply follows. Anyone else gets a
+// polite refusal and the approval stays pending.
+async function handleCallbackQuery(env, cq, botToken) {
+  const from = cq.from && cq.from.username ? String(cq.from.username).toLowerCase() : '';
+  const chat = cq.message && cq.message.chat;
+  const m = /^(approve|reject):(\d+)$/.exec(String(cq.data || ''));
+  if (!m) { await answerCallbackQuery(env, botToken, cq.id, 'Unknown button.'); return; }
+  if (from !== RAYAN_TELEGRAM_USERNAME || !chat || chat.type !== 'private') { await answerCallbackQuery(env, botToken, cq.id, 'Only Rayan can decide this, in his private chat.'); return; }
+  const r = await resolveApproval(env, m[2], m[1], (e, t, i, p) => executeTool(e, t, i, p));
+  await answerCallbackQuery(env, botToken, cq.id, m[1] === 'approve' ? `Approved ${m[2]}.` : `Rejected ${m[2]}.`);
+  const original = (cq.message && cq.message.text) || `[APPROVAL ${m[2]}]`;
+  await editMessageText(env, botToken, chat.id, cq.message.message_id, `${original}\n\n— ${m[1] === 'approve' ? 'APPROVED' : 'REJECTED'} by the button: ${String(r && r.text || '').slice(0, 800)}`);
 }
 
 export default {
@@ -1353,9 +1385,7 @@ How to speak on a phone call:
       if (legacy) {
         return Response.redirect(new URL(`/?persona=${legacy[1]}`, url).toString(), 301);
       }
-      if (url.pathname === '/hub' || url.pathname === '/hub/') {
-        return Response.redirect(new URL('/', url).toString(), 301);
-      }
+      // Phase 6.8: /hub is a real page again (public/hub/index.html) — served by the asset handler below.
       // Anything GET/HEAD that fell through every API route above is the static
       // page in public/. With run_worker_first on, Cloudflare no longer serves
       // it automatically; this is the one explicit call that does it.
@@ -1495,6 +1525,8 @@ How to speak on a phone call:
       onDrained: (drained) => runQueuedDelegations(env, drained),
       every: async (drained) => {
         await seedRoutinesIfMissing(env);
+        // Phase 6.2: collect finished Message Batches (trader self-reviews; batched routine compose steps resume here).
+        try { await collectBatchesIfAny(env, { 'trader-reviews': collectTraderReviews, 'routine-compose': (e, entry, results) => resumeBatchedRoutine(e, entry, results, (ee, t, i, p) => executeTool(ee, t, i, p)) }); } catch (e) { console.error('batch collection failed:', e && e.message); }
         const events = [...eventsFromDrained(drained), ...takePendingEvents()];
         const r = await runRoutinesIfDue(env, events, (e, t, i, p) => executeTool(e, t, i, p));
         // Rule 5e: at 70% of the daily ceiling Thor tells Rayan once.

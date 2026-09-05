@@ -57,7 +57,8 @@ export async function createApproval(env, { persona, tool, input, tainted, sourc
     const chatId = await getRayanPrivateChatId(env);
     const token = getPersonaBotToken(env, persona) || env.TELEGRAM_BOT_TOKEN;
     if (chatId && token) {
-      await sendTelegramMessage(env, chatId, `[APPROVAL ${id}] ${firstLine(description)} — from ${getPersona(persona).name}${rec.provenance ? `\n${rec.provenance}` : ''}\n\n${description}\n\nReply APPROVE ${id} or REJECT ${id}`, token);
+      await sendTelegramMessage(env, chatId, `[APPROVAL ${id}] ${firstLine(description)} — from ${getPersona(persona).name}${rec.provenance ? `\n${rec.provenance}` : ''}\n\n${description}\n\nReply APPROVE ${id} or REJECT ${id}, or use the buttons.`, token,
+        { reply_markup: { inline_keyboard: [[{ text: `APPROVE ${id}`, callback_data: `approve:${id}` }, { text: `REJECT ${id}`, callback_data: `reject:${id}` }]] } });   // Phase 6.7: honoured only from Rayan in his private chat
     }
   } catch (e) { console.error('approval notify failed:', e && e.message); }
   emit('approval.created', { id, tool, persona, councillor: councillor || null });

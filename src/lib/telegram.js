@@ -73,16 +73,24 @@ export function textMentionsKevin(text) {
 
 // botToken is optional — defaults to the legacy/THOR bot (RAYVENN_RAYAN_BOT).
 // Per-persona bots pass their own token so replies come from the right identity.
-export async function sendTelegramMessage(env, chatId, text, botToken) {
+export async function sendTelegramMessage(env, chatId, text, botToken, extra) {
   const token = botToken || env.TELEGRAM_BOT_TOKEN;
   const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text })
+    body: JSON.stringify({ chat_id: chatId, text, ...(extra && typeof extra === 'object' ? extra : {}) })   // extra: e.g. { reply_markup } (Phase 6.7)
   });
   const data = await res.json().catch(() => ({ ok: false }));
   if (!data.ok) console.error('Telegram send failed:', data);
   return data;
+}
+// Phase 6.7: inline-button plumbing. Both fail quietly -- a button that does not
+// visibly acknowledge is a cosmetic loss, never a functional one.
+export async function answerCallbackQuery(env, botToken, callbackQueryId, text) {
+  try { const res = await fetch(`https://api.telegram.org/bot${botToken || env.TELEGRAM_BOT_TOKEN}/answerCallbackQuery`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ callback_query_id: callbackQueryId, text: String(text || '').slice(0, 190) }) }); return await res.json().catch(() => ({ ok: false })); } catch (e) { return { ok: false }; }
+}
+export async function editMessageText(env, botToken, chatId, messageId, text) {
+  try { const res = await fetch(`https://api.telegram.org/bot${botToken || env.TELEGRAM_BOT_TOKEN}/editMessageText`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ chat_id: chatId, message_id: messageId, text: String(text || '').slice(0, 4000) }) }); return await res.json().catch(() => ({ ok: false })); } catch (e) { return { ok: false }; }
 }
 
 export async function getRayanPrivateChatId(env) {

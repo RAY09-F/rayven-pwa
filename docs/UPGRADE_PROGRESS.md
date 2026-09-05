@@ -390,3 +390,53 @@ committed and pushed phase by phase. Anything that needed Rayan's eyes or a deci
   the memory key in a shape the memory module does not use; the live export renders the memory folder fine.
   Deployed 21c1f674…; smoke ALL PASS; **mcp-smoke ALL PASS live**; **export-vault wrote 55 files live**, and
   `MEMORY.md`, `USER.md` and the three persona files read correctly.
+
+## Phase 6 — everything else worth adding
+- **6.1 tool subsets — skipped** on purpose: Part C's 7.0 toolbox replaces it (the spec says so).
+- **6.2 Batch work:** `src/lib/batch.js` (submit / poll / results; pending list in ONE key `system:batches`, one write
+  on submit, one on collect; batches older than 26 h are dropped and noted). The five trader self-reviews go through
+  it (4.3). Routines gained a **batched compose step** (`compose.batch: true`): the runner submits the compose,
+  records "waiting for the batch" and stops; the tick's collector (`resumeBatchedRoutine`) resumes the run from the
+  next step when the batch ends — memory_append (with the critic), the closing say step, delivery — and stores the
+  run with `resumedAt`. The stored **World note** and **Memory hygiene** routines were flagged `batch: true` by a
+  one-time patch inside `seedRoutinesIfMissing`. The brief, the glance and the market notes stay live.
+- **6.3 provenance:** every `addLongTermMemory` writer already carries `provenance(...)` (checked: roundtable,
+  autonomy pulse, vigil, check-in, briefing, auto-capture, remember_this, routines). Nothing to add.
+- **6.4 embeddings — deferred:** the embedder is already `@cf/baai/bge-base-en-v1.5` on Workers AI (free), so the
+  spec's condition ("only if the current embedder is a paid model") is not met.
+- **6.5 Browser Rendering — skipped:** the Workers binding needs the `@cloudflare/puppeteer` package (Rule 3: no new
+  dependencies) and the REST route needs an account API token (no new secrets); `quickAction` could not be verified.
+- **6.6 Cost tracker** (`src/lib/cost.js`): every Anthropic call's `usage` becomes a cost line — in the conversation
+  `_spool` on the reply path, in the tick buffer for cron (tool loop, routine compose, batch results). The tick rolls
+  the day's lines into `tick:last.costToday` (no extra write) and, on the first tick of the next UTC day, writes ONE
+  `cost:YYYY-MM-DD` summary. Dollars are list-price estimates (cache reads 10%, batches 50%). Tool `cost_report`
+  (Thor and Odin); routines gained `read: 'cost'`, and the stored Sunday **State of the realm** was patched once to
+  read it and quote it (replacing "model spend: not tracked yet"). `callAnthropicSimple` now returns `usage`.
+- **6.7 Telegram polish:** approval messages carry **APPROVE n / REJECT n inline buttons**; a press is honoured only
+  from Rayan's username in a private chat (`callback_query` → `resolveApproval`, the message is edited with the
+  outcome, anyone else is told politely). **`/council`** in a private chat lists the god's five with runs and last-run
+  time straight from the registry (no model call; never the hidden realm's). The "same one-message layout" item was
+  not built — the routines' compose instructions already fix each report's shape.
+- **6.8 The hub:** `public/hub/index.html` — three doors (the hall, the councils, /healthz) and a status strip from
+  `/healthz?public=1` (gods awake, councillors — the three visible gods' 15 only — extension, PAPER P&L). The Worker's
+  old `/hub → /` redirect was removed so the asset serves; `/hub` → `/hub/` → the page. Live.
+- **6.9 Quarterly re-check:** `schedule.js` accepts `dayOfMonth` and `months` lists (still no cron syntax); seed
+  `thor-quarterly-recheck` — 09:00 Pacific on the 1st of Mar/Jun/Sep/Dec, one plain sentence, no model call.
+- **6.10 `docs/ASGARD_UPGRADE_REPORT.md`** — the plain-English report for Rayan.
+- Also: Thor's explicit tool list (the "null = everything" comment was stale) gained `trading_readiness`,
+  `trading_status` and `cost_report`.
+- Verified: import probe (`node --input-type=module -e "await import('src/index.js')"` — added to the deploy routine
+  after a missing comma slipped past `node --check`), routines harness (quarterly trigger, batch flags, Sunday cost
+  read, a batched compose that submits → collector resumes → memory appended → Telegram delivered), paper and
+  vault harnesses re-run PASS; deployed 5da7fa1d… then the Thor-list fix; smoke, smoke-fx and mcp-smoke ALL PASS;
+  `/hub/` live with the strip; `/healthz?public=1` answers.
+
+## KV write budget — Part B additions (worst case per day)
+| feature | writes/day |
+|---|---|
+| paper close tasks (10 samples + 5 journals + 2 batch state + marker) | ≈ 18 on trading days |
+| stats on trade close | 1 per closed trade |
+| batched routine compose (submit + collect state) | 2 per batched run |
+| cost summary | 1 |
+| nightly vault backup marker (+1 R2 put) | 1 |
+| approvals buttons, /council, MCP, vault route, siblings | 0 |
