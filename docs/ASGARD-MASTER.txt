@@ -1,0 +1,3035 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║                                                                      ║
+║   A S G A R D  —  T H E   C O M P L E T E   B U I L D                ║
+║                                                                      ║
+║   Everything Claude Code needs, in one file.                         ║
+║   For ~/rayven-pwa on Rayan's Chromebook.                            ║
+║                                                                      ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+READ THIS PAGE FIRST. THEN READ ONLY THE SECTION YOU ARE WORKING ON.
+
+This file has six sections. They are meant to be worked in order, across
+several sessions. Do not try to do all of it at once — it is weeks of work,
+and trying to hold it all in your head at the same time is how sessions die.
+
+  SECTION 0   Who you work for, and the rules that never bend
+  SECTION 1   The design system — install this as a skill FIRST
+  SECTION 2   The hall blueprint — working HTML, the target to hit
+  SECTION 3   Strike Three — turn the blueprint into real 3D
+  SECTION 4   The brains — councils, automation, ~240 tools (Parts A/B/C)
+  SECTION 5   The council rename — a small fix, only if still needed
+
+WHERE TO START, depending on what Rayan says:
+
+  "start the halls" / "make it look like the pictures"
+      → Section 1 (install skill), then Section 2, then Section 3.
+
+  "start the upgrade" / "the brains" / "the tools"
+      → Section 4, Part A, from Phase 0. Stop after Phase 3.
+
+  "continue Part B" / "continue Part C"
+      → Section 4, that part only.
+
+  "continue from the progress file"
+      → Read docs/UPGRADE_PROGRESS.md or docs/STRIKE_THREE_PROGRESS.md and
+        pick up exactly where it says.
+
+The visual work (Sections 1–3) and the brains work (Section 4) are
+INDEPENDENT. Either can go first. The visual work is frontend-only and needs
+no paid plan; the brains work stops at Phase 0 unless the Workers Paid plan
+is on.
+
+WHAT IS ALREADY BUILT AND DEPLOYED (do not rebuild these):
+  · public/fx/asgard-fx.js — the FX engine: render tiers (webgl2 → webgl1 →
+    2D), quality governor, pooled particles, WebAudio SFX synth, ?fx=0,
+    ?debug=1, context-loss handling, and the AsgardFX hook API.
+  · public/fx/thor.js, loki.js, odin.js — per-realm animated backdrops.
+  · public/fx/hub.js — the Bifrost hub. public/fx/team.js — the councils page.
+  · scripts/patch.mjs and scripts/check-scripts.mjs — the safe-edit tools.
+  · public/team.html is live and correct.
+If any of those are missing, say so plainly before building on top of them.
+
+
+╔══════════════════════════════════════════════════════════════════════╗
+║  SECTION 0 — WHO YOU WORK FOR, AND THE RULES THAT NEVER BEND         ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+WHO YOU ARE WORKING FOR
+Rayan has zero coding experience. Talk to him in plain English, one step at a
+time, no jargon. He cannot merge code by hand — you make every edit yourself
+and never ask him to "add this line here". When you need something only he can
+do (a secret, a paid plan, a decision, a look at the screen), STOP, explain in
+one or two plain sentences exactly what to do, and wait.
+
+He is also the ONLY one in this loop who can see pixels. There is no browser in
+your sandbox and Playwright will not run on this Chromebook. Never claim a
+frame rate, a render path or a look you have not had him read back to you. Say
+"unverified" where it is unverified.
+
+THE MACHINE
+A Chromebook (ChromeOS/Crostini), 2.7 GB RAM, no swap. Heavy installs crash the
+whole container. When that happens the answer is a full restart, not a retry.
+
+THE RULES THAT OVERRIDE EVERYTHING ELSE IN THIS FILE
+
+ 1. HELA'S MEMORY IS NEVER CLEARED, and the hidden realm stays hidden. No
+    public file named for it, no label, no comment, no fetch, no count, no
+    route, no lore, nothing in localStorage, nothing on the hub or the council
+    page. Any councillor count shown anywhere counts the THREE VISIBLE GODS
+    ONLY (15, not 20) — or the segment is dropped. No endpoint, tool, cron or
+    cleanup may delete or trim any persona's long-term memory. Compaction means
+    "append a summary", never "remove originals". If a task seems to need
+    deletion, it doesn't — stop and ask.
+ 2. Never rename or move a KV key, an agent id, a persona id, a tool name, or a
+    secret name. Add new ones; leave existing ones alone.
+ 3. No new npm dependencies. No build step. Three.js, where used, loads from
+    the three CDN mirrors the project already uses (jsdelivr → unpkg → esm.sh),
+    pinned to one exact version, with a graceful failure path if all three are
+    blocked. If you believe a dependency is unavoidable, stop and explain in
+    plain English; do not install it.
+ 4. Secrets: never print, log, or paste a secret value. Never create a
+    .dev.vars file. When a new secret is needed, tell Rayan exactly this,
+    filling in NAME:
+         nano ~/secret.txt        (paste the value, Ctrl+O, Enter, Ctrl+X)
+         npx wrangler secret put NAME < ~/secret.txt
+         rm ~/secret.txt
+    and wait for him to confirm before continuing.
+ 5. NEVER READ THE HALL FILE WHOLE. public/index.html is ~300 KB in one file
+    and loading it into context will kill the session. grep -n for anchors,
+    sed -n 'A,Bp' in windows of at most 120 lines, never print a line longer
+    than 2,000 characters (awk substr for long lines). Every hall edit goes
+    through scripts/patch.mjs (anchor must appear exactly once, else it exits
+    non-zero and changes nothing). After every patch run
+    scripts/check-scripts.mjs on that file, and `node --check` on every plain
+    .js file you touched.
+ 6. The hall's edit budget is ALREADY SPENT: one <script src="/fx/asgard-fx.js">
+    tag, one init call, and one hook call per existing state-change point, each
+    in try/catch. New visual modules are loaded BY THE ENGINE, never by a
+    second hall tag. If a feature can't be built that way, drop the feature and
+    say so.
+ 7. Never cp root index.html over public/index.html or the reverse. If both
+    exist and differ, report it and do not edit either until Rayan decides.
+ 8. Surface upstream errors verbatim. Never collapse a remote failure into a
+    generic string.
+ 9. Hard-confirm tools (SMS, calls) stay hard-confirm with their existing LIVE
+    confirmation. Automation may QUEUE them for approval; it may never send
+    them. Same for social posting. Real-money trading: there is no code path,
+    and nothing in this file adds one.
+10. PAPER / SIM stays conspicuous everywhere an Odin trading number appears.
+11. Names are text labels only. No character likenesses, no logos, no film
+    imagery, no lyrics. Generic objects — hammer, gem, ring, crown-as-a-shape,
+    birds, storm — are fine and encouraged.
+12. public/team.html is the source of truth for councillor identity. Read its
+    CONFIG block before using any name or colour. Do not change a councillor
+    name, colour, role line or theme line without Rayan saying so.
+13. Work on the branch that is actually deployed. Before any edit:
+    `git branch pre-<task>-backup` so the starting point is parked. Nothing
+    gets deleted.
+14. Time: Cloudflare cron fires in UTC; every time in this file is Pacific. Do
+    NOT implement cron syntax. A schedule is either
+    { at:'HH:MM', days:[0..6], tz:'America/Los_Angeles' } or { every:N }.
+15. Every phase ends with: node --check + check-scripts on everything touched,
+    then
+        cd ~/rayven-pwa && npx wrangler deploy
+    (expect "Deployed asgrard-backend" plus a version id — nothing printed
+    means the Chromebook ran out of memory: tell Rayan to restart and rerun),
+    then `git add -A && git commit -m "<what>" && git push`. Then write the
+    progress file.
+16. When you say "done", it means deployed, checked, committed, pushed — and
+    for anything visual, that Rayan has looked at it and said it's right.
+    Not "written".
+17. WHAT NOT TO MISTAKE FOR PROGRESS: an idle animation is not work being done.
+    A green label is not a working integration. A confident paragraph is not a
+    completed external action. Never report a feature as implemented because
+    its label appears in the HUD. If something cannot work on this setup, say
+    so plainly and say what would make it work — never ship code that pretends.
+
+HOW TO REPORT BACK
+After each phase: one short message in plain English — what now works, the one
+sentence Rayan can say or the one thing he can click to try it, what you
+skipped and why, and anything waiting on him. No file listings unless he asks.
+
+HOW TO ASK RAYAN TO LOOK AT SOMETHING
+  Close the Linux terminal first (Claude Code running alongside makes the
+  frame rate look worse than it really is).
+
+  1. Open <url>?debug=1 on the Chromebook. Read me the FPS number and whether
+     RENDER PATH says WebGL or 2D.
+  2. Does the centre object look solid — like a thing sitting in a room — or
+     flat?
+  3. Say the wake word. Does the wake sequence play, and do you still get a
+     spoken reply?
+  4. Click one advisor gem. Does its line light up and everything else settle?
+  5. Switch to another god and back, three times. Anything stutter, go black,
+     or get slower each time?
+  6. Now the same on your phone from the home-screen icon.
+
+  Tell me anything that looked wrong, even if you can't describe why.
+
+Below 45 fps on the Chromebook: drop that page a tier by default and tell him.
+
+
+╔══════════════════════════════════════════════════════════════════════╗
+║  SECTION 1 — THE DESIGN SYSTEM (install this FIRST)                  ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+Everything between the two SKILL markers below is a Claude Code skill.
+Write it to disk exactly as-is, THEN read it. It is the visual spec for
+Sections 2 and 3, and every future session in this folder inherits it
+automatically.
+
+    mkdir -p ~/rayven-pwa/.claude/skills/asgard-design
+
+Write the block below to:
+
+    ~/rayven-pwa/.claude/skills/asgard-design/SKILL.md
+
+The folder MUST be named `asgard-design` — it has to match the skill's own
+name field. Confirm with `head -5` that the file starts with YAML frontmatter
+reading `name: asgard-design`, then read the whole thing before you write a
+line of visual code.
+
+===SKILL===
+---
+name: asgard-design
+description: The Asgard visual language - arc cores, council gems, HUD panels, palettes, motion and performance budgets for the Thor/Loki/Odin halls. Use this skill whenever you touch anything visual in ~/rayven-pwa - the hall, the hub, team.html, any file under public/fx/, any 3D core, gem, tether, panel, palette, animation, shader or HUD work, and any time Rayan says the pages should look better, cooler, cleaner, more insane, or asks for a redesign. Also use it before writing a single line of Three.js or WebGL for this project, and when judging whether a proposed effect is affordable on his Chromebook.
+---
+
+# The Asgard Visual Language
+
+This is the house style for Asgard's three halls. It exists so that every
+visual change lands in the same world instead of ten different ones, and so
+that nothing beautiful ships that a 2.7 GB Chromebook cannot actually run.
+
+Rayan has zero coding experience. He is the only person who can see pixels —
+you cannot. Everything here is written so you can build to spec without asking
+him to judge things he has no vocabulary for, and so that when you DO need his
+eyes, you ask for one concrete thing at a time.
+
+## The one-sentence version
+
+Every god's hall is a dark, still room containing **one real modeled object
+that holds light**, five gem-like advisors arranged around it, and readable
+HTML text that never lives inside the 3D scene.
+
+---
+
+## 1. The arc core is real geometry. Always.
+
+"Arc core" means the modeled centerpiece of a god's interface: an object with
+actual vertices, materials, lighting and state-driven animation.
+
+- A glow, a sprite, a flat logo, a particle cloud or a pre-rendered image is
+  **not** an arc core. Effects may surround it; the object underneath must stay
+  recognizable as a solid thing with volume.
+- When motion is disabled, the core is still lit and still dimensional. Still
+  mode removes movement, never depth.
+- A static image fallback exists only for when WebGL fails outright. It is a
+  safety net, never the deliverable.
+
+**Per-god geometry** — these identities are fixed:
+
+| God | Core | Never |
+|---|---|---|
+| THOR | A recognizable hammer assembly, held inside interlocking curved shells | A lightning bolt alone, a flat icon |
+| LOKI | An angular faceted relic framed by an asymmetric looping structure | A snake, a helmet with horns as a *likeness* |
+| ODIN | A nested iris / aperture ring, opening through toroidal pieces | An eyeball, a face |
+
+Generic objects are fine and encouraged: hammer, spear, horned crown as a
+*shape*, gems, rings, birds, storm. **No character likenesses, no film imagery,
+no logos, ever.** Names are text labels only.
+
+The fourth realm has **no core file and no core module** — its look stays
+inside the engine and is never named in a public filename, comment, fetch,
+label, count or route. When that realm is active the cores layer stays
+disposed and the engine's existing treatment carries the centre. If you are
+building something that would reveal it, you are building the wrong thing.
+
+---
+
+## 2. The house direction: The Impossible Relic
+
+Of the twenty directions in the design book, this is the one that is being
+built. It was chosen because Rayan approved its colors directly, it is the
+book's own recommended first prototype, and its geometry simplifies gracefully
+when the Chromebook struggles.
+
+**Materials:** opalescent resin, polished edges, brushed metal mounts, dark
+polished floor with a restrained reflection. Not chrome, not glass, not neon.
+
+**Structure:** a solid faceted core sitting inside an interlocking curved
+shell, on a stepped circular plinth, with five advisor gems on their own small
+plinths in a ring around it, connected to the core by thin light tethers.
+
+**Palette — base (all three halls share these):**
+
+```
+--asg-pearl      #ECEAF2   /* highest-value surfaces, key light      */
+--asg-plum       #292337   /* mid-dark structural mass                */
+--asg-void       #0B0A12   /* the room behind everything              */
+--asg-silver     #C8D1DC   /* metal mounts, rims, plinth edges        */
+--asg-petrol     #285E6B   /* cool shadow tone, tether base           */
+--asg-uv         #7965CF   /* ambient bounce, atmospheric haze        */
+```
+
+**Palette — per-god accent (the core's own light):**
+
+```
+THOR   core   #EAF8FF  cold white     rim  #66C7FF  storm blue
+LOKI   core   #E7C24A  citrine        rim  #D8AF5C  deep amber
+ODIN   core   #D8AE5A  gold           rim  #A56429  deep amber-bronze
+```
+
+Loki's core reads **yellow**, not emerald — this was Rayan's explicit revision
+and it supersedes every older description that called Loki's core green,
+including the emerald-mist wording in the earlier FX briefs. Green stays in
+Loki's hall only as Sylvie's gem and as interface accents. Loki's existing
+room backdrop is retuned to plum / petrol / citrine to match; that is a
+palette change to an existing file, not a rebuild of it.
+
+**Advisor gem colors** — these are how Rayan tells advisors apart at a glance.
+`public/team.html`'s CONFIG block is the source of truth: **read it first and
+take its colors.** Use these only where team.html has none, and update this
+list whenever it differs.
+
+```
+THOR    Jane Foster #D9455F   Darcy #9B6BE0   Valkyrie #BCE0F5
+        Korg #E8DCC8          Hulk #4FBF8A
+
+LOKI    Miss Minutes #E08A3C  Kang #8B6BD9    Hunter B-15 #BCD8F5
+        Sylvie #3E9C8F        Mobius #E4CBA8
+
+ODIN    Volstagg #D9455F      Frigga #9B6BE0  Heimdall #E9C77A
+        Hogun #5B8FD9         Fandral #4FBF8A
+```
+
+Heimdall's gem is deliberately lighter than Odin's core gold (#D8AE5A) so it
+reads as its own object rather than as spill off the centre. Repeats **across**
+gods (Volstagg/Jane Foster, Frigga/Darcy, Fandral/Hulk) are fine — different
+rooms, never on screen together.
+
+**Typography:** one display face for names and titles (wide-tracked, small
+caps, restrained), one clean sans for chat and body. Body text never smaller
+than 14px on desktop, 15px on phone. Names on plinths are HTML, not texture.
+
+---
+
+## 3. Text and controls live in HTML. Never in the scene.
+
+This is the rule that keeps the product usable when the graphics fail.
+
+- The transcript, the composer, every panel, every label, every button: HTML
+  over or beside the canvas.
+- Selecting a modeled object opens readable HTML. Essential text is never baked
+  into a texture, never rendered as 3D type, never placed on a moving surface.
+- Keyboard focus lives on the **HTML advisor list**, and the gem mirrors it —
+  the canvas is never the only way to reach anything.
+- Labels that track 3D positions update at ~15 Hz, transform-only, with no
+  layout reads and no per-frame allocation. Smooth enough to read as attached;
+  cheap enough to be free.
+
+---
+
+## 4. Panel mapping — keep every one of them
+
+The hall already has these panels and they all keep working. In this direction
+they take these forms:
+
+| Panel | Form in this world | Rule |
+|---|---|---|
+| Top bar | A thin fixed horizon rail | FPS, verts, link latency, mute, CTRL+K stay reachable; diagnostics may hide in a tray |
+| Fourth panel (FIELD LOG / THE LEDGER / COUNSEL) | Flat ceramic cards, timestamped | Per-god name — Thor FIELD LOG, Loki THE LEDGER, Odin COUNSEL. Observable actions and real recommendations only — never invented reasoning |
+| THROUGHPUT | Four calibrated arcs | Keep the defined units. Undefined = "Not configured". Unavailable = "Unavailable" |
+| CHANNEL | A broad fixed reading pane | Full transcript, speaker labels, input, send, stop |
+| SUBSYSTEMS | Folded-edge tiles | Explicit OPEN / READY / HELD states |
+| LINKED | Labeled seam joins | worker, KV, R2, extension, tool count, with real observation times |
+| RAVEN SIGHT | A geometry-inspection tray | render path, elements drawn, FPS, worker round-trip |
+| Bottom bar | A fixed voice rail | mic, rate, pitch, and the three persona states |
+
+A task has states — queued, running, waiting, completed, failed. It does not
+have an invented progress percentage, and it never displays private model
+reasoning.
+
+Odin's paper trading carries a conspicuous **PAPER / SIM** label everywhere a
+number appears. No exceptions, no small print.
+
+---
+
+## 5. Motion
+
+Motion is authored, not simulated. A few deliberate movements beat many
+continuous ones.
+
+- **Idle:** slow. A breath of scale, a few degrees of drift over 20–40 seconds.
+  The room is never dead still and never busy.
+- **Listening:** the room leans in — structure tightens toward centre, ambient
+  dims slightly.
+- **Thinking:** one slow build. Loki's shell rotates a quarter turn; Odin's
+  iris closes; Thor's shells draw in. It resolves; it does not loop frantically.
+- **Speaking:** the core's emissive tracks speech level. Peaks produce one
+  discrete event — a strike, a ring, a flare — not a strobe.
+- **Selection:** picking an advisor lights **only** its tether and its tool
+  markers, and settles everything else. This is the signature interaction: the
+  route from core to advisor to tool becomes physically visible.
+- **Realm switch:** one 600 ms wipe. One cut, not a sequence.
+
+Every animation has a hard deadline. If it has not finished by then it
+force-completes. A thrown frame must never leave Rayan with a mute assistant or
+a half-drawn room.
+
+`prefers-reduced-motion` and the visible **still mode** toggle both freeze
+motion while keeping the core lit and dimensional. State changes then read as
+label changes, not camera moves. The still-mode control is injected by the FX
+layer, the same way the mute control is — it is never a new edit to the hall.
+
+---
+
+## 6. The performance budget IS the art direction
+
+Every rule below was earned by a real bug on this exact machine.
+
+- **One renderer.** The cores render inside the FX engine's existing WebGL
+  context — no new canvas, no second full-screen context. The hall already
+  holds a GL context of its own; a third surface on 2.7 GB of RAM is exactly
+  where context loss happens.
+- **Frame-rate floor: 45 fps with the governor engaged.** 55 is the target for
+  a bare spike page with nothing else running. Between 45 and 55 the governor
+  does its job and that is acceptable; below 45 on the Chromebook, drop that
+  page a tier by default and tell Rayan you did.
+- When a core is active, the room backdrop behind it drops to its static tier.
+  Two full-screen animated layers plus a lit model is the combination that
+  breaks this machine.
+- DPR capped at 1.5. Never resize a canvas inside the frame loop.
+- Clamp `requestAnimationFrame` deltas to ≥ 0 — a negative first-frame delta
+  once produced NaN and silently killed a whole wake sequence.
+- Write off-screen tests positively (`if (x > -8 && x < w + 8)`) so NaN is
+  rejected rather than passed through.
+- Clamp every gradient radius to a finite positive number.
+- **Never** put a CSS `filter` or `backdrop-filter` on an animated layer. Glass
+  panels use a pre-rendered blurred snapshot. This halved the frame rate once.
+- Pre-render static layers once to an offscreen canvas.
+- Additive blending only on small layers, never full-screen.
+- Pool particles. No per-frame allocation, ever.
+- Reuse geometry and materials across gems; instance the tool markers.
+- Dispose geometry, materials and textures when leaving a realm — hiding is not
+  releasing. Switching realms three times in a row must not degrade.
+- Quality governor: below 45 fps for 3 seconds, drop one tier — halve
+  particles → bloom off → DPR 1 → static backdrop. Never below a lit static core.
+- Render tiers: WebGL2 → WebGL1 (write shaders once in GLSL ES 1.00) → a 2D
+  fallback that still reads as a composed object.
+- Handle `webglcontextlost` / `webglcontextrestored` on every page.
+- `?fx=0` gives a plain working page. `?debug=1` shows FPS, tier and RENDER PATH.
+- **localStorage holds three keys only: mute, quality tier, and still mode.**
+  Never a persona id, never conversation state. (The hub's existing
+  boot-sequence-seen flag predates this and stays; do not add a fourth.)
+- Three.js loads from the three CDN mirrors the project already uses
+  (jsdelivr → unpkg → esm.sh), pinned to one exact version, with a graceful
+  failure path if all three are blocked.
+
+Targets on real hardware, measured with the Linux terminal closed and read back
+by Rayan — never asserted by you: **45+ fps Chromebook (55 on a bare page),
+30+ fps phone.** A dark room full of small transparent effects can cost more
+than one larger opaque model — complexity is not polygon count.
+
+---
+
+## 7. Working on the hall file safely
+
+`public/index.html` is roughly 300 KB in one file. Loading it into context will
+end the session.
+
+- Never read it whole. Find anchors with `grep -n`, inspect with
+  `sed -n 'A,Bp'` in windows of at most 120 lines, never print a line longer
+  than 2,000 characters.
+- Edit only through `scripts/patch.mjs <file> <anchorFile> <replacementFile>` —
+  it requires the anchor to appear exactly once and changes nothing otherwise.
+- After every patch run `scripts/check-scripts.mjs <file>`, and `node --check`
+  on every plain `.js` file.
+- The hall's script tag budget is already spent on `/fx/asgard-fx.js`. New
+  visual modules are loaded **by the engine**, never by a second hall tag.
+- Hall edits are capped at that one tag, one init call, and one hook call per
+  existing state-change point, each in `try/catch`. Everything else happens
+  inside `public/fx/*`. If a feature cannot be built that way, drop the feature
+  — never widen the hall edit.
+- Never `cp` root `index.html` over `public/index.html` or the reverse. If both
+  exist and differ, report it and do not edit either until Rayan decides.
+
+---
+
+## 8. Phone composition is its own design
+
+Do not shrink the desktop layout. On a phone:
+
+- The god's core becomes a compact 3D header; transcript and composer take most
+  of the screen.
+- Selecting an advisor opens its name, current work and its tools as a large
+  readable sheet.
+- The full council is an optional overview, not the default view.
+- Touch targets ≥ 44px. A tap equivalent for every hover. Keyboard focus
+  preserved. Written status beside every color-coded state.
+- Device tilt only after an explicit tap-to-allow. Never prompt on load.
+- Sound starts only after a user gesture, with a visible mute control.
+
+---
+
+## 9. What not to mistake for progress
+
+- An idle animation is not work being done.
+- A green label is not a working integration.
+- A generated screenshot is not a working UI.
+- A confident paragraph is not a completed external action.
+- Do not report a feature as implemented because its label appears in the HUD.
+
+If something cannot work on this setup, say so plainly and say what would make
+it work. Never ship code that pretends.
+
+---
+
+## 10. When Rayan needs to look at something
+
+You cannot see pixels; he can. Ask for one concrete observation at a time, in
+plain English, and give him the exact steps:
+
+> Close the Linux terminal first (Claude Code running alongside makes the frame
+> rate look worse than it is). Open <url>?debug=1 on the Chromebook and read me
+> the two numbers in the corner — FPS and RENDER PATH. RENDER PATH should say
+> WebGL; if it says 2D that's a real finding, not a detail.
+
+Then the checklist that matters for whatever you just built: does the core look
+solid, does the wake sequence still play, does he still get a spoken reply, does
+switching gods work, does it hold up on the phone from the home-screen icon.
+
+If anything is below 45 fps on the Chromebook, drop a tier by default for that
+page and tell him you did.
+===SKILL===
+
+
+╔══════════════════════════════════════════════════════════════════════╗
+║  SECTION 2 — THE HALL BLUEPRINT (working HTML, the target to hit)    ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+WHAT THIS IS
+Rayan approved three concept images for the halls (Thor "The Astral
+Cartographer", Loki "The Bifrost Prism Foundry", Odin "The Basalt Command
+Monument"). Those images were then rebuilt as a real, working web page: the
+scene art sits as a full-bleed stage, and every bar, chat panel, council row,
+button and label on top of it is real HTML matched to the artwork pixel for
+pixel. It scales to any screen, switches between the three gods, and carries
+ambient motion (drifting dust, pulsing gems, a slow scene breath, a light that
+follows the pointer).
+
+THAT PAGE IS THE TARGET. It is what the halls must look like when Section 3 is
+finished. The difference between it and the finished product is exactly one
+thing: in the blueprint the centrepiece is painted art; in the finished product
+it is real 3D geometry that moves when the god thinks and speaks.
+
+HOW TO USE IT
+
+2.1  Ask Rayan for the three approved images. He has them. Save them to
+     public/img/ as thor.jpg, loki.jpg and odin.jpg. If he sends PNGs, convert
+     to JPEG at quality ~84 and 1920×1080 — the PNGs are 3 MB each and that is
+     a real load cost on his connection. If he cannot find them, STOP and ask;
+     do not substitute your own art.
+
+2.2  Write the block between the two BLUEPRINT markers to
+     public/halls-preview.html — with the three {{...}} placeholders in the
+     <img src> attributes replaced by the real paths:
+          {{THOR_IMG}}  →  /img/thor.jpg
+          {{LOKI_IMG}}  →  /img/loki.jpg
+          {{ODIN_IMG}}  →  /img/odin.jpg
+
+2.3  Deploy it and give Rayan the link. This page is linked from nowhere and
+     touches nothing else — it is a reference he and you can both point at.
+
+2.5  DO NOT SWAP THIS PAGE IN AS THE LIVE HALL. This is the most likely wrong
+     turn in the whole project, so it is spelled out here.
+
+     The blueprint is a SHELL. Its chat panel, composer, mic and council rows
+     are beautiful and pixel-correct, and none of them are wired to anything.
+     The live hall (public/index.html) is the opposite: it looks plainer, and
+     it carries the working chat loop, voice, the wake word, barge-in, memory,
+     the tool calls, the vault phrases and the persona routing — years of
+     working behaviour.
+
+     If Rayan says "make my index look like the preview", or "just use that
+     page", he is asking for the look, not for the loss. Replacing the hall
+     with this file would trade a working assistant for a screenshot. Say that
+     plainly, in one or two sentences, and do not do it.
+
+     The look moves ONTO the working hall, never the other way round. That is
+     what Section 3 does: it brings this blueprint's palette, chrome, panels
+     and centrepiece into the real hall through the FX layer, without touching
+     what already works. If he wants the halls to look like the pictures, the
+     answer is Section 3.
+
+2.4  From here on, when a decision comes up about a colour, a label, a spacing,
+     a font or a layout in any hall, THIS FILE ANSWERS IT. Read the relevant
+     CSS block rather than inventing something. The palettes in it and the
+     palettes in the Section 1 skill agree with each other; if you ever find
+     they don't, the skill wins and you fix the blueprint.
+
+WHAT IS REAL IN IT ALREADY (keep all of this):
+  · The fixed 1920×1080 stage that scales to fit any window, so the layout can
+    never drift relative to the art.
+  · The persona switcher — THOR / LOKI / ODIN, plus keys 1/2/3, plus ?hall=
+    and #hash deep links.
+  · Per-god chrome: top rail, bottom rail, side panel, all three colourways.
+  · Odin's warm ivory council panel with its five councillor rows.
+  · Loki's dark glass panel with COUNSEL card.
+  · Thor's panel with the mic/composer row.
+  · Ambient FX: pooled dust particles on a canvas, pulsing gem glows, the slow
+    scene breath, the pointer light. All of it honours prefers-reduced-motion.
+
+===BLUEPRINT===
+<title>The Halls of Asgard</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; }
+  body { background:#04060B; overflow:hidden; font-family:'Inter',system-ui,sans-serif;
+         -webkit-font-smoothing:antialiased; color:#E8E6EF; }
+
+  /* ---------- viewport that scales a fixed 1920x1080 stage ---------- */
+  #viewport { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#04060B; }
+  .stage { position:relative; width:1920px; height:1080px; flex:none; transform-origin:center center;
+           background:#04060B; display:none; }
+  .stage.active { display:block; }
+
+  .scene { position:absolute; inset:0; overflow:hidden; }
+  .scene img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+               animation:breathe 26s ease-in-out infinite alternate; }
+  @keyframes breathe { from { transform:scale(1); } to { transform:scale(1.018); } }
+  @media (prefers-reduced-motion: reduce) {
+    .scene img, .glow, .beam { animation:none !important; }
+  }
+
+  /* ---------- ambient FX ---------- */
+  canvas.dust { position:absolute; inset:0; pointer-events:none; mix-blend-mode:screen; }
+  .glow { position:absolute; pointer-events:none; mix-blend-mode:screen; border-radius:50%;
+          filter:blur(2px); animation:pulse 5.2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity:.25; transform:scale(.92);} 50% { opacity:.75; transform:scale(1.08);} }
+  .cursorlight { position:absolute; width:520px; height:520px; border-radius:50%; pointer-events:none;
+                 mix-blend-mode:screen; opacity:0; transition:opacity .5s;
+                 background:radial-gradient(circle, rgba(140,160,255,.10) 0%, rgba(0,0,0,0) 62%); }
+
+  /* ---------- shared chrome ---------- */
+  .topbar { position:absolute; left:0; right:0; top:0; height:76px; display:flex; align-items:center;
+            padding:0 34px; gap:22px; z-index:20; }
+  .brand { display:flex; align-items:center; gap:16px; }
+  .wordmark { font-family:'Cinzel',serif; font-weight:600; font-size:21px; letter-spacing:.42em; text-indent:.42em; }
+  .tb-div { width:1px; height:22px; background:rgba(255,255,255,.16); }
+  .tb-god { font-family:'Cinzel',serif; font-weight:600; font-size:16px; letter-spacing:.34em; text-indent:.34em; }
+  .tb-design { font-size:11.5px; letter-spacing:.24em; color:rgba(235,235,245,.55); text-transform:uppercase; }
+  .tb-right { margin-left:auto; display:flex; align-items:center; gap:26px; }
+  .tb-nav { display:flex; align-items:center; gap:30px; font-size:14.5px; color:rgba(235,235,245,.5); }
+  .tb-nav .on { color:#fff; position:relative; }
+  .tb-nav .on::after { content:""; position:absolute; left:0; right:0; bottom:-10px; height:2px; border-radius:2px; }
+  .tb-nav span { display:flex; align-items:center; gap:7px; cursor:default; }
+  .tb-icons { display:flex; align-items:center; gap:18px; color:rgba(235,235,245,.6); }
+  .term-btn { width:44px; height:32px; border:1px solid rgba(255,255,255,.28); border-radius:7px;
+              display:flex; align-items:center; justify-content:center; font-size:12px; color:rgba(255,255,255,.75);
+              font-family:'Inter',monospace; letter-spacing:.06em; }
+
+  .bottombar { position:absolute; left:0; right:0; bottom:0; height:96px; display:flex; align-items:center;
+               padding:0 36px; z-index:20; }
+  .persona-switch { position:absolute; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:44px; }
+  .persona { font-family:'Cinzel',serif; font-size:15px; letter-spacing:.3em; text-indent:.3em; font-weight:600;
+             color:rgba(235,235,245,.42); background:none; border:none; cursor:pointer; padding:10px 6px;
+             display:flex; align-items:center; gap:9px; position:relative; }
+  .persona svg { opacity:.6; }
+  .persona:hover { color:rgba(240,240,250,.8); }
+  .persona.on { color:#fff; }
+  .persona.on::after { content:""; position:absolute; left:6px; right:6px; bottom:-2px; height:2.5px; border-radius:2px; }
+
+  .pill { display:flex; align-items:center; gap:10px; border:1px solid rgba(255,255,255,.22); border-radius:999px;
+          padding:9px 18px; font-size:13.5px; color:rgba(240,240,250,.85); }
+  .tagline { font-size:10.5px; letter-spacing:.34em; color:rgba(235,235,245,.4); text-transform:uppercase; }
+
+  /* ---------- side panel scaffolding ---------- */
+  .panel { position:absolute; z-index:15; border-radius:14px; display:flex; flex-direction:column; }
+  .bubble { border-radius:13px; padding:13px 16px; font-size:15.5px; line-height:1.45; max-width:88%; }
+  .msg { display:flex; gap:11px; align-items:flex-start; }
+  .avatar { width:34px; height:34px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center; }
+  .mini-label { font-size:10px; letter-spacing:.22em; text-transform:uppercase; margin-bottom:5px; }
+  .inputrow { display:flex; align-items:center; gap:11px; }
+  .sendbtn { width:44px; height:44px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center; border:none; cursor:pointer; }
+  .gem-i { flex:none; }
+
+  /* =================== ODIN =================== */
+  .hall--odin .topbar { background:#0B0C10; border-bottom:1px solid rgba(213,169,79,.14); }
+  .hall--odin .tb-god { color:#D5A94F; }
+  .hall--odin .tb-nav .on::after { background:#D5A94F; }
+  .hall--odin .persona.on { color:#E9C77A; }
+  .hall--odin .persona.on::after { background:#D5A94F; }
+  .hall--odin .bottombar { background:#0B0C10; border-top:1px solid rgba(213,169,79,.14); }
+
+  .odin-panel { left:1438px; top:100px; width:456px; height:833px; background:#EDE8DC; color:#2A2520;
+                box-shadow:0 24px 70px rgba(0,0,0,.55); padding:26px 26px 22px; }
+  .odin-panel .p-head { display:flex; align-items:center; gap:15px; padding-bottom:18px; border-bottom:1px solid rgba(42,37,32,.14); }
+  .odin-sigil { width:52px; height:52px; border-radius:50%; background:#8A6A2E;
+                background:radial-gradient(circle at 35% 30%, #B98F45, #6E5220); display:flex; align-items:center; justify-content:center; }
+  .odin-panel h1 { font-family:'Cinzel',serif; font-size:26px; letter-spacing:.26em; font-weight:600; color:#241F1A; }
+  .odin-panel .sub { font-size:10.5px; letter-spacing:.26em; color:#8A6A2E; margin-top:4px; }
+  .odin-chat { padding:20px 0 6px; display:flex; flex-direction:column; gap:14px; }
+  .odin-chat .bot .avatar { background:radial-gradient(circle at 35% 30%, #B98F45, #6E5220); }
+  .odin-chat .bot .bubble { background:#E2DCCD; color:#332D26; font-family:'Cormorant Garamond',serif; font-size:17.5px; }
+  .odin-chat .bot .mini-label { color:#8B8375; }
+  .odin-chat .user { justify-content:flex-end; }
+  .odin-chat .user .bubble { background:#2E2A24; color:#F1EDE4; font-size:15px; }
+  .odin-chat .user .u-ico { color:#9A927F; margin-top:10px; }
+  .odin-input { margin-top:12px; }
+  .odin-input .field { flex:1; display:flex; align-items:center; gap:12px; background:#FBF9F3; border:1px solid rgba(42,37,32,.14);
+                       border-radius:999px; padding:13px 20px; color:#9A9284; font-size:15px; }
+  .odin-input .sendbtn { background:#A87E35; color:#FBF7EC; }
+  .counsel-h { display:flex; align-items:center; gap:14px; margin-top:24px; }
+  .counsel-h span { font-size:11.5px; letter-spacing:.3em; color:#6E675B; }
+  .counsel-h::after { content:""; flex:1; height:1px; background:rgba(42,37,32,.15); }
+  .c-list { display:flex; flex-direction:column; margin-top:12px; }
+  .c-row { display:flex; align-items:center; gap:14px; padding:13px 14px; border-radius:11px; cursor:pointer;
+           transition:background .18s; }
+  .c-row:hover { background:rgba(168,126,53,.10); }
+  .c-row.hot { background:#F6F1E4; border:1px solid rgba(168,126,53,.35); box-shadow:0 3px 10px rgba(90,70,30,.10); }
+  .c-name { font-weight:600; font-size:15.5px; color:#2E2822; }
+  .c-sub { font-size:12.5px; color:#847C6D; margin-top:2px; }
+  .c-row .chev { margin-left:auto; color:#A39A88; }
+  .c-row.gold .c-name { color:#8A6A2E; }
+
+  /* =================== LOKI =================== */
+  .hall--loki .topbar { background:#060E0F; border-bottom:1px solid rgba(63,214,155,.12); }
+  .hall--loki .tb-god { color:#3FD69B; }
+  .hall--loki .tb-nav .on::after { background:#3FD69B; }
+  .hall--loki .bottombar { background:#060E0F; border-top:1px solid rgba(63,214,155,.10); }
+  .hall--loki .persona.on { color:#7FE9C0; }
+  .hall--loki .persona.on::after { background:#3FD69B; }
+  .hall--loki .persona.on .dot { position:absolute; left:50%; transform:translateX(-50%); bottom:-8px; width:5px; height:5px;
+                                 border-radius:50%; background:#3FD69B; box-shadow:0 0 8px #3FD69B; }
+
+  .loki-panel { left:1424px; top:98px; width:478px; height:822px; background:rgba(10,22,24,.97);
+                border:1px solid rgba(90,150,135,.22);                box-shadow:0 24px 70px rgba(0,0,0,.6); padding:22px 24px; color:#DCE8E4; }
+  .loki-panel .p-cap { font-size:10.5px; letter-spacing:.32em; color:#6E8B84; padding-bottom:14px;
+                       border-bottom:1px solid rgba(120,170,155,.16); }
+  .loki-id { display:flex; align-items:center; gap:13px; padding:17px 2px 15px; }
+  .loki-dot { width:26px; height:26px; border-radius:50%; border:1.5px solid rgba(63,214,155,.6);
+              display:flex; align-items:center; justify-content:center; }
+  .loki-dot i { width:10px; height:10px; border-radius:50%; background:#3FD69B; box-shadow:0 0 10px #3FD69B; }
+  .loki-id h1 { font-family:'Cinzel',serif; font-size:21px; letter-spacing:.3em; font-weight:600; color:#EAF6F1; }
+  .loki-id .sub { font-size:9.5px; letter-spacing:.28em; color:#3FD69B; margin-top:3px; }
+  .loki-id .dots { margin-left:auto; color:#5E7A73; letter-spacing:2px; font-size:18px; }
+  .loki-chat { display:flex; flex-direction:column; gap:14px; padding-top:6px; }
+  .loki-chat .avatar { background:radial-gradient(circle at 40% 30%, rgba(63,214,155,.5), rgba(10,40,32,.9));
+                       border:1px solid rgba(63,214,155,.45); }
+  .loki-chat .bot .bubble { background:rgba(22,40,42,.92); border:1px solid rgba(100,150,140,.14);
+                            font-family:'Cormorant Garamond',serif; font-size:17px; color:#EAF2EE; }
+  .loki-chat .bot .mini-label { color:#7E9B93; }
+  .loki-chat .user { justify-content:flex-end; }
+  .loki-chat .user .bubble { background:rgba(52,72,74,.9); color:#F0F6F3;
+                             font-family:'Cormorant Garamond',serif; font-size:17.5px; }
+  .loki-input { margin-top:16px; }
+  .loki-input .field { flex:1; display:flex; align-items:center; justify-content:space-between; background:rgba(14,28,30,.9);
+                       border:1px solid rgba(100,150,140,.22); border-radius:12px; padding:14px 18px;
+                       color:#6E8B84; font-size:15px; font-style:italic; font-family:'Cormorant Garamond',serif; }
+  .loki-input .sendbtn { background:#2FA97C; color:#06231A; box-shadow:0 0 18px rgba(63,214,155,.35); }
+  .loki-counsel-cap { display:flex; align-items:center; gap:12px; margin-top:22px; font-size:10.5px;
+                      letter-spacing:.32em; color:#6E8B84; }
+  .loki-counsel-cap .bar { width:3px; height:14px; background:#3FD69B; border-radius:2px; }
+  .loki-card { margin-top:12px; display:flex; gap:14px; align-items:flex-start; padding:16px 15px; border-radius:12px;
+               background:rgba(16,32,33,.85); border:1px solid rgba(100,160,145,.18); }
+  .loki-card .t { font-family:'Cormorant Garamond',serif; font-size:18px; color:#EFF6F2; }
+  .loki-card .s { font-family:'Cormorant Garamond',serif; font-size:15.5px; color:#8FA9A1; margin-top:5px; line-height:1.4; }
+  .loki-card .chev { margin-left:auto; color:#5E7A73; align-self:center; }
+
+  .hall--loki .lb-left { display:flex; align-items:center; gap:14px; }
+  .hall--loki .voice-lab { font-size:10px; letter-spacing:.3em; color:#6E8B84; }
+  .hall--loki .voice-dd { display:flex; align-items:center; gap:26px; border:1px solid rgba(120,170,155,.25);
+                          border-radius:9px; padding:9px 16px; font-size:13.5px; color:#CFE2DB; }
+  .hall--loki .steps { margin-left:auto; font-size:10.5px; letter-spacing:.3em; color:#6E8B84; }
+  .hall--loki .steps b { color:#9FCABE; font-weight:500; }
+
+  /* =================== THOR =================== */
+  .hall--thor .topbar { background:#060A14; border-bottom:1px solid rgba(100,167,245,.13); }
+  .hall--thor .tb-god { color:#64A7F5; }
+  .hall--thor .tb-nav .on { color:#8FC0FF; }
+  .hall--thor .tb-nav .on::after { background:#64A7F5; }
+  .hall--thor .bottombar { background:#060A14; border-top:1px solid rgba(100,167,245,.12); }
+  .hall--thor .persona.on { color:#fff; }
+  .hall--thor .persona.on::after { background:#64A7F5; }
+  .hall--thor .persona.frame { border:1px solid rgba(140,180,240,.35); border-radius:10px; padding:10px 22px; }
+
+  .thor-panel { left:1410px; top:98px; width:496px; height:856px; background:rgba(9,15,28,.97);
+                border:1px solid rgba(90,130,190,.25);                box-shadow:0 24px 70px rgba(0,0,0,.6); padding:24px 26px; color:#DCE6F5; }
+  .thor-id { display:flex; align-items:center; gap:15px; padding-bottom:18px; border-bottom:1px solid rgba(120,160,220,.14); }
+  .thor-sigil { width:50px; height:50px; border-radius:50%; border:1.5px solid rgba(140,180,240,.5);
+                display:flex; align-items:center; justify-content:center; color:#BFD9FF;
+                background:radial-gradient(circle at 40% 30%, rgba(70,110,180,.45), rgba(8,14,28,.9)); }
+  .thor-id h1 { font-family:'Cinzel',serif; font-size:25px; letter-spacing:.3em; font-weight:600; color:#F0F5FF; }
+  .thor-id .sub { font-size:10px; letter-spacing:.3em; color:#7FA0CC; margin-top:4px; }
+  .thor-id .dots { margin-left:auto; color:#5E76A0; letter-spacing:2px; font-size:18px; }
+  .thor-chat { display:flex; flex-direction:column; gap:16px; padding-top:20px; flex:1; }
+  .thor-chat .avatar { border:1px solid rgba(140,180,240,.45);
+                       background:radial-gradient(circle at 40% 30%, rgba(90,140,220,.5), rgba(8,16,32,.95)); color:#CFE3FF; }
+  .thor-chat .bot .bubble { background:rgba(17,28,48,.92); border:1px solid rgba(110,150,210,.16); font-size:16px; color:#E9F0FB; }
+  .thor-chat .user { justify-content:flex-end; }
+  .thor-chat .user .bubble { background:rgba(40,56,86,.92); color:#F2F6FD; font-size:15.5px; }
+  .thor-chat .user .u-ico { color:#7C93B8; margin-top:10px; }
+  .thor-input { margin-top:auto; }
+  .thor-input .mic { width:44px; height:44px; border-radius:50%; border:1px solid rgba(140,180,240,.35);
+                     display:flex; align-items:center; justify-content:center; color:#AFCBF2; flex:none; }
+  .thor-input .field { flex:1; background:rgba(12,20,38,.9); border:1px solid rgba(110,150,210,.25); border-radius:999px;
+                       padding:14px 20px; color:#6E86AC; font-size:15px; letter-spacing:.08em; }
+  .thor-input .sendbtn { background:#3D7BD9; color:#EAF3FF; box-shadow:0 0 20px rgba(80,140,230,.4); }
+  .hall--thor .lb-left { display:flex; align-items:center; gap:16px; }
+  .hall--thor .lb-design { font-size:10.5px; letter-spacing:.26em; color:rgba(220,230,250,.45); }
+  .hall--thor .tb-right .gear { color:rgba(220,230,250,.55); }
+
+  .glow.gold  { background:radial-gradient(circle, rgba(255,205,110,.85) 0%, rgba(255,170,60,.25) 45%, transparent 70%); }
+  .glow.red   { background:radial-gradient(circle, rgba(255,90,110,.8) 0%, rgba(255,60,80,.22) 45%, transparent 70%); }
+  .glow.violet{ background:radial-gradient(circle, rgba(190,120,255,.8) 0%, rgba(150,80,255,.22) 45%, transparent 70%); }
+  .glow.ice   { background:radial-gradient(circle, rgba(170,215,255,.8) 0%, rgba(120,180,255,.22) 45%, transparent 70%); }
+  .glow.green { background:radial-gradient(circle, rgba(90,235,160,.8) 0%, rgba(50,200,130,.2) 45%, transparent 70%); }
+  .glow.champ { background:radial-gradient(circle, rgba(240,215,165,.75) 0%, rgba(220,180,120,.2) 45%, transparent 70%); }
+  .glow.yellow{ background:radial-gradient(circle, rgba(255,225,120,.85) 0%, rgba(255,195,60,.28) 48%, transparent 72%); }
+  .glow.storm { background:radial-gradient(circle, rgba(160,210,255,.85) 0%, rgba(90,160,255,.25) 48%, transparent 72%); }
+</style>
+
+<div id="viewport">
+
+<!-- ============================ THOR ============================ -->
+<section class="stage hall--thor" id="hall-thor">
+  <div class="scene"><img src="{{THOR_IMG}}" alt=""><canvas class="dust"></canvas>
+    <div class="glow red"    style="left:718px; top:104px; width:82px; height:82px; animation-delay:.2s"></div>
+    <div class="glow violet" style="left:206px; top:330px; width:86px; height:86px; animation-delay:1.4s"></div>
+    <div class="glow ice"    style="left:1163px;top:330px; width:86px; height:86px; animation-delay:2.6s"></div>
+    <div class="glow champ"  style="left:280px; top:688px; width:84px; height:84px; animation-delay:3.1s"></div>
+    <div class="glow green"  style="left:1100px;top:670px; width:86px; height:86px; animation-delay:1.9s"></div>
+    <div class="glow storm"  style="left:660px; top:430px; width:180px;height:180px;animation-delay:0s; animation-duration:7s"></div>
+    <div class="cursorlight"></div>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="wordmark">ASGARD</span><span class="tb-div"></span>
+      <span class="tb-god">THOR</span><span class="tb-div"></span>
+      <span class="tb-design">09 / The Astral Cartographer</span>
+    </div>
+    <div class="tb-right">
+      <nav class="tb-nav"><span class="on">Council</span><span>Channel</span><span>System</span></nav>
+      <div class="tb-icons">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="4" y1="4" x2="20" y2="20"/></svg>
+        <span class="term-btn">&gt;_</span>
+      </div>
+    </div>
+  </header>
+
+  <aside class="panel thor-panel">
+    <div class="thor-id">
+      <div class="thor-sigil"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></div>
+      <div><h1>THOR</h1><div class="sub">PRINCE OF ASGARD</div></div>
+      <span class="dots">&#8226;&#8226;&#8226;</span>
+    </div>
+    <div class="thor-chat">
+      <div class="msg bot">
+        <div class="avatar"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h12v7H6z"/><rect x="10.7" y="11" width="2.6" height="10" rx="1"/></svg></div>
+        <div class="bubble">Ready when you are.</div>
+      </div>
+      <div class="msg user">
+        <div class="bubble">Help me shape the next step.</div>
+        <svg class="u-ico" width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-6 8-6s6.5 2 8 6z"/></svg>
+      </div>
+      <div class="inputrow thor-input">
+        <span class="mic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/></svg></span>
+        <div class="field">Speak&nbsp; to&nbsp; Thor...</div>
+        <button class="sendbtn" aria-label="Send"><svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M3 12l18-9-7 18-2.5-7z"/></svg></button>
+      </div>
+    </div>
+  </aside>
+
+  <footer class="bottombar">
+    <div class="lb-left">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(220,230,250,.75)" stroke-width="1.4"><path d="M12 3l9 17H3z"/><path d="M12 9l4.6 8.6H7.4z"/></svg>
+      <span class="wordmark" style="font-size:14px;">ASGARD</span>
+      <span class="tb-div"></span>
+      <span class="lb-design">09 / THE ASTRAL CARTOGRAPHER</span>
+    </div>
+    <div class="persona-switch">
+      <button class="persona frame on" data-go="thor"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.2H22l-6 4.6 2.3 7.2-6.3-4.5-6.3 4.5L8 13.8 2 9.2h7.6z"/></svg>THOR</button>
+      <button class="persona" data-go="loki">LOKI</button>
+      <button class="persona" data-go="odin">ODIN</button>
+    </div>
+    <div class="tb-right">
+      <span class="pill"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64A7F5" stroke-width="1.8"><path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/></svg> Voice On <span style="opacity:.6">&#8964;</span></span>
+      <svg class="gear" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
+    </div>
+  </footer>
+</section>
+
+<!-- ============================ LOKI ============================ -->
+<section class="stage hall--loki" id="hall-loki">
+  <div class="scene"><img src="{{LOKI_IMG}}" alt=""><canvas class="dust"></canvas>
+    <div class="glow yellow" style="left:645px; top:400px; width:230px;height:230px;animation-duration:6.5s"></div>
+    <div class="glow" style="left:700px; top:120px; width:90px; height:90px; animation-delay:.8s;
+         background:radial-gradient(circle, rgba(255,160,80,.8) 0%, rgba(230,120,50,.22) 45%, transparent 70%);"></div>
+    <div class="glow violet" style="left:346px; top:318px; width:88px; height:88px; animation-delay:2s"></div>
+    <div class="glow ice"    style="left:1074px;top:312px; width:88px; height:88px; animation-delay:3.2s"></div>
+    <div class="glow green"  style="left:348px; top:632px; width:88px; height:88px; animation-delay:1.1s"></div>
+    <div class="glow champ"  style="left:1062px;top:640px; width:86px; height:86px; animation-delay:4s"></div>
+    <div class="cursorlight"></div>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="wordmark">ASGARD</span><span class="tb-div"></span>
+      <span class="tb-god">LOKI</span><span class="tb-div"></span>
+      <span class="tb-design">17 / The Bifrost Prism Foundry</span>
+    </div>
+    <div class="tb-right">
+      <nav class="tb-nav"><span class="on" style="color:#fff">Council</span><span>Channel</span><span>System</span></nav>
+      <div class="tb-icons">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="4" y1="4" x2="20" y2="20"/></svg>
+        <span class="term-btn">&gt;_</span>
+      </div>
+    </div>
+  </header>
+
+  <aside class="panel loki-panel">
+    <div class="p-cap">COUNCIL</div>
+    <div class="loki-id">
+      <span class="loki-dot"><i></i></span>
+      <div><h1>LOKI</h1><div class="sub">ADVISOR ONLINE</div></div>
+      <span class="dots">&#8226;&#8226;&#8226;</span>
+    </div>
+    <div class="loki-chat">
+      <div class="msg bot">
+        <div class="avatar"><svg width="15" height="15" viewBox="0 0 24 24" fill="#7FE9C0"><path d="M12 2l6 10-6 10-6-10z"/></svg></div>
+        <div><div class="mini-label">LOKI</div><div class="bubble">Ready when you are.</div></div>
+      </div>
+      <div class="msg user"><div class="bubble">Help me shape the next step.</div></div>
+      <div class="msg bot">
+        <div class="avatar"><svg width="15" height="15" viewBox="0 0 24 24" fill="#7FE9C0"><path d="M12 2l6 10-6 10-6-10z"/></svg></div>
+        <div><div class="mini-label">LOKI</div><div class="bubble">Let's turn possibility into a plan. What are you aiming to make real next?</div></div>
+      </div>
+      <div class="inputrow loki-input">
+        <div class="field"><span>Speak to Loki...</span>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6E8B84" stroke-width="1.7"><path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+        </div>
+        <button class="sendbtn" aria-label="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 12l18-9-7 18-2.5-7z"/></svg></button>
+      </div>
+    </div>
+    <div class="loki-counsel-cap"><span class="bar"></span>COUNSEL</div>
+    <div class="loki-card">
+      <svg class="gem-i" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3FD69B" stroke-width="1.6"><path d="M12 2l6 10-6 10-6-10z"/><path d="M12 6l3.6 6-3.6 6-3.6-6z" fill="rgba(63,214,155,.35)" stroke="none"/></svg>
+      <div>
+        <div class="t">Momentum favors a focused move.</div>
+        <div class="s">Pick one thread, give it shape,<br>and let the rest wait.</div>
+      </div>
+      <span class="chev">&#8250;</span>
+    </div>
+  </aside>
+
+  <footer class="bottombar">
+    <div class="lb-left">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9FCABE" stroke-width="1.6"><line x1="4" y1="9" x2="4" y2="15"/><line x1="8" y1="6" x2="8" y2="18"/><line x1="12" y1="10" x2="12" y2="14"/><line x1="16" y1="7" x2="16" y2="17"/><line x1="20" y1="10" x2="20" y2="14"/></svg>
+      <span class="voice-lab">VOICE</span>
+      <span class="voice-dd">Loki (Default) <span style="opacity:.55">&#8964;</span></span>
+    </div>
+    <div class="persona-switch">
+      <button class="persona" data-go="thor">THOR</button>
+      <button class="persona on" data-go="loki">LOKI<span class="dot"></span></button>
+      <button class="persona" data-go="odin">ODIN</button>
+    </div>
+    <div class="steps">SPEAK&nbsp;&nbsp;<b>&#8250;</b>&nbsp;&nbsp;THINK&nbsp;&nbsp;<b>&#8250;</b>&nbsp;&nbsp;BUILD</div>
+  </footer>
+</section>
+
+<!-- ============================ ODIN ============================ -->
+<section class="stage hall--odin" id="hall-odin">
+  <div class="scene"><img src="{{ODIN_IMG}}" alt=""><canvas class="dust"></canvas>
+    <div class="glow gold"   style="left:700px; top:300px; width:150px;height:260px;border-radius:40%;animation-duration:6.4s"></div>
+    <div class="glow red"    style="left:745px; top:100px; width:84px; height:84px; animation-delay:.6s"></div>
+    <div class="glow violet" style="left:332px; top:288px; width:84px; height:84px; animation-delay:1.8s"></div>
+    <div class="glow gold"   style="left:1142px;top:296px; width:84px; height:84px; animation-delay:2.9s"></div>
+    <div class="glow ice"    style="left:452px; top:646px; width:84px; height:84px; animation-delay:3.7s"></div>
+    <div class="glow green"  style="left:1092px;top:634px; width:84px; height:84px; animation-delay:1.2s"></div>
+    <div class="cursorlight"></div>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#D5A94F" stroke-width="1.4"><path d="M12 3l9 17H3z"/><path d="M12 9l4.6 8.6H7.4z"/></svg>
+      <span class="wordmark">ASGARD</span><span class="tb-div"></span>
+      <span class="tb-god">ODIN</span><span class="tb-div"></span>
+      <span class="tb-design">15 / The Basalt Command Monument</span>
+    </div>
+    <div class="tb-right">
+      <nav class="tb-nav"><span class="on" style="color:#fff">Council</span><span>Channel</span>
+        <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>System</span></nav>
+      <div class="tb-icons">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 9v6h4l5 4V5L8 9z"/><line x1="16" y1="9" x2="21" y2="14"/><line x1="21" y1="9" x2="16" y2="14"/></svg>
+        <span class="term-btn">&gt;_</span>
+      </div>
+    </div>
+  </header>
+
+  <aside class="panel odin-panel">
+    <div class="p-head">
+      <div class="odin-sigil"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F3E4C0" stroke-width="1.4"><path d="M12 3l9 17H3z"/><path d="M12 9l4.6 8.6H7.4z"/></svg></div>
+      <div><h1>ODIN</h1><div class="sub">ALL-FATHER&nbsp;&nbsp;&#183;&nbsp;&nbsp;THE SOURCE</div></div>
+    </div>
+    <div class="odin-chat">
+      <div class="msg bot">
+        <div class="avatar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F3E4C0" stroke-width="1.6"><path d="M12 3l9 17H3z"/></svg></div>
+        <div><div class="mini-label">ODIN</div><div class="bubble">Ready when you are.</div></div>
+      </div>
+      <div class="msg user">
+        <div class="bubble">Help me shape the next step.</div>
+        <svg class="u-ico" width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-6 8-6s6.5 2 8 6z"/></svg>
+      </div>
+      <div class="inputrow odin-input">
+        <div class="field"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9284" stroke-width="1.7"><path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+          Speak to Odin...</div>
+        <button class="sendbtn" aria-label="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M4 12h13M12 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" fill="none"/></svg></button>
+      </div>
+    </div>
+    <div class="counsel-h"><span>COUNSEL</span></div>
+    <div class="c-list">
+      <div class="c-row hot">
+        <svg class="gem-i" width="22" height="22" viewBox="0 0 24 24"><path d="M12 2l6 10-6 10-6-10z" fill="#D9455F"/><path d="M12 5.5l3.8 6.5-3.8 6.5-3.8-6.5z" fill="#F27E90"/></svg>
+        <div><div class="c-name">Volstagg</div><div class="c-sub">People, supply, and execution.</div></div>
+        <span class="chev">&#8250;</span>
+      </div>
+      <div class="c-row">
+        <svg class="gem-i" width="22" height="22" viewBox="0 0 24 24"><path d="M12 2l6 10-6 10-6-10z" fill="#9B6BE0"/><path d="M12 5.5l3.8 6.5-3.8 6.5-3.8-6.5z" fill="#C09CF2"/></svg>
+        <div><div class="c-name">Frigga</div><div class="c-sub">Momentum and long-term upside.</div></div>
+        <span class="chev">&#8250;</span>
+      </div>
+      <div class="c-row gold">
+        <svg class="gem-i" width="22" height="22" viewBox="0 0 24 24"><path d="M12 2l6 10-6 10-6-10z" fill="#D8AE5A"/><path d="M12 5.5l3.8 6.5-3.8 6.5-3.8-6.5z" fill="#EFD08F"/></svg>
+        <div><div class="c-name">Heimdall</div><div class="c-sub">Opportunity and capital flow.</div></div>
+        <span class="chev">&#8250;</span>
+      </div>
+      <div class="c-row">
+        <svg class="gem-i" width="22" height="22" viewBox="0 0 24 24"><path d="M12 2l6 10-6 10-6-10z" fill="#5B8FD9"/><path d="M12 5.5l3.8 6.5-3.8 6.5-3.8-6.5z" fill="#8FB6EC"/></svg>
+        <div><div class="c-name">Hogun</div><div class="c-sub">Signals and community.</div></div>
+        <span class="chev">&#8250;</span>
+      </div>
+      <div class="c-row">
+        <svg class="gem-i" width="22" height="22" viewBox="0 0 24 24"><path d="M12 2l6 10-6 10-6-10z" fill="#3FA96A"/><path d="M12 5.5l3.8 6.5-3.8 6.5-3.8-6.5z" fill="#74D19A"/></svg>
+        <div><div class="c-name">Fandral</div><div class="c-sub">Market structure and timing.</div></div>
+        <span class="chev">&#8250;</span>
+      </div>
+    </div>
+  </aside>
+
+  <footer class="bottombar">
+    <div class="lb-left">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#D5A94F" stroke-width="1.3"><circle cx="12" cy="12" r="10"/><path d="M12 6l5.2 9.8H6.8z"/></svg>
+    </div>
+    <div class="persona-switch">
+      <button class="persona" data-go="thor"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.2H22l-6 4.6 2.3 7.2-6.3-4.5-6.3 4.5L8 13.8 2 9.2h7.6z"/></svg>THOR</button>
+      <button class="persona" data-go="loki"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l6 10-6 10-6-10z"/></svg>LOKI</button>
+      <button class="persona on" data-go="odin"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 17H3z"/></svg>ODIN</button>
+    </div>
+    <div class="tb-right">
+      <span class="pill"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#D5A94F" stroke-width="1.8"><line x1="4" y1="9" x2="4" y2="15"/><line x1="8" y1="6" x2="8" y2="18"/><line x1="12" y1="10" x2="12" y2="14"/><line x1="16" y1="7" x2="16" y2="17"/></svg> Voice: On <span style="opacity:.6">&#8964;</span></span>
+      <span class="tagline">A CLEARER TOMORROW</span>
+    </div>
+  </footer>
+</section>
+
+</div>
+
+<script>
+(function(){
+  var halls = ['thor','loki','odin'];
+
+  function fit(){
+    var w = innerWidth, h = innerHeight;
+    var s = Math.min(w/1920, h/1080);
+    document.querySelectorAll('.stage').forEach(function(st){ st.style.transform = 'scale(' + s + ')'; });
+  }
+  addEventListener('resize', fit); fit();
+
+  function show(id){
+    halls.forEach(function(hn){
+      var el = document.getElementById('hall-' + hn);
+      el.classList.toggle('active', hn === id);
+    });
+    try { history.replaceState(null, '', '#' + id); } catch(e){}
+    fit(); startDust();
+  }
+  document.querySelectorAll('.persona').forEach(function(b){
+    b.addEventListener('click', function(){ show(b.dataset.go); });
+  });
+  addEventListener('keydown', function(e){
+    if (e.key === '1') show('thor'); if (e.key === '2') show('loki'); if (e.key === '3') show('odin');
+  });
+
+  /* drifting dust */
+  var raf = null;
+  function startDust(){
+    if (raf) cancelAnimationFrame(raf);
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var st = document.querySelector('.stage.active'); if (!st) return;
+    var cv = st.querySelector('canvas.dust'); var ctx = cv.getContext('2d');
+    cv.width = 1920; cv.height = 1080;
+    var tone = st.classList.contains('hall--loki') ? [200,255,225] :
+               st.classList.contains('hall--odin') ? [255,225,170] : [190,215,255];
+    var ps = []; for (var i=0;i<70;i++) ps.push({
+      x: Math.random()*1920, y: Math.random()*1080,
+      r: .6 + Math.random()*1.8, v: .1 + Math.random()*.35,
+      dx: (Math.random()-.5)*.12, a: .08 + Math.random()*.3, ph: Math.random()*6.28 });
+    var last = 0;
+    function tick(t){
+      var dt = Math.max(0, Math.min(50, t - last)); last = t;
+      ctx.clearRect(0,0,1920,1080);
+      for (var i=0;i<ps.length;i++){ var p = ps[i];
+        p.y -= p.v * dt * .06; p.x += p.dx * dt * .06;
+        if (p.y < -4){ p.y = 1084; p.x = Math.random()*1920; }
+        if (p.x < -4) p.x = 1924; if (p.x > 1924) p.x = -4;
+        var tw = .55 + .45 * Math.sin(t*.001 + p.ph);
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.283);
+        ctx.fillStyle = 'rgba(' + tone[0] + ',' + tone[1] + ',' + tone[2] + ',' + (p.a*tw).toFixed(3) + ')';
+        ctx.fill();
+      }
+      raf = requestAnimationFrame(tick);
+    }
+    raf = requestAnimationFrame(tick);
+  }
+
+  /* cursor light */
+  document.querySelectorAll('.stage').forEach(function(st){
+    var cl = st.querySelector('.cursorlight');
+    st.addEventListener('pointermove', function(e){
+      var r = st.getBoundingClientRect(); var sc = r.width/1920;
+      cl.style.opacity = 1;
+      cl.style.left = ((e.clientX - r.left)/sc - 260) + 'px';
+      cl.style.top  = ((e.clientY - r.top)/sc - 260) + 'px';
+    });
+    st.addEventListener('pointerleave', function(){ cl.style.opacity = 0; });
+  });
+
+  var initial = (location.hash || '').replace('#','');
+  var q = new URLSearchParams(location.search).get('hall');
+  show(halls.indexOf(q) >= 0 ? q : (halls.indexOf(initial) >= 0 ? initial : 'thor'));
+})();
+</script>
+===BLUEPRINT===
+
+
+╔══════════════════════════════════════════════════════════════════════╗
+║  SECTION 3 — STRIKE THREE: THE ARC CORES                             ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+STRIKE THREE — THE ARC CORES
+============================
+Read this whole file before doing anything. Then work phase by phase, in
+order. Stop where this file tells you to stop.
+
+This turns the design book into real browser-rendered 3D. It is the visual half
+of Phase 8 of docs/asgard-upgrade.txt and it SUPERSEDES Phase 8.3's per-god
+"volumetric backdrop" work with something better: actual modeled geometry at
+the centre of each hall.
+
+WHO YOU ARE WORKING FOR
+-----------------------
+Rayan has zero coding experience. Plain English, one step at a time, no jargon.
+He cannot merge code by hand — you make every edit yourself and never ask him
+to "add this line here". He is also the ONLY person in this loop who can see
+pixels: there is no browser in your sandbox and Playwright will not run on this
+Chromebook. So when you need eyes, ask him for one concrete observation at a
+time, in the format in PHASE 6.
+
+WHAT ALREADY EXISTS — CHECK BEFORE YOU BUILD
+--------------------------------------------
+Strike One built public/fx/asgard-fx.js: the FX engine — render tiers
+(webgl2 → webgl1 → 2D), a quality governor, pooled particles, a WebAudio SFX
+synth, ?fx=0, ?debug=1, context-loss handling, and the AsgardFX hook API. It
+also built per-realm backdrop modules (public/fx/thor.js, loki.js, odin.js).
+Strike Two built public/fx/hub.js and public/fx/team.js.
+
+Strike Three does NOT rebuild any of that. It adds one new layer — the modeled
+arc cores and the council objects — inside the engine that already exists.
+
+How the new layer and the old one coexist, so there is no ambiguity:
+  · The existing per-realm BACKDROPS stay and keep running. When a core is
+    active the backdrop drops to its STATIC tier — two full-screen animated
+    layers plus a lit model is the exact combination that breaks this machine.
+  · The cores render inside the FX engine's EXISTING WebGL context. No new
+    canvas. No second full-screen context. The hall already holds a GL context
+    of its own; a third surface is where context loss happens.
+  · The core modules are loaded BY asgard-fx.js (dynamic import, same
+    three-CDN failure path as any other dependency) — never by a second
+    <script> tag in the hall. The hall's one permitted tag is already spent on
+    asgard-fx.js.
+  · public/fx/loki.js's emerald palette is RETUNED to plum / petrol / citrine
+    so the room matches the yellow core Rayan approved. That is a palette edit
+    to an existing file, not a rebuild of it. Thor's and Odin's palettes are
+    already consistent — leave them.
+
+FIRST THING YOU DO: confirm public/fx/asgard-fx.js exists and the hall loads
+it. If it does not, stop and tell Rayan: "Strike One hasn't run yet — run
+docs/strikeonehall.txt first." Do not rebuild the engine here.
+
+Second thing: `git branch pre-strike-three-backup` so the starting point is
+parked. Do not switch branches.
+
+======================================================================
+HARD RULES — these override everything else in this file
+======================================================================
+1. THE DESIGN SKILL IS THE SPEC. Phase 0 installs
+   .claude/skills/asgard-design/SKILL.md. Read it before you write a line of
+   visual code, and follow it: palettes, geometry per god, panel mapping,
+   motion, the performance budget. Where this file and that skill disagree,
+   the skill wins on look and the performance rules win over both.
+2. NEVER READ THE HALL FILE WHOLE. public/index.html is ~300 KB in one file
+   and loading it into context will kill the session. grep -n for anchors,
+   sed -n 'A,Bp' in windows of at most 120 lines, never print a line longer
+   than 2,000 characters (awk substr for long lines).
+3. Every hall edit goes through scripts/patch.mjs (anchor must appear exactly
+   once, else it exits non-zero and changes nothing). After every patch run
+   scripts/check-scripts.mjs on that file, and `node --check` on every plain
+   .js file you touched. The hall's edit budget is ALREADY SPENT: one
+   <script src="/fx/asgard-fx.js"> tag, one init call, and one hook call per
+   existing state-change point, each in try/catch. Strike Three adds NO new
+   hall tag and NO new hook — it works entirely through the engine. If a
+   feature can't be built that way, drop the feature and say so.
+4. No new npm dependencies. No build step. Three.js loads from the three CDN
+   mirrors the project already uses (jsdelivr → unpkg → esm.sh), pinned to one
+   exact version, with a graceful failure path if all three are blocked. If you
+   believe another dependency is unavoidable, stop and explain in plain
+   English; do not install it.
+5. FRONTEND ONLY. No backend edits, no new routes, no new secrets, no KV
+   writes, no touching worker.js. The only network calls this file adds are
+   GETs to routes that already exist. Any route that 404s hides its own strip
+   segment silently — never an error, never a spinner that stays forever.
+6. THE HIDDEN REALM STAYS HIDDEN. No public file named for it, no label, no
+   comment, no fetch, no count, no route, no lore, nothing in localStorage,
+   nothing on the hub or the council page. It gets NO core module: when that
+   realm is active the cores layer stays disposed and the engine's existing
+   treatment carries the centre. Any councillor count shown anywhere counts
+   the THREE VISIBLE GODS ONLY (15, not 20) — or the segment is dropped.
+7. Names are text labels only. No character likenesses, no logos, no film
+   imagery. Generic objects — hammer, gem, ring, crown-as-a-shape, birds,
+   storm — are fine and encouraged.
+8. Never rename or move a KV key, an agent id, a persona id, a tool name or a
+   secret name. Do not change any councillor name, colour, role line or theme
+   line without Rayan saying so — public/team.html is the source of truth for
+   councillor identity. Read its CONFIG block FIRST; where its colours differ
+   from the skill's list, team.html wins and you update the skill.
+9. PAPER / SIM stays conspicuous everywhere an Odin trading number appears.
+10. Every phase ends with: node --check + check-scripts on everything touched,
+    then
+       cd ~/rayven-pwa && npx wrangler deploy
+    (expect "Deployed asgrard-backend" plus a version id — nothing printed
+    means the Chromebook ran out of memory: tell Rayan to restart and rerun),
+    then `git add -A && git commit -m "strike-three phase N: <what>" && git
+    push`. Write docs/STRIKE_THREE_PROGRESS.md at the end of every phase — what
+    was done, what was verified, what is waiting on Rayan. If this session dies
+    (it will), Rayan will say "continue docs/strike-three-arc-cores.txt from
+    the progress file". Make that possible.
+11. When you say "done", it means deployed, checked, committed, pushed — and
+    for anything visual, that Rayan has looked at it and said it's right.
+12. Do not claim a frame rate, a render path or a look you have not had Rayan
+    read back to you. You cannot see pixels. Say "unverified" where it is.
+13. FRAME RATE: 45 fps on the Chromebook is the SHIPPING FLOOR with the quality
+    governor engaged. 55 is the target for the bare spike page in Phase 1,
+    where nothing else is running. Between 45 and 55 in a real hall is
+    acceptable and expected. Below 45, drop that page a tier by default and
+    tell Rayan you did.
+
+======================================================================
+PHASE 0 — INSTALL THE SKILL, SURVEY, AND REPORT
+======================================================================
+0.1  Install the design system so every later session inherits it. Rayan will
+     have put the file in his Linux home folder; it may be named SKILL.md or
+     asgard-design-SKILL.md. The DESTINATION FOLDER MUST BE NAMED
+     `asgard-design` — it has to match the skill's own name field:
+
+       mkdir -p ~/rayven-pwa/.claude/skills/asgard-design
+       cp ~/*SKILL*.md ~/rayven-pwa/.claude/skills/asgard-design/SKILL.md
+       head -5 ~/rayven-pwa/.claude/skills/asgard-design/SKILL.md
+
+     The head should show YAML frontmatter with `name: asgard-design`. If no
+     such file is in his home folder, ask him for it once and wait — do not
+     invent one. Then READ IT. It is the spec for everything below.
+
+0.2  Read docs/asgard-design-book.pdf if present — you only need direction 19
+     (The Impossible Relic) and the shared brief on pages 4–6. If it is not
+     present, the skill file carries everything you need; note its absence and
+     carry on.
+
+0.3  Survey, without loading big files:
+     - READ docs/STRIKE_ONE_ANCHORS.md first — Strike One already recorded the
+       hall's hook points. Only re-derive what is missing, and append rather
+       than starting a second anchors file.
+     - which hall file the Worker actually serves (check the wrangler config's
+       assets/site settings). If index.html AND public/index.html both exist
+       and differ, note it — Phase 1 touches no hall file so it may proceed;
+       from Phase 2 on, stop and let Rayan decide before editing either.
+     - the AsgardFX surface: what it exposes on window, which hooks are live,
+       how it creates and owns its WebGL context and its frame loop, and where
+       its per-realm backdrop modules plug in. You are extending this object.
+     - public/team.html's CONFIG block: the five councillor names and colours
+       per god, and each councillor's tool list if it carries one.
+     - whether Three.js is already loaded anywhere, and from where.
+     - the live URL the Worker serves, so you can hand Rayan real links later.
+
+0.4  Report to Rayan in five plain lines: what exists, what you're about to
+     build, what you'll need him to look at, roughly how long, and the one
+     thing most likely to go wrong. Then go straight into Phase 1 — do not
+     wait for an answer.
+
+======================================================================
+PHASE 1 — THE SPIKE: ONE CORE, ONE PAGE, ONE LOOK
+======================================================================
+This is the whole risk of the project, so it comes first and it stays small.
+Nothing touches the hall in this phase.
+
+1.1  THE CORE MODULE CONTRACT. Define this once, in asgard-fx.js, before you
+     build anything — Phase 3 must not diverge from Phase 1:
+
+       AsgardFX.registerCore(id, {
+         init(ctx)      // ctx = { renderer, scene, camera, tier, palette }
+                        //   build geometry/materials, add to ctx.scene, return
+         setState(s, l) // 'idle'|'listening'|'thinking'|'speaking', level 0..1
+         select(advisorId | null)   // light one tether + its markers, settle rest
+         update(dt)     // called from the engine's existing frame loop, dt >= 0
+         resize(w, h)   // no canvas resize here — the engine owns the canvas
+         dispose()      // release EVERY geometry, material and texture
+       })
+
+     The engine owns the renderer, the canvas, the loop, the tier and the
+     governor. A core module never creates a context, never calls
+     requestAnimationFrame, never touches the DOM outside its own label layer.
+     Write this contract into docs/CORE_MODULE_CONTRACT.md.
+
+1.2  Pick the renderer and say so in the progress file: **Three.js, one pinned
+     exact version, the UMD/min build, loaded via the three-mirror path.**
+     Gem picking uses its Raycaster against the gem meshes. If you have a
+     concrete reason to hand-roll WebGL instead, you must also spec colour-ID
+     picking — do not leave picking undefined.
+
+1.3  Build public/fx-lab.html — a standalone test page, linked from nowhere,
+     that loads asgard-fx.js and one new module, public/fx/cores/loki.js, and
+     nothing else. It shows the Loki arc core alone on a dark ground, with the
+     ?debug=1 overlay always on, plus four buttons: idle / listening /
+     thinking / speaking.
+
+1.4  Build the Loki arc core to spec:
+     - A solid faceted relic — an elongated bipyramid-ish crystal, real
+       geometry, citrine yellow (#E7C24A core, #D8AF5C deep tone), emissive
+       from within, with visible facet shading.
+     - An asymmetric looping shell around it: two or three curved ribbon forms
+       in opalescent pearl (#ECEAF2) with silver (#C8D1DC) edges, that
+       interlock without intersecting.
+     - A stepped circular plinth beneath, dark plum (#292337), with a
+       restrained floor reflection — approximate it, do not ray-trace it.
+     - One key light, one cool fill (#285E6B), one rim. No volumetric fog.
+     - The four states: idle drift, listening lean, thinking quarter-turn,
+       speaking emissive tracking a synthesized level.
+     - Still mode: motion off, core still lit and still dimensional.
+     Keep it under ~8k triangles. Reuse materials. No per-frame allocation.
+
+1.5  Wire it into the engine's tier system: degrade webgl2 → webgl1 → a 2D
+     fallback that still reads as a composed object, obey the quality governor,
+     survive context loss, honour ?fx=0 and prefers-reduced-motion.
+
+1.6  node --check, deploy, then STOP and ask Rayan for exactly this:
+
+       "Close the Linux terminal first, then open
+        <live-url>/fx-lab.html?debug=1 on the Chromebook.
+        Tell me: (1) the FPS number, (2) whether RENDER PATH says WebGL or 2D,
+        (3) does it look like a solid object sitting in a room, or does it look
+        flat, and (4) press each of the four buttons — does anything look
+        broken or cheap?"
+
+     Do not proceed until he answers.
+     - RENDER PATH must read WebGL. If it says 2D, fix that first — everything
+       depends on it.
+     - Target here is 55 fps on this bare page. If it lands 45–55, note it and
+       carry on; the governor will hold the real halls together.
+     - If it comes in under 45 even here: simplify the model, in this order —
+       fewer shell ribbons → cheaper floor reflection → fewer facets → drop the
+       rim light. Do NOT start Phase 2 on a core that can't hold 45 alone.
+     - If he says it looks flat or cheap, iterate HERE, on one object, before
+       that mistake is copied across three halls.
+
+1.7  When he's happy: commit, push, write the progress file.
+
+======================================================================
+PHASE 2 — THE LOKI HALL, COMPLETE
+======================================================================
+One god, one complete flow, end to end. Loki first because his is the design
+Rayan approved.
+
+2.1  public/fx/cores/council.js — the five advisor gems and their markers:
+     - Five gems on small plinths in a ring around the core, at team.html's
+       colours (falling back to the skill's list). Instance one gem geometry;
+       vary material colour only.
+     - A thin light tether from each gem to the core.
+     - Tool markers per gem — up to four, taken from that councillor's real
+       tool list in team.html's CONFIG. If a councillor has more than four,
+       show four and a "+N" in the HTML sheet, not a fifth marker. If a
+       councillor has no tool list (Odin's five are paper-trading agents),
+       their markers represent instrument, open position, P&L and last trade —
+       and every number carries PAPER / SIM.
+     - Names on plinths are HTML positioned over the canvas — NOT texture, NOT
+       3D type. They stay upright and readable at every camera angle, updated
+       at ~15 Hz, transform-only, no layout reads, no per-frame allocation.
+
+2.2  THE SIGNATURE INTERACTION: selecting an advisor lights only its tether and
+     its markers, and settles everything else. Three ways in, all equivalent:
+     clicking/tapping the gem, clicking the advisor's name in the HTML list,
+     and keyboard focus. **Keyboard focus lives on the HTML list** — the gem
+     mirrors it, never the other way round. This is the one thing that must
+     feel perfect; it is what makes the room mean something.
+
+2.3  Hook it to real state, not decoration. In this order:
+     (a) /council/status if it exists → ignite the gem of a councillor that is
+         actually running, stream light down its tether toward the core, and on
+         completion play one expanding ring.
+     (b) else the autonomy log the HUD already reads → drive it from any change
+         in a last-run timestamp, and SAY SO in your report.
+     (c) else neither exists (the council upgrade hasn't run yet) → ship
+         selection-only: gems light on selection, nothing ignites on its own.
+         Say so plainly in the report and in the progress file. This is a
+         perfectly good outcome, not a failure.
+     Never animate a completion the backend has not confirmed.
+
+2.4  The panels, in the forms the skill lists. Loki's fourth panel is THE
+     LEDGER (Thor's is FIELD LOG, Odin's is COUNSEL) — keep each god's real
+     name. Every panel keeps its current data source and behaviour. Undefined
+     metrics say "Not configured"; unavailable ones say "Unavailable". Glass
+     uses a pre-rendered blurred snapshot — never a live filter on an animated
+     layer.
+
+2.5  Retune public/fx/loki.js's room palette from emerald to plum / petrol /
+     citrine so the room agrees with the core. Palette values only — do not
+     restructure that file. Confirm the backdrop drops to its static tier while
+     the core is active.
+
+2.6  Rayan's standing rules still hold: forms centred in the ring, breathing
+     capped at 0.975 of the ring, the vault box empties on close with no server
+     call.
+
+2.7  Deploy. Then the Phase 6 checklist. Fix what he reports. Commit, push,
+     progress file.
+
+======================================================================
+PHASE 3 — THOR AND ODIN
+======================================================================
+Only after Loki is signed off. Same contract, same engine, same panels — new
+geometry per god, from the skill's table.
+
+3.1  public/fx/cores/thor.js — a recognizable hammer assembly held inside
+     interlocking curved shells. Cold white core (#EAF8FF), storm blue rim
+     (#66C7FF). Speaking peaks produce one discrete strike, not a strobe.
+3.2  public/fx/cores/odin.js — a nested iris/aperture ring opening through
+     toroidal pieces. Gold (#D8AE5A), amber-bronze rim (#A56429). Thinking
+     closes the iris; it resolves rather than looping. Heimdall's gem uses the
+     lighter gold in the skill so it doesn't read as spill off the core.
+3.3  Each god's five gems from team.html's CONFIG. Odin's five are the paper
+     traders — PAPER / SIM on every number, always.
+3.4  The realm switch uses one 600 ms wipe. One active core at a time: call
+     dispose() on the outgoing core and release every geometry, material and
+     texture — hiding is not releasing. When the hidden realm is selected, the
+     cores layer stays disposed and the engine's existing treatment carries the
+     centre; no core module exists for it and none is created.
+3.5  Deploy, checklist (include "switch between all three gods three times in a
+     row — does anything stutter, go black, or get slower each time?"), fix,
+     commit, push, progress file.
+
+======================================================================
+PHASE 4 — THE HUB AND THE COUNCIL PAGE
+======================================================================
+4.1  THE HUB IS CONDITIONAL. First measure: ask Rayan to open the hub with
+     ?debug=1 as it stands today and read back the FPS. The hub already runs a
+     full-screen shader bridge, a star field and three particle portals.
+     - If it holds 55+ today: replace the three portals with three real cores
+       at low detail, rendered in the hub's EXISTING renderer as one shared
+       scene, spun up on hover/tap. Everything else Strike Two built stays.
+     - If it holds 45–55: give ONE core to the hovered realm only, portals for
+       the other two.
+     - If it is under 45: leave the hub alone entirely and say so. A beautiful
+       hall behind a stuttering front door is a worse product.
+     Any councillor count in the status strip counts the visible three gods
+     only. No hint of the fourth realm anywhere.
+4.2  public/team.html keeps its hand-built software renderer and its CONFIG. Do
+     NOT rewrite it and do not try to push tethers or materials into it from an
+     overlay — that is not reachable. Through public/fx/team.js, ship exactly
+     the overlay set Strike Two already settled on: palette alignment, the
+     depth-of-field vignette, the room dim, the pointer light, and the
+     realm-shift wipe. Say plainly in the report that the council page shares
+     the halls' palette and mood but not their geometry.
+4.3  Deploy, checklist, commit, push, progress file.
+
+======================================================================
+PHASE 5 — THE PHONE, STILL MODE, AND ACCESS
+======================================================================
+5.1  Phone composition per the skill: the core as a compact 3D header,
+     transcript and composer taking most of the screen, an advisor opening as a
+     large readable sheet, the full council as an optional overview. Do NOT
+     shrink the desktop layout.
+5.2  Touch targets ≥ 44px, a tap equivalent for every hover, keyboard focus
+     preserved and visible, written status beside every colour-coded state,
+     device tilt only after tap-to-allow, sound only after a gesture with a
+     visible mute.
+5.3  A visible still-mode toggle, INJECTED BY THE FX LAYER exactly the way the
+     mute control is — no new hall edit. It is the third and last localStorage
+     key: mute, tier, still mode. (The hub's existing boot-seen flag predates
+     this and stays; do not add a fourth.)
+5.4  Overlap check at three widths — 1440, 1024 and 420. Nothing may overlap or
+     clip. Confirm ?fx=0 gives a plain working page on every page you touched,
+     and ?debug=1 shows FPS, tier and RENDER PATH.
+5.5  Deploy, phone checklist, commit, push, progress file.
+
+======================================================================
+PHASE 6 — HOW TO ASK RAYAN TO LOOK
+======================================================================
+Every time you need his eyes, send exactly this shape — short, specific, one
+thing per line:
+
+  Close the Linux terminal first (Claude Code running alongside makes the
+  frame rate look worse than it really is).
+
+  1. Open <url>?debug=1 on the Chromebook. Read me the FPS number and whether
+     RENDER PATH says WebGL or 2D.
+  2. Does the centre object look solid — like a thing sitting in a room — or
+     flat?
+  3. Say the wake word. Does the wake sequence play, and do you still get a
+     spoken reply?
+  4. Click one advisor gem. Does its line light up and everything else settle?
+  5. Switch to another god and back, three times. Anything stutter, go black,
+     or get slower each time?
+  6. Now the same on your phone from the home-screen icon.
+
+  Tell me anything that looked wrong, even if you can't describe why.
+
+Fix what he says before moving on. Below 45 fps on the Chromebook, drop that
+page a tier by default and tell him you did.
+
+======================================================================
+ACCEPTANCE CHECKS — all of these before you call Strike Three done
+======================================================================
+ 1. The centre of each visible god's hall is real geometry, not an image or a
+    glow. (The hidden realm keeps the engine's existing treatment by design.)
+ 2. With motion disabled, the core is still lit and still dimensional.
+ 3. ?fx=0 gives a plain, fully working page on every page touched.
+ 4. ?debug=1 shows FPS, tier and RENDER PATH, and RENDER PATH reads WebGL on
+    Rayan's Chromebook.
+ 5. 45+ fps on the Chromebook with the governor engaged and 30+ on the phone,
+    terminal closed, read back by Rayan — not asserted by you.
+ 6. Selecting an advisor lights only its tether and its markers, and works from
+    gem, HTML list and keyboard alike.
+ 7. Every panel — top bar, the fourth panel under its per-god name, THROUGHPUT,
+    CHANNEL, SUBSYSTEMS, LINKED, RAVEN SIGHT, bottom bar — still works and
+    still shows real data.
+ 8. Undefined metrics say "Not configured"; unavailable ones say "Unavailable".
+ 9. Every Odin trading number carries PAPER / SIM.
+10. Chat, voice, wake word, persona switching and the vault phrases all behave
+    exactly as before.
+11. Switching realms three times in a row does not degrade performance.
+12. Context loss falls back cleanly instead of throwing.
+13. No animation can leave the page half-drawn — every one has a deadline.
+14. Nothing anywhere reveals the fourth realm, and no visible count exceeds the
+    three visible gods.
+15. No councillor name, colour, role or theme line changed without Rayan
+    saying so.
+16. Keyboard and touch reach everything a pointer can.
+17. localStorage holds mute, tier and still mode — plus the hub's pre-existing
+    boot-seen flag. Nothing else.
+18. No new npm dependency, no build step, no backend edit, no new route, no new
+    hall script tag, no second WebGL context.
+19. node --check and check-scripts pass on everything touched.
+20. docs/STRIKE_THREE_PROGRESS.md and docs/CORE_MODULE_CONTRACT.md tell the
+    next session exactly where things stand and how to add a core.
+
+======================================================================
+WHAT NOT TO BUILD
+======================================================================
+- No liquid-metal simulation, no cloth, no fluid dynamics, no ray tracing, no
+  real-time global illumination. The design book's [AMBITIOUS/FUTURE] tier is a
+  dream board, not this build.
+- No physics engine. Authored motion only.
+- No second WebGL context, no second full-screen canvas, no new hall tag.
+- No 3D text, no essential text baked into a texture.
+- No fake progress percentages, no invented reasoning shown in the fourth
+  panel, no animated success the backend hasn't confirmed.
+- No emoji or dingbat glyphs as icons — inline SVG on a 16/20/24 grid.
+- No character likenesses, no logos, no film imagery, no lyrics.
+- No backend edits, no new secrets, no KV writes.
+- Do not touch the clipping business or the trading logic.
+
+======================================================================
+HOW TO REPORT BACK
+======================================================================
+After each phase: one short message in plain English — what now works, the one
+sentence Rayan can say or the one thing he can click to try it, what you
+skipped and why, and anything waiting on him. No file listings unless he asks.
+
+If something in the design book cannot work on this setup, say so plainly and
+say what would make it work. Never ship code that pretends.
+
+
+╔══════════════════════════════════════════════════════════════════════╗
+║  SECTION 4 — THE BRAINS: COUNCILS, AUTOMATION, AND ~240 TOOLS        ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+This is the big one. Three parts, several sessions. Part A first; stop at the
+end of it and wait for Rayan to say "continue Part B".
+
+Note where this section and Section 3 overlap: Phase 8 below is the OLD plan
+for the visual work. SECTION 3 REPLACES PHASE 8. When you reach Phase 8, check
+whether public/fx/cores/ exists; if it does, Strike Three has run, and Phase 8
+is a no-op — skip it and say so.
+
+ASGARD UPGRADE — THE COUNCILS BECOME REAL
+=========================================
+For Claude Code, running in ~/rayven-pwa on Rayan's Chromebook.
+Read this whole file before doing anything. Then work through it phase by
+phase, in order. Do not skip ahead.
+
+This file has three parts. PART A (Phases 0–3) is for this session. PART B
+(Phases 4–6) and PART C (Phases 7–9: the tool arsenal, the visual overhaul,
+storage relief) are for later sessions — when a part is done, stop, report,
+and wait for Rayan to say "continue Part B" or "continue Part C". Do not
+start a later part on your own. Part C may run before Part B if Rayan asks:
+Phase 7 needs all of Part A (Phases 0–3) done — items that name Part B
+degrade to "not tracked yet" or are skipped and noted; Phase 8 needs Phase 0
+(any route a page reads that 404s hides that strip segment instead of
+erroring); Phase 9 needs Parts A and B stable.
+
+WHO YOU ARE WORKING FOR
+-----------------------
+Rayan has zero coding experience. Talk to him in plain English, one step at a
+time, no jargon. He cannot merge code by hand, so you make every edit yourself
+and never ask him to "add this line here". When you need something only he can
+do (a secret, a paid plan, a decision), STOP, explain in one or two plain
+sentences exactly what to do, and wait.
+
+WHAT THIS IS
+------------
+Asgard is one Cloudflare Worker (asgrard-backend) with four personas sharing
+one backend: THOR (main assistant), LOKI (calendar, reminders, follow-through),
+ODIN (business, revenue, paper trading) and HELA (hidden — the vault; only
+reachable through the wake phrases; her tools are stripped from the other
+three). Frontend files live in public/ and are served by the same Worker.
+Storage is KV (RAYVEN_KV), R2 (CLIPS bucket), Vectorize and Workers AI. Voice is
+ElevenLabs. Telegram bots exist for Thor, Loki, Odin and Hela (Hela's webhook is
+deliberately unregistered). A Chrome extension on Rayan's Chromebook polls
+/browser/poll for browser control.
+
+public/team.html ("The Councils of Asgard") already shows five councillors per
+god. Today Thor's and Loki's five are labelled "A ROLE ON <GOD>'S TOOLS, NOT A
+SEPARATE BRAIN YET". Odin's five are real: they are the paper-trading agents in
+src/lib/paperTrading.js. This upgrade makes ALL of them real, gives every god
+full automation over anything he can already do, makes Odin's trading
+real-ready without ever being real, and lays the groundwork to move Asgard to
+Obsidian + Hermes Agent one day.
+
+THE ROSTERS (names are Rayan's — do not change them)
+-----------------------------------------------------
+THOR — Bilskirnir, the storm council
+  JANE FOSTER  the Seer     web search, deep research, look up, news
+  VALKYRIE     the Road     maps, music (Spotify), YouTube, weather
+  HULK         the Hands    browser navigate / read / click / type / screenshot
+  KORG         the Herald   texts, calls, JARVIS and KEVOS, translate
+  DARCY        the Keeper   memory, to-dos, calendar, reminders
+
+LOKI — The Ledger, the council of follow-through
+  MISS MINUTES the Clock    calendar, reminders, countdowns, world time
+  HUNTER B-15  the Runner   web search, news, research, look up
+  MOBIUS       the Ledger   to-dos, ideas, memory
+  SYLVIE       the Apocalypses  weather, air and world, FX and calculator, chance
+  KANG         the Watch    watchlist, monitors, page history, pause/resume
+
+ODIN — Hlidskjalf, the trading council (these five already exist as code)
+  VOLSTAGG  S&P 500 (SPY) trend         KV id  baldr
+  HEIMDALL  Gold (GLD) momentum         KV id  vidar
+  FANDRAL   Bitcoin mean-reversion      KV id  tyr
+  HOGUN     Nasdaq (QQQ) trend          KV id  heimdall
+  FRIGGA    Ethereum momentum           KV id  freya
+  THE TRAP: the agent whose KV id is 'heimdall' is DISPLAYED as HOGUN, and the
+  agent displayed as HEIMDALL has KV id 'vidar'. This is deliberate. Never
+  rename an id or a KV key — they hold live positions and trade history.
+
+HELA — the vault council (visible ONLY to Hela; invisible to the other three)
+  SKURGE   the Executioner   runs her saved capabilities and browser actions
+  FENRIS   the Hunter        the vigil: research on the least-recently-read subject
+  EITRI    the Forge         researches and saves new capabilities (her forge)
+  SURTUR   the Ending        compiles the day into one brief. NEVER deletes anything.
+  GORR     the Auditor       tests saved capabilities and FLAGS broken ones
+                             (a flag on the capability — never a deletion, never memory)
+  Rayan may rename any of these five later. Use these unless he says otherwise.
+
+HARD RULES — these override everything else in this file
+--------------------------------------------------------
+1. HELA'S MEMORY IS NEVER CLEARED. No endpoint, tool, cron or cleanup may
+   delete or trim memory:longterm:hela, her history, or any persona's long-term
+   memory. Compaction means "append a summary", never "remove originals". Do
+   not re-add anything like /hela/forget-session. If a task in this file seems
+   to need deletion, it doesn't — stop and ask.
+2. Never rename or move a KV key, an agent id, a persona id, a tool name, or a
+   secret name. Add new ones; leave existing ones alone.
+3. No new npm dependencies. No build step. Nothing that makes the Chromebook do
+   more work than it does today (2.7 GB RAM, no swap — heavy installs crash the
+   whole container). If you believe a dependency is unavoidable, stop and
+   explain in plain English why; do not install it.
+4. Secrets: never print, log, or paste a secret value. Never create a .dev.vars
+   file. When a new secret is needed, tell Rayan exactly this, filling in NAME:
+        nano ~/secret.txt        (paste the value, Ctrl+O, Enter, Ctrl+X)
+        npx wrangler secret put NAME < ~/secret.txt
+        rm ~/secret.txt
+   and wait for him to confirm before continuing.
+5. KV WRITE BUDGET. A blown write quota once silenced every bot at the same
+   time. So:
+   (a) On the reply path (a message from Rayan on the web or Telegram), the
+       only KV writes allowed are the ones that exist today, plus ONE write
+       when an approval is created. Autonomy-log entries, audit lines, cost
+       counters, delegation queue items, the taint flag and event spool all
+       ride INSIDE the persona history object the reply already saves — a
+       `_spool` ring buffer (last 50 entries) on that object. Zero extra
+       writes.
+       (a2) One exception: a tool Rayan explicitly invokes that changes HIS
+       OWN data (shopping list, notes, reading list, habits, expenses,
+       journal, rss_watch / job_watch, routine_enable_template) may make ONE
+       write to that family's single key. These are bounded by how often he
+       talks; budget them at 50/day in the table.
+   (b) All bookkeeping for one cron tick — autonomy-log entries, audit lines,
+       drained spool entries, queued events, "last checked" stamps — goes into
+       ONE key `tick:YYYY-MM-DD:HHMM`, written once at the end of the tick,
+       only if non-empty. Never a shared daily key with read-modify-write: KV
+       is last-writer-wins and eventually consistent, so overlapping writers
+       lose data.
+   (c) A councillor's state key is written only when its duty actually DID
+       something (sent, changed, traded, delegated). A no-op check writes
+       nothing and does not count as a "run".
+   (d) Trader stats keys update only when a trade closes; the equity curve is
+       sampled once at market close. Routine run history lives inside
+       routines:<id> (last 20 runs): one write per run, no separate history
+       key. Hard cap 60 routine runs per day.
+   (e) Ceiling: a counter of writes added by this file, kept in the tick key.
+       When it passes 2,500 since 00:00 UTC, every writer added by this file
+       stops until the next UTC day and Thor tells Rayan once. Conversation
+       history writes are never blocked.
+   Before every deploy, print a table: feature → worst-case KV writes/day.
+   Everything new combined must stay under 3,000/day.
+   If Phase 0.4 finds the Workers Paid plan is NOT active, STOP after Phase 0
+   and tell Rayan: "Everything after Phase 0 needs the $5/month Workers Paid
+   plan (Cloudflare dashboard → Workers & Pages → Plans). Turn it on and say
+   continue." Do not build Phases 1–6 on the free plan — its 1,000 writes/day,
+   50 subrequests per invocation and 10 ms CPU per cron run cannot carry this.
+6. For a given (persona, open-group set) the tool array sent to Anthropic
+   must be byte-identical every time it is sent, built from ONE fixed master
+   order (prompt caching breaks silently otherwise). It may change only at
+   the first message of a conversation (keyword rules) or when find_tools
+   opens a group (Phase 7) — each change is one accepted cache miss. Append
+   new tools at the end of the master order; never re-sort.
+7. When an upstream service refuses something, surface what it said. Never
+   collapse a remote failure into a generic string.
+8. Hard-confirm tools (SMS, calls) stay hard-confirm with the existing LIVE
+   confirmation. Automation may QUEUE them for approval; it may never send
+   them, and a Telegram approval never replaces the live confirmation. Same
+   for social posting. Real-money trading: there is no code path, and this
+   file adds none — Phase 4 builds gates and a stub only.
+9. The clipping business stays exactly where it is. Do not start, resume, or
+   reconfigure it. Odin may report its status; nothing more.
+10. Do not touch the trio's persona prompts except where this file says to. Do
+    not touch index.html / public/index.html (the hall) in Parts A or B at
+    all; in Part C Phase 8 touch it only by the anchor method in 8.2 — never
+    by loading the whole file. team.html: in Parts A/B only the edits in
+    Phase 2.6; in Phase 8 the edits in 8.3.
+11. Every phase ends with: node --check on every changed file, a deploy, the
+    smoke test (Phase 0.5) against the LIVE URL, then a git commit
+    "asgard-upgrade phase N: <what>" and a push. If the live smoke test fails
+    and you cannot fix it within a few tries, git revert the phase commit,
+    redeploy, and tell Rayan plainly what broke.
+12. Write progress to docs/UPGRADE_PROGRESS.md at the end of every phase (what
+    was done, what was verified, what's waiting on Rayan). If this session dies
+    — it will, the Chromebook runs out of memory — Rayan will restart and say
+    "continue asgard-upgrade.txt from the progress file". Make that possible.
+13. Work on the branch that is actually deployed. Check which branch HEAD is
+    live before starting (asgard-three-personas was never merged into main at
+    one point — do not switch branches, do not merge, just work where the live
+    code is). Before any edit: git branch pre-asgard-upgrade-backup, so the
+    starting point is parked. Nothing gets deleted.
+14. Time. Cloudflare cron fires in UTC; every time in this file is Pacific.
+    Do NOT implement cron syntax. A schedule is either
+    { at: 'HH:MM', days: [0..6], tz: 'America/Los_Angeles' } or
+    { every: N } (minutes). "Due" = format now in tz with Intl.DateTimeFormat
+    and compare against the last-run stamp in state. Build this once as
+    src/lib/schedule.js in Phase 2; Phase 3 reuses it.
+15. Telegram trust. Messages from Rayan's own Telegram user id in a PRIVATE
+    chat with one of the four bots are trusted (the code already identifies
+    him). Everything else on Telegram — the shared group, any other user — is
+    untrusted content (Phase 1). APPROVE / REJECT replies and buttons are
+    honoured only from Rayan's id in a private chat, never from the group.
+16. R2. Every object this file creates lives under the prefix asgard/ or
+    asgard-vault/. Every existing R2 list/get/delete tool refuses any key under
+    those prefixes, the same way Hela's tools are blocked from the trio.
+    Nothing under those prefixes is ever deleted by code.
+17. When you say "done", it means: deployed, smoke-tested live, committed,
+    pushed. Not "written".
+
+======================================================================
+PART A — THIS SESSION
+======================================================================
+
+======================================================================
+PHASE 0 — SURVEY, MANIFEST, SMOKE TEST (nothing changes behaviour yet)
+======================================================================
+0.1  Read src/ fully, the wrangler config fully, and the extension folder
+     fully. In public/, read ONLY team.html's CONFIG block and its fetch/poll
+     code, and the list of routes each page calls — never load the whole 3D
+     HTML files into context (they are hundreds of KB and will crash the
+     session). Do not rely on notes or memory of this codebase; read the code
+     that exists right now.
+
+0.2  Confirm the council rename was applied. In src/lib/paperTrading.js the
+     five agents must DISPLAY as FRIGGA (id freya), FANDRAL (id tyr), VOLSTAGG
+     (id baldr), HOGUN (id heimdall), HEIMDALL (id vidar), and Odin's PAPER
+     TRADING paragraph in src/lib/personas.js must list "FRIGGA, FANDRAL,
+     VOLSTAGG, HOGUN, HEIMDALL". If any of that still shows STRANGE / MAGNI /
+     GROOT / TYR, apply the rename now — display name, label and theme line
+     only, ids and keys untouched — following ~/prompt-rename-odin-council.txt
+     if it is present in the home folder. Also confirm public/team.html shows
+     the same five names for Odin.
+
+0.3  Write docs/ASGARD_MANIFEST.md — the ground truth, generated from code:
+     - every tool: name, one-line purpose, which file dispatches it, permission
+       level (auto / notify / confirm / hard-confirm), which personas see it
+     - every cron job: cadence, what it does, worst-case KV writes per run
+     - every KV key prefix in use and what lives under it
+     - every route the Worker serves, public or not
+     - every secret NAME the code reads (names only, never values), and which
+       feature dies if it is missing
+     - every persona: id, model, max_tokens, history depth, voice secret name
+     - the four Telegram bots: which persona, which secret name, webhook route
+     Also produce docs/TOOLS.json: an array of every tool with its exact name,
+     description and input_schema as sent to Anthropic. src/ probably cannot
+     be imported by plain Node (Worker globals), so serve it from a new admin
+     route GET /admin/tools.json (auth as in 0.5) and save it from there with
+     a 10-line scripts/gen-tools-json.mjs (plain Node, no deps). Regenerate it
+     whenever tools change.
+
+0.4  Measure and record in the progress file:
+     - today's RAYVEN_KV read/write counts from Cloudflare's GraphQL Analytics
+       API, the way it was done before (from the terminal, not the Worker)
+     - whether the Workers Paid plan is active (see Hard Rule 5 — stop after
+       this phase if not), and the plan's subrequest and CPU caps
+     - whether /browser/poll, /browser/result or /status write KV on every
+       hit. If so, throttle that heartbeat to one write per 5 minutes — it is
+       very likely most of today's baseline
+     - if the 5-minute paper-trading cron still writes the portfolio
+       unconditionally (288 writes/day), fix it: write only when something
+       changed
+     - which Claude model id each persona runs, checked against the vendor's
+       current models page. There was a note that claude-sonnet-5 is cheaper
+       than the older Sonnet with a newer cutoff — verify it still is; if the
+       code runs an older, dearer id, change it to the current one. One
+       constant per model id in one place; no scattered strings.
+     - the current Haiku model id (for Phase 2's cheap tier) — verify it
+     Optional, ask Rayan in the Rule 4 format only if he wants the KV-usage
+     line on /healthz later: secret CF_ANALYTICS_TOKEN (a read-only Analytics
+     API token) and var CF_ACCOUNT_ID. If he says skip, everything still works
+     and /healthz reports "kv usage: unavailable".
+
+0.5  Build scripts/smoke.mjs (plain Node, no deps). It takes the LIVE base URL
+     (never wrangler dev — local has no KV, no secrets) and checks:
+     - GET /status, /todos, /monitors, /calendar, /paper-trading/status,
+       /browser/status, /spotify/now-playing all return 200 and valid JSON
+     - POST / with each of thor, loki, odin and the message "reply with the
+       single word OK", sending header X-Asgard-Smoke: 1, returns a reply
+       within 60 s. Add that header to the Worker: when present, the turn
+       skips the history and memory save (so smoke runs never pollute
+       conversations). Hela is NOT messaged — ever — check only that her
+       routes answer.
+     - GET /team.html and the hall page return 200 and non-empty HTML
+     - GET /admin/webhooks with header X-Asgard-Admin matching a new secret
+       ADMIN_TOKEN (first new secret — Hard Rule 4) returns, for each of the
+       four bots, the webhook URL Telegram has on file and any
+       last_error_message — never the tokens. The script prints them.
+     - prints PASS / FAIL per line and exits non-zero on any FAIL
+     If something already fails on the live URL today (a webhook pointing at
+     the old rayven-backend host, a 400 on a webhook), fix that first — it is
+     a live bug.
+
+0.6  Deploy, smoke, commit, push. Phase 0 done. If the paid plan is not
+     active, stop here and tell Rayan (Hard Rule 5).
+
+======================================================================
+PHASE 1 — CONTAINMENT (automation is not safe without this)
+======================================================================
+Check what already exists before building any of these. Build only what is
+missing. The point: once councillors run unattended and read web pages, email
+and Telegram, an injected page must not be able to make Asgard text someone,
+post something, or leak memory.
+
+1.1  Taint bit and provenance. One flag per conversation, stored inside the
+     persona history object (Rule 5a). Set the moment any untrusted content
+     enters the context: web fetch, search result, page read by the
+     extension, email body, Telegram message that is not from Rayan's private
+     chat (Rule 15), any social API response, any capability response. While
+     tainted: SMS, calls, social posts, capability creation, long-term memory
+     writes, and browser navigation to a new domain are queued as approvals
+     (1.5) instead of executed. The approval shows the literal recipient, the
+     literal body, and where the content came from ("derived from a page
+     fetched at 14:02"). The model never writes the approval text.
+     Define here, once, the provenance shape every memory write from now on
+     carries: { source, persona, ts, trust } with trust one of
+     'rayan' | 'trusted-tool' | 'untrusted-content'. Entries without a trust
+     field are READ as 'legacy' and are never rewritten.
+
+1.2  Egress allowlist for HELA's capabilities and any generic fetch tool: KV
+     list of allowed hosts (one key), deny by default, a tool to request adding
+     a host that queues an approval. Keep every existing guard (https only,
+     no private ranges, no metadata, never own host, no secrets in a
+     capability, 12 s timeout, 6,000-char cap, 40 max).
+
+1.3  Untrusted wrapping. Every tool result that carries outside content is
+     returned JSON-encoded with a source label, and the instruction to the
+     model about what to do with it goes as a text block placed AFTER the
+     tool_result block in the same user message (that is the API's shape).
+
+1.4  Audit log. Every tool call, memory write and outbound request produces
+     one audit line: timestamp, persona, councillor if any, tool, parameter
+     SHAPE and hash (never values), triggering_event_id chaining back to the
+     input that caused it. On the reply path the line goes into the history
+     object's _spool (Rule 5a); in cron it goes into the tick key (Rule 5b).
+     Each tick drains every persona's spool entries newer than the previous
+     tick's `lastDrained` stamp into the tick key without rewriting the
+     history key. Ninety days from now the question "which page caused that
+     action" must be answerable. Once a day, COPY tick keys older than 30 days
+     into R2 under asgard/audit/YYYY-MM-DD.json; never delete the KV keys.
+
+1.5  Approvals inbox. One KV key `approvals` (pending list, capped at 50).
+     Tools: approvals_list, approve, reject. Each new approval is also sent to
+     Rayan's private Telegram by the persona's bot as
+     "[APPROVAL 1234] <what> — reply APPROVE 1234 or REJECT 1234". The
+     Telegram handler honours those two replies only from Rayan's id in a
+     private chat (Rule 15). Hard-confirm tools keep the live confirmation on
+     top (Rule 8).
+
+1.6  Deploy, smoke, commit, push.
+
+======================================================================
+PHASE 2 — THE COUNCILS: TWENTY REAL SUB-AGENTS
+======================================================================
+Design principle: WRAP, DON'T DUPLICATE. Many councillor duties already exist
+as code (watchlist checks, calendar, the paper-trading agents, Hela's vigil and
+forge). The councillor becomes the face and the accountability for that job.
+It gets its own small brain, its own narrow toolset, its own schedule and its
+own state — it does not get a copy of logic that already exists.
+
+2.1  New file src/lib/council.js — the registry. One entry per councillor:
+       id            lowercase stable id, e.g. 'jane_foster'. Never changes.
+       owner         'thor' | 'loki' | 'odin' | 'hela'
+       name, role, theme   display only — from the rosters above
+       tools         the exact tool names this councillor may call (map the
+                     wedges in team.html's CONFIG to real tool names; Odin's
+                     five get the paper-trading tools; Hela's five get her
+                     tools and nothing else)
+       prompt        a short system prompt (10–20 lines): who they serve,
+                     what they do, how they report, what they never do
+       tier          'free' | 'cheap' | 'owner'  (see 2.3)
+       duty          the standing job, if any, as a schedule (Rule 14)
+       stateKey      council:<owner>:<id>  — ONE JSON object: last run,
+                     last result, counters, whatever the duty needs
+       budget        worst-case KV writes/day (goes into the Rule 5 table)
+     Hela's five carry hidden: true and are filtered from anything the trio
+     can see — /status, /council/status, tool schemas, the memory map, the
+     team page — exactly the way her tools are already stripped.
+
+2.2  The runner: runCouncillor(env, councillorId, task, ctx). It runs a small
+     tool loop with ONLY that councillor's tools, that councillor's prompt,
+     the owner's shared core rules, and a maximum of 6 tool round trips. It
+     returns { summary, actions, data }. A run that did something records one
+     autonomy-log entry (spool on the reply path, tick key in cron) so the
+     team page's live tags and the HUD's fourth panels light up, plus one
+     audit line. Councillors inherit the taint bit and the approval rules —
+     a councillor can queue an SMS; it can never send one.
+
+2.3  Model tiers, kept in ONE constant MODELS at the top of council.js, using
+     the ids verified in 0.4:
+       free   → Workers AI @cf/meta/llama-3.2-3b-instruct  (triage, yes/no
+                decisions, "is this worth waking the owner for")
+       cheap  → the current Claude Haiku model (real work: research
+                summaries, calendar reasoning, self-reviews)
+       owner  → whatever the owning god runs today (only when the owner
+                explicitly delegates something hard)
+     Default tier per councillor: free for Kang / Miss Minutes / Gorr checks,
+     cheap for everyone else, owner only on delegation.
+
+2.4  Delegation. Each god gets one new tool, delegate: { councillor, task,
+     wait: true|false }. wait:true runs it now and hands the result back into
+     the god's turn. wait:false drops the task into the history object's
+     _spool as a queued delegation (no extra write); the next cron tick runs
+     it and the result is delivered by the god's Telegram bot or spoken next
+     time the hall opens. A god may only delegate to his own five. Hela may
+     only delegate to hers. Cross-god work goes through Phase 3's routines.
+
+2.5  Standing duties. A duty IS a routine: each one below is stored as a
+     pre-built routine (Phase 3 format) owned by the god, with one delegate
+     step. Duties marked EXISTS wrap code that already runs; the councillor
+     layer records the run and reports it. Duties marked NEW are built in
+     Phase 3 as pre-built routines (3.4) — in this phase they are registered
+     with duty: null and "on delegation only".
+     THOR
+       JANE FOSTER   on delegation. NEW (3.4): Sunday evening world note.
+       VALKYRIE      on delegation. Her state caches the last weather and
+                     now-playing result ONLY as a side effect of a tool call
+                     Thor made in that turn — no polling.
+       HULK          on delegation. EXISTS: extension health — if the last
+                     /browser/poll is older than 10 minutes, set a flag once
+                     in his state; Thor mentions it once, not on every turn.
+       KORG          on delegation. Owns the siblings protocol (Part B, 3.5).
+       DARCY         NEW (3.4): nightly memory hygiene.
+     LOKI
+       MISS MINUTES  EXISTS: every 5 min, next calendar event within 30 min →
+                     one reminder, once (state remembers what was sent).
+       HUNTER B-15   on delegation. NEW (3.4): morning headline for the brief.
+       MOBIUS        NEW (3.4): evening to-do nudge inside the brief.
+       SYLVIE        NEW (3.4): morning weather/air/FX inside the brief.
+       KANG          EXISTS: every 5 min, the existing watchlist/monitor
+                     check, now reported as Kang. Pause/resume stays his.
+     ODIN
+       the five traders: EXISTS — their cron step, now recorded per
+       councillor (a write only when a trade opens or closes, Rule 5c/5d).
+       Self-reviews are Part B (Phase 4), not here.
+     HELA
+       FENRIS   EXISTS = the 3-hour vigil, now run as Fenris
+       EITRI    EXISTS = the 30-minute forge while locked in, now run as Eitri
+       SURTUR   EXISTS = the 22-hour daily assembly, now run as Surtur
+       SKURGE   on delegation only
+       GORR     NEW (3.4): weekly capability test — flag broken ones in her
+                capability list (a flag, never a deletion; she decides with
+                forget_capability)
+     All duties no-op instantly when there is nothing to do — one KV read per
+     tick at most, no write (Rule 5c).
+
+2.6  Routes and page:
+     - GET /council/status → for the three visible gods: each councillor's
+       id, name, last run time, last summary (one line), duty cadence, and
+       whether it is currently running. Hela's are never included.
+     - Each god's HUD fourth panel (FIELD LOG / THE LEDGER / COUNSEL) keeps
+       working unchanged because it reads the autonomy log.
+     - public/team.html, only these edits: (a) the honesty label "A ROLE ON
+       <GOD>'S TOOLS, NOT A SEPARATE BRAIN YET" becomes "OWN BRAIN · LAST RAN
+       <time>" once /council/status reports a run for that councillor, and
+       stays as-is until then; (b) the room's 30-second poll also reads
+       /council/status. Do not restructure the file, do not touch the 3D
+       renderer, do not change names or colours.
+
+2.7  Persona prompts, minimal additions only: one short paragraph in each
+     god's prompt naming his five councillors, what each is for, and that he
+     may delegate with the delegate tool. Nothing else in those prompts
+     changes. Hela's paragraph goes in her prompt only.
+
+2.8  Deploy, smoke, commit, push. Then ask Rayan to send "who's on your
+     council?" to Thor, Loki and Odin on Telegram — never Hela — and paste
+     the three replies back. Each must name his own five and nobody else's.
+
+======================================================================
+PHASE 3 — FULL AUTOMATION: ROUTINES AND EVENTS
+======================================================================
+Goal: anything Asgard can do on request, Rayan can have it do on a schedule or
+in response to something happening, by TALKING, with no code.
+
+3.1  src/lib/events.js — an in-Worker event bus. Existing systems emit typed
+     events (add the emit calls where the things happen):
+       watchlist.hit, monitor.changed, timer.done, calendar.upcoming,
+       email.received (draft-only access stays draft-only), telegram.message
+       (with from: rayan | jay | kevin | other, and which chat),
+       paper.trade.opened, paper.trade.closed, paper.report.sent,
+       extension.offline, extension.online, kv.quota.warning,
+       councillor.finished, approval.created, approval.resolved,
+       clip.posted (report only).
+     Events raised during a request go into the history object's _spool
+     (Rule 5a) and are drained by the next tick; events raised inside cron
+     are handled in the same invocation. No separate event key, no firehose.
+
+3.2  src/lib/routines.js — a routine is:
+       { id, owner, name, trigger, steps, deliver, enabled, createdBy, runs }
+       trigger:  { kind: 'schedule', at: '07:00', days: [1,2,3,4,5],
+                   tz: 'America/Los_Angeles' }
+              or { kind: 'schedule', every: 30 }
+              or { kind: 'event', event: 'watchlist.hit', filter: {...} }
+       steps:    ordered list of { councillor?, tool, args } or
+                 { delegate: { councillor, task } } — args may reference
+                 earlier step results and the event payload by simple path
+                 ("$steps[0].summary", "$event.url")
+       deliver:  telegram (which bot), notify, speak-next-time-hall-opens,
+                 silent
+       runs:     last 20 runs, kept inside this same object (Rule 5d)
+     Storage: routines:index (one JSON array of ids + names + owner) and
+     routines:<id>. Tools for every god: routine_create, routine_list,
+     routine_pause, routine_resume, routine_delete, routine_run_now,
+     routine_history. A god creates routines from plain speech: "Loki, every
+     weekday at seven send me the brief" → routine_create with a schedule
+     trigger. The god reads the routine back in one sentence before saving.
+     Hela's routines are hers alone and invisible to the trio.
+
+3.3  The runner lives in the existing 5-minute cron: due schedules + drained
+     events → run each routine's steps → deliver. Guard rails:
+     - a routine may not call hard-confirm tools, post to social, or create
+       capabilities; those steps become approvals (1.5)
+     - critic step before any irreversible action (sending to a Telegram
+       group, writing long-term memory, adding an egress host): the free
+       tier model is asked "does this action match the routine's stated
+       intent and the event that fired it?" and must return strict JSON
+       { ok: boolean, why: string }; anything unparseable = approval
+     - max 12 routine runs per tick, 60 per day; overflow rolls forward
+     - a routine that fails 3 runs in a row pauses itself and tells its owner
+     - each run: at most 2 KV writes total, counted in the budget table
+
+3.4  Ship these routines pre-built (enabled; each says so in the first
+     Telegram message it sends, with "say 'Loki, pause the morning brief' to
+     stop it"). These are the NEW duties from 2.5:
+     THOR   "While you were away" — when the hall opens after 6+ hours idle,
+            Thor speaks a 3-sentence recap from the autonomy log. Jane's
+            Sunday 18:00 world note: what changed this week in the subjects
+            Rayan's long-term memory shows he cares about (tier cheap).
+            Darcy's 03:00 memory hygiene: reads Thor's, Loki's and Odin's
+            conversations from the day — never Hela's — and APPENDS a dated
+            summary to long-term memory with provenance (1.1). Never removes
+            anything.
+     LOKI   Morning brief 07:00 weekdays / 09:00 weekends: calendar,
+            reminders due, weather + air + one FX rate (Sylvie), to-dos
+            older than 3 days (Mobius), one headline (Hunter B-15). Evening
+            "tomorrow at a glance" 21:00.
+     ODIN   Market-open note 06:35 Pacific weekdays and market-close report
+            13:05 Pacific. The close report REPLACES the existing daily paper
+            report — keep honouring config:paper:report:hour, default it to
+            13:05. Paper only, labelled PAPER · SIMULATED every time, never a
+            recommendation. Sunday "state of the realm" 17:00: paper P&L by
+            councillor, KV writes today, "model spend: not tracked yet"
+            (until Part B 6.6), what is waiting on Rayan (secrets by name,
+            plans, the Ayrshare situation — report only, Rule 9).
+     HELA   Gorr's weekly capability test (Sunday 02:00, only while locked
+            in). Nothing else new; her vigil / forge / daily already run.
+     SYSTEM (owned by Thor, tier free, reports to Rayan's private Telegram):
+            every 30 min —
+            · webhook check for all four bots via getWebhookInfo. The
+              correct host is a wrangler var TELEGRAM_WEBHOOK_HOST (add it;
+              never derive it from the incoming request URL). Re-set a wrong
+              webhook at most once per bot per day and tell Rayan each time.
+              Hela's webhook stays unregistered — check it, never set it.
+            · extension last-poll age (from the throttled heartbeat, 0.4)
+            · KV writes today vs cap, warning at 70% — only if
+              CF_ANALYTICS_TOKEN was set in 0.4; otherwise "unavailable"
+            · presence of every secret NAME from the manifest (a misnamed
+              secret — ELEVENLABS_VOICE_ID_THOR with a trailing underscore —
+              once broke Thor's voice; report missing names, never values)
+            Add GET /healthz returning these as JSON (no secrets, no tokens).
+
+3.5  (PART B) Siblings protocol — see Part B below. Not this session.
+
+3.6  Deploy, smoke, commit, push. Verify by creating one routine by voice
+     ("Loki, in ten minutes tell me the routines work") and receiving it.
+     Then STOP. Write the progress file, tell Rayan Part A is done in plain
+     English (what now works, one sentence he can say to try each thing,
+     anything waiting on him), and wait for "continue Part B".
+
+======================================================================
+PART B — LATER SESSIONS (only when Rayan says "continue Part B")
+======================================================================
+
+3.5  Siblings protocol (Korg). In the shared Telegram group, messages that
+     start with a fixed structured prefix are treated as agent-to-agent:
+        @ASGARD task: <plain request>      → Thor runs it and replies
+        @ASGARD status                     → one-line status
+        @JARVIS ... / @KEVOS ...           → Asgard ignores (not his)
+     @ASGARD task runs Thor with a FIXED allowlist: web search, weather,
+     time, FX/calculator, paper-trading status. No memory, browser,
+     calendar, email, to-do or delegate tools. Thor never quotes long-term
+     memory in a group reply. Group replies pass the 3.3 critic. Everything
+     from the group is tainted (Phase 1). Replies use the same prefix so
+     JARVIS and KEVOS can parse them. Write the exact format into
+     docs/SIBLINGS_PROTOCOL.md so Rayan can hand it to Jay and Kevin. Keep it
+     this simple; do not adopt A2A or any protocol library. Deploy, smoke,
+     commit, push.
+
+======================================================================
+PHASE 4 — ODIN'S TRADING: PAPER NOW, REAL-READY LATER, NEVER REAL BY ACCIDENT
+======================================================================
+Odin's paper trading stays exactly what it is: a fake $10,000, real market
+data, a full trade log, labelled PAPER · SIMULATED everywhere, and Odin's
+prompt rules about never recommending a real trade and never inventing a
+number stay word for word. This phase makes the simulation stronger and puts a
+broker interface in front of it so that IF, months from now, Rayan decides to
+trade real money, it is a switch with gates — not a rebuild. This phase adds
+NO go-live tool, NO broker, NO keys, and no code may write config:trading:mode
+or config:trading:live_ack. No real-money code path can execute.
+
+4.1  src/lib/broker.js — one interface, two implementations:
+       Broker: getQuote(symbol), getPositions(), getBalance(),
+               placeOrder({agentId, symbol, side, qty, type, stop}),
+               cancelOrder(id), closePosition(id)
+       PaperBroker: the existing paperTrading portfolio logic moved BEHIND
+               this interface. Same KV keys, same ids, same behaviour, same
+               reports. Refactor only. Verify: dump /paper-trading/status
+               before and after and compare shape, the open-position list
+               (id, symbol, side, qty, entry price) and the trade-log ids and
+               length. Ignore prices, P&L and timestamps. Do this BEFORE 4.3
+               adds slippage.
+       LiveBroker: a stub. Every method throws LIVE_TRADING_DISABLED with the
+               list of gates not met. Shape its signatures to a real broker
+               API that offers a free paper endpoint and a live endpoint with
+               the same request shape (Alpaca is the usual example — verify
+               on their current docs; do not sign up, do not add keys, do not
+               implement it).
+     Selection: config:trading:mode, read only, 'paper' when missing. The
+     gates a future switch would require, listed by trading_readiness as
+     documentation:
+       - secret LIVE_BROKER_KEY exists (it does not)
+       - config:trading:live_ack holds a phrase typed by Rayan through a
+         future go-live tool that this file does NOT add, which would itself
+         require a live confirmation AND a Telegram approval — two yeses on
+         two surfaces
+       - the paper journal shows at least 30 distinct trading days
+       - paper max drawdown over those days is under config:trading:risk
+         (default 8%)
+       - trading_halt is not set
+     Today trading_readiness answers: "mode: paper. No live path exists."
+     and lists the gates and their status.
+
+4.2  Risk caps that apply to PAPER too (so the record is honest):
+     per-trade risk 1% (existing stop), per-day loss cap 3% → halt for the
+     day, per-councillor position cap, max 2 open positions per councillor,
+     no new positions in the last 10 minutes before the close. Kill switch:
+     tools trading_halt / trading_resume / trading_status / trading_readiness
+     (plain English). Halt blocks new orders only; it never force-closes.
+
+4.3  Better simulation:
+     - static NYSE holiday list for 2026 and 2027 in marketData.js (verify
+       against nyse.com). No automatic refresh; Odin's Sunday report warns
+       when the list's last year is the current year.
+     - slippage and commission assumptions applied to every paper fill and
+       stated in the report
+     - per-councillor equity curve and stats, one key per councillor,
+       written only when a trade closes plus one sample at market close
+       (Rule 5d): win rate, average win/loss, max drawdown, Sharpe-style
+       ratio; /paper-trading/status returns them
+     - paper_backtest tool: first check how many candles marketData caches;
+       if fewer than 5 trading days, answer "insufficient cached history".
+       Otherwise replay cached candles through a councillor's strategy for N
+       days and report the same stats. Never extra Twelve Data calls
+       (800/day free cap).
+     - daily self-review per trader after the close, tier cheap, appended to
+       a per-councillor journal key (one write per trading day each). Odin's
+       close report quotes one line from each. These five reviews are the
+       first Batch API candidates (6.2).
+
+4.4  Odin's room on team.html already polls /paper-trading/status. Add the
+     per-councillor stats to what it already displays (a short line under
+     each trader: P&L, win rate, drawdown) — no restructuring.
+
+4.5  Deploy, smoke, commit, push. Run trading_readiness and confirm it reports
+     mode: paper, no live path, gates listed and not met.
+
+======================================================================
+PHASE 5 — THE OBSIDIAN + HERMES FOUNDATION
+======================================================================
+Rayan is not moving Asgard today. Asgard stays on Cloudflare. This phase makes
+a future move a COPY rather than a rebuild. Two facts to design around, both
+to be verified against current docs before you rely on them: (1) Hermes Agent
+(Nous Research) loads MEMORY.md and USER.md into its system prompt at session
+start and treats an Obsidian vault folder as notes it can read and write;
+(2) MCP tool calls can be served statelessly over plain HTTP by a Worker, and
+most agents can call MCP servers. Do not install Hermes or Obsidian anywhere;
+they do not run on this Chromebook.
+
+5.1  The vault export. GET /admin/vault.json (header X-Asgard-Admin, secret
+     ADMIN_TOKEN from Phase 0) returns [{ path, content }] describing a folder
+     laid out as an Obsidian vault:
+       MEMORY.md                 the shared long-term memory, condensed to what
+                                 an agent should know at session start (a
+                                 rendering — the KV originals are untouched)
+       USER.md                   who Rayan is, how he wants to be spoken to,
+                                 standing rules (plain English, from the
+                                 persona prompts' shared core)
+       personas/thor.md, loki.md, odin.md, hela.md   full system prompts
+       councils/<god>/<councillor>.md               prompt, tools, duty, state summary
+       memory/<god>/YYYY-MM-DD.md                   dated long-term memory entries with provenance
+       history/<god>/latest.md                      recent conversation, rendered
+       trading/journal.md, trading/<councillor>.md  paper journal and stats
+       routines/<id>.md                             each routine as natural language + JSON block
+       tools/TOOLS.md and tools/TOOLS.json          from Phase 0.3
+       capabilities/hela.md                         her saved capabilities (names, purposes, URLs — never secrets)
+       MIGRATION.md                                 see 5.3
+     Hela's folders are included ONLY when the request also carries header
+     X-Asgard-Vault: hela; by default her material is left out entirely.
+
+5.2  scripts/export-vault.mjs (plain Node, no deps): calls that route with the
+     admin token read from ~/.asgard-admin-token (a file, never an argument),
+     writes the folder ~/asgard-vault/, and prints a count of files. This
+     folder can be opened in Obsidian as-is on any machine, and dropped into a
+     Hermes install as its notes. Also a nightly SYSTEM routine step (tier
+     free) that writes the same export — INCLUDING Hela, it is a backup — as
+     one JSON object to R2 under asgard-vault/YYYY-MM-DD.json. One R2 write
+     per night. Rule 16 keeps the trio's R2 tools out of it and nothing there
+     is ever deleted by code.
+
+5.3  docs/MIGRATION.md — plain English, honest, for Rayan and for whichever
+     agent does the move one day:
+     - what copies straight across (memories, prompts, routines as text,
+       the trading journal, the vault folder)
+     - what needs a machine Asgard does not have (Hermes itself, Obsidian
+       itself, the browser extension's host) and the smallest machine that
+       would do it (a Raspberry Pi 4 with 4 GB or better, per Hermes's own
+       community install notes — verify before quoting)
+     - what stays on Cloudflare no matter what (KV, R2, the Worker as the
+       MCP server, cron) and why that is the right shape
+     - the exact order to do it in, and how to run both side by side for a
+       month before trusting the new one
+
+5.4  Asgard as an MCP server. Add POST /mcp implementing JSON-RPC 2.0 over
+     POST for initialize, tools/list and tools/call with NO server state:
+     never emit a session id; answer initialize with capabilities { tools: {} }.
+     Read the current spec page on modelcontextprotocol.io first and match its
+     protocolVersion string and required headers; if it cannot be fetched,
+     ship the 2025-06-18 shape (sessions optional there) and say so in the
+     progress file. Auth: Bearer token matching ADMIN_TOKEN. Exposes ONLY
+     tools with permission level auto or notify, and never Hela's; confirm
+     and hard-confirm tools are omitted from tools/list and refused at
+     tools/call with a JSON-RPC error "requires live confirmation; not
+     available over MCP". Every MCP call sets the taint bit. Same dispatch,
+     same approval rules — an external agent calling through MCP gets no more
+     power than Thor has, and less. This is what lets a future Hermes (or
+     JARVIS, or KEVOS) use Asgard's tools without any of them being
+     rewritten. Test with a 20-line scripts/mcp-smoke.mjs that lists tools
+     and calls weather.
+
+5.5  Deploy, smoke, commit, push. Run the export script once, list the
+     folder, and confirm MEMORY.md, USER.md and all four persona files exist
+     and read correctly.
+
+======================================================================
+PHASE 6 — EVERYTHING ELSE WORTH ADDING (do in this order, each is small)
+======================================================================
+Each item: check it isn't already there, build it, keep it inside the write
+budget, add it to the manifest. Deploy and commit after every three items.
+
+6.1  Tool subsets, cache-safe: choose a tool subset per persona and per
+     CONVERSATION (keyword rules, no model call) at the first message and
+     keep it fixed for that conversation, built from the fixed ordered master
+     list so the same subset is always byte-identical. If the subset cannot
+     be held stable across the conversation, skip this item and note it —
+     a changing subset costs more than sending every tool. If Part C is
+     running before Part B, skip this item entirely: Phase 7.0's toolbox
+     replaces it.
+6.2  Batch work off the live bill: ONLY the weekly world note, the five
+     trader self-reviews and Darcy's 03:00 hygiene go through the Anthropic
+     Message Batches API (one plain fetch wrapper if no client exists):
+     submit, store the batch id in the SYSTEM state, collect on later ticks
+     (batches can take up to 24 h). The morning brief, evening glance and
+     market notes stay on the live API — they are time-sensitive.
+6.3  Memory provenance everywhere: apply the 1.1 shape to any writer still
+     missing it. Untrusted-origin writes are quarantined as approvals.
+     Entries without a trust field are read as legacy, never rewritten.
+6.4  Memory search on Workers AI embeddings (@cf/baai/bge-m3, 1024
+     dimensions) with the reranker — ONLY if the current embedder is a paid
+     model. It needs a NEW Vectorize index (Rayan runs
+     `npx wrangler vectorize create asgard-mem-bge --dimensions=1024
+     --metric=cosine`; you add the binding), a one-off re-embed from cron at
+     50 entries per tick, and the old index stays untouched. Otherwise defer.
+6.5  Cloudflare Browser Run as a READER for public pages (watchlist checks,
+     search-result fetching, Fenris's research) so the extension is only used
+     for logged-in actions. It needs a [browser] binding and a
+     compatibility_date of 2026-03-24 or newer. If the current
+     compatibility_date is older, SKIP this item and note it — do not bump
+     the date in this file. Otherwise add the binding, use
+     env.BROWSER.quickAction('markdown', { url }), and pass every page through
+     the 1.2 allowlist and 1.3 wrapping. Free tier is about 10 minutes of
+     page time a day; count it.
+6.6  Cost tracker: tokens in/out per persona, councillor and tier, counted in
+     the history object's _spool on the reply path and rolled into the tick
+     key; one summary key per day written by the last tick. Odin reports it
+     Sunday. Thor answers "what did you cost this week".
+6.7  Telegram polish: inline APPROVE / REJECT buttons on approvals (honoured
+     only from Rayan's id in a private chat, Rule 15); a /council command
+     listing the god's five and their last run; the daily reports use the
+     same one-message layout every time.
+6.8  The hub: public/hub/index.html (or whatever the hub page is today) gets
+     three links — the hall, the councils (team.html), and /healthz rendered
+     as a small status strip. Nothing else moves.
+6.9  Quarterly re-check routine (owner Thor, tier free): on the first of
+     March / June / September / December, one Telegram message: "time to
+     re-run the architecture review — models, prices and specs change."
+6.10 docs/ASGARD_UPGRADE_REPORT.md — plain English for Rayan: what is new,
+     the exact sentences to say to use each thing ("Loki, pause the morning
+     brief", "Odin, how ready are we", "Thor, delegate to Jane: ..."), what
+     costs money and roughly how much, and everything still waiting on him
+     (any secret by NAME, the paid plan, the Twelve Data key if still unset,
+     the Ayrshare situation — report only). Send him the file path when done.
+
+======================================================================
+PART C — THE ARSENAL, THE SPECTACLE, STORAGE RELIEF
+(only when Rayan says "continue Part C"; Phase 7 needs all of Part A done,
+Phase 8 needs Phase 0 done, Phase 9 needs Parts A and B stable)
+======================================================================
+
+======================================================================
+PHASE 7 — THE ARSENAL: HUNDREDS OF TOOLS, WITHOUT DROWNING THE GODS
+======================================================================
+Rayan's words: "add as much tools as possible — the most necessary ones, and
+even more of the unnecessary ones just to have — so this fully automates
+absolutely everything down to the last minute detail." The catalogue below
+was checked against live public-API directories on 2026-09-04. Endpoints die;
+before shipping any tool, call the endpoint once from the Worker. If it is
+dead, geoblocked from Cloudflare, or refuses without a key we don't have,
+DROP it and list it in docs/TOOL_TESTS.md under "not shipped — why". Never
+ship a tool that has not returned real data once.
+
+7.0  THE TOOLBOX MECHANISM (build first — this replaces 6.1)
+     A god with 300 tools in front of him picks badly and pays for every one
+     on every message. So:
+     - Tool metadata — group, permission level, taint (does it return
+       outside content), budget, timeout, source label — lives in a PARALLEL
+       registry src/tools/meta.js keyed by tool name. Never inside the schema
+       object sent to Anthropic (the API rejects unknown fields).
+     - CORE per god: at most 40 tools, always sent, in the master order
+       (Rule 6). List each god's CORE by exact tool name in docs/CORE.md.
+       Thor: conversation, memory, calendar/to-dos, web search, weather,
+       maps, Spotify, browser, texts/calls (hard-confirm), delegate,
+       routines, find_tools. Loki: calendar, reminders, to-dos, memory,
+       weather, search, watchlist, delegate, routines, find_tools. Odin:
+       paper trading, markets core, business status, calculator, currency,
+       delegate, routines, find_tools. Hela: hers as today plus find_tools.
+       If a god's EXISTING tools already exceed 40, the overflow moves into
+       groups — names and schemas unchanged (Rule 2 is about renaming, not
+       grouping) — and the first-message keyword rules MUST open them for the
+       requests they serve today. Smoke additions: "play some music", "open
+       youtube.com", "text Jay" each work without an extra turn.
+     - find_tools({ query }): a meta-tool. It searches the whole catalogue
+       (name, description, group) and returns the ten best matches with one
+       line each, and OPENS their groups for the rest of this conversation:
+       the open-group list rides in the history object (Rule 5a) and the next
+       model call includes those groups' schemas, appended after CORE in the
+       master order. One cache miss per group opened — accepted. Groups also
+       open automatically at the FIRST message of a conversation by keyword
+       rules (no model call). A group CLOSES after 20 turns in which none of
+       its tools was called (counter in the history object) and on history
+       compaction — Telegram chats never restart, so without this the whole
+       catalogue would eventually ride on every turn.
+     - Measure CORE size with the Anthropic count_tokens endpoint, not by
+       guessing. CORE must stay under ~10k tokens per god.
+     - The gods' prompts get one paragraph: "You have a much larger toolbox
+       than what you can see. If the job needs something you don't have,
+       call find_tools first, then use what it opens. Never say you can't do
+       something before you've looked."
+     - One helper for every external call, src/lib/http.js: User-Agent
+       "Asgard/1.0 (+<contact var ASGARD_CONTACT>)" (several free APIs
+       require a UA with contact), 10 s timeout for catalogue tools (Hela's
+       capabilities keep their 12 s), RAW body capped at 1 MB (larger → Rule 7
+       error "response too large: N bytes"), then parse, then each tool
+       SHAPES its result (chosen fields, top-N) to at most 6,000 chars before
+       it becomes a tool_result — never truncate raw JSON mid-stream.
+       read_document may return 8,000 chars plus "truncated: N chars total".
+       Every n / limit argument has a hard maximum of 20. JSON / XML / RSS
+       parsing (hand-written RSS/Atom parser — small, no deps), Rule 7 error
+       surfacing, the taint mark. Every redirect hop is re-checked by the
+       same guards (a shortener must not be able to bounce a request to a
+       private address or the Worker's own host).
+     - Caching: use the Workers Cache API (caches.default with a
+       Cache-Control max-age), never a module-level variable (isolate memory
+       is per-colo and evicted at will) and never KV.
+     - URL rules. Read-only tools that take a model-supplied URL (read_page,
+       read_document, rss_read, wayback, http_check, url_unshorten,
+       page_preview, describe/detect/classify_image) may fetch any public
+       https host under the existing guards (no private ranges, no metadata,
+       never own host, timeout, cap) and ALWAYS set the taint bit. The 1.2
+       allowlist governs Hela's capabilities and every tool that can POST or
+       send. Add publish_note, share_file, ntfy_push, discord_webhook,
+       url_shorten and qr_code to the 1.1 tainted-gated list (approval while
+       tainted). discord_webhook is permission 'confirm' and never callable
+       from a routine (3.3).
+     - Live testing without a model turn: add GET /admin/tool-test?name=&args=
+       (ADMIN_TOKEN) that dispatches one tool and returns the shaped result.
+       Every live test goes through it and is logged in docs/TOOL_TESTS.md.
+     - Rate limits: Worker egress IPs are shared with every other Cloudflare
+       tenant, so anonymous per-IP limits (GitHub 60/hr, CoinGecko no-key,
+       Nominatim 1/s, Reddit, Semantic Scholar, ipapi.co, MusicBrainz, Jikan,
+       iTunes) may already be exhausted when you test — expect 403/429. Any
+       per-IP-limited no-key API ships as a FALLBACK only, never as the
+       primary for a duty that polls.
+     - Ship in batches of about 10 tools: build, live-test each, add to the
+       manifest and TOOLS.json, print the CORE token count and the catalogue
+       size, deploy, smoke, commit.
+     - At the start of Phase 7 ask Rayan ONCE, one checklist message: which
+       of these he has or wants: Notion, Todoist, Google Tasks, a Discord
+       server, GitHub token (no-key GitHub is effectively zero from a shared
+       IP), CoinGecko Demo key (free; header x-cg-demo-api-key; the 30/min
+       tier needs it), Whop API, Finnhub (free), FRED (free), NASA (free),
+       USAJobs (free), Adzuna (free), TMDB (free), Ticketmaster (free),
+       Steam, any smart-home devices (Hue, Govee, Kasa...). Keyed groups are
+       built only for what he confirms; every no-key tool below is built
+       regardless. Secrets arrive by Rule 4, never in chat.
+
+7.1  READING & RESEARCH (Jane Foster, Hunter B-15, Fenris)
+     read_document(url)        Workers AI env.AI.toMarkdown() — PDF, images,
+                               HTML, Office files → markdown (check current
+                               pricing on the docs page; it was free at launch)
+     read_page(url)            Browser Run markdown if 6.5 shipped, else
+                               fetch + toMarkdown
+     rss_read(url, n)          any RSS/Atom feed (n ≤ 20)
+     rss_watch(url) / rss_unwatch   new items → event feed.new. Kang polls
+                               at { every: 15 }; the feed list and seen-ids
+                               live in Kang's own state key council:loki:kang,
+                               written only when a feed has a new item
+                               (worst case 96/day, in the table)
+     news_search(q, geo)       Google News RSS (news.google.com/rss/search?q=)
+     trending_now(geo)         Google Trends RSS (trends.google.com/trending/rss?geo=US — verify)
+     hackernews(top|new|q)     hacker-news.firebaseio.com + hn.algolia.com/api/v1/search
+     reddit_read(sub, sort)    reddit.com/r/<sub>/<sort>.json with UA — may be
+                               blocked from Workers; test, drop if 403
+     wayback(url, date)        archive.org/wayback/available
+     wiki_search(q), wiki_pageviews(title)   Wikipedia API + wikimedia pageviews
+     arxiv_search(q)           export.arxiv.org/api/query (Atom)
+     crossref_search(q)        api.crossref.org/works?query=
+     semantic_scholar(q)       api.semanticscholar.org/graph/v1/paper/search (rate-limited)
+     openlibrary_search(q), book_by_isbn(isbn)
+     gutenberg_search(q)       gutendex.com/books?search=
+     archive_search(q)         archive.org/advancedsearch.php
+     federal_register(q)       federalregister.gov/api/v1/documents.json
+     sec_search(q|ticker)      efts.sec.gov full-text + data.sec.gov submissions
+                               (UA required; may 403 cloud IPs — test first;
+                               top 20 hits, shaped)
+     universities(q)           universities.hipolabs.com/search
+     Not shipped, on purpose: YouTube transcripts (no official API), lyrics
+     (rights), anything that requires scraping a site that forbids it.
+
+7.2  MARKETS & ECONOMY (Odin's court — all read-only, all PAPER-labelled
+     where they touch the simulation; nothing here trades)
+     coingecko_price(ids), coingecko_markets(n), coingecko_trending
+                               api.coingecko.com/api/v3 (no key, ~30/min — cache 60 s in memory)
+     dexscreener_search(q)     api.dexscreener.com/latest/dex/search
+     defillama_tvl(x), defillama_yields   api.llama.fi / yields.llama.fi
+     btc_mempool()             mempool.space/api (fees, mempool size)
+     fear_greed()              api.alternative.me/fng/
+     stooq_quote(symbol)       stooq.com CSV — delayed/EOD, the free fallback
+                               when Twelve Data's 800/day runs out
+     treasury_yields()         the Treasury's own daily yield-curve XML feed
+                               on home.treasury.gov (interest-rates XML,
+                               data=daily_treasury_yield_curve), or FRED
+                               DGS10/DGS2 when FRED_API_KEY exists. FiscalData
+                               does NOT publish the par curve — not the source.
+     bls_latest(series)        api.bls.gov/publicAPI/v1 (no key, 25/day) —
+                               often 403s cloud IPs: test first, drop if so
+     fred_series(id)           FRED — needs free FRED_API_KEY (CPI, unemployment, fed funds)
+     finnhub_quote / finnhub_news / earnings_calendar   needs free FINNHUB_API_KEY
+     polymarket_markets(q)     gamma-api.polymarket.com (public read — READ ONLY, no wallet, ever)
+     defillama tools           require a protocol or chain argument — never
+                               return the whole list (the full endpoints are
+                               many MB)
+     currency fallback         open.er-api.com/v6/latest/USD when Frankfurter fails
+     Not shipped: congress_trades — no maintained free source (House Stock
+     Watcher is stale and tens of MB).
+     chart_image(spec)         quickchart.io/chart → PNG URL. Odin's Telegram
+                               reports gain a real equity-curve image; the
+                               spec is built by code, never by the model.
+
+7.3  WORLD, WEATHER, SAFETY (Valkyrie, Sylvie) — Bakersfield / Kern County matter here
+     nws_alerts(area|point)    api.weather.gov/alerts/active (UA required)
+     nws_forecast(lat,lon)     api.weather.gov points → hourly + discussion (US only)
+     air_quality(lat,lon)      Open-Meteo air-quality endpoint (if not already a tool)
+     quakes(minMag, days, near)  earthquake.usgs.gov/fdsnws/event/1/query
+     calfire_incidents(active) incidents.fire.ca.gov/umbraco/api/IncidentApi/List?year= (verify)
+     space_weather()           services.swpc.noaa.gov/products (Kp, alerts)
+     iss_now()                 api.wheretheiss.at/v1/satellites/25544
+     nasa_apod()               api.nasa.gov/planetary/apod (DEMO_KEY works; free key better)
+     tides(station)            api.tidesandcurrents.noaa.gov (CA coast)
+     elevation(lat,lon)        api.opentopodata.org/v1/srtm90m
+     zip_lookup(zip)           api.zippopotam.us/us/<zip>
+     ip_geo(ip)                ipapi.co or get.geojs.io
+     osm_search(q) / osm_reverse(lat,lon)   nominatim.openstreetmap.org (UA, 1 req/s) — free
+                               fallback behind Google Maps
+     osm_nearby(what,lat,lon,r)  Overpass API (10 s timeout, small radius)
+     country_info(name)        restcountries.com/v3.1
+     world_bank(indicator, country)  api.worldbank.org/v2
+
+7.4  LIFE ADMIN (Miss Minutes, Mobius, Darcy) — all state in ONE KV key per
+     tool family, written only on change
+     ntfy_push(title, msg, priority, click)  ntfy.sh — phone push with no
+                               account: POST https://ntfy.sh/<topic>. The
+                               topic is the only credential ntfy has, so it is
+                               a SECRET (NTFY_TOPIC, set by Rule 4 — a long
+                               random string), never a var in the committed
+                               config. Topics are public to anyone who knows
+                               them: never send secrets or memory through it.
+                               Rayan installs the ntfy app and subscribes once.
+     shopping_list add/remove/read
+     quick_note(text) / notes_read(date)
+     reading_list add/read (pairs with read_page + wayback)
+     habit_log(name) / habits_status  (streaks, Mobius nags gently)
+     expense_log(amount, category, note) / expenses_week  (Rayan's own typed
+                               numbers only — no bank data, no bank links)
+     unit_convert(v, from, to) local: length, weight, temp, volume, speed, data
+     recipe_search(q)          themealdb.com (test key "1"), thecocktaildb.com
+     food_by_barcode(code)     world.openfoodfacts.org/api/v2/product/<code>
+     nutrition(food)           USDA FoodData Central — needs free key; else skip
+     exercises(muscle)         wger.de/api/v2 (no key)
+     vin_decode(vin), recalls(make, model, year)   vpic.nhtsa.dot.gov, api.nhtsa.gov/recalls
+     Not shipped, say so plainly: gas prices (no free API exists), package
+     tracking without a key (none free — 17track/AfterShip if he ever adds a
+     key), Amazon prices (no public API).
+
+7.5  WORK & JOB HUNT (Jane Foster, Hunter B-15) — Rayan is job hunting;
+     Thor already knows his criteria from long-term memory. Ask him to
+     confirm role type, location radius and pay floor once; store as one
+     config key.
+     jobs_search(q, location)  Adzuna (free app id/key, best for a US city);
+                               USAJobs (free key + email UA); no-key: Remotive
+                               (always with ?search=&limit=20 — the bare
+                               endpoint is multi-MB), Jobicy, Arbeitnow, The
+                               Muse (remote-heavy). Results shaped to 20.
+     job_watch(criteria)       daily 08:00 digest of NEW matches only (state
+                               remembers seen ids) — a pre-built routine
+                               owned by Loki, run by Hunter B-15
+     company_lookup(name)      Wikipedia summary + SEC filings if public
+     Not shipped: anything that applies on Rayan's behalf. Never.
+
+7.6  DEV & INFRA (Hulk; the SYSTEM routine)
+     cloudflare_status()       cloudflarestatus.com/api/v2/summary.json
+     cf_worker_info / cf_kv_usage   Cloudflare API, read-only, only if
+                               CF_ANALYTICS_TOKEN exists (0.4)
+     github_activity(repo)     api.github.com public (60/hr no key) — the
+                               rayven-pwa repo and the siblings' public repos
+     npm_info(pkg), pypi_info(pkg)
+     dns_lookup(name, type)    cloudflare-dns.com/dns-query (accept: application/dns-json)
+     whois(domain)             rdap.org/domain/<domain>
+     http_check(url)           status + headers + redirect chain (manual redirects)
+     url_shorten(url)          is.gd/create.php?format=json
+     url_unshorten(url)        follow redirects manually
+     qr_code(text)             api.qrserver.com → URL
+     page_preview(url)         api.microlink.io (free tier, no key — verify)
+     color_info(hex|name)      thecolorapi.com
+     hash/base64/uuid/regex_test/json_pretty   local pure functions
+     Never: anything that deploys, edits code, or touches secrets.
+
+7.7  MEDIA & ENTERTAINMENT (Valkyrie)
+     itunes_search(term, media)   music, podcasts, apps, movies
+     tv_search(show), tv_tonight(country)   api.tvmaze.com
+     anime_search(q)           api.jikan.moe/v4
+     musicbrainz(artist)       musicbrainz.org/ws/2 (UA)
+     songlink(url)             api.song.link (cross-platform links, rate-limited)
+     game_deals(q)             cheapshark.com/api/1.0/deals
+     free_games()              gamerpower.com/api/giveaways, freetogame.com/api
+     movies(q)                 TMDB — needs free key; else skip
+     events_near(city, q)      Ticketmaster Discovery — needs free key; else skip
+     youtube_trending()        only if a YouTube Data API key already exists
+     board_games(q)            boardgamegeek.com/xmlapi/search
+     trivia(n, category), draw_cards(n), pokemon(name), dnd(q), mtg_card(q)
+                               opentdb.com, deckofcardsapi.com, pokeapi.co,
+                               dnd5eapi.co, api.scryfall.com
+
+7.8  CURIOSITIES — the "just to have" shelf (Thor keeps these; each is a
+     15-line tool; all free, all no-key, all harmless)
+     dad_joke (icanhazdadjoke.com, Accept: application/json), joke
+     (v2.jokeapi.dev — safe-mode ON), chuck_norris, advice (adviceslip),
+     affirmation (affirmations.dev), quote (api.quotable.io — verify; else
+     zenquotes.io), useless_fact (uselessfacts.jsph.pl), yes_or_no
+     (yesno.wtf), random_dog (dog.ceo), random_fox (randomfox.ca),
+     random_cat (cataas.com), http_cat(code), robot_avatar(text)
+     (robohash.org), pixel_avatar(seed) (api.dicebear.com), art_random
+     (api.artic.edu, collectionapi.metmuseum.org), mcu_countdown
+     (whenisthenextmcufilm.com/api — on theme), is_even(n)
+     (api.isevenapi.xyz — yes, really), xkcd(), meme_templates
+     (api.imgflip.com/get_memes), star_wars(q) (swapi.info — the maintained
+     https mirror; swapi.dev's certificate lapses), star_trek(q) (stapi.co),
+     rick_and_morty(q). Skip anything that insults, profiles people by name
+     (agify/genderize/nationalize), or quotes living people.
+
+7.9  AI & MEDIA GENERATION (Workers AI — inside the free daily neurons; verify
+     each model id on the current models page before use)
+     describe_image(url)       a current Workers AI vision model
+     detect_objects(url)       @cf/facebook/detr-resnet-50
+     classify_image(url)       @cf/microsoft/resnet-50
+     tts_fallback(text)        @cf/myshell-ai/melotts — and wire it in
+                               AUTOMATICALLY: when ElevenLabs errors or its
+                               quota is out, /tts returns melotts audio
+                               instead of silence and Thor says once that his
+                               voice is borrowed today
+     sentiment(text)           distilbert (already used for triage)
+     publish_note(title, md)   render to a small HTML page stored in R2 under
+                               asgard/notes/ and served by the Worker at
+                               /notes/<id> (never memory, never secrets — the
+                               tool takes only what the god passes it). The
+                               bucket itself stays private: confirm in 8.0
+                               that CLIPS has no public access (r2.dev off,
+                               no custom domain) and keep it so.
+
+7.10 HOME & DEVICES — plain truth first: the Worker cannot reach anything on
+     Rayan's home network (no Roku, Chromecast, local Hue bridge, printers).
+     Cloud APIs only: Govee (key), Hue Remote API (OAuth), Tuya/SmartLife
+     (developer account). Build ONLY for devices Rayan confirms he owns in
+     the 7.0 checklist; if none, skip this group and say so.
+
+7.11 COMMS & SHARING (Korg)
+     ntfy (7.4), discord_webhook(msg) — only if he gives a webhook URL as a
+     secret; permission 'confirm'; never from a routine. Email stays
+     draft-only; Telegram and Twilio as they are.
+     share_file(r2key) → a temporary link served by the Worker:
+     GET /share/<key>/<expiry>/<hmac> with hmac = HMAC-SHA256(ADMIN_TOKEN,
+     key + expiry), expiry ≤ 7 days — no KV write, no new secret, no public
+     bucket. share_file REFUSES every key under asgard/ and asgard-vault/
+     except asgard/notes/ (Rule 16) — the nightly vault backup includes Hela
+     and must never be linkable.
+
+7.12 MEMORY & SELF (Darcy, Mobius)
+     memory_search(q) if not already a tool; memory_timeline(from, to)
+     read-only; what_did_i_say_about(topic); journal_write(text) /
+     journal_read(date) — appended, dated, never edited (Rule 5a2);
+     self_stats() — tool usage counts per week from tick keys, cost from 6.6
+     ("not tracked yet" until Part B).
+
+7.13 AUTOMATION RECIPES — "down to the last minute detail"
+     7.13a First, the events and pollers the recipes need. Add to events.js:
+       market.move, sentiment.extreme, yield.cross, weather.alert,
+       fire.incident, quake, trend.new. Each has ONE poller duty —
+       Sylvie for weather.alert / fire.incident / quake, Odin's court for
+       market.move / sentiment.extreme / yield.cross, Kang for trend.new and
+       feed.new — at { every: 15 }, seen-state in that councillor's state
+       key, written only on a new hit (Rule 5c). A poller makes NO
+       subrequest unless at least one enabled routine subscribes to its
+       event.
+     7.13b Templates are CODE (src/lib/templates.js), not KV. Ship 25 of
+     them, disabled; routine_enable_template(name) copies one into
+     routines:<id> and the index (2 writes, Rule 5a2). Loki lists them when
+     asked "what can you automate". Each is one sentence Rayan can say:
+       "rain tomorrow → tell me tonight at nine"
+       "NWS alert for Kern County → push it to my phone"
+       "CAL FIRE incident within 50 miles → tell me"
+       "earthquake over 4.0 within 100 miles → tell me"
+       "BTC moves 5% in a day → Odin notes it (paper context only)"
+       "Fear & Greed hits extreme → Odin notes it"
+       "earnings this week for the paper tickers → Monday morning"
+       "treasury 10-year crosses a level I name → tell me"
+       "new job matching my criteria → 8 am digest"
+       "a feed I watch posts → one-line summary in the brief"
+       "trending now → noon digest of the top five"
+       "APOD picture → in the morning brief"
+       "calendar event has an address → drive time 45 minutes before"
+       "meeting in 10 minutes → push to phone"
+       "to-do untouched for a week → Mobius asks if it's dead"
+       "habit not logged by 8 pm → one nudge"
+       "weekly expenses → Sunday summary"
+       "reading list has 5+ items → Sunday reading hour reminder"
+       "Spotify Friday 5 pm → start the weekend playlist"
+       "extension offline while hall open → Thor says so once"
+       "KV writes at 70% → warn me"
+       "webhook wrong → fix once and tell me"
+       "Sunday 6 pm → Jane's world note"
+       "first of the quarter → architecture re-check"
+       "paper trading drawdown past 5% → Odin explains, halts new paper
+        positions for the day" (needs Phase 4's trading_halt — hidden from
+        the list until Part B has run)
+     Every template passes through Phase 3's guard rails; none can send an
+     SMS, post, or spend.
+
+7.14 Finish: regenerate the manifest and TOOLS.json, print the final counts
+     (CORE per god, catalogue total, groups), and write the plain-English
+     section of docs/ASGARD_UPGRADE_REPORT.md: "here is everything Asgard can
+     do now, by saying…". Deploy, smoke, commit, push.
+
+======================================================================
+PHASE 8 — THE SPECTACLE: EVERY PAGE TEN TIMES COOLER
+======================================================================
+Rayan's words: "upgrade all the indexes and make them look ten times cooler —
+I want them to shock everybody." Two truths first. (1) You cannot see pixels
+— there is no browser in your sandbox and Playwright will not run on this
+Chromebook. Rayan is the QA: give him the checklist in 8.5 after every page.
+(2) The hall (index.html) is ~300 KB in one file and loading it into context
+will kill the session. The method in 8.2 is mandatory.
+
+8.0  Inventory public/: every page, what links to it, what it calls. Report
+     to Rayan in five lines and propose: the hub is the front door, the hall
+     is the product, team.html is the councils; any leftover per-persona
+     pages (thor/, loki/, odin/) are redirected by the Worker (301 to
+     /?p=<god>) — never deleted (Rule 13). He decides before you touch
+     anything. Also confirm the CLIPS R2 bucket has no public access and
+     that the Worker still serves public/ as static assets.
+
+8.1  THE FX LAYER — new files, so cp can't conflict and the giant page is
+     barely touched:
+       public/fx/asgard-fx.js       the engine: WebGL2 shader backdrop with a
+                                    canvas-2D fallback that is still handsome,
+                                    a fake-bloom compositor (glow layer at
+                                    quarter resolution, upscaled smooth — never
+                                    CSS filter on an animated layer), a
+                                    particle system, a WebAudio micro-SFX
+                                    synth (no audio files), a quality
+                                    governor, an FPS/render-path overlay
+       public/fx/thor.js, loki.js, odin.js, hub.js, team.js
+                                    per-realm looks that plug into the engine.
+                                    Hela's look lives INSIDE asgard-fx.js —
+                                    there is no /fx/hela.js (a public file
+                                    name is a disclosure).
+     Everything in 8.3 that is not a hook call is done INSIDE the fx files:
+     they inject their own <style> and <canvas>, watch the transcript with a
+     MutationObserver, and fetch panel data themselves. If a feature cannot
+     be done that way, drop it — never widen the hall edit.
+     Hook API (the only thing pages call):
+       AsgardFX.init({ page, persona })
+       AsgardFX.setPersona(id)               realm shift transition
+       AsgardFX.setState(state, level)       idle | listening | thinking |
+                                             speaking — level 0..1 from the
+                                             hall's TTS analyser IF it already
+                                             has one; if it does not, call
+                                             setState('speaking') with no
+                                             level and the engine synthesizes
+                                             one. Do not add an analyser to
+                                             the hall (wrapping the audio
+                                             element breaks iOS playback).
+       AsgardFX.wake(id)
+       AsgardFX.pulse(kind)                  'send' | 'receive' | 'error' |
+                                             'switch' | 'vault-open' |
+                                             'vault-close'
+       AsgardFX.mute(bool)
+     Quality governor: DPR capped at 1.5; if FPS < 45 for 3 s drop one tier
+     (halve particles → bloom off → DPR 1 → static backdrop); ?fx=0 disables
+     the layer entirely; ?debug=1 shows FPS, tier and RENDER PATH (it must
+     read WebGL on Rayan's Chromebook — 2D is the fallback, not the target);
+     prefers-reduced-motion freezes motion. Render tiers: webgl2 → webgl1
+     (write the shaders once in GLSL ES 1.00) → canvas 2D; handle
+     webglcontextlost / webglcontextrestored on every page — the hall already
+     holds one GL context for its 3D forms and a second full-screen context
+     on a 2.7 GB machine is exactly where loss happens. Every animation has a
+     hard time backstop so a thrown frame can never leave a mute assistant.
+     The FX layer stores only mute and quality tier in localStorage — never a
+     persona id. Three.js, if used anywhere, loads from the three existing
+     CDN mirrors.
+
+8.2  SAFE EDITING OF HUGE FILES (mandatory for the hall AND team.html)
+     - Never Read the whole file. Find anchors with grep -n. Inspect with
+       sed -n 'A,Bp' in windows of at most 120 lines, and never print a line
+       longer than 2,000 characters (use awk substr windows on long lines).
+     - Make edits with scripts/patch.mjs <file> <anchorFile> <replacementFile>
+       (plain Node): it REPLACES the anchor text with the replacement text,
+       requires the anchor to appear EXACTLY once, else exits non-zero and
+       changes nothing, and prints only the byte delta. To insert, the
+       replacement begins with the anchor verbatim. No regex, no multi-edit.
+     - After every edit run scripts/check-scripts.mjs <file>: it splits the
+       <script> blocks, skips type=importmap / application/json / x-shader
+       blocks, saves type=module blocks as .mjs and the rest as .js, runs
+       node --check on each, and prints only PASS/FAIL per block.
+     - Never cp the root index.html over public/index.html or the reverse.
+       If both exist and differ, report it and leave both alone; Rayan
+       decides.
+     - Hall edits are limited to: one <script src="/fx/asgard-fx.js"> tag,
+       one init call, and one hook call at each EXISTING point: wake
+       sequences, listening start/stop, thinking, TTS start/level/stop,
+       persona switch, message sent, reply received, TTS error, Hela
+       open/close. Nothing else in the hall changes. Rayan's standing rules
+       from past builds still hold: forms centred in the ring, breathing
+       capped at 0.975 of the ring, the vault box empties on close with no
+       server call.
+     - team.html: fx/team.js hooks whatever the renderer already exposes on
+       window (CONFIG, the scene state, the poll data). If it exposes
+       nothing, ship only the overlay effects (vignette, palette, dim) and
+       say so — do not rewrite the renderer.
+
+8.3  THE LOOK, PAGE BY PAGE (concepts first — see 8.4)
+     HUB — "the Bifrost". Full-screen fragment-shader light bridge with depth
+       fog and a star field; three realm portals (storm blue / emerald / gold)
+       floating with pointer and gyro parallax; a boot sequence on first
+       visit (skippable, remembered in localStorage — this is his own page,
+       that is fine); a live strip from GET /healthz?public=1 — a new
+       PUBLIC shape returning only { gods_awake, councillors,
+       extension_online, paper_pnl } (the full /healthz lists secret NAMES
+       and webhook URLs and must never feed a public page) — plus
+       /council/status and /paper-trading/status ("3 GODS AWAKE · 20
+       COUNCILLORS · PAPER P&L …"); a low Bifrost hum synthesized in
+       WebAudio, only after the first tap (autoplay rules). No hint of Hela
+       anywhere on the hub.
+     HALL — every function untouched; the FX layer adds: a volumetric
+       backdrop per god (Thor: layered storm-cloud noise, rain streaks,
+       forked lightning that fires on speech peaks; Loki: emerald mist with
+       drifting glyph particles that gather while he thinks; Odin: slow gold
+       dust, a low sun, generic bird silhouettes far back; Hela keeps hers);
+       glass panels made from a pre-rendered blurred snapshot of the backdrop
+       (backdrop-filter halved the frame rate once — never again); a kinetic
+       transcript where words land in time with the TTS analyser; a 600 ms
+       realm-shift wipe on persona switch; idle life (the hammer crackles
+       every 20–40 s, the mind stone breathes in a heartbeat pattern,
+       Gungnir glints); the fourth panels become instruments (Odin: a
+       sparkline equity curve from /paper-trading/status; Loki: a 24-hour
+       ring of today's calendar; Thor: a live storm map of councillor
+       activity from /council/status); per-god cursor/touch trails (micro-
+       lightning / green embers / gold motes); micro-SFX for send, receive,
+       wake, switch, with a mute toggle that is remembered.
+     TEAM — keep the CONFIG structure and the software 3D; add council-in-
+       session mode (a running councillor's gem ignites and a glyph stream
+       flows down its tether to the god while the room dims), a depth-of-
+       field vignette, a slow idle camera drift, and a night-watch palette
+       after 21:00 local.
+     Anything per-persona that survives 8.0 gets the same modules in full-
+       bleed mode.
+     Everything must still work on iPhone Safari as a home-screen app: no
+       WebGL context loss on tab switch (handle webglcontextlost/restored),
+       gyro only after a tap-to-allow, 30+ FPS on the phone, 55+ on the
+       Chromebook.
+     Rayan's standing rule on imagery: names are text labels only. No
+       character likenesses, no logos, no film imagery. Generic objects —
+       hammer, spear, horned crown, a gem, birds, storm — are fine.
+
+8.4  CONCEPTS FIRST. For each page, before building, write three five-line
+     concepts into docs/DESIGN_CONCEPTS.md (mood, motion, colour, the one
+     "shock" moment, what it costs in frame time) and ask Rayan to pick one
+     or say "all of it". Then build that page, deploy it, and stop for his
+     checklist before the next page. One page per commit.
+
+8.5  RAYAN'S CHECKLIST (send after every page, in plain English): close the
+     Linux terminal first (Claude Code running beside the page makes every
+     FPS number pessimistic), open the page on the Chromebook with ?debug=1
+     — read out the FPS and RENDER PATH;
+     tap once and confirm sound; say the wake word and confirm the wake
+     sequence still plays and he still gets a reply; switch persona; open
+     and close the vault with the phrases; then the same on the phone from
+     the home-screen icon. If anything is below 45 FPS on the Chromebook,
+     drop a tier by default for that page and tell him.
+
+8.6  PERFORMANCE RULES earned by past builds (all mandatory): no canvas
+     resize inside the frame loop; static layers pre-rendered once;
+     additive blending only on small layers; clamp requestAnimationFrame
+     timestamps (a negative first-frame delta once produced NaN and silently
+     killed a wake sequence); write off-screen tests positively so NaN is
+     rejected; clamp every radial-gradient radius finite; never filter an
+     animated layer; adaptive stride with size compensation when particles
+     are thinned; three CDN mirrors for any library; RENDER PATH must show
+     WebGL on his machine.
+
+======================================================================
+PHASE 9 — STORAGE RELIEF (optional; only after Parts A and B are stable)
+======================================================================
+KV allows 1,000 writes a day free and ~33,000 a day paid, and every rule
+above bends around that. Cloudflare Durable Objects with SQLite storage allow
+100,000 row writes a day on the FREE plan (5 million reads, 5 GB) and 50
+million a month on paid (verify on the Durable Objects pricing page first).
+     9.1  One Durable Object class, AsgardLedger, SQLite-backed, with tables
+          tick, audit, events, routines, routine_runs, council_state, cost.
+          It extends DurableObject from "cloudflare:workers" (a runtime
+          module, not an npm package — Rule 3 holds) and is exported from
+          the Worker's entry module. Binding LEDGER; one instance via
+          env.LEDGER.idFromName('asgard'); a migration with
+          new_sqlite_classes in the wrangler config; a wrangler var
+          LEDGER_BACKEND = 'kv' | 'do' selects the path.
+     9.2  COPY-FORWARD, never move. New writes go to the ledger; existing
+          tick: / audit KV keys are never deleted or read-migrated. Only the
+          state this file introduced goes to the ledger: ticks, audit,
+          events, routine runs, cost counters (single-path behind the flag),
+          plus routines and councillor state (DUAL-written to KV and the
+          ledger for the two-week trial, because routines are Rayan's data
+          and a flip-back must lose none). NEVER move memory:, history, the
+          paper portfolio and trade log, Hela's capabilities, or any config
+          key — those stay in KV, untouched.
+     9.3  Every reader goes through one accessor, src/lib/ledger.js, so they
+          switch together: /council/status, the HUD autonomy log, the spool
+          drain's lastDrained stamp (1.4), the 30-day R2 audit copy (1.4),
+          the 60-runs/day counter (3.3), the Rule 5e ceiling, /healthz,
+          self_stats. After two clean weeks, Rule 5's ceilings apply to KV
+          writers only; ledger writers report their own counts in /healthz.
+     9.4  Deploy, smoke, commit, push. Rollback for THIS phase only: if the
+          live smoke fails, set LEDGER_BACKEND=kv and redeploy. NEVER git
+          revert the migration commit — removing a bound class needs a
+          deleted_classes migration and the reverted config will not deploy.
+
+======================================================================
+WHAT NOT TO BUILD (so it isn't proposed again)
+======================================================================
+- No local models, no Ollama, no Hermes install, no Obsidian install, no
+  Raspberry Pi steps — there is no Pi and the Chromebook cannot host them.
+- No OpenRouter or any other model gateway in the main path.
+- No A2A, no agent-protocol libraries, no MCP hosting platforms.
+- No real broker integration, no broker signup, no broker keys, no go-live
+  tool.
+- No new Telegram bots (councillors speak through their god). No new
+  ElevenLabs voices (councillor results are spoken by their god).
+- No voice-streaming rewrite — it would need hall edits beyond the Phase 8
+  hook points Rule 10 allows.
+- No cron-syntax parser (Rule 14).
+- No self-critique on every turn — only before irreversible actions.
+- No deletion of anything under memory:, history, tick:, audit, R2, or
+  Hela's keys.
+- Nothing about the clipping business beyond reading its status.
+- No tool that acts on Rayan's behalf with a third party — applying for a
+  job, placing a trade or bet, buying, subscribing, signing up. Reading is
+  fine; acting is his.
+- No scraping of sites that forbid it, no lyrics, no character likenesses or
+  film imagery on any page.
+
+======================================================================
+HOW TO REPORT BACK TO RAYAN
+======================================================================
+After each phase, one short message in plain English: what now works, one
+sentence he can say to try it, and anything waiting on him. No file listings
+unless he asks. If something cannot work on this setup, say so plainly and
+say what would make it work — never ship code that pretends.
+
+
+╔══════════════════════════════════════════════════════════════════════╗
+║  SECTION 5 — THE COUNCIL RENAME (only if still needed)               ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+Phase 0.2 of Section 4 checks whether this was already applied. If Odin's five
+paper-trading agents already display as FRIGGA, FANDRAL, VOLSTAGG, HOGUN and
+HEIMDALL, this section is done — skip it. If any of them still shows STRANGE,
+MAGNI, GROOT or TYR, do exactly this and nothing more:
+
+Rename the five named paper-trading agents so the backend matches the council
+page. Display names ONLY — never touch the object keys or id fields (freya /
+tyr / baldr / heimdall / vidar), because those are the KV storage keys for
+candles, positions and trade history, and changing them would orphan whatever
+position is open right now.
+
+IMPORTANT: after this change the agent whose id is 'heimdall' will be
+DISPLAYED as HOGUN, and the agent whose id is 'vidar' will be DISPLAYED as
+HEIMDALL. That is intentional. Do not "fix" it, do not swap ids around, and do
+not rename any key.
+
+In src/lib/paperTrading.js, inside the AGENTS object, change the display name
+and the label of each of these five agents exactly like this, and nothing else
+about them:
+
+- the agent with id 'freya'    : name 'STRANGE'  -> 'FRIGGA',    label 'Ethereum — STRANGE'            -> 'Ethereum — FRIGGA'
+- the agent with id 'tyr'      : name 'MAGNI'    -> 'FANDRAL',   label 'Bitcoin — MAGNI'               -> 'Bitcoin — FANDRAL'
+- the agent with id 'baldr'    : name 'GROOT'    -> 'VOLSTAGG',  label 'S&P 500 (SPY proxy) — GROOT'   -> 'S&P 500 (SPY proxy) — VOLSTAGG'
+- the agent with id 'heimdall' : name 'TYR'      -> 'HOGUN',     label 'Nasdaq (QQQ proxy) — TYR'      -> 'Nasdaq (QQQ proxy) — HOGUN'
+- the agent with id 'vidar'    : name 'HEIMDALL' -> 'HEIMDALL' (unchanged), label 'Gold (GLD proxy) — HEIMDALL' (unchanged)
+
+Also replace their five theme lines with these, word for word:
+- FRIGGA:   'The queen saw further than the king. Reads where Ethereum is heading and rides the one breakout that holds.'
+- FANDRAL:  'Quick blade, one clean strike. Waits for Bitcoin to overreach, then takes the snap-back.'
+- VOLSTAGG: 'Unmovable. Holds the S&P trend and keeps holding until it actually turns.'
+- HOGUN:    'Says nothing, commits everything. Once the Nasdaq trend is confirmed — no half-measures.'
+- HEIMDALL: 'Sees all nine realms from the Bifrost. Watches gold in silence and moves before the breakout is news.'
+
+Update the code comments near that block that mention the old names so they
+describe the new ones (the note that ids and display names deliberately differ
+still applies — keep that note, and add the HOGUN / HEIMDALL point above to
+it).
+
+In src/lib/personas.js, in Odin's PAPER TRADING paragraph (the one that lists
+the ten agents), change "STRANGE, MAGNI, GROOT, TYR, HEIMDALL" to "FRIGGA,
+FANDRAL, VOLSTAGG, HOGUN, HEIMDALL". Leave every other word of that paragraph
+exactly as it is — especially the lines about never inventing a number and
+never recommending a real trade.
+
+Then search the whole src/ folder and public/ folder for any other place the
+old five names (STRANGE, MAGNI, GROOT, TYR) appear as trading-agent names —
+for example a daily Telegram report template or the HUD's PAPER TRADING panel
+— and update those too. Be careful: TYR and HEIMDALL may also appear as plain
+words in comments about Norse names; only change places where they are the
+display name of a paper-trading agent. Do NOT touch public/team.html — it is
+already correct — and do not touch anything about THOR, LOKI, or HELA.
+
+Run node --check on every file you changed. Show me a short list of every file
+and line you changed. Do not deploy or commit yet — I will tell you when.
+
+
+╔══════════════════════════════════════════════════════════════════════╗
+║  END OF FILE                                                         ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+If you have read this far in one go, you have read too much at once. Go back to
+the section you are actually working on, and work only that.

@@ -178,7 +178,7 @@
     inited: false, persona: 'thor', state: 'idle', level: 0, hallLevel: 0, synth: 0,
     listen: 0, think: 0, speak: 0,        // smoothed 0..1 state weights the shaders read
     t: 0, dt: 0, frame: 0, fps: 60, lowSince: 0,
-    tier: '2d', path: '2D', quality: clamp(parseInt(LS.get(KEY_TIER) || '0', 10) || 0, 0, 4),
+    tier: '2d', path: '2D', quality: clamp(LS.get(KEY_TIER) === null ? 2 : (parseInt(LS.get(KEY_TIER), 10) || 0), 0, 4),   // a browser with no measured tier starts one tier down with bloom off (Strike Three, unverified hardware)
     hidden: false, glLost: false,
     wake: null, wipe: null, pending: null,
     helaOpen: false, switchSfx: false, helaPhase: 'off', helaT: 0, helaRed: 0, helaLock: false, helaDrain: 0,
@@ -187,7 +187,7 @@
     w: 1, h: 1, dpr: 1, cx: 0.5, cy: 0.5
   };
   const REALMS = {};
-  const FX = { __real: true, version: 1 };
+  const FX = { __real: true, version: 2 };
   window.AsgardFX = FX;
 
   // -------------------------------------------------------- canvases
@@ -239,7 +239,8 @@
   }
   function initGL() {
     gl = null; GL.progs = {}; GL.wipe = null; GL.tex = null;
-    const opts = { alpha: true, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: true, powerPreference: 'low-power', failIfMajorPerformanceCaveat: false };
+    // depth: true — the Strike Three arc cores render into this same context and need a depth buffer; the sky quad never tests depth, so it costs the sky nothing.
+    const opts = { alpha: true, antialias: false, depth: true, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: true, powerPreference: 'low-power', failIfMajorPerformanceCaveat: false };
     try { gl = back.getContext('webgl2', opts); if (gl) S.tier = 'webgl2'; } catch (e) { gl = null; }
     if (!gl) { try { gl = back.getContext('webgl', opts) || back.getContext('experimental-webgl', opts); if (gl) S.tier = 'webgl1'; } catch (e) { gl = null; } }
     if (!gl) { S.tier = '2d'; S.path = '2D'; setup2DBack(); return; }
@@ -277,14 +278,16 @@
   let resizeTimer = 0;
   function sizeCanvases() {
     S.w = Math.max(1, window.innerWidth); S.h = Math.max(1, window.innerHeight);
-    S.dpr = S.quality >= 3 ? 1 : Math.min(1.5, window.devicePixelRatio || 1);
+    S.dpr = S.quality >= 3 ? 1 : Math.min(1.25, window.devicePixelRatio || 1);   // conservative cap (Strike Three): 1.25, was 1.5
     S.cx = S.w / 2; S.cy = S.h / 2;
-    const bw = Math.max(2, Math.floor(S.w * S.dpr * BS)), bh = Math.max(2, Math.floor(S.h * S.dpr * BS));
+    const bs = C.mode === 'three' ? 1 : BS;   // a modeled core needs the full-resolution canvas; the sky alone is fine at half
+    const bw = Math.max(2, Math.floor(S.w * S.dpr * bs)), bh = Math.max(2, Math.floor(S.h * S.dpr * bs));
     if (back.width !== bw || back.height !== bh) { back.width = bw; back.height = bh; }
     const ow = Math.max(2, Math.floor(S.w * S.dpr)), oh = Math.max(2, Math.floor(S.h * S.dpr));
     if (over.width !== ow || over.height !== oh) { over.width = ow; over.height = oh; }
     glow.width = Math.max(2, Math.floor(ow * GS)); glow.height = Math.max(2, Math.floor(oh * GS));
     if (gl) gl.viewport(0, 0, bw, bh);
+    coreResize(bw, bh);
     for (const id in REALMS) { const r = REALMS[id]; if (r.resize) { try { r.resize(E); } catch (e) {} } }
     helaResize();
   }
@@ -449,6 +452,225 @@
     if (S.inited) { try { realm.init && realm.init(E); realm.resize && realm.resize(E); } catch (e) { console.warn('[AsgardFX] realm init failed', id, e); } if (gl) realmProgram(id); }
   };
 
+  // ---------------------------------------------------------- cores
+  // Strike Three. The modeled arc cores render INSIDE this engine's WebGL2
+  // context — the back canvas — through Three.js: no new canvas, no second
+  // context. A core module is loaded by the engine from /fx/cores/<id>.js,
+  // registers itself with FX.registerCore, and is driven from this frame
+  // loop. Only the three visible gods have a core; any other persona leaves
+  // the cores layer disposed. The contract: docs/CORE_MODULE_CONTRACT.md.
+  const CORE_IDS = ['thor', 'loki', 'odin'];
+  const CORES = {};
+  const THREE_URLS = ['https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js', 'https://unpkg.com/three@0.185.1/build/three.module.js', 'https://esm.sh/three@0.185.1'];
+  const CORE_PALETTE = {
+    base: { pearl: 0xECEAF2, plum: 0x292337, void: 0x0B0A12, silver: 0xC8D1DC, petrol: 0x285E6B, uv: 0x7965CF },
+    thor: { core: 0xEAF8FF, rim: 0x66C7FF }, loki: { core: 0xE7C24A, rim: 0xD8AF5C }, odin: { core: 0xD8AE5A, rim: 0xA56429 }
+  };
+  const BLIT_FS = 'precision mediump float;varying vec2 v;uniform sampler2D u_tex;void main(){gl_FragColor=vec4(texture2D(u_tex,v).rgb,1.0);}';
+  const C = { want: false, THREE: null, threeP: null, renderer: null, scene: null, camera: null, tmp: null, active: null, id: null, ctx: null, mode: 'none', mounting: false, loading: {}, fbo: null, fboTex: null, fw: 0, fh: 0, blit: null, skyDirty: true, skyDirect: false, skipFrame: false, quality: -1, err: null, force: 0, tris: 0, calls: 0 };
+  function loadThree() {
+    if (C.threeP) return C.threeP;
+    C.threeP = (async function () {
+      if (typeof window.__loadThree === 'function') { try { return await window.__loadThree(); } catch (e) { console.warn('[AsgardFX] the hall\'s three.js loader failed:', e && e.message); } }
+      let last = null;
+      for (let i = 0; i < THREE_URLS.length; i++) {
+        try { const m = await import(THREE_URLS[i]); if (i > 0) console.warn('[AsgardFX] three.js loaded from mirror ' + (i + 1) + ': ' + THREE_URLS[i]); return m; }
+        catch (e) { last = e; console.warn('[AsgardFX] three.js mirror unavailable: ' + THREE_URLS[i]); }
+      }
+      throw last || new Error('three.js unavailable from every mirror');
+    })();
+    return C.threeP;
+  }
+  function loadCoreModule(id) {
+    if (CORES[id] || C.loading[id]) return;
+    C.loading[id] = 'loading';
+    const src = '/fx/cores/' + id + '.js';
+    const viaTag = () => { const s = document.createElement('script'); s.src = src; s.async = true; s.onerror = () => { C.err = 'core file missing: ' + src; C.loading[id] = 'failed'; }; document.head.appendChild(s); };
+    try { import(src).then(() => { if (!CORES[id]) { C.err = 'core module did not register: ' + id; C.loading[id] = 'failed'; } }).catch(e => { console.warn('[AsgardFX] core import failed, trying a script tag:', e && e.message); viaTag(); }); }
+    catch (e) { viaTag(); }
+  }
+  FX.registerCore = function (id, mod) {
+    if (!id || !mod || CORE_IDS.indexOf(id) < 0) return;
+    if (typeof mod.init !== 'function' || typeof mod.update !== 'function' || typeof mod.dispose !== 'function' || typeof mod.setState !== 'function') { console.warn('[AsgardFX] core module incomplete:', id); return; }
+    CORES[id] = mod; C.loading[id] = 'done';
+  };
+  FX.cores = function (on) { C.want = !!on; };
+  function coreSupported() { return !!gl && !S.glLost && S.tier === 'webgl2'; }
+  function desiredCore() { return (C.want && CORE_IDS.indexOf(S.persona) >= 0) ? S.persona : null; }
+  function makeCoreCtx(id) {
+    const pal = Object.assign({}, CORE_PALETTE.base, CORE_PALETTE[id] || {});
+    return {
+      THREE: C.THREE, renderer: C.renderer, scene: C.scene, camera: C.camera, tier: S.tier, persona: id, palette: pal, reduced: REDUCED, sfx: SFX,
+      get w() { return S.w; }, get h() { return S.h; }, get dpr() { return S.dpr; }, get quality() { return S.quality; }, get still() { return !E.animated; },
+      get level() { return S.level; }, get listen() { return S.listen; }, get think() { return S.think; }, get speak() { return S.speak; }, get t() { return S.t; }, get state() { return S.state; },
+      ring(x, y, color, speed, width, maxR) { E.ring(x, y, color, speed, width, maxR); },
+      flash(strength, color, dur) { E.flash(strength, color, dur); },
+      project(v, out) { out = out || { x: 0, y: 0 }; const cam = C.camera, p = C.tmp; if (!cam || !p) { out.x = S.cx; out.y = S.cy; return out; } p.copy(v).project(cam); out.x = (p.x * 0.5 + 0.5) * S.w; out.y = (-p.y * 0.5 + 0.5) * S.h; return out; }
+    };
+  }
+  async function ensureRenderer() {
+    if (C.renderer) return true;
+    const THREE = await loadThree();
+    if (!coreSupported()) return false;
+    C.THREE = THREE;
+    const rd = new THREE.WebGLRenderer({ canvas: back, context: gl, alpha: true, antialias: false, premultipliedAlpha: false, preserveDrawingBuffer: true, powerPreference: 'low-power' });
+    rd.autoClear = false; rd.setPixelRatio(1); rd.setSize(back.width, back.height, false);
+    rd.toneMapping = THREE.NeutralToneMapping || THREE.ACESFilmicToneMapping; rd.toneMappingExposure = 1.0; rd.shadowMap.enabled = false;
+    C.renderer = rd; C.scene = new THREE.Scene(); C.camera = new THREE.PerspectiveCamera(30, back.width / Math.max(1, back.height), 0.1, 80); C.tmp = new THREE.Vector3();
+    return true;
+  }
+  function mountCore(id) {
+    if (C.mounting) return;
+    C.mounting = true; C.err = null;
+    (async function () {
+      try {
+        let ok = false;
+        try { ok = await ensureRenderer(); } catch (e) { C.err = (e && e.message) || String(e); console.warn('[AsgardFX] three.js unavailable:', e); ok = false; }
+        const mod = CORES[id];
+        if (!mod || S.persona !== id || !C.want) return;            // the world moved on while three.js was loading
+        if (!ok) { mount2d(id, mod); return; }
+        C.active = mod; C.id = id; C.mode = 'three'; C.quality = S.quality; C.ctx = makeCoreCtx(id);
+        mod.init(C.ctx);
+        sizeCanvases();                                              // full-res canvas, framebuffer, camera aspect, mod.resize
+        mod.setState(S.state, S.level);
+        C.skyDirty = true; C.force = 3;
+      } catch (e) {
+        // a fault inside the core module itself: log it verbatim, keep the sky, show it on ?debug=1
+        C.err = (e && e.message) || String(e); console.warn('[AsgardFX] core init failed:', id, e);
+        const mod = C.active; C.active = null; C.id = null; C.ctx = null; C.mode = 'none';
+        if (mod) { try { mod.dispose(); } catch (e2) {} if (C.scene) { try { C.scene.clear(); } catch (e3) {} } }
+        C.loading[id] = 'failed'; delete CORES[id];
+        sizeCanvases();
+      } finally { C.mounting = false; }
+    })();
+  }
+  function mount2d(id, mod) {
+    if (gl && !S.glLost) dropTo2D('no WebGL2 core is possible here, so the core draws in 2D');
+    C.active = mod; C.id = id; C.mode = '2d'; C.ctx = makeCoreCtx(id); C.quality = S.quality;
+    try { mod.setState(S.state, S.level); } catch (e) {}
+    S.staticDrawn = null; C.force = 3;
+  }
+  function dropTo2D(reason) {
+    console.warn('[AsgardFX] cores: dropping the layer to 2D — ' + reason);
+    if (C.renderer) { try { C.renderer.dispose(); } catch (e) {} }
+    C.renderer = null; C.scene = null; C.camera = null; C.tmp = null; C.fbo = null; C.fboTex = null; C.blit = null;
+    gl = null; S.tier = '2d'; S.path = '2D'; setup2DBack();
+  }
+  function unmountCore() {
+    const mod = C.active, was = C.mode;
+    C.active = null; C.id = null; C.ctx = null; C.mode = 'none'; C.skyDirty = true; C.force = 3;
+    if (mod && was === 'three') {
+      try { mod.dispose(); } catch (e) { console.warn('[AsgardFX] core dispose failed:', e && e.message); }
+      if (C.scene) { try { C.scene.clear(); } catch (e) {} }
+      sizeCanvases();                                                // back to the half-res sky
+    }
+  }
+  function coreFailed(e) {
+    const id = C.id; C.err = (e && e.message) || String(e); console.warn('[AsgardFX] core failed:', id, e);
+    if (id) { C.loading[id] = 'failed'; delete CORES[id]; }
+    unmountCore();
+  }
+  function coreContextLost() {
+    // the context is gone: drop every GL-side handle without calling GL; the 2D fallback mounts on the next frame
+    if (C.active && C.mode === 'three') { C.active = null; C.id = null; C.ctx = null; }
+    C.renderer = null; C.scene = null; C.camera = null; C.tmp = null; C.fbo = null; C.fboTex = null; C.blit = null; C.mode = 'none'; C.skyDirty = true;
+  }
+  function reconcileCore() {
+    const want = desiredCore();
+    if (C.id && C.id !== want) unmountCore();
+    if (want && !C.id && !C.mounting) {
+      const mod = CORES[want];
+      if (mod) { if (coreSupported()) mountCore(want); else mount2d(want, mod); }
+      else if (C.loading[want] !== 'failed') loadCoreModule(want);
+    }
+    if (C.active && C.quality !== S.quality) { C.quality = S.quality; if (C.active.setQuality) { try { C.active.setQuality(S.quality); } catch (e) {} } C.skyDirty = true; C.force = 3; }
+  }
+  function coreResize(bw, bh) {
+    if (C.mode !== 'three' || !C.renderer) return;
+    try {
+      C.renderer.setSize(bw, bh, false); C.camera.aspect = bw / Math.max(1, bh); C.camera.updateProjectionMatrix();
+      if (!C.skyDirect) ensureFbo();
+      if (C.active && C.active.resize) C.active.resize(S.w, S.h, C.ctx);
+    } catch (e) { coreFailed(e); return; }
+    C.skyDirty = true; C.force = 3;
+  }
+  // The sky under a core: rendered once into a half-size framebuffer and blitted each frame.
+  function ensureFbo() {
+    if (!gl) return false;
+    const fw = Math.max(2, Math.floor(back.width * 0.5)), fh = Math.max(2, Math.floor(back.height * 0.5));
+    if (C.fbo && C.fw === fw && C.fh === fh) return true;
+    try {
+      if (!C.blit) { const p = program(gl, BLIT_FS); C.blit = { p, attr: gl.getAttribLocation(p, 'p'), u_tex: gl.getUniformLocation(p, 'u_tex') }; }
+      if (!C.fboTex) C.fboTex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, C.fboTex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, fw, fh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      if (!C.fbo) C.fbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, C.fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, C.fboTex, 0);
+      const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      if (!ok) { C.skyDirect = true; console.warn('[AsgardFX] sky framebuffer incomplete; drawing the sky direct'); return false; }
+      C.fw = fw; C.fh = fh; C.skyDirty = true; return true;
+    } catch (e) { C.skyDirect = true; console.warn('[AsgardFX] sky framebuffer failed:', e && e.message); return false; }
+  }
+  // Three.js and the raw sky share one context. Before any raw draw the state
+  // is set explicitly (Three leaves its own behind); before Three draws,
+  // renderer.resetState() re-syncs its cache with what the raw pass changed.
+  function rawBegin() {
+    if (gl.bindVertexArray) gl.bindVertexArray(null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.disable(gl.DEPTH_TEST); gl.depthMask(false); gl.disable(gl.CULL_FACE); gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
+    gl.colorMask(true, true, true, true); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.viewport(0, 0, back.width, back.height); gl.activeTexture(gl.TEXTURE0);
+  }
+  function drawRealmQuad(pr, r, w, h) {
+    gl.useProgram(pr.p); gl.bindBuffer(gl.ARRAY_BUFFER, GL.buf); gl.enableVertexAttribArray(pr.attr); gl.vertexAttribPointer(pr.attr, 2, gl.FLOAT, false, 0, 0);
+    const u = pr.u, ru = (r && r.uniforms) ? (r.uniforms(E) || {}) : {};
+    gl.uniform2f(u.u_res, w, h); gl.uniform1f(u.u_time, S.t);
+    gl.uniform1f(u.u_level, S.level); gl.uniform1f(u.u_listen, S.listen); gl.uniform1f(u.u_think, S.think); gl.uniform1f(u.u_speak, S.speak);
+    gl.uniform1f(u.u_wake, S.wake ? clamp(S.wake.t / S.wake.d, 0, 1) : 0);
+    gl.uniform1f(u.u_a, finite(ru.a, 0)); gl.uniform1f(u.u_b, finite(ru.b, 0)); gl.uniform1f(u.u_c, finite(ru.c, 0)); gl.uniform1f(u.u_q, S.quality);
+    gl.disable(gl.BLEND); gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  function drawWipeRaw() {
+    if (!(S.wipe && GL.wipe && GL.tex)) return;
+    gl.enable(gl.BLEND); gl.useProgram(GL.wipe);
+    const a = gl.getAttribLocation(GL.wipe, 'p'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, GL.tex);
+    gl.uniform1i(gl.getUniformLocation(GL.wipe, 'u_tex'), 0);
+    gl.uniform1f(gl.getUniformLocation(GL.wipe, 'u_edge'), clamp(S.wipe.t / S.wipe.d, 0, 1) * 1.12);
+    gl.uniform1f(gl.getUniformLocation(GL.wipe, 'u_aspect'), back.width / back.height);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  function drawSkyForCore(r) {
+    const skip = !E.animated && !S.wipe && !S.wake && C.force <= 0 && !C.skyDirty;
+    C.skipFrame = skip; if (skip) return;                              // still mode: the last composite stays on the preserved canvas
+    if (C.force > 0) C.force--;
+    rawBegin();
+    const pr = realmProgram(S.persona);
+    if (!pr) { gl.clearColor(0.043, 0.039, 0.07, 1); gl.clear(gl.COLOR_BUFFER_BIT); drawWipeRaw(); return; }
+    if (!C.skyDirect && ensureFbo()) {
+      if (C.skyDirty || S.wake) {                                         // static under a core: re-rendered only on a structural change, or during a wake
+        gl.bindFramebuffer(gl.FRAMEBUFFER, C.fbo); gl.viewport(0, 0, C.fw, C.fh);
+        drawRealmQuad(pr, r, C.fw, C.fh);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, back.width, back.height);
+        C.skyDirty = false;
+      }
+      gl.useProgram(C.blit.p); gl.bindBuffer(gl.ARRAY_BUFFER, GL.buf); gl.enableVertexAttribArray(C.blit.attr); gl.vertexAttribPointer(C.blit.attr, 2, gl.FLOAT, false, 0, 0);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, C.fboTex); gl.uniform1i(C.blit.u_tex, 0);
+      gl.disable(gl.BLEND); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    } else drawRealmQuad(pr, r, back.width, back.height);              // no framebuffer: the sky draws direct at full size (costlier, still right)
+    drawWipeRaw();
+  }
+  function drawCore() {
+    if (C.mode !== 'three' || !C.active || !C.renderer || !gl || S.glLost || C.skipFrame) return;
+    const rd = C.renderer; rd.resetState(); rd.clearDepth(); rd.render(C.scene, C.camera);
+    C.tris = rd.info.render.triangles; C.calls = rd.info.render.calls;
+  }
+  function coreDebug() { return '\nCORE ' + (C.id || 'none') + '  ' + C.mode + (C.mode === 'three' ? '  tris ' + C.tris + '  calls ' + C.calls : '') + (C.err ? '\nCORE ERR ' + C.err : ''); }
+
   // -------------------------------------------------- persona switch
   function requestPersona(id) {
     if (!id || (id !== 'thor' && id !== 'loki' && id !== 'odin' && id !== 'hela')) return;
@@ -595,9 +817,11 @@
     if (S.persona === 'hela') { if (gl) { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); } else if (b2ctx) b2ctx.clearRect(0, 0, back.width, back.height); return; }
     const r = REALMS[S.persona];
     const staticNow = !E.animated;
+    if (C.mode === 'three' && gl && !S.glLost) { drawSkyForCore(r); return; }   // Strike Three: a static sky under a modeled core
     if (staticNow && S.staticDrawn === S.persona + ':' + back.width) return;   // static tier: sky drawn once
     S.staticDrawn = S.persona + ':' + back.width;
     if (gl && !S.glLost) {
+      if (C.renderer) rawBegin();   // Three.js has used this context: put the raw state back before the sky quad
       const pr = realmProgram(S.persona);
       if (pr) {
         gl.useProgram(pr.p); gl.bindBuffer(gl.ARRAY_BUFFER, GL.buf); gl.enableVertexAttribArray(pr.attr); gl.vertexAttribPointer(pr.attr, 2, gl.FLOAT, false, 0, 0);
@@ -626,6 +850,7 @@
     b2ctx.save(); b2ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (r && r.back2d) { try { r.back2d(b2ctx, E, back.width, back.height); } catch (e) { FALLBACK.back2d(b2ctx, S.persona); } }
     else FALLBACK.back2d(b2ctx, S.persona);
+    if (C.mode === '2d' && C.active && C.active.draw2d) { try { C.active.draw2d(b2ctx, back.width, back.height, C.ctx); } catch (e) { coreFailed(e); } }
     if (S.wipe && snap) {
       // keep the old sky only where the diagonal slice has not reached yet
       const sd = clamp(S.wipe.t / S.wipe.d, 0, 1) * 1.12 * 2, W = back.width, H = back.height;
@@ -696,6 +921,7 @@
     if (PINQ >= 0) S.quality = PINQ;
     else if (S.fps < 45 && dt > 0) { S.lowSince += dt; if (S.lowSince > 3) { S.lowSince = 0; if (S.quality < 4) { S.quality++; LS.set(KEY_TIER, String(S.quality)); if (S.quality === 3) sizeCanvases(); } } } else S.lowSince = 0;
     if (S.pending) applyPending();
+    reconcileCore();
     // state weights
     const k = Math.min(1, dt * 4);
     S.listen = lerp(S.listen, S.state === 'listening' ? 1 : 0, k);
@@ -706,15 +932,17 @@
     if (S.wipe) { S.wipe.t += dt; if (S.wipe.t > S.wipe.d * 1.12 || S.wipe.t > S.wipe.deadline) S.wipe = null; }
     const r = activeRealm();
     if (r && r.update) { try { r.update(dt, E); } catch (e) { if (DEBUG) console.warn(e); } }
+    if (C.active && C.mode === 'three') { try { C.active.update(E.animated ? dt : 0, C.ctx); } catch (e) { coreFailed(e); } }
     try { drawBackdrop(); } catch (e) { if (DEBUG) console.warn(e); }
+    try { drawCore(); } catch (e) { coreFailed(e); }
     try { drawOverlay(dt); } catch (e) { if (DEBUG) console.warn(e); }
     stepReveal(dt);
-    if (dbg && (S.frame & 7) === 0) dbg.textContent = 'FPS ' + S.fps.toFixed(0) + '  TIER ' + S.tier + '  RENDER PATH ' + (S.glLost ? '2D (context lost)' : S.path) + '\nQ' + S.quality + '  ' + S.persona + '/' + S.state + '  lvl ' + S.level.toFixed(2) + '  p ' + P.count();
+    if (dbg && (S.frame & 7) === 0) dbg.textContent = 'FPS ' + S.fps.toFixed(0) + '  TIER ' + S.tier + '  RENDER PATH ' + (S.glLost ? '2D (context lost)' : S.path) + '\nQ' + S.quality + '  ' + S.persona + '/' + S.state + '  lvl ' + S.level.toFixed(2) + '  p ' + P.count() + coreDebug();
   }
 
   // ----------------------------------------------------------- events
   function onVisibility() { S.hidden = !!document.hidden; if (!S.hidden) prevT = nowMs(); }
-  function onLost(e) { try { e.preventDefault(); } catch (err) {} S.glLost = true; S.path = '2D'; gl = null; setup2DBack(); }
+  function onLost(e) { try { e.preventDefault(); } catch (err) {} S.glLost = true; S.path = '2D'; gl = null; coreContextLost(); setup2DBack(); }
   function onRestored() { /* we've already moved to 2D; a restore is a bonus, nothing to do */ }
 
   // -------------------------------------------------------------- API
@@ -722,6 +950,7 @@
     if (S.inited || DISABLED) return;
     if (!document.body) { document.addEventListener('DOMContentLoaded', () => FX.init(opts)); return; }
     S.inited = true;
+    C.want = !!(opts && opts.cores);   // Strike Three: a page opts in to the modeled cores (fx-lab does; the hall does not yet)
     const want = (opts && opts.persona) || (function () { try { return document.documentElement.getAttribute('data-persona'); } catch (e) { return null; } })() || 'thor';
     if (want === 'thor' || want === 'loki' || want === 'odin') S.persona = want;
     if (REDUCED) S.quality = 4;
@@ -762,6 +991,7 @@
     S.state = state;
     if (typeof level === 'number' && isFinite(level)) S.level = clamp(level, 0, 1);
     const r = activeRealm(); if (r && r.onState) { try { r.onState(state, E); } catch (e) {} }
+    if (C.active) { try { C.active.setState(state, S.level); } catch (e) { coreFailed(e); } C.force = 3; if (C.mode === '2d') S.staticDrawn = null; }
   };
   FX.wake = function (id) {
     if (!S.inited) return;
@@ -781,6 +1011,6 @@
     const r = activeRealm(); if (r && r.pulse) { try { r.pulse(kind, E); } catch (e) {} }
   };
   FX.mute = function (m) { SFX.setMuted(!!m); };
-  FX.status = function () { return { helaPhase: S.helaPhase, helaDrain: S.helaDrain, pending: S.pending, hallLevel: readHallLevel(), tier: S.tier, path: S.glLost ? '2D (context lost)' : S.path, fps: S.fps, quality: S.quality, persona: S.persona, state: S.state, level: S.level, particles: P.count(), realms: Object.keys(REALMS) }; };
+  FX.status = function () { return { helaPhase: S.helaPhase, helaDrain: S.helaDrain, pending: S.pending, hallLevel: readHallLevel(), tier: S.tier, path: S.glLost ? '2D (context lost)' : S.path, fps: S.fps, quality: S.quality, persona: S.persona, state: S.state, level: S.level, particles: P.count(), realms: Object.keys(REALMS), core: { want: C.want, id: C.id, mode: C.mode, tris: C.tris, calls: C.calls, err: C.err } }; };
   if (DISABLED) { FX.init = function () {}; }
 })();
