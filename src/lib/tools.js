@@ -88,6 +88,7 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {
     case 'remember_this': return await addLongTermMemory(env, input.fact, personaId, null, provenance('remember_this', personaId, ctx && ctx.tainted ? 'untrusted-content' : 'rayan'));
     // Phase 1.5 -- the approvals inbox
     case 'approvals_list': return await listApprovals(env);
+    case 'delegate': { const { delegate } = await import('./council.js'); return await delegate(env, personaId, input || {}, { meta: ctx && ctx.meta, channel: ctx && ctx.channel }); }
     case 'approve': return (await resolveApproval(env, input && input.id, 'approve', (e, t, i, p) => executeTool(e, t, i, p))).text;
     case 'reject': return (await resolveApproval(env, input && input.id, 'reject', (e, t, i, p) => executeTool(e, t, i, p))).text;
     case 'search_memory': return await searchMemory(env, input, personaId);
@@ -779,6 +780,14 @@ export const TOOL_DEFINITIONS = [
 // Rule 6: new tools are APPENDED to the master order, never re-sorted, so the
 // array a persona sees stays byte-identical between calls.
 TOOL_DEFINITIONS.push(...APPROVAL_TOOL_DEFINITIONS);
+// Phase 2.4 -- delegation to a god's own five. Defined here rather than in
+// council.js because council.js imports this module (its runner IS the loop
+// below); a static import back would be a cycle at evaluation time.
+TOOL_DEFINITIONS.push({
+  name: 'delegate',
+  description: 'Hand a task to one of YOUR OWN five councillors by name or id. wait true (default) runs it now and returns the report into this turn; wait false queues it for the next five-minute tick and the report arrives on your Telegram bot. A councillor uses only its own narrow tools and can never send a text, call, or post -- it hands those back for confirmation.',
+  input_schema: { type: 'object', properties: { councillor: { type: 'string', description: 'councillor name or id, e.g. "jane_foster"' }, task: { type: 'string', description: 'the task, plainly, with everything the councillor needs' }, wait: { type: 'boolean', description: 'default true' } }, required: ['councillor', 'task'] }
+});
 
 // Tool schemas a given persona is allowed to see. Thor (toolNames: null) gets
 // everything; restricted personas get only their allow-list. The prompt-level
@@ -822,7 +831,11 @@ function withMessageCacheBreakpoint(messages) {
 // reply will save. When present the taint bit is read from and persisted into
 // it and the audit line rides in its _spool (Rule 5a). Cron callers pass
 // nothing and their audit line goes to the tick buffer instead.
-export async function callClaudeWithTools(env, personaAndBaseline, channelAndSender, longTermMemoryBlock, initialMessages, allowTools, extraContext, personaId = DEFAULT_PERSONA_ID, startTainted = false, convo = null) {
+// opts (optional, Phase 2): { toolsOverride, maxIter, model, councillor,
+// triggeringEventId, maxTokens } -- how a councillor runs the SAME loop with
+// only its own tools, its own tier and a 6-round-trip ceiling. The result
+// carries `actions` (tool names that actually ran).
+export async function callClaudeWithTools(env, personaAndBaseline, channelAndSender, longTermMemoryBlock, initialMessages, allowTools, extraContext, personaId = DEFAULT_PERSONA_ID, startTainted = false, convo = null, opts = {}) {
   // THE TAINT BIT. One boolean, and it is the only real security boundary in
   // this system. It flips the moment anything somebody else wrote enters the
   // conversation, and from then on nothing consequential runs without Rayan
@@ -840,6 +853,9 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   // brought untrusted content in; every consequential action after it records
   // that index. That single field is the causal chain.
   const trace = newTrace({ personaId, channel, sender: convo && convo.sender, startTainted: tainted });
+  trace.councillor = opts.councillor || null;
+  trace.triggeringEventId = opts.triggeringEventId || null;
+  const actions = [];
   let taintCause = 0;
   const systemBlocks = [
     { type: 'text', text: personaAndBaseline, cache_control: { type: 'ephemeral' } },
@@ -857,18 +873,19 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
 
   // ---- FIXED: wake-trigger messages get NO tools at all, so the greeting is always a
   // single, instant round trip instead of a potentially slow multi-step tool chain ----
-  const toolsForThisCall = allowTools === false ? [] : toolDefinitionsForPersona(personaId);
+  const toolsForThisCall = allowTools === false ? [] : (opts.toolsOverride || toolDefinitionsForPersona(personaId));
 
   // 14 iterations, not 6 — the sibling system hit "I looped too many times"
   // halfway through real multi-step work at 6. A persona may raise its own
   // ceiling and its own token budget; anyone who does not stays on the house
   // defaults, so the three upstairs are completely unaffected by this.
   const _p = getPersona(personaId);
-  const maxIter = _p.toolIterations || 14;
-  const maxTok = _p.maxTokens || undefined;
+  const maxIter = opts.maxIter || _p.toolIterations || 14;
+  const maxTok = opts.maxTokens || _p.maxTokens || undefined;
   for (let iteration = 0; iteration < maxIter; iteration++) {
-    const result = await callAnthropic(env, systemBlocks, toolsForThisCall, messages, maxTok);
+    const result = await callAnthropic(env, systemBlocks, toolsForThisCall, messages, maxTok, opts.model);
     lastResult = result;
+    if (result && typeof result === 'object') result.actions = actions;
     if (!result.ok) { record(trace, 'error', 'anthropic', { note: `HTTP ${result.status || '?'}`, ok: false }); await commitTrace(env, trace, convo ? meta : null); return result; }
 
     const data = result.data;
@@ -924,8 +941,16 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
             // leave its tool_use unanswered. Now the failure becomes the result,
             // which is both survivable and something the model can react to.
             try {
-              toolResult = await executeTool(env, blk.name, blk.input, personaId, { tainted, meta });
+              toolResult = await executeTool(env, blk.name, blk.input, personaId, { tainted, meta, channel });
+              actions.push(blk.name);
               if (blk.name === 'browser_navigate') noteDomain(meta, blk.input && blk.input.url);
+              // VALKYRIE's state (Phase 2.5): the last weather / now-playing, cached
+              // ONLY as a side effect of a call the god made in this turn -- no
+              // polling, and it rides in the conversation object, not a key.
+              if (personaId === 'thor' && (blk.name === 'weather' || blk.name === 'spotify_now_playing') && typeof toolResult === 'string') {
+                meta.council = meta.council || {}; meta.council.valkyrie = meta.council.valkyrie || {};
+                meta.council.valkyrie[blk.name === 'weather' ? 'weather' : 'nowPlaying'] = { at: new Date().toISOString(), text: toolResult.slice(0, 400) };
+              }
               // Anything that returns text somebody else wrote taints the rest
               // of the session, and gets JSON-wrapped so a payload cannot break
               // out of its own field and imitate conversation structure.

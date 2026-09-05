@@ -466,7 +466,8 @@ export async function runHelaForgeIfDue(env, personaId = 'hela') {
 export async function runForgeRotation(env, ids) {
   const order = ids && ids.length ? ids : ['thor', 'loki', 'odin', 'hela'];
   const turn = Math.floor(Date.now() / 300000) % order.length;
-  return await runHelaForgeIfDue(env, order[turn]);
+  const r = await runHelaForgeIfDue(env, order[turn]);
+  return r ? { persona: order[turn], ...r } : null;
 }
 
 export async function runHelaForge(env, personaId = 'hela') {

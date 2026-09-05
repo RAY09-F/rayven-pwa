@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-09-05T06:21:12.016Z",
-  "count": 141,
+  "generatedAt": "2026-09-05T06:28:58.576Z",
+  "count": 142,
   "perPersona": {
     "thor": [
       "web_search",
@@ -79,7 +79,8 @@
       "watch_resume",
       "approvals_list",
       "approve",
-      "reject"
+      "reject",
+      "delegate"
     ],
     "loki": [
       "web_search",
@@ -128,7 +129,8 @@
       "watch_resume",
       "approvals_list",
       "approve",
-      "reject"
+      "reject",
+      "delegate"
     ],
     "odin": [
       "web_search",
@@ -188,7 +190,8 @@
       "watch_resume",
       "approvals_list",
       "approve",
-      "reject"
+      "reject",
+      "delegate"
     ],
     "hela": [
       "web_search",
@@ -331,7 +334,8 @@
       "watch_resume",
       "approvals_list",
       "approve",
-      "reject"
+      "reject",
+      "delegate"
     ]
   },
   "tools": [
@@ -2482,6 +2486,31 @@
         },
         "required": [
           "id"
+        ]
+      }
+    },
+    {
+      "name": "delegate",
+      "description": "Hand a task to one of YOUR OWN five councillors by name or id. wait true (default) runs it now and returns the report into this turn; wait false queues it for the next five-minute tick and the report arrives on your Telegram bot. A councillor uses only its own narrow tools and can never send a text, call, or post -- it hands those back for confirmation.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "councillor": {
+            "type": "string",
+            "description": "councillor name or id, e.g. \"jane_foster\""
+          },
+          "task": {
+            "type": "string",
+            "description": "the task, plainly, with everything the councillor needs"
+          },
+          "wait": {
+            "type": "boolean",
+            "description": "default true"
+          }
+        },
+        "required": [
+          "councillor",
+          "task"
         ]
       }
     }

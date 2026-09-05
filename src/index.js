@@ -31,7 +31,8 @@ import { runWhopSubmitIfDue, whopInspect, whopStatus, whopSubmitPending } from '
 import { channelStartsTainted } from './lib/containment.js';
 import { loadConversation, saveConversation, tickTaint, isTainted } from './lib/conversation.js';
 import { matchApprovalReply, resolveApproval } from './lib/approvals.js';
-import { runTick } from './lib/tick.js';
+import { runTick, tickLog } from './lib/tick.js';
+import { getCouncilStatus, recordCouncilRun, readCouncilState, councillorIdForPaperAgent, runMissMinutesIfDue, runHulkHealthIfDue, runQueuedDelegations, COUNCIL } from './lib/council.js';
 import { runTimersIfDue } from './lib/kit.js';
 import { igRefreshIfDue } from './lib/instagram.js';
 // ⟦PROJECT-H:BEGIN⟧
@@ -231,6 +232,18 @@ async function handleChatTurn(env, ctx, opts) {
         }
       } catch (e) {}
     }
+  }
+
+  // HULK (Phase 2.5): if the extension has been flagged offline, THOR says so
+  // once per flag. The "said it" marker rides in the conversation object.
+  if (personaId === 'thor' && !isWakeTrigger) {
+    try {
+      const hulk = await readCouncilState(env, 'thor' === 'thor' ? 'hulk' : 'hulk');
+      if (hulk.offlineSince && meta.hulkMentioned !== hulk.offlineSince) {
+        wakeCodeCheckContext = (wakeCodeCheckContext || '') + `\n\nHULK reports the browser extension has been offline since ${hulk.offlineSince.slice(0, 16).replace('T', ' ')} UTC. Mention it once, briefly, if Rayan asks for anything that needs the browser or if it fits naturally -- do not repeat it every turn.`;
+        meta.hulkMentioned = hulk.offlineSince;
+      }
+    } catch (e) {}
   }
 
   // ⟦PROJECT-H:BEGIN⟧ If the concealed fourth has been working while he was
@@ -697,7 +710,7 @@ export default {
     // Run the tick collector now and show the pointer key it maintains.
     if (url.pathname === '/admin/tick') {
       const { readTickLast, readRecentTicks } = await import('./lib/tick.js');
-      const result = await runTick(env);
+      const result = await runTick(env, { onDrained: (drained) => runQueuedDelegations(env, drained) });
       const last = await readTickLast(env);
       const recent = url.searchParams.get('full') === '1' ? await readRecentTicks(env, 3) : undefined;
       return json({ result, last, recent }, corsHeaders);
@@ -768,6 +781,12 @@ export default {
 
     if (url.pathname === '/debug-selfcheck') {
       return json({ result: await runThorSelfCheck(env) }, corsHeaders);
+    }
+
+    // Phase 2.6: the three visible councils -- each councillor's id, name,
+    // last run, last summary, cadence. Hela's are never included.
+    if (url.pathname === '/council/status' && request.method === 'GET') {
+      return json(await getCouncilStatus(env), corsHeaders);
     }
 
     // Live per-persona status for the status strip + ops floor, plus the
@@ -1291,12 +1310,28 @@ How to speak on a phone call:
       job(runMorningBriefingIfDue),
       job(runCodeCheckIfDue),
       job(runPersonaAutonomyIfDue),
+      // MISS MINUTES and HULK (Phase 2.5): one reminder per event, once; and
+      // the extension-health flag, set once on a transition.
+      job(runMissMinutesIfDue),
+      job(runHulkHealthIfDue),
       job(runLokiBriefIfDue),
       job(runOdinReportIfDue),
       // Paper trading: fully simulated, no real money. Each market checks its
       // own last-processed-candle KV key, so this is a no-op for any market
       // that hasn't produced a new candle yet.
-      job(runPaperTradingCycleIfDue),
+      // Each trade is recorded under the councillor that wraps that agent
+      // (state written only when a trade opened or closed, Rule 5c/5d).
+      job(async (e) => {
+        const r = await runPaperTradingCycleIfDue(e);
+        for (const o of (r && r.results) || []) {
+          if (!o || !['entered', 'closed', 'stopped_out'].includes(o.action)) continue;
+          const cid = councillorIdForPaperAgent(o.agentId);
+          const summary = `PAPER ${o.action}${o.price ? ` at $${Number(o.price).toFixed(2)}` : ''}${o.reason ? ` — ${String(o.reason).slice(0, 120)}` : ''}`;
+          if (cid) await recordCouncilRun(e, cid, { summary, didSomething: true, patch: { lastTradeAt: new Date().toISOString(), lastTradeAction: o.action } });
+          else tickLog('autonomy', { persona: 'odin', councillor: null, summary: `${String(o.agentId).toUpperCase()} ${summary}`, time: new Date().toISOString() });
+        }
+        return r;
+      }),
       job(runPaperTradingDailyReportIfDue),
       // The clipping pass (retired business; publishes at most one clip per
       // tick inside the ramp, and only if there is a queue and a publisher).
@@ -1309,16 +1344,20 @@ How to speak on a phone call:
       job(runTimersIfDue),
       // Instagram long-lived tokens, refreshed weekly.
       job(igRefreshIfDue),
-      // ⟦PROJECT-H:BEGIN⟧ Both no-op instantly unless she is locked in.
-      job(runHelaVigilIfDue),
-      job(runHelaDailyIfDue),
+      // ⟦PROJECT-H:BEGIN⟧ Both no-op instantly unless she is locked in. Recorded
+      // under FENRIS / SURTUR / EITRI (hidden councillors) when they did something.
+      job(async (e) => { const r = await runHelaVigilIfDue(e); if (r && r.ok) await recordCouncilRun(e, 'fenris', { summary: `Read up on ${r.topic}: "${r.title}"`, didSomething: true, patch: { lastTopic: r.topic } }); return r; }),
+      job(async (e) => { const r = await runHelaDailyIfDue(e); if (r && r.ok) await recordCouncilRun(e, 'surtur', { summary: 'Assembled the daily brief', didSomething: true }); return r; }),
       // The forge: one persona per tick, in rotation by clock slot.
-      job((e) => runForgeRotation(e, ALL_PERSONA_IDS)),
+      job(async (e) => { const r = await runForgeRotation(e, ALL_PERSONA_IDS); if (r && r.persona === 'hela' && r.ok && r.added) await recordCouncilRun(e, 'eitri', { summary: `Forged a new capability: ${r.name}`, didSomething: true, patch: { lastCapability: r.name } }); return r; }),
       // ⟦PROJECT-H:END⟧
       // Sweep first, then flush, so any digest-priority alerts the sweep just
       // queued go out this same tick instead of waiting for the next one.
-      job((e) => runMonitoringSweep(e).then(() => flushNotificationDigestIfDue(e)))
+      // KANG (Phase 2.5): the sweep, reported under his name; state written
+      // only when a watch actually alerted.
+      job(async (e) => { const r = await runMonitoringSweep(e); if (r && r.checked) await recordCouncilRun(e, 'kang', { summary: r.alerted && r.alerted.length ? `Alerted on ${r.alerted.join(', ')}` : `Checked ${r.checked} watch${r.checked === 1 ? '' : 'es'}, nothing meaningful changed`, didSomething: !!(r.alerted && r.alerted.length), patch: { lastAlerted: r.alerted } }); return await flushNotificationDigestIfDue(e); })
     ];
-    ctx.waitUntil(Promise.allSettled(jobs).then(() => runTick(env)).catch(err => console.error('tick failed:', err && err.message)));
+    // The tick runs last; queued delegations (wait:false) run inside it.
+    ctx.waitUntil(Promise.allSettled(jobs).then(() => runTick(env, { onDrained: (drained) => runQueuedDelegations(env, drained) })).catch(err => console.error('tick failed:', err && err.message)));
   }
 };

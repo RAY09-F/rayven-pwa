@@ -10,7 +10,7 @@ If a session dies: "continue asgard-upgrade.txt from the progress file".
 |---|---|---|
 | 0 — survey, manifest, smoke | DONE, deployed, smoke ALL PASS on the live URL | asgard-upgrade phase 0 |
 | 1 — containment | DONE, deployed, smoke ALL PASS, end-to-end test passed | asgard-upgrade phase 1 |
-| 2 — councils | not started | |
+| 2 — councils | DONE, deployed, smoke ALL PASS, delegation tested both ways | asgard-upgrade phase 2 |
 | 3 — routines + events | not started | |
 
 Plan: Rayan confirmed the Workers Paid plan on 2026-09-05. Part A continues.
@@ -119,6 +119,52 @@ Verified live 2026-09-05 06:21 UTC: smoke ALL PASS; /admin/approval-test → Tel
 | tick key + tick:last | ≤2 per non-empty tick, ≤576/day worst case, typically <50 | new |
 | daily R2 audit copy | 0 KV (1 R2 put) | new |
 | everything else | unchanged | |
+
+## Phase 2 — the councils (2026-09-05)
+
+- 2.1 src/lib/council.js: the registry of twenty (ids, owner, name/role/theme, exact tool names mapped
+  from the team page wedges, a 10-line prompt each, tier, duty, stateKey council:<owner>:<id>, budget).
+  Odin's five wrap the paper agents through paperAgentId — council 'heimdall' ↔ paper 'vidar',
+  council 'hogun' ↔ paper 'heimdall' (the trap, preserved). Hela's five carry hidden:true and are
+  filtered from /council/status, /status's log, the delegate error text and the team page.
+- 2.2 runCouncillor(): the SAME containment loop (callClaudeWithTools) with opts { toolsOverride,
+  maxIter: 6, model, councillor, triggeringEventId } — so a councillor inherits the taint bit and the
+  approval rules; it can queue an SMS, it can never send one. Returns { ok, summary, actions }.
+  recordCouncilRun(): the autonomy-log line rides in the spool (reply path) or the tick buffer
+  (cron); the state key is written ONLY when the duty did something.
+- 2.3 TIERS in council.js from models.js: free = @cf/meta/llama-3.2-3b-instruct (no tools; triage),
+  cheap = claude-haiku-4-5-20251001, owner = claude-sonnet-5.
+- 2.4 delegate { councillor, task, wait }: appended to the master tool order and to the four gods.
+  wait:true runs now; wait:false rides in the conversation _spool and runs inside the next tick
+  (runQueuedDelegations via the tick's onDrained hook), delivered by the god's own bot. A god can
+  only reach his own five (Thor → "fenris" is refused without naming her).
+- 2.5 Duties: MISS MINUTES (every 5 min, next calendar event within 30 min → one reminder, once;
+  state remembers sent ids), HULK (extension offline > 10 min → flag once on the transition, THOR
+  mentions it once — the "said it" marker rides in the conversation meta), KANG (the existing sweep,
+  recorded under his name, state only when a watch alerted), the five traders (each trade recorded
+  under its councillor, state only on entered/closed/stopped_out), FENRIS/EITRI/SURTUR (vigil,
+  forge, daily — recorded when they did something), VALKYRIE (weather / now-playing cached in the
+  conversation meta as a side effect of Thor's own call — no polling, no key). JANE, DARCY, HUNTER,
+  MOBIUS, SYLVIE, GORR, KORG, SKURGE: on delegation only until Phase 3.
+- 2.6 GET /council/status (three visible gods). /status's autonomyLog now merges council lines from
+  the recent ticks, so the HUD's fourth panels keep working unchanged. team.html: the 30-second
+  poll also reads /council/status; an agent card shows "OWN BRAIN · LAST RAN <time>" once a run is
+  reported. The honesty label "NOT A SEPARATE BRAIN YET" does not exist in this team.html (it is the
+  Odin-only page; Strike Two, which builds the full councils page, has not run) — noted, not invented.
+- 2.7 One paragraph per god naming his five and the delegate tool; Hela's in hers only.
+- 2.8 Verified live 2026-09-05 06:29 UTC (web surface, smoke header): each god names exactly his
+  own five; Thor→Jane Foster returned Bakersfield's population with the Census source; Odin→Fandral
+  returned the paper book; Loki→Sylvie wait:false was queued, ran inside the next tick and was
+  delivered by Loki's bot; /status shows loki/sylvie in the log; Thor→fenris refused.
+  Rayan can repeat "who's on your council?" on Telegram with each bot — never Hela.
+
+## KV write budget table — Phase 2
+
+| feature | worst-case KV writes/day | change |
+|---|---|---|
+| councillor state (20 keys, written only when a duty DID something) | ≤ ~180 (sum of COUNCIL_BUDGET) | new |
+| queued delegations | 0 extra (ride in the history write; result = 1 state write) | new |
+| /council/status | 0 | new (15 reads per poll) |
 
 ## Plan (Hard Rule 5)
 

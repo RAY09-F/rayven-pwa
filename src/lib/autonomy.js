@@ -14,6 +14,7 @@ import { notify } from './notifications.js';
 import { callAnthropicSimple } from './anthropic.js';
 import { addLongTermMemory, getRecentMemoryBlock } from './memory.js';
 import { provenance } from './conversation.js';
+import { councilLogFromTicks } from './council.js';
 
 const AUTONOMY_LOG_KEY = 'agent:autonomy:log';
 const AUTONOMY_LOG_CAP = 200;
@@ -42,8 +43,12 @@ export async function getAllStatuses(env) {
   return statuses;
 }
 
+// The legacy capped log plus every council line the recent ticks hold
+// (Phase 2): the HUD's fourth panels and the team page read this unchanged.
 export async function getAutonomyLog(env) {
-  return await readCappedLog(env, AUTONOMY_LOG_KEY);
+  const [legacy, council] = await Promise.all([readCappedLog(env, AUTONOMY_LOG_KEY), councilLogFromTicks(env, 12).catch(() => [])]);
+  const all = [...legacy, ...council].filter(e => e && e.time).sort((a, b) => (a.time < b.time ? -1 : 1));
+  return all.slice(-AUTONOMY_LOG_CAP);
 }
 
 async function logAutonomy(env, personaId, summary, detail) {

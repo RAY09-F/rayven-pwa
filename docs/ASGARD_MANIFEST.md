@@ -1,15 +1,15 @@
 # ASGARD MANIFEST — ground truth, generated from code
 
-Generated 2026-09-05T06:21:11.624Z by scripts/gen-manifest.mjs. Do not hand-edit the derived tables; re-run the script.
+Generated 2026-09-05T06:28:58.214Z by scripts/gen-manifest.mjs. Do not hand-edit the derived tables; re-run the script.
 
 ## Personas
 
 | id | name | model | max_tokens | history depth | inline memories | tool iterations | tools visible | memory key | voice secret | bot token secret | hidden |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| thor | THOR | claude-sonnet-5 | 1400 | 30 turns | 15 | 14 | 77 | memory:longterm | ELEVENLABS_VOICE_ID_THOR (→ ELEVENLABS_VOICE_ID) | TELEGRAM_BOT_TOKEN_THOR (→ TELEGRAM_BOT_TOKEN) | no |
-| loki | LOKI | claude-sonnet-5 | 1400 | 30 turns | 15 | 14 | 47 | memory:longterm:loki | ELEVENLABS_VOICE_ID_LOKI (→ ELEVENLABS_VOICE_ID) | TELEGRAM_BOT_TOKEN_LOKI | no |
-| odin | ODIN | claude-sonnet-5 | 1400 | 30 turns | 15 | 14 | 58 | memory:longterm:odin | ELEVENLABS_VOICE_ID_ODIN (→ ELEVENLABS_VOICE_ID) | TELEGRAM_BOT_TOKEN_ODIN | no |
-| hela | HELA | claude-sonnet-5 | 8000 | 80 turns | 45 | 24 | 141 | memory:longterm:hela | ELEVENLABS_VOICE_ID_HELA (→ ELEVENLABS_VOICE_ID) | TELEGRAM_BOT_TOKEN_HELA | yes |
+| thor | THOR | claude-sonnet-5 | 1400 | 30 turns | 15 | 14 | 78 | memory:longterm | ELEVENLABS_VOICE_ID_THOR (→ ELEVENLABS_VOICE_ID) | TELEGRAM_BOT_TOKEN_THOR (→ TELEGRAM_BOT_TOKEN) | no |
+| loki | LOKI | claude-sonnet-5 | 1400 | 30 turns | 15 | 14 | 48 | memory:longterm:loki | ELEVENLABS_VOICE_ID_LOKI (→ ELEVENLABS_VOICE_ID) | TELEGRAM_BOT_TOKEN_LOKI | no |
+| odin | ODIN | claude-sonnet-5 | 1400 | 30 turns | 15 | 14 | 59 | memory:longterm:odin | ELEVENLABS_VOICE_ID_ODIN (→ ELEVENLABS_VOICE_ID) | TELEGRAM_BOT_TOKEN_ODIN | no |
+| hela | HELA | claude-sonnet-5 | 8000 | 80 turns | 45 | 24 | 142 | memory:longterm:hela | ELEVENLABS_VOICE_ID_HELA (→ ELEVENLABS_VOICE_ID) | TELEGRAM_BOT_TOKEN_HELA | yes |
 
 Model ids live in src/lib/models.js: sonnet=claude-sonnet-5, haiku=claude-haiku-4-5-20251001, workersAiFree=@cf/meta/llama-3.2-3b-instruct, embedding=@cf/baai/bge-base-en-v1.5, reranker=@cf/baai/bge-reranker-base.
 
@@ -22,7 +22,7 @@ Model ids live in src/lib/models.js: sonnet=claude-sonnet-5, haiku=claude-haiku-
 | ODIN | TELEGRAM_BOT_TOKEN_ODIN | POST /telegram/odin | secret_token verified; sends the paper report |
 | HELA | TELEGRAM_BOT_TOKEN_HELA | POST /telegram/hela | token set, webhook DELIBERATELY unregistered — she does not exist off the device |
 
-## Tools (141)
+## Tools (142)
 
 All dispatch through `runTool` in src/lib/tools.js; the "implemented in" column is the module the case calls. Permission: hard-confirm = live confirmation always; gateable = Rayan can set auto/notify/confirm/off; auto = runs. Every consequential tool escalates to confirm once the session has read untrusted content (src/lib/containment.js).
 
@@ -169,6 +169,7 @@ All dispatch through `runTool` in src/lib/tools.js; the "implemented in" column 
 | approvals_list | Show every action waiting for Rayan's approval — things a session that had read untrusted content asked for an… | src/lib/approvals.js | auto | — | THOR, LOKI, ODIN, HELA |
 | approve | Approve a queued action by its four-digit number. Only when Rayan himself says so in this conversation. Texts … | src/lib/approvals.js | auto | — | THOR, LOKI, ODIN, HELA |
 | reject | Reject a queued action by its four-digit number. | src/lib/approvals.js | auto | — | THOR, LOKI, ODIN, HELA |
+| delegate | Hand a task to one of YOUR OWN five councillors by name or id. wait true (default) runs it now and returns the… | src/lib/tools.js (inline) | auto | — | THOR, LOKI, ODIN, HELA |
 
 ## Cron jobs (one trigger: `*/5 * * * *`, UTC; each job decides for itself whether it is due)
 
@@ -249,6 +250,7 @@ Reply path (a message from Rayan): history 1, status stamps 2, audit trace + ind
 | /browser/status | extension heartbeat (connected = stamped within 10 min) |
 | /calendar | GET/POST |
 | /clipping | GET/POST list |
+| /council/status |  |
 | /debug-* | operator routes, gated by DEBUG_SECRET (x-debug-key header or ?key=) |
 | /goals | GET/POST list |
 | /history | web conversation turns by persona |
@@ -310,7 +312,7 @@ Debug routes (32, all behind DEBUG_SECRET): /debug-account-stats, /debug-approve
 | SPOTIFY_CLIENT_ID | spotify.js | Spotify | yes |
 | SPOTIFY_CLIENT_SECRET | spotify.js | Spotify | yes |
 | TAVILY_API_KEY | hela.js, search.js | tavily_*, watchlist checks, Hela's vigil and the forge | yes |
-| TELEGRAM_BOT_TOKEN | approvals.js, autonomy.js, checkin.js, paperTrading.js, personas.js, reports.js, telegram.js, src/index.js | THOR's bot (legacy RAYVENN_RAYAN_BOT) + all notifications | yes |
+| TELEGRAM_BOT_TOKEN | approvals.js, autonomy.js, checkin.js, council.js, paperTrading.js, personas.js, reports.js, telegram.js, src/index.js | THOR's bot (legacy RAYVENN_RAYAN_BOT) + all notifications | yes |
 | TELEGRAM_WEBHOOK_SECRET | src/index.js | every /telegram/<persona> delivery is dropped without it | yes |
 | TWELVE_DATA_API_KEY | marketData.js | paper trading candles for SPY/QQQ/GLD/USO | yes |
 | TWILIO_ACCOUNT_SID | comms.js | send_text / make_call | yes |

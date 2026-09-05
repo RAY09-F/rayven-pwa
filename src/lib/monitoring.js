@@ -191,6 +191,7 @@ function isDue(watch) {
 
 async function processWatch(env, watch) {
   watch.lastCheckedAt = new Date().toISOString();
+  watch._alerted = false;
 
   if (watch.mode === 'page') {
     const result = await tavilyExtractRaw(env, watch.target, SNAPSHOT_CHARS);
@@ -226,6 +227,7 @@ async function processWatch(env, watch) {
       return;
     }
 
+    watch._alerted = true;
     await notify(env, {
       source: 'monitoring', priority: 'normal',
       title: `Watch: ${watch.label}`, body: classification.summary,
@@ -260,6 +262,7 @@ async function processWatch(env, watch) {
     return;
   }
 
+  watch._alerted = true;
   await notify(env, {
     source: 'monitoring', priority: 'normal',
     title: `Watch: ${watch.label}`, body: classification.summary,
@@ -274,6 +277,8 @@ export async function runMonitoringSweep(env) {
   if (!due.length) return { ok: true, checked: 0 };
 
   await Promise.allSettled(due.map(w => processWatch(env, w)));
+  const alerted = due.filter(w => w._alerted).map(w => w.label);
+  for (const w of watches) delete w._alerted;
   await saveWatches(env, watches);
-  return { ok: true, checked: due.length };
+  return { ok: true, checked: due.length, alerted };
 }

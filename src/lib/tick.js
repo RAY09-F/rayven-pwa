@@ -98,11 +98,15 @@ async function r2AuditCopyIfDue(env, last) {
 }
 
 // Called once at the very end of scheduled(), after every other job settled.
-export async function runTick(env) {
+// hooks.onDrained(drained) runs BEFORE the key is written, so anything it
+// produces (queued delegations running, Phase 2; events, Phase 3) lands in the
+// same tick.
+export async function runTick(env, hooks = {}) {
   const last = await readTickLast(env);
   const today = utcDay();
   const lastDrained = typeof last.lastDrained === 'number' ? last.lastDrained : 0;
   const { drained, newest } = await drainSpools(env, lastDrained);
+  if (drained.length && typeof hooks.onDrained === 'function') { try { await hooks.onDrained(drained); } catch (e) { console.error('tick hook failed:', e && e.message); } }
   const r2 = await r2AuditCopyIfDue(env, last);
 
   // writes made by new writers on the reply path ride in their spool entries
