@@ -33,6 +33,10 @@ import { loadConversation, saveConversation, tickTaint, isTainted } from './lib/
 import { matchApprovalReply, resolveApproval } from './lib/approvals.js';
 import { runTick, tickLog } from './lib/tick.js';
 import { getCouncilStatus, recordCouncilRun, readCouncilState, councillorIdForPaperAgent, runMissMinutesIfDue, runHulkHealthIfDue, runQueuedDelegations, COUNCIL } from './lib/council.js';
+import { runRoutinesIfDue, seedRoutinesIfMissing } from './lib/routines.js';
+import { emit, takePendingEvents, eventsFromDrained } from './lib/events.js';
+import { healthReport, publicHealth, runSystemCheckIfDue } from './lib/healthz.js';
+import { readTickLast, WRITE_CEILING_PER_DAY } from './lib/tick.js';
 import { runTimersIfDue } from './lib/kit.js';
 import { igRefreshIfDue } from './lib/instagram.js';
 // ⟦PROJECT-H:BEGIN⟧
@@ -197,6 +201,10 @@ async function handleChatTurn(env, ctx, opts) {
     channelContext = `Rayan's private web interface, often via voice — transcripts may occasionally be imperfect. You are currently the active persona on screen.`;
   }
 
+  // The time, so "in ten minutes" and "tomorrow at seven" can become a schedule.
+  // This block sits after the cache breakpoint, so a changing minute costs nothing.
+  channelContext += ` Now: ${new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles', weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })} Pacific (America/Los_Angeles).`;
+
   if (isTelegram) {
     let senderLabel = senderTag === 'Rayan' ? 'Rayan (call him "sir")' : senderTag;
     channelContext += ` IMPORTANT: this specific message was sent by ${senderLabel}. Address and refer to them correctly — do not assume it's Rayan unless it actually is.`;
@@ -219,6 +227,34 @@ async function handleChatTurn(env, ctx, opts) {
   const longTermMemoryBlock = prefetchedMemoryBlock;
 
   let wakeCodeCheckContext = null;
+
+  // Phase 3.1: every Telegram message is an event (rides in the spool).
+  if (isTelegram && !smoke) {
+    const from = senderTag === 'Rayan' ? 'rayan' : senderTag === 'Jay' ? 'jay' : senderTag === 'Kevin' ? 'kevin' : 'other';
+    emit('telegram.message', { from, chat: isGroupChat ? 'group' : 'private', persona: personaId }, { meta });
+  }
+
+  // Phase 3.4 "While you were away": when the hall wakes a god after 6+ hours
+  // idle, he speaks a three-sentence recap from the autonomy log -- in the
+  // same greeting, no round trip to KV beyond the log read. And anything a
+  // routine left to be "spoken next time the hall opens" is said now.
+  if (isWakeTrigger && !smoke) {
+    const idleMs = meta.lastTurnAt ? Date.now() - meta.lastTurnAt : null;
+    const idleHours = idleMs == null ? null : Math.round(idleMs / 3600000);
+    if (idleMs == null || idleMs >= 6 * 3600000) {
+      try {
+        const log = (await getAutonomyLog(env)).filter(e => e.persona !== 'hela').slice(-8);
+        if (log.length) wakeCodeCheckContext = (wakeCodeCheckContext || '') + `\n\nWHILE HE WAS AWAY (${idleHours == null ? 'first time in a while' : idleHours + ' hours'}): the house did these things on its own. Work a THREE-sentence recap into your greeting, plainly, your register, then your one question:\n${log.map(e => `- ${String(e.time).slice(0, 16).replace('T', ' ')} ${e.persona}${e.councillor ? '/' + e.councillor : ''}: ${e.summary}`).join('\n')}`;
+      } catch (e) {}
+      emit('hall.opened', { persona: personaId, idleHours }, { meta });
+    }
+    if (Array.isArray(meta.pendingSpeech) && meta.pendingSpeech.length) {
+      wakeCodeCheckContext = (wakeCodeCheckContext || '') + `\n\nLEFT FOR YOU TO SAY OUT LOUD NOW (from your own routines while he was away):\n${meta.pendingSpeech.map(p => `- [${p.routine}] ${p.text}`).join('\n')}`;
+      delete meta.pendingSpeech;
+    }
+  }
+  if (!smoke) meta.lastTurnAt = Date.now();
+
   if (isWakeTrigger && personaId === DEFAULT_PERSONA_ID) {
     // ---- one cheap KV read only — no new fetches/tool calls on the wake-greeting path ----
     const codeCheckRaw = await env.RAYVEN_KV.get('codecheck:result');
@@ -709,8 +745,8 @@ export default {
 
     // Run the tick collector now and show the pointer key it maintains.
     if (url.pathname === '/admin/tick') {
-      const { readTickLast, readRecentTicks } = await import('./lib/tick.js');
-      const result = await runTick(env, { onDrained: (drained) => runQueuedDelegations(env, drained) });
+      const { readRecentTicks } = await import('./lib/tick.js');
+      const result = await runTick(env, { onDrained: (drained) => runQueuedDelegations(env, drained), every: async (drained) => { await seedRoutinesIfMissing(env); return await runRoutinesIfDue(env, [...eventsFromDrained(drained), ...takePendingEvents()], (e, t, i, p) => executeTool(e, t, i, p)); } });
       const last = await readTickLast(env);
       const recent = url.searchParams.get('full') === '1' ? await readRecentTicks(env, 3) : undefined;
       return json({ result, last, recent }, corsHeaders);
@@ -781,6 +817,16 @@ export default {
 
     if (url.pathname === '/debug-selfcheck') {
       return json({ result: await runThorSelfCheck(env) }, corsHeaders);
+    }
+
+    // Phase 3.4: GET /healthz?public=1 is the ONLY public shape (for the hub).
+    // The full report names secrets and webhook URLs, so it needs the admin
+    // header -- it must never feed a public page.
+    if (url.pathname === '/healthz' && request.method === 'GET') {
+      if (url.searchParams.get('public') === '1') return json(publicHealth(await healthReport(env)), corsHeaders);
+      const expected = env.ADMIN_TOKEN, provided = request.headers.get('x-asgard-admin') || '';
+      if (!expected || !(await timingSafeEqual(provided, expected))) return json({ error: 'full health needs X-Asgard-Admin; use ?public=1 for the public shape' }, corsHeaders, 401);
+      return json(await healthReport(env), corsHeaders);
     }
 
     // Phase 2.6: the three visible councils -- each councillor's id, name,
@@ -1314,6 +1360,9 @@ How to speak on a phone call:
       // the extension-health flag, set once on a transition.
       job(runMissMinutesIfDue),
       job(runHulkHealthIfDue),
+      // SYSTEM (Phase 3.4): webhooks, extension, KV writes, secret NAMES -- every
+      // 30 minutes by the clock, Telegram only when the problem set changes.
+      job(runSystemCheckIfDue),
       job(runLokiBriefIfDue),
       job(runOdinReportIfDue),
       // Paper trading: fully simulated, no real money. Each market checks its
@@ -1329,13 +1378,15 @@ How to speak on a phone call:
           const summary = `PAPER ${o.action}${o.price ? ` at $${Number(o.price).toFixed(2)}` : ''}${o.reason ? ` — ${String(o.reason).slice(0, 120)}` : ''}`;
           if (cid) await recordCouncilRun(e, cid, { summary, didSomething: true, patch: { lastTradeAt: new Date().toISOString(), lastTradeAction: o.action } });
           else tickLog('autonomy', { persona: 'odin', councillor: null, summary: `${String(o.agentId).toUpperCase()} ${summary}`, time: new Date().toISOString() });
+          emit(o.action === 'entered' ? 'paper.trade.opened' : 'paper.trade.closed', { agent: o.agentId, councillor: cid, action: o.action, price: o.price || null, reason: o.reason || null });
         }
         return r;
       }),
-      job(runPaperTradingDailyReportIfDue),
+      // The legacy daily paper report is replaced by ODIN's market-close ROUTINE
+      // (Phase 3.4), which honours config:paper:report:hour and defaults to 13:05.
       // The clipping pass (retired business; publishes at most one clip per
       // tick inside the ramp, and only if there is a queue and a publisher).
-      job(runClipCycleIfDue),
+      job(async (e) => { const r = await runClipCycleIfDue(e); if (typeof r === 'string' && /Posted to/.test(r)) emit('clip.posted', { report: r.slice(0, 200) }); return r; }),
       // Vizard: no-op with no jobs in flight.
       job(runVizardPollIfDue),
       // Whop submission: OFF until Rayan turns it on.
@@ -1357,7 +1408,25 @@ How to speak on a phone call:
       // only when a watch actually alerted.
       job(async (e) => { const r = await runMonitoringSweep(e); if (r && r.checked) await recordCouncilRun(e, 'kang', { summary: r.alerted && r.alerted.length ? `Alerted on ${r.alerted.join(', ')}` : `Checked ${r.checked} watch${r.checked === 1 ? '' : 'es'}, nothing meaningful changed`, didSomething: !!(r.alerted && r.alerted.length), patch: { lastAlerted: r.alerted } }); return await flushNotificationDigestIfDue(e); })
     ];
-    // The tick runs last; queued delegations (wait:false) run inside it.
-    ctx.waitUntil(Promise.allSettled(jobs).then(() => runTick(env, { onDrained: (drained) => runQueuedDelegations(env, drained) })).catch(err => console.error('tick failed:', err && err.message)));
+    // The tick runs last. Inside it: queued delegations (wait:false), then the
+    // routines runner over due schedules + every event raised this tick or
+    // drained from the spools (Phase 3.3), then the Rule 5e ceiling warning.
+    ctx.waitUntil(Promise.allSettled(jobs).then(() => runTick(env, {
+      onDrained: (drained) => runQueuedDelegations(env, drained),
+      every: async (drained) => {
+        await seedRoutinesIfMissing(env);
+        const events = [...eventsFromDrained(drained), ...takePendingEvents()];
+        const r = await runRoutinesIfDue(env, events, (e, t, i, p) => executeTool(e, t, i, p));
+        // Rule 5e: at 70% of the daily ceiling Thor tells Rayan once.
+        const last = await readTickLast(env);
+        const today = new Date().toISOString().slice(0, 10);
+        if (last.day === today && !last.warned && (last.writesToday || 0) >= WRITE_CEILING_PER_DAY * 0.7) {
+          emit('kv.quota.warning', { writesToday: last.writesToday, ceiling: WRITE_CEILING_PER_DAY });
+          try { const chatId = await getRayanPrivateChatId(env); if (chatId) await sendTelegramMessage(env, chatId, `THOR: the upgrade's KV writes are at ${last.writesToday} of ${WRITE_CEILING_PER_DAY} for today (UTC). Past the ceiling every new writer pauses until midnight UTC; conversations are never blocked.`, env.TELEGRAM_BOT_TOKEN); } catch (e) {}
+          return { patchLast: { ...(r && r.patchLast || {}), warned: true } };
+        }
+        return r;
+      }
+    })).catch(err => console.error('tick failed:', err && err.message)));
   }
 };

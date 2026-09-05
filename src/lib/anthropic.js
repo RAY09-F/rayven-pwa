@@ -51,13 +51,13 @@ export async function callAnthropic(env, systemBlocks, tools, messages, maxToken
 // classification/judgement result (monitoring relevance filter, email importance
 // classification). No retry loop: these run on a 5-min cron tick, so a transient
 // failure just gets picked up again next tick rather than retried in-request.
-export async function callAnthropicSimple(env, systemPrompt, userText, maxTokens) {
+export async function callAnthropicSimple(env, systemPrompt, userText, maxTokens, model) {
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: MODELS.sonnet,
+        model: model || MODELS.sonnet,
         max_tokens: maxTokens || 400,
         system: systemPrompt,
         messages: [{ role: 'user', content: userText }]

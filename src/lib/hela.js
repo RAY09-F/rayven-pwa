@@ -325,7 +325,7 @@ export async function helaCapabilities(env, personaId = 'hela') {
   const caps = await readJson(env, capKeys(personaId).caps, []);
   if (!caps.length) return 'I have taught myself nothing yet. Lock me in and give me half an hour.';
   return caps.map((c, i) =>
-    `${i + 1}. ${c.name} — ${c.purpose}\n   ${c.method} ${c.url}${c.note ? `\n   ${c.note}` : ''}${c.uses ? `\n   used ${c.uses} time(s)` : ''}`
+    `${i + 1}. ${c.name} — ${c.purpose}\n   ${c.method} ${c.url}${c.note ? `\n   ${c.note}` : ''}${c.uses ? `\n   used ${c.uses} time(s)` : ''}${c.flagged ? `\n   ** FLAGGED ${String(c.flagged.at).slice(0, 10)}: ${c.flagged.error} **` : ''}`
   ).join('\n');
 }
 
@@ -347,6 +347,18 @@ export async function helaLearnCapability(env, { name, purpose, method, url, not
   });
   await writeJson(env, KC, caps);
   return `Learned "${clean}". I can do something now that I could not a moment ago.`;
+}
+
+// GORR's flag (Phase 3.4): a mark on a capability that failed its test. Never
+// a deletion, never a memory write. Hela decides with forget_capability.
+export async function helaFlagCapability(env, { name, error }, personaId = 'hela') {
+  const KC = capKeys(personaId).caps;
+  const caps = await readJson(env, KC, []);
+  const cap = caps.find(c => c.name === String(name || '').trim().toLowerCase());
+  if (!cap) return `I do not know anything called "${name}".`;
+  cap.flagged = { at: new Date().toISOString(), error: String(error || 'failed its test').slice(0, 300) };
+  await writeJson(env, KC, caps);
+  return `Flagged "${cap.name}": ${cap.flagged.error}. It is still saved; forget it yourself if you agree.`;
 }
 
 export async function helaForgetCapability(env, { name }, personaId = 'hela') {

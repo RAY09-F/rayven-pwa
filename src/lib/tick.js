@@ -107,6 +107,10 @@ export async function runTick(env, hooks = {}) {
   const lastDrained = typeof last.lastDrained === 'number' ? last.lastDrained : 0;
   const { drained, newest } = await drainSpools(env, lastDrained);
   if (drained.length && typeof hooks.onDrained === 'function') { try { await hooks.onDrained(drained); } catch (e) { console.error('tick hook failed:', e && e.message); } }
+  // hooks.every(drained) runs on EVERY tick (routines: due schedules + events)
+  // and may return { patchLast } to merge into the pointer key.
+  let patchLast = null;
+  if (typeof hooks.every === 'function') { try { const r = await hooks.every(drained); if (r && r.patchLast) patchLast = r.patchLast; } catch (e) { console.error('tick every-hook failed:', e && e.message); } }
   const r2 = await r2AuditCopyIfDue(env, last);
 
   // writes made by new writers on the reply path ride in their spool entries
@@ -120,9 +124,11 @@ export async function runTick(env, hooks = {}) {
     lastDrained: newest,
     recent: Array.isArray(last.recent) ? last.recent.slice(-RECENT_KEEP) : [],
     r2CopiedThrough: (r2 && r2.r2CopiedThrough) || last.r2CopiedThrough || null,
-    r2AttemptDay: (r2 && r2.r2AttemptDay) || last.r2AttemptDay || null
+    r2AttemptDay: (r2 && r2.r2AttemptDay) || last.r2AttemptDay || null,
+    routineRunsDay: last.routineRunsDay || null, routineRunsToday: last.routineRunsToday || 0
   };
-  if (empty && !r2) return { ok: true, skipped: 'empty tick' };
+  if (patchLast) Object.assign(next, patchLast);
+  if (empty && !r2 && !patchLast) return { ok: true, skipped: 'empty tick' };
 
   const key = tickKeyFor();
   let wrote = false;

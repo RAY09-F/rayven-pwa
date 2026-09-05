@@ -17,6 +17,7 @@
 // ===========================================================================
 
 import { notify } from './notifications.js';
+import { emit } from './events.js';
 
 const KV = { timers: 'kit:timers' };
 
@@ -297,6 +298,7 @@ export async function runTimersIfDue(env) {
   if (!due.length) return null;
   await writeJson(env, KV.timers, timers.filter(t => t.dueAt > now));
   for (const t of due) {
+    emit('timer.done', { label: t.label, id: t.id });
     await notify(env, {
       source: 'timer', priority: 'high',
       title: t.label,

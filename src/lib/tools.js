@@ -15,7 +15,7 @@ import { videoStats, videoSegments, socialTrends, newsSearch, cryptoPrice, stock
          tokenSearch, goldenHour, airQuality, earthquakes, wordIdeas, shortLink, pageHistory, socialProfile } from './world.js';
 import { igAddAccount, igListAccounts, igRemoveAccount, igPublish, igRefreshTokens } from './instagram.js';
 // ⟦PROJECT-H:BEGIN⟧
-import { helaLockIn, helaStandDown, helaStatus, helaBriefs, helaBriefAdd, helaClearBriefs, helaSetTopics, runHelaVigil, helaSetForgeInterval, helaSetForgeCap, helaCapabilities, helaLearnCapability, helaForgetCapability, helaUseCapability, runHelaForge } from './hela.js';
+import { helaLockIn, helaStandDown, helaStatus, helaBriefs, helaBriefAdd, helaClearBriefs, helaSetTopics, runHelaVigil, helaSetForgeInterval, helaSetForgeCap, helaCapabilities, helaLearnCapability, helaForgetCapability, helaUseCapability, runHelaForge, helaFlagCapability } from './hela.js';
 // ⟦PROJECT-H:END⟧
 import { addTodo, listTodos, completeTodo, addContentIdea, listContentIdeas, addCalendarEvent, removeCalendarEvent, listCalendarEventsText } from './kv-store.js';
 import { addLongTermMemory, searchMemory } from './memory.js';
@@ -38,6 +38,8 @@ import { getPersona, personaAllowsTool, toolOwnerName, DEFAULT_PERSONA_ID } from
 import { marksTainted, isConsequential, wrapUntrusted, describeAction, getAllowedHosts, allowHost, needsApprovalWhileTainted, UNTRUSTED_HANDLING } from './containment.js';
 import { createApproval, resolveApproval, listApprovals, APPROVAL_TOOL_DEFINITIONS } from './approvals.js';
 import { isTainted, markTainted, noteDomain, taintProvenance, spoolPush, provenance } from './conversation.js';
+import { ROUTINE_TOOL_DEFINITIONS } from './routineTools.js';
+import { routineCreate, routineList, routinePause, routineResume, routineDelete, routineRunNow, routineHistory } from './routines.js';
 
 // Task Observer — every tool execution gets timed and logged (which tool, when,
 // success/failure, duration) via the same capped-KV-log pattern as agent:log/
@@ -88,6 +90,14 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {
     case 'remember_this': return await addLongTermMemory(env, input.fact, personaId, null, provenance('remember_this', personaId, ctx && ctx.tainted ? 'untrusted-content' : 'rayan'));
     // Phase 1.5 -- the approvals inbox
     case 'approvals_list': return await listApprovals(env);
+    // Phase 3.2 -- routines (a god sees and edits only his own)
+    case 'routine_create': return await routineCreate(env, personaId, input || {});
+    case 'routine_list': return await routineList(env, personaId);
+    case 'routine_pause': return await routinePause(env, personaId, input && input.match);
+    case 'routine_resume': return await routineResume(env, personaId, input && input.match);
+    case 'routine_delete': return await routineDelete(env, personaId, input && input.match);
+    case 'routine_run_now': return await routineRunNow(env, personaId, input && input.match, (e, t, i, p) => executeTool(e, t, i, p));
+    case 'routine_history': return await routineHistory(env, personaId, input && input.match);
     case 'delegate': { const { delegate } = await import('./council.js'); return await delegate(env, personaId, input || {}, { meta: ctx && ctx.meta, channel: ctx && ctx.channel }); }
     case 'approve': return (await resolveApproval(env, input && input.id, 'approve', (e, t, i, p) => executeTool(e, t, i, p))).text;
     case 'reject': return (await resolveApproval(env, input && input.id, 'reject', (e, t, i, p) => executeTool(e, t, i, p))).text;
@@ -190,6 +200,7 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {
     case 'my_capabilities': return await helaCapabilities(env, personaId);
     case 'learn_capability': return await helaLearnCapability(env, input, personaId);
     case 'forget_capability': return await helaForgetCapability(env, input, personaId);
+    case 'flag_capability': return await helaFlagCapability(env, input, personaId);
     case 'use_capability': return await helaUseCapability(env, input, personaId);
     case 'forge_every': return await helaSetForgeInterval(env, input, personaId);
     case 'forge_budget': return await helaSetForgeCap(env, input, personaId);
@@ -783,6 +794,8 @@ TOOL_DEFINITIONS.push(...APPROVAL_TOOL_DEFINITIONS);
 // Phase 2.4 -- delegation to a god's own five. Defined here rather than in
 // council.js because council.js imports this module (its runner IS the loop
 // below); a static import back would be a cycle at evaluation time.
+TOOL_DEFINITIONS.push(...ROUTINE_TOOL_DEFINITIONS);
+TOOL_DEFINITIONS.push({ name: 'flag_capability', description: 'Mark one of your saved capabilities as broken, with the error it gave. A flag only -- it stays saved until you forget it yourself.', input_schema: { type: 'object', properties: { name: { type: 'string' }, error: { type: 'string' } }, required: ['name'] } });
 TOOL_DEFINITIONS.push({
   name: 'delegate',
   description: 'Hand a task to one of YOUR OWN five councillors by name or id. wait true (default) runs it now and returns the report into this turn; wait false queues it for the next five-minute tick and the report arrives on your Telegram bot. A councillor uses only its own narrow tools and can never send a text, call, or post -- it hands those back for confirmation.',

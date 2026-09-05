@@ -23,6 +23,7 @@ import { spoolPush } from './conversation.js';
 import { tickLog, noteWrites, readRecentTicks } from './tick.js';
 import { sendTelegramMessage, getRayanPrivateChatId } from './telegram.js';
 import { getCalendarEvents } from './kv-store.js';
+import { emit } from './events.js';
 
 // 2.3 model tiers, in ONE place
 export const TIERS = {
@@ -116,7 +117,7 @@ export const COUNCIL = {
     tools: ['my_briefs', 'keep_brief', 'search_memory'], tier: 'cheap', duty: null, dutyNote: 'EXISTS: the 22-hour daily assembly, recorded as Surtur',
     prompt: `You are SURTUR, the Ending of Hela's council. You compile: the day's briefs into one, the most useful thing first, five sentences at most. You add; you never delete, never clear, never trim. If nothing mattered, say that plainly.` },
   gorr: { owner: 'hela', hidden: true, name: 'GORR', role: 'the Auditor', theme: 'Tests saved capabilities and FLAGS broken ones -- a flag, never a deletion.',
-    tools: ['my_capabilities', 'use_capability'], tier: 'free', duty: null, dutyNote: 'NEW in Phase 3: weekly capability test (Sunday 02:00, only while locked in)',
+    tools: ['my_capabilities', 'use_capability', 'flag_capability'], tier: 'cheap', duty: null, dutyNote: 'the weekly capability test routine (Sunday 02:00, only while locked in)',
     prompt: `You are GORR, the Auditor of Hela's council. You test what she has saved and report which capabilities still answer and which are broken, with the exact error each gave. You flag; you never delete, never edit, never touch memory. She decides.` }
   // ⟦PROJECT-H:END⟧
 };
@@ -145,6 +146,7 @@ export async function recordCouncilRun(env, id, { summary, detail, didSomething 
   const c = COUNCIL[id]; if (!c) return;
   const line = { persona: c.owner, councillor: id, summary: String(summary || '').slice(0, 300), detail: detail ? String(detail).slice(0, 600) : null, time: new Date().toISOString() };
   if (meta) spoolPush(meta, 'autonomy', line); else tickLog('autonomy', line);
+  if (didSomething) emit('councillor.finished', { councillor: id, owner: c.owner, summary: line.summary }, meta ? { meta } : null);
   if (!didSomething) return;
   const state = await readCouncilState(env, id);
   const next = { ...state, ...(patch || {}), lastRun: line.time, lastSummary: line.summary, runs: (state.runs || 0) + 1 };
@@ -261,6 +263,7 @@ export async function runMissMinutesIfDue(env) {
   if (!chatId || !token) return null;
   const lines = fresh.map(e => { const [h, m] = e.time.split(':').map(Number); const inMin = h * 60 + m - minutes; return `${e.title} at ${e.time}${inMin > 0 ? ` — in ${inMin} min` : ' — now'}${e.notes ? ` (${e.notes})` : ''}`; });
   await sendTelegramMessage(env, chatId, `MISS MINUTES: ${lines.join('; ')}`, token);
+  for (const e of fresh) emit('calendar.upcoming', { title: e.title, date: e.date, time: e.time });
   await recordCouncilRun(env, 'miss_minutes', { summary: `Reminded: ${lines.join('; ')}`, didSomething: true, patch: { sent: [...sent, ...fresh.map(e => e.id)].slice(-100) } });
   return { reminded: fresh.length };
 }
@@ -274,10 +277,12 @@ export async function runHulkHealthIfDue(env) {
   const state = await readCouncilState(env, 'hulk');
   if (offline && !state.offlineSince) {
     await recordCouncilRun(env, 'hulk', { summary: `Extension offline — last poll ${last ? new Date(last).toISOString() : 'never'}`, didSomething: true, patch: { offlineSince: new Date().toISOString(), mentioned: false } });
+    emit('extension.offline', { lastPoll: last ? new Date(last).toISOString() : null });
     return { transition: 'offline' };
   }
   if (!offline && state.offlineSince) {
     await recordCouncilRun(env, 'hulk', { summary: 'Extension back online', didSomething: true, patch: { offlineSince: null, mentioned: false } });
+    emit('extension.online', {});
     return { transition: 'online' };
   }
   return null;

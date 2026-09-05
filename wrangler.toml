@@ -57,3 +57,8 @@ bucket_name = "asgardclips"
 # self-code-check) keeps its own "last run" marker in KV and decides internally
 # whether it is actually due on this tick.
 crons = ["*/5 * * * *"]
+
+# The host every Telegram webhook must point at (Phase 3 SYSTEM check). Never
+# derived from an incoming request URL.
+[vars]
+TELEGRAM_WEBHOOK_HOST = "https://asgrard-backend.rayanfahil2.workers.dev"

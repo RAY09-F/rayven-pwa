@@ -19,6 +19,7 @@ import { getPersonaBotToken, getPersona } from './personas.js';
 import { sendTelegramMessage, getRayanPrivateChatId } from './telegram.js';
 import { describeAction } from './containment.js';
 import { writeBudget } from './tick.js';
+import { emit } from './events.js';
 
 const KEY = 'approvals';
 const CAP = 50;
@@ -59,6 +60,7 @@ export async function createApproval(env, { persona, tool, input, tainted, sourc
       await sendTelegramMessage(env, chatId, `[APPROVAL ${id}] ${firstLine(description)} — from ${getPersona(persona).name}${rec.provenance ? `\n${rec.provenance}` : ''}\n\n${description}\n\nReply APPROVE ${id} or REJECT ${id}`, token);
     }
   } catch (e) { console.error('approval notify failed:', e && e.message); }
+  emit('approval.created', { id, tool, persona, councillor: councillor || null });
   return { ok: true, id, record: rec, writes: 1 };
 }
 
@@ -89,6 +91,7 @@ export async function resolveApproval(env, id, decision, execute) {
   if (decision === 'reject') {
     rec.status = 'rejected'; rec.resolvedAt = new Date().toISOString();
     await writeAll(env, list);
+    emit('approval.resolved', { id: rec.id, tool: rec.tool, decision: 'rejected' });
     return { ok: true, text: `Rejected ${id}. Nothing was ${rec.tool === 'send_text' ? 'sent' : 'done'}.`, record: rec };
   }
 
@@ -102,6 +105,7 @@ export async function resolveApproval(env, id, decision, execute) {
 
   rec.status = 'approved'; rec.resolvedAt = new Date().toISOString();
   await writeAll(env, list);
+  emit('approval.resolved', { id: rec.id, tool: rec.tool, decision: 'approved' });
   let result;
   try { result = await execute(env, rec.tool, rec.input, rec.persona); }
   catch (e) { result = `That tool failed: ${e && e.message ? e.message : String(e)}`; }

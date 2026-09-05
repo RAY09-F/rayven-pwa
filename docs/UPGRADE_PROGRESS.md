@@ -11,9 +11,11 @@ If a session dies: "continue asgard-upgrade.txt from the progress file".
 | 0 — survey, manifest, smoke | DONE, deployed, smoke ALL PASS on the live URL | asgard-upgrade phase 0 |
 | 1 — containment | DONE, deployed, smoke ALL PASS, end-to-end test passed | asgard-upgrade phase 1 |
 | 2 — councils | DONE, deployed, smoke ALL PASS, delegation tested both ways | asgard-upgrade phase 2 |
-| 3 — routines + events | not started | |
+| 3 — routines + events | DONE, deployed, smoke ALL PASS; live checks below | asgard-upgrade phase 3 |
 
-Plan: Rayan confirmed the Workers Paid plan on 2026-09-05. Part A continues.
+Plan: Rayan confirmed the Workers Paid plan on 2026-09-05.
+
+**PART A IS DONE (Phases 0–3). Waiting for Rayan to say "continue Part B" (or "continue Part C").**
 
 ## Phase 0 — what was done (2026-09-04/05)
 
@@ -165,6 +167,81 @@ Verified live 2026-09-05 06:21 UTC: smoke ALL PASS; /admin/approval-test → Tel
 | councillor state (20 keys, written only when a duty DID something) | ≤ ~180 (sum of COUNCIL_BUDGET) | new |
 | queued delegations | 0 extra (ride in the history write; result = 1 state write) | new |
 | /council/status | 0 | new (15 reads per poll) |
+
+## Phase 3 — full automation: routines and events (2026-09-05)
+
+- 3.1 src/lib/events.js: typed emit(); on the reply path an event rides in the conversation _spool,
+  in cron it is handled in the same invocation (no event key, no firehose). Emitted where things
+  happen: watchlist.hit / monitor.changed (monitoring), timer.done (kit), calendar.upcoming (Miss
+  Minutes), telegram.message with from rayan|jay|kevin|other and chat private|group (every Telegram
+  turn), paper.trade.opened/closed (the trader wrap), extension.offline/online (Hulk),
+  kv.quota.warning (the tick, at 70% of the Rule 5e ceiling), councillor.finished, approval.created /
+  approval.resolved, clip.posted (report only), hall.opened. email.received is declared but nothing
+  emits it — there is no email reader in this codebase (email access is draft-only in name only).
+- 3.2 src/lib/routines.js + routineTools.js. Shape { id, owner, name, intent, trigger, steps, deliver,
+  enabled, createdBy, runs (last 20 inside the object), state, failures }. Triggers per Rule 14 via
+  src/lib/schedule.js (at/days/tz or every; no cron syntax). Steps: {tool,args} | {delegate} |
+  {compose (owner or cheap tier)} | {read: calendar|timers|todos|activity|memory|council|health|paper|
+  conversations} | {memory_append} | {say}; args reference $steps[i].text, $event.payload.x,
+  $date.today/tomorrow. Deliver: telegram (the owner's own bot) | notify | speak (left in the god's
+  web conversation object and said in the next wake greeting) | silent. Storage routines:index +
+  routines:<id>. Tools routine_create/list/pause/resume/delete/run_now/history appended to the master
+  order and to the three visible gods (Hela sees everything; a god sees only his own routines).
+  routine_create WITHOUT confirmed:true returns the one-sentence read-back, so the god must read it
+  to Rayan before saving. routine_delete keeps the record, marked deleted.
+- 3.3 The runner lives inside the tick's `every` hook: due schedules + drained/pending events → steps
+  → deliver. Guard rails: hard-confirm / social / capability-creating steps become approvals; a free-
+  tier critic (strict JSON {ok, why}; unparseable = approval) runs before memory writes and allow_host;
+  12 runs per tick, 60 per day (counter in tick:last, rolls forward); 3 failures in a row pauses the
+  routine and its owner tells Rayan; a run makes ≤2 writes (routines:<id> + at most one approval or
+  speak).
+- 3.4 Pre-built and enabled (each says so in its first message): LOKI Morning brief 07:00 weekdays,
+  Weekend brief 09:00, Tomorrow at a glance 21:00; ODIN Market-open note 06:35 weekdays, Market-close
+  report (REPLACES the legacy daily paper report — the old cron job is no longer called; honours
+  config:paper:report:hour, default 13:05), State of the realm Sunday 17:00 (paper P&L by councillor,
+  KV writes today, "model spend: not tracked yet", what is waiting on Rayan — Ayrshare report-only);
+  THOR World note Sunday 18:00 (Jane, tier cheap, subjects from memory), Memory hygiene 03:00 (Darcy:
+  reads Thor/Loki/Odin's day, never Hela's, APPENDS one dated line with provenance; the critic gates
+  it; nothing removed); HELA Capability audit Sunday 02:00 only while locked in (Gorr + the new
+  flag_capability tool: a flag, never a deletion). "While you were away" is built into the wake
+  greeting (index.js): after 6+ hours idle Thor recaps the last autonomy-log lines in three sentences.
+  SYSTEM (src/lib/healthz.js, owner Thor, tier free) runs as a cron duty every 30 minutes by the clock
+  — not as a routine, because 48 runs/day alone would exceed the 60/day routine cap: webhooks via
+  getWebhookInfo against the wrangler var TELEGRAM_WEBHOOK_HOST (re-set at most once per bot per day,
+  Rayan told; Hela's checked, never set), extension age, KV writes (the upgrade's counter always; the
+  account figure only with CF_ANALYTICS_TOKEN + CF_ACCOUNT_ID, else "unavailable"), presence of every
+  required secret NAME. State system:health written only when the problem set changes; Telegram only
+  then. GET /healthz?public=1 → { gods_awake, councillors, extension_online, paper_pnl } (open);
+  GET /healthz (full, names secrets and webhook URLs) requires X-Asgard-Admin.
+- Every turn now carries the current Pacific time in the per-turn context block (after the cache
+  breakpoint) so "in ten minutes" can become a schedule.
+
+Verified live 2026-09-05 06:41 UTC: /healthz?public=1 → 4 fields only; full /healthz → 401 without
+the header; with it: webhooks all ok, no missing required secrets, upgrade writes 9/2,500, ONE real
+problem: the browser extension has not polled for ~16 days. Seeds present (Loki lists 3, Odin 3).
+"Loki, in ten minutes tell me the routines work" → Loki set a one-off TIMER (a fair reading);
+an explicit "set up a routine ... every day at 23:52 Pacific" → Loki read it back → "yes" → saved →
+it FIRED on its own at the 23:55 Pacific tick (06:55 UTC) and was delivered by Loki's bot; routine_history
+showed the run; tick:last counted it; the test routine was then deleted (record kept). Odin's
+"Market-open note" was also run on demand via routine_run_now and delivered its PAPER note.
+
+**Findings for Rayan:** the Chrome extension has not polled in ~16 days (Hulk/SYSTEM will say so);
+JARVIS_AGENT_URL / KEVOS_AGENT_URL are unset so ask_jarvis/ask_kevos cannot work; CF_ANALYTICS_TOKEN +
+CF_ACCOUNT_ID (optional, Rule 4) would make /healthz report account-wide KV usage.
+
+## KV write budget table — Phase 3
+
+| feature | worst-case KV writes/day | change |
+|---|---|---|
+| routine runs (≤60/day, ≤2 writes each) | ≤120 | new |
+| routines:index (create/pause/resume/delete) | ≤ a handful | new |
+| system:health state | ≤ ~10 (only on change) | new |
+| events | 0 (spool / tick key) | new |
+| legacy daily paper report job | 0 (was 1–2; replaced by the routine) | −2 |
+
+Everything new in Phases 1–3 combined, worst case: approvals ≤ ~100, ticks ≤ 576, council state ≤ 180,
+routines ≤ 130, system ≤ 10 → under 1,000/day worst case, well inside the 3,000 ceiling and the 2,500
+Rule 5e counter.
 
 ## Plan (Hard Rule 5)
 

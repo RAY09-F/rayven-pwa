@@ -13,6 +13,7 @@ import { tavilyExtractRaw, tavilySearchRaw } from './search.js';
 import { callAnthropicSimple } from './anthropic.js';
 import { notify } from './notifications.js';
 import { logActivity } from './activity.js';
+import { emit } from './events.js';
 
 const WATCH_LIST_KEY = 'monitor:list';
 const DEFAULT_INTERVAL_MINUTES = 30;
@@ -228,6 +229,7 @@ async function processWatch(env, watch) {
     }
 
     watch._alerted = true;
+    emit('monitor.changed', { label: watch.label, url: watch.target, summary: classification.summary });
     await notify(env, {
       source: 'monitoring', priority: 'normal',
       title: `Watch: ${watch.label}`, body: classification.summary,
@@ -263,6 +265,7 @@ async function processWatch(env, watch) {
   }
 
   watch._alerted = true;
+  emit('watchlist.hit', { label: watch.label, query: watch.target, summary: classification.summary, urls: newResults.slice(0, 5).map(r => r.url) });
   await notify(env, {
     source: 'monitoring', priority: 'normal',
     title: `Watch: ${watch.label}`, body: classification.summary,

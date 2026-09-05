@@ -204,7 +204,8 @@ const THOR_TOOLS = [
     'transcribe', 'translate', 'watch_add', 'watch_list', 'watch_pause', 'watch_remove',
     'watch_resume', 'watch_subjects', 'weather', 'web_search', 'word_ideas', 'world_time',
     // asgard-upgrade Phase 1.5 (appended, never re-sorted -- Rule 6)
-    'approvals_list', 'approve', 'reject', 'delegate'
+    'approvals_list', 'approve', 'reject', 'delegate',
+    'routine_create', 'routine_list', 'routine_pause', 'routine_resume', 'routine_delete', 'routine_run_now', 'routine_history'
 ];
 const LOKI_TOOLS = [
     'add_calendar_event', 'add_content_idea', 'add_todo', 'air_quality', 'allow_host',
@@ -217,7 +218,8 @@ const LOKI_TOOLS = [
     'watch_list', 'watch_pause', 'watch_remove', 'watch_resume', 'watch_subjects', 'weather',
     'web_search', 'word_ideas', 'world_time',
     // asgard-upgrade Phase 1.5 (appended, never re-sorted -- Rule 6)
-    'approvals_list', 'approve', 'reject', 'delegate'
+    'approvals_list', 'approve', 'reject', 'delegate',
+    'routine_create', 'routine_list', 'routine_pause', 'routine_resume', 'routine_delete', 'routine_run_now', 'routine_history'
 ];
 const ODIN_TOOLS = [
     'add_calendar_event', 'add_content_idea', 'add_todo', 'air_quality', 'allow_host',
@@ -234,7 +236,8 @@ const ODIN_TOOLS = [
     'watch_pause', 'watch_remove', 'watch_resume', 'watch_subjects', 'weather', 'web_search',
     'word_ideas', 'world_time',
     // asgard-upgrade Phase 1.5 (appended, never re-sorted -- Rule 6)
-    'approvals_list', 'approve', 'reject', 'delegate'
+    'approvals_list', 'approve', 'reject', 'delegate',
+    'routine_create', 'routine_list', 'routine_pause', 'routine_resume', 'routine_delete', 'routine_run_now', 'routine_history'
 ];
 
 export const PERSONAS = {
@@ -378,7 +381,7 @@ export function toolOwnerName(toolName) {
 // call cannot reach them either.
 // The forge belongs to the whole house now — every persona has its own store,
 // its own interval and its own lane. Only her lock-in and her briefs stay hers.
-const HELA_ONLY_TOOLS = ['lock_in', 'stand_down', 'vigil_status', 'my_briefs', 'keep_brief', 'clear_briefs', 'watch_subjects', 'go_looking'];
+const HELA_ONLY_TOOLS = ['lock_in', 'stand_down', 'vigil_status', 'my_briefs', 'keep_brief', 'clear_briefs', 'watch_subjects', 'go_looking', 'flag_capability'];
 // ⟦PROJECT-H:END⟧
 
 export function personaAllowsTool(personaId, toolName) {
