@@ -19,7 +19,7 @@ collected under NEEDS RAYAN'S EYES at the bottom.
 | 3.0 — survey | DONE | strike-three phase 1 |
 | 3.1 — the spike (Loki core on fx-lab) | BUILT, deployed, smoke ALL PASS, **look unverified** | strike-three phase 1 |
 | 3.2 — Loki's hall | BUILT, deployed, smoke ALL PASS, **look unverified** | strike-three phase 2 |
-| 3.3 — Thor and Odin | not started | |
+| 3.3 — Thor and Odin | BUILT, deployed, smoke ALL PASS, **look unverified** | strike-three phase 3 |
 | 3.4 — hub + council page | not started | |
 | 3.5 — phone, still mode, access | not started | |
 
@@ -171,6 +171,36 @@ listeners removed). Deployed 53213cf6…; `smoke-fx` and backend `smoke` ALL
 PASS. Chat, voice, wake word and persona switching were not touched by code:
 the hall file is byte-identical to before Strike Three.
 
+## Phase 3 — Thor and Odin (2026-09-05)
+
+- `public/fx/cores/thor.js` — a hammer assembly: brushed-steel head with a
+  cold-white (#EAF8FF) band of light held in it, silver striking faces,
+  plum-wrapped haft with silver collar, ring and pommel, hovering inside two
+  wide interlocking pearl shells with silver edges (placed by a numeric search:
+  0.29 and 0.66 from the hammer, 0.46 apart, above the plinth). Storm-blue
+  (#66C7FF) rim light. Thinking draws the shells in to 80% once and holds;
+  speaking peaks land as **one discrete strike** — the hammer drops 0.14 and
+  rebounds, the edges flash, one ring, a faint blue screen flash. 5.9k
+  triangles with the reflection, 3.7k without.
+- `public/fx/cores/odin.js` — a nested iris: eight gold (#D8AE5A) aperture
+  blades hinged on a bronze ring over a light held at the centre, inside three
+  nested toroidal pieces (pearl, bronze, pearl) that precess slowly. Listening
+  opens the iris wider; **thinking closes it** in one 1.8 s build, holds, then
+  opens to rest — it resolves, it never loops; speaking tracks level at the
+  centre light, peaks flare once. Amber-bronze (#A56429) rim. 8.0k triangles
+  with the reflection, 4.8k without.
+- Both share Loki's plinth, floor, reflection, lighting rig and camera
+  framing, so the three halls read as one world. Both have `draw2d` fallbacks.
+- Realm switch (3.4): the engine already disposes the outgoing core and
+  mounts the next behind the existing 600 ms wipe; the council is rebuilt for
+  the new god (Odin's five with team.html's colours and PAPER / SIM rows).
+  The fourth persona gets no core and the cores layer stays disposed while
+  it is active.
+- Verified without eyes: the Node harness mounted thor → loki → odin with the
+  council three times over — no non-finite geometry, no NaN transforms,
+  nothing left in the scene after any dispose, identical counts each cycle
+  (no growth). Deployed cc230380…; `smoke-fx` and backend `smoke` ALL PASS.
+
 ## NEEDS RAYAN'S EYES
 
 1. **The spike.** Close the Linux terminal first. Open
@@ -192,6 +222,14 @@ the hall file is byte-identical to before Strike Three.
    still fine? (6) switch to Thor and back to Loki three times — anything
    stutter, go black, or get slower? (7) do any of the labels sit on top of a
    panel or the chat box?
-3. **The blueprint.** Put the three approved pictures in `public/img/` (see
+3. **Thor and Odin.** `/?persona=thor&debug=1` then `/?persona=odin&debug=1`:
+   (1) FPS and the CORE line for each; (2) does Thor's centre read as a hammer
+   held in two shells, and Odin's as an aperture ring inside rings — solid, not
+   flat? (3) press speak to Thor and watch for the single strike on loud
+   syllables; ask Odin something and watch the iris close once while he thinks;
+   (4) switch Thor → Loki → Odin → Thor three times: anything stutter, go
+   black, or get slower each time? (5) click an Odin gem: does the sheet show
+   instrument / position / P&L / last trade, each marked PAPER / SIM?
+4. **The blueprint.** Put the three approved pictures in `public/img/` (see
    above), then open https://asgrard-backend.rayanfahil2.workers.dev/halls-preview
    and confirm the three halls look like the pictures.
