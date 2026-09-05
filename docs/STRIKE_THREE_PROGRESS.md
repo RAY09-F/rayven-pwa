@@ -20,7 +20,7 @@ collected under NEEDS RAYAN'S EYES at the bottom.
 | 3.1 — the spike (Loki core on fx-lab) | BUILT, deployed, smoke ALL PASS, **look unverified** | strike-three phase 1 |
 | 3.2 — Loki's hall | BUILT, deployed, smoke ALL PASS, **look unverified** | strike-three phase 2 |
 | 3.3 — Thor and Odin | BUILT, deployed, smoke ALL PASS, **look unverified** | strike-three phase 3 |
-| 3.4 — hub + council page | not started | |
+| 3.4 — hub + council page | DONE as far as this branch allows (see below) | strike-three phase 4 |
 | 3.5 — phone, still mode, access | not started | |
 
 ## Section 2 — the blueprint
@@ -201,6 +201,28 @@ the hall file is byte-identical to before Strike Three.
   nothing left in the scene after any dispose, identical counts each cycle
   (no growth). Deployed cc230380…; `smoke-fx` and backend `smoke` ALL PASS.
 
+## Phase 4 — the hub and the council page (2026-09-05)
+
+- **4.1 The hub: nothing to do here.** There is no hub page on this branch
+  (no `public/hub/`, nothing under `public/` calls itself the hub) and Strike
+  Two's `public/fx/hub.js` was never built. The conditional FPS measurement
+  the spec asks for therefore has no page to run on. Logged, not invented.
+  (Part B's 6.8 wants a hub with three links; see that phase.)
+- **4.2 team.html:** its renderer and CONFIG are untouched. New
+  `public/fx/team.js` (one tag added before `</body>`) adds only overlays:
+  palette alignment of the HTML chrome with the halls' base palette (ground
+  → void #0B0A12, lines → plum), a static depth-of-field vignette and room
+  dim (one CSS gradient, composited once), and a pointer light that follows
+  the cursor as one pre-painted element moved by transform, ≤30 Hz, fading
+  out after 2.5 s. It goes dark while the vault is open (follows the page's
+  own `hidden` attribute). `prefers-reduced-motion` stops the light following;
+  `?fx=0` does nothing at all. The realm-shift wipe was **not** added: the
+  page's door links navigate away, and a wipe would only delay them.
+  The council page shares the halls' palette and mood, not their geometry.
+- Verified without eyes: `node --check`, `check-scripts` on team.html (its
+  one script block still PASS), deployed fd557e6a…, `smoke-fx` (team.js live,
+  exactly one overlay tag, CONFIG intact) and backend `smoke` ALL PASS.
+
 ## NEEDS RAYAN'S EYES
 
 1. **The spike.** Close the Linux terminal first. Open
@@ -230,6 +252,10 @@ the hall file is byte-identical to before Strike Three.
    (4) switch Thor → Loki → Odin → Thor three times: anything stutter, go
    black, or get slower each time? (5) click an Odin gem: does the sheet show
    instrument / position / P&L / last trade, each marked PAPER / SIM?
-4. **The blueprint.** Put the three approved pictures in `public/img/` (see
+4. **The council page.** Open `/team.html`: is the room a touch darker at the
+   edges with a soft gold light under the cursor, and is everything you could
+   do before still there (agents, tools, the console, VOICE ON)? Open the vault
+   there once — does the overlay stay out of it?
+5. **The blueprint.** Put the three approved pictures in `public/img/` (see
    above), then open https://asgrard-backend.rayanfahil2.workers.dev/halls-preview
    and confirm the three halls look like the pictures.
