@@ -288,6 +288,8 @@
     glow.width = Math.max(2, Math.floor(ow * GS)); glow.height = Math.max(2, Math.floor(oh * GS));
     if (gl) gl.viewport(0, 0, bw, bh);
     coreResize(bw, bh);
+    shrinkHallCanvas(); setTimeout(shrinkHallCanvas, 300);
+    if (COU.active) { try { COU.mod.resize(S.w, S.h, C.ctx); } catch (e) {} }
     for (const id in REALMS) { const r = REALMS[id]; if (r.resize) { try { r.resize(E); } catch (e) {} } }
     helaResize();
   }
@@ -316,7 +318,7 @@
   // reply into word spans, and reveal them timed to the speaking level, with a
   // per-realm glow on the leading word. Force-completes on a deadline.
   let chatObs = null, reveal = null;
-  const GLOWS = { thor: '0 0 10px rgba(120,190,255,.95), 0 0 22px rgba(70,150,255,.6)', loki: '0 0 10px rgba(80,255,160,.95), 0 0 22px rgba(255,199,64,.45)', odin: '0 0 10px rgba(255,220,120,.95), 0 0 22px rgba(255,199,64,.6)', hela: '0 0 10px rgba(0,255,140,.95)' };
+  const GLOWS = { thor: '0 0 10px rgba(120,190,255,.95), 0 0 22px rgba(70,150,255,.6)', loki: '0 0 10px rgba(247,222,134,.95), 0 0 22px rgba(231,194,74,.45)', odin: '0 0 10px rgba(255,220,120,.95), 0 0 22px rgba(255,199,64,.6)', hela: '0 0 10px rgba(0,255,140,.95)' };
   function watchTranscript() {
     const log = document.getElementById('chatLog');
     if (!log || chatObs) return;
@@ -429,7 +431,7 @@
 
   // -------------------------------------------------------- realms
   const FALLBACK = {
-    palette: { thor: [[70, 150, 255], [255, 255, 255], [255, 199, 64]], loki: [[46, 190, 110], [8, 10, 8], [255, 199, 64]], odin: [[255, 199, 64], [12, 20, 48], [246, 244, 236]], hela: [[0, 255, 140], [1, 3, 2], [0, 255, 140]] },
+    palette: { thor: [[70, 150, 255], [255, 255, 255], [255, 199, 64]], loki: [[40, 94, 107], [11, 10, 18], [231, 194, 74]], odin: [[255, 199, 64], [12, 20, 48], [246, 244, 236]], hela: [[0, 255, 140], [1, 3, 2], [0, 255, 140]] },
     back2d(ctx, id) {
       const c = FALLBACK.palette[id] || FALLBACK.palette.thor;
       const g = radial(ctx, S.cx * BS * S.dpr, S.cy * BS * S.dpr * 0.8, 10, Math.max(S.w, S.h) * BS * S.dpr);
@@ -485,7 +487,7 @@
     if (CORES[id] || C.loading[id]) return;
     C.loading[id] = 'loading';
     const src = '/fx/cores/' + id + '.js';
-    const viaTag = () => { const s = document.createElement('script'); s.src = src; s.async = true; s.onerror = () => { C.err = 'core file missing: ' + src; C.loading[id] = 'failed'; }; document.head.appendChild(s); };
+    const viaTag = () => { const s = document.createElement('script'); s.src = src; s.async = true; s.onerror = () => { C.err = 'core file missing: ' + src; C.loading[id] = 'failed'; }; s.onload = () => { if (!CORES[id]) { C.err = 'core file did not register: ' + src; C.loading[id] = 'failed'; } }; document.head.appendChild(s); };
     try { import(src).then(() => { if (!CORES[id]) { C.err = 'core module did not register: ' + id; C.loading[id] = 'failed'; } }).catch(e => { console.warn('[AsgardFX] core import failed, trying a script tag:', e && e.message); viaTag(); }); }
     catch (e) { viaTag(); }
   }
@@ -495,7 +497,25 @@
     CORES[id] = mod; C.loading[id] = 'done';
   };
   FX.cores = function (on) { C.want = !!on; };
-  function coreSupported() { return !!gl && !S.glLost && S.tier === 'webgl2'; }
+  function coreSupported() { return !!gl && !S.glLost && S.tier === 'webgl2' && !C.noThree; }
+  // The hall keeps its own software-rendered centrepiece (#coreCanvas). While a WebGL core is live the
+  // engine makes that canvas yield — hidden by a class, shrunk to 1×1 so its loop rasterizes nothing —
+  // and hands it back the moment the core goes away. No hall edit: a class, a style, a canvas size.
+  function hallYield(on) {
+    if (!C.hall) return;
+    const root = document.documentElement;
+    if (on) {
+      if (!C.hallStyle) { C.hallStyle = document.createElement('style'); C.hallStyle.id = 'asgardFxHall'; C.hallStyle.textContent = HALL_CSS; document.head.appendChild(C.hallStyle); }
+      root.classList.add('asgard-arc'); shrinkHallCanvas(); setTimeout(shrinkHallCanvas, 400);
+    } else if (root.classList.contains('asgard-arc')) {
+      root.classList.remove('asgard-arc');
+      try { window.dispatchEvent(new Event('resize')); } catch (e) {}   // the centrepiece re-sizes its own canvas on resize
+    }
+  }
+  function shrinkHallCanvas() {
+    if (!C.hall || !document.documentElement.classList.contains('asgard-arc')) return;
+    const cv = document.getElementById('coreCanvas'); if (cv && (cv.width > 1 || cv.height > 1)) { cv.width = 1; cv.height = 1; }
+  }
   function desiredCore() { return (C.want && CORE_IDS.indexOf(S.persona) >= 0) ? S.persona : null; }
   function makeCoreCtx(id) {
     const pal = Object.assign({}, CORE_PALETTE.base, CORE_PALETTE[id] || {});
@@ -528,12 +548,14 @@
         try { ok = await ensureRenderer(); } catch (e) { C.err = (e && e.message) || String(e); console.warn('[AsgardFX] three.js unavailable:', e); ok = false; }
         const mod = CORES[id];
         if (!mod || S.persona !== id || !C.want) return;            // the world moved on while three.js was loading
-        if (!ok) { mount2d(id, mod); return; }
+        if (!ok) { C.noThree = true; if (!C.hall) mount2d(id, mod); return; }   // in the hall its own centrepiece stays; elsewhere the 2D fallback
         C.active = mod; C.id = id; C.mode = 'three'; C.quality = S.quality; C.ctx = makeCoreCtx(id);
         mod.init(C.ctx);
         sizeCanvases();                                              // full-res canvas, framebuffer, camera aspect, mod.resize
         mod.setState(S.state, S.level);
         C.skyDirty = true; C.force = 3;
+        hallYield(true);
+        mountCouncil(id);
       } catch (e) {
         // a fault inside the core module itself: log it verbatim, keep the sky, show it on ?debug=1
         C.err = (e && e.message) || String(e); console.warn('[AsgardFX] core init failed:', id, e);
@@ -558,7 +580,9 @@
   }
   function unmountCore() {
     const mod = C.active, was = C.mode;
+    unmountCouncil();
     C.active = null; C.id = null; C.ctx = null; C.mode = 'none'; C.skyDirty = true; C.force = 3;
+    hallYield(false);
     if (mod && was === 'three') {
       try { mod.dispose(); } catch (e) { console.warn('[AsgardFX] core dispose failed:', e && e.message); }
       if (C.scene) { try { C.scene.clear(); } catch (e) {} }
@@ -573,17 +597,20 @@
   function coreContextLost() {
     // the context is gone: drop every GL-side handle without calling GL; the 2D fallback mounts on the next frame
     if (C.active && C.mode === 'three') { C.active = null; C.id = null; C.ctx = null; }
+    COU.active = false; if (COU.mod) { try { COU.mod.lost(); } catch (e) {} }
     C.renderer = null; C.scene = null; C.camera = null; C.tmp = null; C.fbo = null; C.fboTex = null; C.blit = null; C.mode = 'none'; C.skyDirty = true;
+    hallYield(false);
   }
   function reconcileCore() {
     const want = desiredCore();
     if (C.id && C.id !== want) unmountCore();
     if (want && !C.id && !C.mounting) {
       const mod = CORES[want];
-      if (mod) { if (coreSupported()) mountCore(want); else mount2d(want, mod); }
+      if (mod) { if (coreSupported()) mountCore(want); else if (!C.hall) mount2d(want, mod); }
       else if (C.loading[want] !== 'failed') loadCoreModule(want);
     }
-    if (C.active && C.quality !== S.quality) { C.quality = S.quality; if (C.active.setQuality) { try { C.active.setQuality(S.quality); } catch (e) {} } C.skyDirty = true; C.force = 3; }
+    if (C.active && C.quality !== S.quality) { C.quality = S.quality; if (C.active.setQuality) { try { C.active.setQuality(S.quality); } catch (e) {} } if (COU.active && COU.mod.setQuality) { try { COU.mod.setQuality(S.quality); } catch (e) {} } C.skyDirty = true; C.force = 3; }
+    if (C.active && C.mode === 'three' && !COU.active && COU.mod && COU.loading === 'done') mountCouncil(C.id);
   }
   function coreResize(bw, bh) {
     if (C.mode !== 'three' || !C.renderer) return;
@@ -669,7 +696,54 @@
     const rd = C.renderer; rd.resetState(); rd.clearDepth(); rd.render(C.scene, C.camera);
     C.tris = rd.info.render.triangles; C.calls = rd.info.render.calls;
   }
-  function coreDebug() { return '\nCORE ' + (C.id || 'none') + '  ' + C.mode + (C.mode === 'three' ? '  tris ' + C.tris + '  calls ' + C.calls : '') + (C.err ? '\nCORE ERR ' + C.err : ''); }
+  function coreDebug() { return '\nCORE ' + (C.id || 'none') + '  ' + C.mode + (C.mode === 'three' ? '  tris ' + C.tris + '  calls ' + C.calls : '') + (COU.active ? '  council ' + (COU.mod.selected() || '-') : '') + (C.err ? '\nCORE ERR ' + C.err : ''); }
+
+  // ---------------------------------------------------------- council
+  // The five advisor gems, tethers, markers and HTML names around a core
+  // (public/fx/cores/council.js). One shared module; it is mounted after a
+  // core and released before it. Its labels are the keyboard-reachable list.
+  const COU = { mod: null, active: false, loading: null };
+  FX.registerCouncil = function (mod) {
+    if (!mod || typeof mod.mount !== 'function' || typeof mod.update !== 'function' || typeof mod.dispose !== 'function') { console.warn('[AsgardFX] council module incomplete'); return; }
+    COU.mod = mod; COU.loading = 'done';
+  };
+  function loadCouncil() {
+    if (COU.mod || COU.loading) return;
+    COU.loading = 'loading';
+    const src = '/fx/cores/council.js';
+    const viaTag = () => { const s = document.createElement('script'); s.src = src; s.async = true; s.onerror = () => { COU.loading = 'failed'; C.err = 'council file missing'; }; s.onload = () => { if (!COU.mod) { COU.loading = 'failed'; C.err = 'council did not register'; } }; document.head.appendChild(s); };
+    try { import(src).then(() => { if (!COU.mod) { COU.loading = 'failed'; C.err = 'council did not register'; } }).catch(() => viaTag()); } catch (e) { viaTag(); }
+  }
+  function mountCouncil(id) {
+    if (!C.active || C.mode !== 'three') return;
+    if (!COU.mod) { loadCouncil(); return; }                       // mounted by reconcile once the file is in
+    try {
+      C.ctx.anchor = (C.active.anchor && C.active.anchor()) || new C.THREE.Vector3(0, 0.5, 0);
+      C.ctx.onSelect = advisorId => { if (C.active && C.active.select) { try { C.active.select(advisorId); } catch (e) {} } };
+      COU.mod.mount(C.ctx, id); COU.active = true;
+      if (COU.mod.setQuality) COU.mod.setQuality(S.quality);
+    } catch (e) { councilFailed(e); }
+  }
+  function unmountCouncil() {
+    if (!COU.active) return;
+    COU.active = false;
+    try { COU.mod.dispose(); } catch (e) { console.warn('[AsgardFX] council dispose failed:', e && e.message); }
+  }
+  function councilFailed(e) {
+    C.err = 'council: ' + ((e && e.message) || String(e)); console.warn('[AsgardFX] council failed:', e);
+    COU.active = false; COU.loading = 'failed';
+    try { COU.mod && COU.mod.dispose(); } catch (e2) {}
+    COU.mod = null;
+  }
+  // Injected only while a WebGL core is live in the hall. Hides the software
+  // centrepiece and tunes Loki's panels toward the blueprint (colour and
+  // border only — no layout property is touched, so nothing can overlap).
+  const HALL_CSS = [
+    'html.asgard-arc #coreCanvas{display:none!important}',
+    'html.asgard-arc[data-persona="loki"] .panel{background:rgba(10,22,24,.92);border-color:rgba(63,214,155,.16)}',
+    'html.asgard-arc[data-persona="loki"] .panel-title{color:#7FBFA9}',
+    'html.asgard-arc[data-persona="loki"] #chatLog .msg.assistant{color:#EAF2EE}'
+  ].join('\n');
 
   // -------------------------------------------------- persona switch
   function requestPersona(id) {
@@ -933,6 +1007,7 @@
     const r = activeRealm();
     if (r && r.update) { try { r.update(dt, E); } catch (e) { if (DEBUG) console.warn(e); } }
     if (C.active && C.mode === 'three') { try { C.active.update(E.animated ? dt : 0, C.ctx); } catch (e) { coreFailed(e); } }
+    if (COU.active) { try { COU.mod.update(E.animated ? dt : 0, C.ctx); if ((S.frame & 3) === 0) COU.mod.layout(C.ctx); } catch (e) { councilFailed(e); } }
     try { drawBackdrop(); } catch (e) { if (DEBUG) console.warn(e); }
     try { drawCore(); } catch (e) { coreFailed(e); }
     try { drawOverlay(dt); } catch (e) { if (DEBUG) console.warn(e); }
@@ -950,7 +1025,8 @@
     if (S.inited || DISABLED) return;
     if (!document.body) { document.addEventListener('DOMContentLoaded', () => FX.init(opts)); return; }
     S.inited = true;
-    C.want = !!(opts && opts.cores);   // Strike Three: a page opts in to the modeled cores (fx-lab does; the hall does not yet)
+    C.hall = !!(document.getElementById('coreCanvas') && document.getElementById('chatLog'));
+    C.want = (opts && opts.cores !== undefined) ? !!opts.cores : C.hall;   // Strike Three: the hall gets the modeled cores by default; other pages opt in with cores:true
     const want = (opts && opts.persona) || (function () { try { return document.documentElement.getAttribute('data-persona'); } catch (e) { return null; } })() || 'thor';
     if (want === 'thor' || want === 'loki' || want === 'odin') S.persona = want;
     if (REDUCED) S.quality = 4;
@@ -1011,6 +1087,6 @@
     const r = activeRealm(); if (r && r.pulse) { try { r.pulse(kind, E); } catch (e) {} }
   };
   FX.mute = function (m) { SFX.setMuted(!!m); };
-  FX.status = function () { return { helaPhase: S.helaPhase, helaDrain: S.helaDrain, pending: S.pending, hallLevel: readHallLevel(), tier: S.tier, path: S.glLost ? '2D (context lost)' : S.path, fps: S.fps, quality: S.quality, persona: S.persona, state: S.state, level: S.level, particles: P.count(), realms: Object.keys(REALMS), core: { want: C.want, id: C.id, mode: C.mode, tris: C.tris, calls: C.calls, err: C.err } }; };
+  FX.status = function () { return { helaPhase: S.helaPhase, helaDrain: S.helaDrain, pending: S.pending, hallLevel: readHallLevel(), tier: S.tier, path: S.glLost ? '2D (context lost)' : S.path, fps: S.fps, quality: S.quality, persona: S.persona, state: S.state, level: S.level, particles: P.count(), realms: Object.keys(REALMS), core: { want: C.want, hall: C.hall, id: C.id, mode: C.mode, tris: C.tris, calls: C.calls, err: C.err, council: COU.active ? COU.mod.selected() || 'none selected' : 'off' } }; };
   if (DISABLED) { FX.init = function () {}; }
 })();

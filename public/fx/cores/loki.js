@@ -188,7 +188,8 @@
       M.state = s;
       if (typeof level === 'number' && isFinite(level)) M.prevLevel = level;
     },
-    select(advisorId) { /* Phase 2: council gems and tethers */ },
+    select(advisorId) { M.sel = advisorId || null; },              // the council lights the tether; the relic itself stays the centre
+    anchor() { return O.crystalWorld; },                            // where tethers end and rings are born (world space)
     setQuality(q) {
       if (!built) return;
       O.mirror.visible = q < 2;                                   // the reflection is the first thing to go

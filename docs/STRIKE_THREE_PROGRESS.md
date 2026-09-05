@@ -18,7 +18,7 @@ collected under NEEDS RAYAN'S EYES at the bottom.
 | Section 2 — blueprint page | DONE minus the pictures: `public/halls-preview.html` is live; `public/img/{thor,loki,odin}.jpg` are MISSING (see below) | strike-three phase 1 |
 | 3.0 — survey | DONE | strike-three phase 1 |
 | 3.1 — the spike (Loki core on fx-lab) | BUILT, deployed, smoke ALL PASS, **look unverified** | strike-three phase 1 |
-| 3.2 — Loki's hall | not started | |
+| 3.2 — Loki's hall | BUILT, deployed, smoke ALL PASS, **look unverified** | strike-three phase 2 |
 | 3.3 — Thor and Odin | not started | |
 | 3.4 — hub + council page | not started | |
 | 3.5 — phone, still mode, access | not started | |
@@ -131,6 +131,46 @@ against the live URL.
 the frame rate, the look, whether the raw-GL/Three.js hand-off has a visual
 glitch. These are the first questions below.
 
+## Phase 2 — Loki's hall (2026-09-05)
+
+**The hall now gets the modeled core by default** (no hall edit: the engine
+recognises the hall by `#coreCanvas` + `#chatLog` and opts in). What changed
+on the live page, and only while WebGL2 + Three.js are actually available:
+- The hall's own software-rendered centrepiece (`#coreCanvas`, canvas 2D) is
+  made to yield: hidden by an injected class/style and shrunk to 1×1 so its
+  untouched loop rasterizes nothing (its JS geometry pass still runs — a small,
+  unmeasured cost). It comes straight back if the core is unmounted, fails,
+  or the GL context is lost. `?fx=0` = the old page, untouched.
+- `public/fx/cores/council.js` (2.1–2.3): five gems on plinths in a ring
+  (radius 2.5, the front centre left open), one shared gem geometry with
+  per-advisor colour, a vertex-coloured tether from each gem to the relic,
+  four instanced markers per gem, names as HTML `<button>`s that ride their
+  plinths at 15 Hz (transform only). **Selection** lights one tether and its
+  markers and settles the rest; gem click (Raycaster), clicking the name, and
+  keyboard focus are equivalent, focus lives on the HTML list, Escape clears.
+  A small HTML sheet shows the advisor's four tool groups (+N more) — Odin's
+  will show instrument / position / P&L / last trade, each tagged PAPER / SIM.
+- **Real state (2.3a):** `/council/status` exists and is public, so the
+  council polls it every 30 s; a gem ignites, streams a pulse down its tether
+  and fires one ring **only** when a councillor's `lastRun` changed since the
+  previous poll. The first poll only primes. A failed fetch leaves it dark.
+- Panels (2.4): colour-only tuning of Loki's panels toward the blueprint
+  (background, border, title colour); no layout property touched. Every panel
+  keeps its data source. The transcript glow for Loki is now citrine.
+- `public/fx/loki.js` (2.5): room palette retuned emerald → plum / petrol /
+  citrine, values only (10 substitutions, structure untouched). The engine's
+  fallback sky for Loki matches.
+- Thor and Odin currently show their gems and tethers too once their cores
+  exist (Phase 3); until then the hall keeps its software centre for them.
+
+Verified without eyes: Node harness with a fake DOM — mount, 7.9k triangles
+with the council at full quality, click-to-select through the real Raycaster,
+Escape, focus mirroring, a poll that reports a new run → pulse → one ring,
+15 Hz label transforms, dispose leaves nothing (0 objects, layer removed,
+listeners removed). Deployed 53213cf6…; `smoke-fx` and backend `smoke` ALL
+PASS. Chat, voice, wake word and persona switching were not touched by code:
+the hall file is byte-identical to before Strike Three.
+
 ## NEEDS RAYAN'S EYES
 
 1. **The spike.** Close the Linux terminal first. Open
@@ -142,6 +182,16 @@ glitch. These are the first questions below.
    anything look broken or cheap? Then the same page with `&q=0` on the end
    (full quality, reflection and iridescence on): FPS again, and does it look
    better enough to keep?
-2. **The blueprint.** Put the three approved pictures in `public/img/` (see
+2. **Loki's hall.** Open https://asgrard-backend.rayanfahil2.workers.dev/?persona=loki&debug=1
+   (terminal closed). (1) FPS and RENDER PATH; (2) the CORE line — `loki three`
+   or `CORE ERR …`; (3) is the centre the yellow relic on its plinth, with five
+   gems and names around it — or the old software centre, or both at once?
+   (4) click one gem, then a name, then press Tab a few times: does only that
+   advisor's line light up and the rest settle, and does the little sheet
+   appear? (5) say the wake word, send a message, get a spoken reply — all
+   still fine? (6) switch to Thor and back to Loki three times — anything
+   stutter, go black, or get slower? (7) do any of the labels sit on top of a
+   panel or the chat box?
+3. **The blueprint.** Put the three approved pictures in `public/img/` (see
    above), then open https://asgrard-backend.rayanfahil2.workers.dev/halls-preview
    and confirm the three halls look like the pictures.

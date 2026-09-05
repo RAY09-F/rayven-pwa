@@ -31,6 +31,7 @@ for (const id of ['thor', 'loki', 'odin']) {
 }
 { const r = await get('/fx/cores/hela.js'); if (missing(r)) ok('no fourth core file', '(correct)'); else bad('no fourth core file', 'a JavaScript file answered — must not exist'); }
 for (const p of ['/fx/thor.js', '/fx/loki.js', '/fx/odin.js']) await must(p, [['registers a realm', /registerRealm\(/]]);
+{ const r = await get('/fx/cores/council.js'); if (missing(r)) ok('council', 'not built yet'); else if (/registerCouncil\(/.test(r.text)) ok('council registers'); else bad('council registers'); }
 await must('/halls-preview.html', [['three halls', /hall--odin/]]);
 {
   const r = await get('/');

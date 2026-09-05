@@ -124,3 +124,46 @@ Copy `public/fx/cores/loki.js`, keep the registration id equal to the
 persona id, replace the geometry with that god's own (see the design skill's
 per-god table), keep the state machine shape, and load nothing the engine did
 not hand you.
+
+## The council module (Phase 2)
+
+`public/fx/cores/council.js` is one shared module for all three visible gods:
+five advisor gems on plinths in a ring, a tether from each to the core, four
+instanced tool markers per gem, HTML names on the plinths, and a small HTML
+sheet for the selected advisor. It registers with `AsgardFX.registerCouncil`
+and the engine mounts it right after a core's `init` and releases it before
+the core's `dispose`.
+
+```js
+{
+  mount(ctx, personaId)   // build for that god; ctx carries `anchor` (the core's Vector3) and `onSelect(id)`
+  update(dt, ctx)         // every frame, dt = 0 in still mode
+  layout(ctx)             // ~15 Hz: place the HTML names, transform-only
+  select(id|null)         // programmatic selection (mirrors gem, list and keyboard)
+  selected()              // the current advisor id or null
+  setQuality(q)           // q >= 3 hides the markers
+  resize(w, h, ctx)
+  lost()                  // the GL context is gone: forget scene objects without calling GL
+  dispose()               // remove the HTML layer and listeners, release every geometry and material
+}
+```
+
+A core may expose `anchor()` (a world-space `Vector3`) for the tethers' far
+end and for rings; without it the engine assumes `(0, 0.5, 0)`. A core's
+`select(id)` is called whenever the council's selection changes.
+
+Real state: the council polls `GET /council/status` every 30 s and ignites a
+gem only when a councillor's `lastRun` changed since the previous poll (the
+first poll only primes). Odin's council also polls `GET /paper-trading/status`
+every 60 s for the sheet's instrument / position / P&L / last-trade rows, each
+tagged PAPER / SIM. A route that fails simply leaves its segment dark.
+
+## In the hall
+
+The hall keeps its own software-rendered centrepiece in `#coreCanvas`. While a
+WebGL core is live the engine adds `html.asgard-arc`, injects one style that
+hides that canvas, and shrinks it to 1×1 so its untouched loop rasterizes
+nothing; the class is removed and a resize event dispatched (so it re-sizes
+itself) the moment the core is unmounted, fails, or the context is lost. The
+hall opts in automatically (it is recognised by `#coreCanvas` + `#chatLog`);
+`?fx=0` leaves everything exactly as it was.

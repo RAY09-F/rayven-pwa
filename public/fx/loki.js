@@ -1,8 +1,8 @@
-/* ASGARD FX — LOKI: emerald and gold mischief. Registers itself with the engine. */
+/* ASGARD FX — LOKI: plum, petrol and citrine mischief (retuned for the yellow core, Strike Three 2.5). Registers itself with the engine. */
 (function () {
   'use strict';
   if (!window.AsgardFX || !window.AsgardFX.registerRealm) return;
-  const EMERALD = [46, 190, 110], BRIGHT = [110, 255, 170], GOLD = [255, 199, 64], BLACK = [4, 8, 6];
+  const EMERALD = [40, 94, 107], BRIGHT = [247, 222, 134], GOLD = [231, 194, 74], BLACK = [11, 10, 18];   // petrol, pale citrine, citrine, void — the names stayed so nothing else in the file moved
   let E, S;
   const L = { slip: 0, slipNext: 3, beat: 0, beatT: 0, sigil: 0, sigilRot: 0, wakeT: -1, shardT: 0 };
   // sixteen invented rune shapes: angular strokes in unit space, not a real alphabet
@@ -16,26 +16,26 @@
     ' float slip=u_a; if(slip>0.5){ float band=step(0.55,hash(vec2(floor(uv.y*38.),floor(t*60.)))); p.x+=band*0.035; }',   // a skipped moment
     ' vec2 cp=vec2(p.x*asp,p.y);',
     ' float horizon=smoothstep(0.55,0.0,abs(uv.y-0.32)*2.2);',
-    ' vec3 col=mix(vec3(0.004,0.01,0.006),vec3(0.02,0.09,0.05),horizon*0.8);',
+    ' vec3 col=mix(vec3(0.043,0.039,0.07),vec3(0.10,0.086,0.14),horizon*0.8);',
     ' float dcen=distance(cp,vec2(0.5*asp,0.5));',
     ' float part=1.0-u_listen*smoothstep(0.42,0.05,dcen);',                                  // mist parts toward the centre
     ' float m1=fbm(cp*1.8+vec2(t*0.03,-t*0.012));',
     ' float m2=fbm(cp*3.1-vec2(t*0.05,t*0.02)+4.2);',
     ' float mist=smoothstep(0.3,0.75,m1*0.6+m2*0.5)*part;',
     ' mist*=0.55+0.45*smoothstep(0.9,0.2,uv.y);',
-    ' col+=vec3(0.10,0.55,0.30)*mist*0.55+vec3(0.9,0.75,0.25)*mist*mist*0.10;',
+    ' col+=vec3(0.16,0.37,0.42)*mist*0.55+vec3(0.9,0.76,0.29)*mist*mist*0.10;',
     ' float beat=u_b; float sig=u_c;',
-    ' col+=vec3(0.25,1.0,0.55)*beat*exp(-dcen*4.0)*0.7;',                                     // the gem glow, beating with the voice
+    ' col+=vec3(0.97,0.87,0.53)*beat*exp(-dcen*4.0)*0.7;',                                     // the gem glow, beating with the voice
     ' float ring=abs(dcen-0.19)-0.006; col+=vec3(0.9,0.8,0.3)*sig*smoothstep(0.02,0.0,ring)*(0.6+0.4*sin(t*3.));',
-    ' float wk=sin(clamp(u_wake,0.,1.)*3.1416); col+=vec3(0.3,1.0,0.5)*wk*wk*0.5;',
-    ' col+=vec3(0.1,0.6,0.3)*slip*0.15*step(0.5,fract(uv.y*120.));',
+    ' float wk=sin(clamp(u_wake,0.,1.)*3.1416); col+=vec3(0.9,0.76,0.29)*wk*wk*0.5;',
+    ' col+=vec3(0.16,0.37,0.42)*slip*0.15*step(0.5,fract(uv.y*120.));',
     ' col*=smoothstep(0.0,0.5,1.0-length(uv-0.5)*0.95);',
     ' return vec4(col,1.0);}'
   ].join('\n');
 
   function prerenderMist() {
     mist.width = 256; mist.height = 128; const c = mist.getContext('2d'); c.clearRect(0, 0, 256, 128);
-    for (let i = 0; i < 36; i++) { const x = Math.random() * 256, y = 30 + Math.random() * 70, r = 24 + Math.random() * 40; const g = E.radial(c, x, y, 0, r); g.addColorStop(0, 'rgba(46,190,110,0.14)'); g.addColorStop(1, 'rgba(46,190,110,0)'); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2); }
+    for (let i = 0; i < 36; i++) { const x = Math.random() * 256, y = 30 + Math.random() * 70, r = 24 + Math.random() * 40; const g = E.radial(c, x, y, 0, r); g.addColorStop(0, 'rgba(40,94,107,0.16)'); g.addColorStop(1, 'rgba(40,94,107,0)'); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2); }
     mistReady = true;
   }
   function spawnRune(x, y, vx, vy, life, depth) { E.P.spawn(x, y, vx, vy, life, 10 + depth * 16, 1, (Math.random() * 16) | 0, depth, Math.random() * 6.2832); }
@@ -106,11 +106,11 @@
       if (L.beat > 0.05) { const gr = E.radial(g, E.cx * s, E.cy * s, 0, 120 * s * (0.5 + L.beat)); gr.addColorStop(0, E.rgba(BRIGHT, L.beat * 0.6)); gr.addColorStop(1, E.rgba(EMERALD, 0)); g.fillStyle = gr; g.fillRect(0, 0, g.canvas.width, g.canvas.height); }
     },
     back2d(ctx, e, W, H) {
-      const t = S.t; const grad = ctx.createLinearGradient(0, 0, 0, H); grad.addColorStop(0, '#010402'); grad.addColorStop(0.68, '#04180c'); grad.addColorStop(1, '#020805'); ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+      const t = S.t; const grad = ctx.createLinearGradient(0, 0, 0, H); grad.addColorStop(0, '#0B0A12'); grad.addColorStop(0.68, '#1A1626'); grad.addColorStop(1, '#0B0A12'); ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
       if (!mistReady) prerenderMist();
       for (let i = 0; i < 5; i++) { const x = ((i * 0.27 + t * 0.01 * (1 + (i % 2))) % 1.3 - 0.15) * W, y = (0.45 + (i % 3) * 0.15) * H; ctx.drawImage(mist, x, y, W * 0.5, H * 0.3); }
       if (L.beat > 0.05) { const g = E.radial(ctx, W / 2, H / 2, 0, W * 0.25 * L.beat); g.addColorStop(0, E.rgba(BRIGHT, L.beat * 0.4)); g.addColorStop(1, E.rgba(EMERALD, 0)); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
-      if (L.slip) { ctx.fillStyle = 'rgba(46,190,110,0.12)'; for (let y = 0; y < H; y += 6) if (Math.random() < 0.3) ctx.fillRect(0, y, W, 2); }
+      if (L.slip) { ctx.fillStyle = 'rgba(40,94,107,0.14)'; for (let y = 0; y < H; y += 6) if (Math.random() < 0.3) ctx.fillRect(0, y, W, 2); }
     },
     wake() { L.wakeT = 0; L.sigil = 1; },
     pulse(kind) { if (kind === 'receive') { E.ring(E.cx, E.cy, EMERALD, 900, 2); } if (kind === 'send') { L.slip = 1; } },
