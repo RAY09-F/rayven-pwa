@@ -33,7 +33,7 @@ import {
 } from './maps.js';
 import { askSiblingAgent } from './sibling-agents.js';
 import { watchAdd, watchList, watchRemove, watchPause, watchResume } from './monitoring.js';
-import { getPaperSummaryText, tradingHaltText, tradingStatusText, tradingReadinessText } from './paperTrading.js';
+import { getPaperSummaryText, tradingHaltText, tradingStatusText, tradingReadinessText, paperBacktestText } from './paperTrading.js';
 import { getPersona, personaAllowsTool, toolOwnerName, DEFAULT_PERSONA_ID } from './personas.js';
 import { marksTainted, isConsequential, wrapUntrusted, describeAction, getAllowedHosts, allowHost, needsApprovalWhileTainted, UNTRUSTED_HANDLING } from './containment.js';
 import { createApproval, resolveApproval, listApprovals, APPROVAL_TOOL_DEFINITIONS } from './approvals.js';
@@ -183,6 +183,7 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {
     case 'trading_resume': return await tradingHaltText(env, false, null, personaId);
     case 'trading_status': return await tradingStatusText(env);
     case 'trading_readiness': return await tradingReadinessText(env);
+    case 'paper_backtest': return await paperBacktestText(env, input && input.agent, input && input.days);
     case 'company_filings': return await companyFilings(env, input);
     case 'token_search': return await tokenSearch(env, input);
     case 'golden_hour': return await goldenHour(env, input);
@@ -812,7 +813,8 @@ TOOL_DEFINITIONS.push(
   { name: 'trading_halt', description: 'Halt PAPER trading: no NEW simulated positions open until trading_resume. Open positions stay open and their stops still apply; nothing is ever force-closed. Use when Rayan says stop/halt/pause the trading. Simulated only.', input_schema: { type: 'object', properties: { reason: { type: 'string', description: 'why, in a few words' } } } },
   { name: 'trading_resume', description: 'Lift a PAPER trading halt so new simulated positions may open again on the next signal. Simulated only.', input_schema: { type: 'object', properties: {} } },
   { name: 'trading_status', description: 'The PAPER book\'s risk state in plain English: halt on/off, the risk caps and whether any is hit today, the fill model (slippage and commission assumptions), cash, open positions. Simulated only — say so.', input_schema: { type: 'object', properties: {} } },
-  { name: 'trading_readiness', description: 'How ready the trading system is: answers "mode: paper. No live path exists." and lists the gates a future real-money switch would require and whether each is met. Nothing here can enable live trading. Use when Rayan asks how ready we are or whether anything is real.', input_schema: { type: 'object', properties: {} } }
+  { name: 'trading_readiness', description: 'How ready the trading system is: answers "mode: paper. No live path exists." and lists the gates a future real-money switch would require and whether each is met. Nothing here can enable live trading. Use when Rayan asks how ready we are or whether anything is real.', input_schema: { type: 'object', properties: {} } },
+  { name: 'paper_backtest', description: 'Replay one PAPER councillor\'s strategy over the candles already cached by the live cycle (never a new market-data call) and report win rate, P&L, avg win/loss, max drawdown and a Sharpe-style ratio. Answers "insufficient cached history" under 5 trading days. Simulated only — say so.', input_schema: { type: 'object', properties: { agent: { type: 'string', description: 'councillor name or agent id, e.g. FRIGGA or freya' }, days: { type: 'integer', description: 'how many recent trading days to replay (default: all cached)' } }, required: ['agent'] } }
 );
 
 // Tool schemas a given persona is allowed to see. Thor (toolNames: null) gets

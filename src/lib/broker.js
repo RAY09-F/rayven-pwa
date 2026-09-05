@@ -138,13 +138,17 @@ export async function tradingGates(env, { trades = [], equity = [], startingBala
   ]);
   const riskPct = riskRaw !== null && riskRaw !== '' && isFinite(Number(riskRaw)) ? Number(riskRaw) : 8;
   const days = new Set(trades.map(t => String(t.exitTime || '').slice(0, 10)).filter(Boolean));
-  const curve = equity.length ? equity.map(e => e.cash) : [startingBalance];
-  const dd = maxDrawdown(curve.length ? curve : [startingBalance]);
+  // Drawdown on REALISED equity (starting balance + cumulative closed P&L), not on
+  // cash: cash falls every time a position opens, which read as a 60% "drawdown"
+  // on a book that had lost nine dollars.
+  let cum = startingBalance; const curve = [startingBalance];
+  for (const t of trades.slice().sort((a, b) => String(a.exitTime).localeCompare(String(b.exitTime)))) { cum += Number(t.pnl) || 0; curve.push(cum); }
+  const dd = maxDrawdown(curve);
   return [
     { name: 'secret LIVE_BROKER_KEY exists', met: !!env.LIVE_BROKER_KEY, detail: env.LIVE_BROKER_KEY ? 'set' : 'not set (and nothing in this repo reads it for trading)' },
     { name: 'config:trading:live_ack holds a phrase Rayan typed through a go-live tool', met: !!ack, detail: ack ? 'present' : 'absent — and no go-live tool exists to write it (it would need a live confirmation AND a Telegram approval: two yeses on two surfaces)' },
     { name: 'paper journal shows at least 30 distinct trading days', met: days.size >= 30, detail: `${days.size} distinct day(s) so far` },
-    { name: `paper max drawdown under config:trading:risk (${riskPct}%)`, met: dd * 100 < riskPct, detail: `${(dd * 100).toFixed(2)}% max drawdown on the cash curve` },
+    { name: `paper max drawdown under config:trading:risk (${riskPct}%)`, met: dd * 100 < riskPct, detail: `${(dd * 100).toFixed(2)}% max drawdown on realised equity` },
     { name: 'trading_halt is not set', met: !halt.halted, detail: halt.halted ? `halted: ${halt.reason || 'no reason given'}` : 'not halted' }
   ];
 }

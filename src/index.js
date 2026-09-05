@@ -14,7 +14,7 @@ import {
 import { executeTool, callClaudeWithTools, getTaskLog, TOOL_DEFINITIONS, toolDefinitionsForPersona } from './lib/tools.js';
 import { handleSpotifyLogin, handleSpotifyCallback, spotifyNowPlayingData, spotifyPause, spotifyResume, spotifyNext, spotifyPrevious } from './lib/spotify.js';
 import { runLokiBriefIfDue, runLokiBrief, runOdinReportIfDue, runOdinReport, getOdinReports } from './lib/reports.js';
-import { runPaperTradingCycleIfDue, runPaperTradingDailyReportIfDue, sendPaperTradingReportNow, getPaperStatus, getPaperChartData, forceDemoTrade, INSTRUMENTS } from './lib/paperTrading.js';
+import { runPaperTradingCycleIfDue, runPaperTradingDailyReportIfDue, sendPaperTradingReportNow, getPaperStatus, getPaperChartData, forceDemoTrade, INSTRUMENTS, runPaperCloseTasksIfDue } from './lib/paperTrading.js';
 import { fetchKrakenCandles, fetchTwelveDataCandles } from './lib/marketData.js';
 import { handleAgentQuery } from './lib/sibling-agents.js';
 import { runProactiveCheckIn, runProactiveCheckInIfDue, runCodeCheckIfDue, runCodeCheck, runMorningBriefing, runMorningBriefingIfDue } from './lib/checkin.js';
@@ -1440,6 +1440,10 @@ How to speak on a phone call:
         }
         return r;
       }),
+      // Phase 4.3: after the NYSE close, one equity sample per agent and the five
+      // traders' self-reviews submitted as ONE Message Batch (cheap tier, off the
+      // live bill); on later ticks the collected reviews land in each journal.
+      job(runPaperCloseTasksIfDue),
       // The legacy daily paper report is replaced by ODIN's market-close ROUTINE
       // (Phase 3.4), which honours config:paper:report:hour and defaults to 13:05.
       // The clipping pass (retired business; publishes at most one clip per

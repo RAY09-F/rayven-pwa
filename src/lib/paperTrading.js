@@ -32,7 +32,9 @@ import { appendCappedLog, readCappedLog } from './util.js';
 import { getPersonaBotToken } from './personas.js';
 import { sendTelegramMessage, getRayanPrivateChatId } from './telegram.js';
 import { getBroker, getHalt, setHalt, tradingReadiness, fillModelFor } from './broker.js';
-import { minutesToNyseClose, nyseCalendarLastYear } from './marketData.js';
+import { submitAndRemember, collectBatchesIfAny } from './batch.js';
+import { MODELS } from './models.js';
+import { minutesToNyseClose, nyseCalendarLastYear, nyseCloseMinutes, NYSE_HOLIDAYS } from './marketData.js';
 
 // Phase 4.2 -- risk caps that apply to PAPER too, so the record is honest.
 const DAILY_LOSS_CAP = 0.03;          // realised loss today >= 3% of the starting balance -> no new positions until tomorrow
@@ -602,13 +604,20 @@ export async function runPaperTradingCycleIfDue(env) {
       console.error('Paper trading: equity log write failed:', err.message);
     }
   }
+  // Phase 4.3: per-councillor stats, written only when one of its trades closed (Rule 5d).
+  const closedAgents = results.filter(o => o && (o.action === 'closed' || o.action === 'stopped_out')).map(o => o.agentId);
+  if (closedAgents.length) {
+    try { const trades = await readCappedLog(env, TRADES_KEY); for (const id of closedAgents) await updateAgentStats(env, id, trades, portfolio, { sample: false }); }
+    catch (err) { console.error('Paper trading: stats update failed:', err.message); }
+  }
   return { ok: !saveError, results, saveError, portfolioSaved: mutated };
 }
 
 // ---- status (feeds the HUD panel, Odin's tool, and the debug route) ----
 
 export async function getPaperStatus(env) {
-  const [portfolio, trades] = await Promise.all([getPortfolio(env), readCappedLog(env, TRADES_KEY)]);
+  const [portfolio, trades, statsRaw] = await Promise.all([getPortfolio(env), readCappedLog(env, TRADES_KEY), Promise.all(Object.keys(AGENTS).map(id => env.RAYVEN_KV.get(STATS_KEY(id)).catch(() => null)))]);
+  const stats = {}; Object.keys(AGENTS).forEach((id, i) => { if (statsRaw[i]) { try { const s = JSON.parse(statsRaw[i]); delete s.equity; stats[id] = { ...s, name: AGENTS[id].name, label: 'PAPER / SIMULATED' }; } catch (e) {} } });
   const today = nyDateString(Date.now());
   const todayTrades = trades.filter(t => nyDateString(t.exitTime) === today);
   const wins = todayTrades.filter(t => t.pnl > 0).length;
@@ -637,6 +646,7 @@ export async function getPaperStatus(env) {
       winRatePct: trades.length ? (totalWins / trades.length) * 100 : null
     },
     recentTrades: trades.slice(-10).reverse(),
+    stats,   // Phase 4.3: per-councillor stats (win rate, avg win/loss, max drawdown, Sharpe-style), PAPER
     agents: Object.fromEntries(Object.values(AGENTS).map(a => [
       a.id, { label: a.label, name: a.name, theme: a.theme || null, hoursNote: INSTRUMENTS[a.instrumentId].hoursNote }
     ]))
@@ -715,6 +725,14 @@ export async function getPaperSummaryText(env, period) {
     `Running total since start: ${allTimePnl >= 0 ? '+' : '-'}$${Math.abs(allTimePnl).toFixed(2)} paper over ${trades.length} trade${trades.length === 1 ? '' : 's'}. Current simulated cash: $${portfolio.cash.toFixed(2)} (started at $${portfolio.startingBalance.toFixed(2)}).`
   ];
 
+  // Phase 4.3: one line from each trader's own journal (their after-close self-review), when there is one.
+  try {
+    const notes = await Promise.all(COUNCIL_TRADERS.map(id => readCappedLog(env, JOURNAL_KEY(id))));
+    const lines2 = [];
+    COUNCIL_TRADERS.forEach((id, i) => { const j = notes[i]; if (j && j.length) { const last = j[j.length - 1]; lines2.push(`${AGENTS[id].name} (${last.date}): ${String(last.text).replace(/\s+/g, ' ').slice(0, 220)}`); } });
+    if (lines2.length) lines.push(`Trader notes (PAPER, their own after-close reviews): ${lines2.join(' | ')}`);
+  } catch (e) {}
+  if (period === 'week' && nyseCalendarLastYear() <= new Date().getFullYear()) lines.push(`NOTE: the built-in NYSE holiday calendar ends with ${nyseCalendarLastYear()} — it needs next year's dates added before January.`);
   if (windowTrades.length) {
     const recentList = windowTrades.slice(-8).reverse().map(t => {
       const a = AGENTS[t.agent];
@@ -829,3 +847,125 @@ export async function tradingReadinessText(env) {
   const r = await tradingReadiness(env, { trades, equity, startingBalance: portfolio.startingBalance });
   return r.text;
 }
+
+// ---- Phase 4.3: per-councillor stats, journals, backtest, the close tasks ----------
+const STATS_KEY = id => `paper:stats:${id}`;
+const JOURNAL_KEY = id => `paper:journal:${id}`;
+const CLOSE_LAST_KEY = 'paper:close:last_date';
+const COUNCIL_TRADERS = ['freya', 'tyr', 'baldr', 'heimdall', 'vidar'];   // Odin's five named councillors (ids, not display names)
+const STATS_EQUITY_CAP = 120;
+const JOURNAL_CAP = 60;
+
+function std(xs) { if (xs.length < 2) return 0; const m = xs.reduce((s, x) => s + x, 0) / xs.length; return Math.sqrt(xs.reduce((s, x) => s + (x - m) * (x - m), 0) / (xs.length - 1)); }
+function drawdownOf(curve) { let peak = -Infinity, dd = 0; for (const v of curve) { if (v > peak) peak = v; if (peak > 0) dd = Math.max(dd, (peak - v) / peak); } return dd; }
+
+// Stats from the trade log for one agent. Drawdown is measured on "the book if
+// only this agent traded" (starting balance + its cumulative P&L). Sharpe-style
+// is per-trade: mean(pnl%) / std(pnl%) × √n -- a shape indicator, not a claim.
+export function computeAgentStats(trades, agentId, startingBalance) {
+  const mine = trades.filter(t => t.agent === agentId).slice().sort((a, b) => String(a.exitTime).localeCompare(String(b.exitTime)));
+  const wins = mine.filter(t => t.pnl > 0), losses = mine.filter(t => t.pnl <= 0);
+  let cum = startingBalance; const curve = [startingBalance]; for (const t of mine) { cum += t.pnl; curve.push(cum); }
+  const pcts = mine.map(t => Number(t.pnlPct) || 0), sd = std(pcts), mean = pcts.length ? pcts.reduce((s, x) => s + x, 0) / pcts.length : 0;
+  return {
+    agent: agentId, trades: mine.length, wins: wins.length, losses: losses.length,
+    winRatePct: mine.length ? (wins.length / mine.length) * 100 : null,
+    pnl: mine.reduce((s, t) => s + t.pnl, 0),
+    avgWin: wins.length ? wins.reduce((s, t) => s + t.pnl, 0) / wins.length : null,
+    avgLoss: losses.length ? losses.reduce((s, t) => s + t.pnl, 0) / losses.length : null,
+    maxDrawdownPct: drawdownOf(curve) * 100,
+    sharpeStyle: sd > 0 ? (mean / sd) * Math.sqrt(pcts.length) : null,
+    fees: mine.reduce((s, t) => s + ((t.fees && t.fees.commissions) || 0), 0),
+    updatedAt: new Date().toISOString()
+  };
+}
+async function updateAgentStats(env, agentId, trades, portfolio, { sample = false } = {}) {
+  let prev = null; try { const raw = await env.RAYVEN_KV.get(STATS_KEY(agentId)); prev = raw ? JSON.parse(raw) : null; } catch (e) {}
+  const s = computeAgentStats(trades, agentId, portfolio.startingBalance);
+  s.equity = (prev && Array.isArray(prev.equity)) ? prev.equity : [];
+  if (sample) { const pos = portfolio.positions[agentId]; s.equity.push({ t: Date.now(), realised: portfolio.startingBalance + s.pnl, open: pos ? pos.qty * pos.entryPrice : 0 }); if (s.equity.length > STATS_EQUITY_CAP) s.equity = s.equity.slice(-STATS_EQUITY_CAP); }
+  await env.RAYVEN_KV.put(STATS_KEY(agentId), JSON.stringify(s));
+  return s;
+}
+export async function getAgentStats(env, agentId) { try { const raw = await env.RAYVEN_KV.get(STATS_KEY(agentId)); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } }
+
+function agentByNameOrId(q) {
+  const s = String(q || '').trim().toLowerCase();
+  return Object.values(AGENTS).find(a => a.id === s || (a.name && a.name.toLowerCase() === s) || (a.label && a.label.toLowerCase().startsWith(s))) || null;
+}
+
+// The backtest: replay the CACHED candle window (paper:candles:<agent>, written by
+// the live cycle) through the agent's own strategy with the same sizing, stop and
+// fill model, on a fresh simulated $10,000. Never fetches; never writes.
+export async function paperBacktest(env, agentQuery, days) {
+  const a = agentByNameOrId(agentQuery);
+  if (!a) return { ok: false, text: `No PAPER agent called "${agentQuery}". The named traders are ${COUNCIL_TRADERS.map(id => AGENTS[id].name).join(', ')}.` };
+  let candles = []; try { const raw = await env.RAYVEN_KV.get(`paper:candles:${a.id}`); candles = raw ? JSON.parse(raw) : []; } catch (e) {}
+  const dayset = new Set(candles.map(c => nyDateString(c.time)));
+  if (dayset.size < 5) return { ok: false, text: `Insufficient cached history for ${a.name || a.label}: only ${dayset.size} trading day(s) of candles are cached (${candles.length} bars). The backtest replays cached candles only — it never spends a market-data call.` };
+  const wantDays = Math.max(1, Math.min(Number(days) || dayset.size, dayset.size));
+  const keepDays = new Set([...dayset].sort().slice(-wantDays)); const cs = candles.filter(c => keepDays.has(nyDateString(c.time)));
+  const fm = fillModelFor(INSTRUMENTS[a.instrumentId].provider);
+  let cash = DEFAULT_STARTING_BALANCE, pos = null; const trades = [];
+  const close = (price, time, reason) => { const fill = price * (1 - fm.slippageBps / 10000), proceeds = pos.qty * fill, comm = proceeds * fm.commissionPct / 100; trades.push({ agent: a.id, pnl: (fill - pos.entryPrice) * pos.qty - comm - pos.entryCommission, pnlPct: (fill - pos.entryPrice) / pos.entryPrice, exitTime: new Date(time).toISOString(), reason }); cash += proceeds - comm; pos = null; };
+  for (let i = LOOKBACK + 1; i < cs.length; i++) {
+    const w = cs.slice(0, i + 1), last = w[w.length - 1];
+    if (pos && last.low <= pos.stopPrice) { close(pos.stopPrice, last.time, 'stop'); continue; }
+    const sig = SIGNAL_FNS[a.strategy](w, !!pos);
+    if (pos && sig.action === 'exit') close(last.close, last.time, sig.reason);
+    else if (!pos && sig.action === 'enter') {
+      const vol = computeVolatility(w), frac = sizeFractionForVolatility(vol), spend = Math.min(cash * frac, POSITION_CAP_FRACTION * DEFAULT_STARTING_BALANCE);
+      const fill = last.close * (1 + fm.slippageBps / 10000), qty = spend / fill, comm = qty * fill * fm.commissionPct / 100;
+      if (qty > 0 && qty * fill + comm <= cash) { cash -= qty * fill + comm; pos = { qty, entryPrice: fill, entryCommission: comm, stopPrice: last.close * (1 - stopDistanceFraction(w, last.close)) }; }
+    }
+  }
+  const s = computeAgentStats(trades, a.id, DEFAULT_STARTING_BALANCE);
+  const f = v => (v == null ? '—' : `${v >= 0 ? '+' : '-'}$${Math.abs(v).toFixed(2)}`);
+  return { ok: true, stats: s, text: [
+    `PAPER BACKTEST — ${a.name || a.label} (${a.strategy}), replaying ${cs.length} cached bars over ${keepDays.size} trading day(s). Simulated only; no real money, no live data fetched.`,
+    `Trades ${s.trades} · win rate ${s.winRatePct == null ? '—' : s.winRatePct.toFixed(0) + '%'} · P&L ${f(s.pnl)} · avg win ${f(s.avgWin)} · avg loss ${f(s.avgLoss)} · max drawdown ${s.maxDrawdownPct.toFixed(2)}% · Sharpe-style ${s.sharpeStyle == null ? '—' : s.sharpeStyle.toFixed(2)} · fees paid $${s.fees.toFixed(2)}.`,
+    `Assumptions: ${fm.note}. A window this short says little — treat it as a shape, not a verdict.`,
+    pos ? `A simulated position was still open at the end (entered $${pos.entryPrice.toFixed(2)}); it is not counted.` : ''
+  ].filter(Boolean).join('\n') };
+}
+export async function paperBacktestText(env, agentQuery, days) { return (await paperBacktest(env, agentQuery, days)).text; }
+
+// After the NYSE close on a trading day: one equity sample per agent, one batched
+// self-review per named trader (cheap tier, off the live bill), and on later ticks
+// the collected reviews land in each trader's journal (one write per trader per day).
+function nyPartsNow() { const fmt = new Intl.DateTimeFormat('en-US', { timeZone: TZ_NY, hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', weekday: 'short' }); const p = Object.fromEntries(fmt.formatToParts(new Date()).map(x => [x.type, x.value])); return { date: `${p.year}-${p.month}-${p.day}`, minutes: parseInt(p.hour, 10) * 60 + parseInt(p.minute, 10), weekday: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(p.weekday) }; }
+export async function runPaperCloseTasksIfDue(env) {
+  const collected = await collectBatchesIfAny(env, { 'trader-reviews': collectTraderReviews });
+  const { date, minutes, weekday } = nyPartsNow();
+  const closeMin = nyseCloseMinutes(date);
+  if (weekday < 1 || weekday > 5 || NYSE_HOLIDAYS.has(date)) return { ok: true, skipped: 'not a trading day', collected };
+  if (minutes < closeMin || minutes >= closeMin + 10) return { ok: true, skipped: 'not the close window', collected };
+  const last = await env.RAYVEN_KV.get(CLOSE_LAST_KEY);
+  if (last === date) return { ok: true, skipped: 'close tasks already done today', collected };
+  const [portfolio, trades] = await Promise.all([getPortfolio(env), readCappedLog(env, TRADES_KEY)]);
+  for (const id of Object.keys(AGENTS)) { try { await updateAgentStats(env, id, trades, portfolio, { sample: true }); } catch (e) { console.error('close sample failed', id, e.message); } }
+  const requests = COUNCIL_TRADERS.map(id => {
+    const a = AGENTS[id], mine = trades.filter(t => t.agent === id && nyDateString(t.exitTime) === date), pos = portfolio.positions[id], s = computeAgentStats(trades, id, portfolio.startingBalance);
+    const facts = [
+      `Today (${date}) closed trades: ${mine.length ? mine.map(t => `${t.pnl >= 0 ? '+' : '-'}$${Math.abs(t.pnl).toFixed(2)} (${t.exitReason})`).join('; ') : 'none'}.`,
+      `Open position: ${pos ? `long ${pos.qty.toFixed(4)} from $${pos.entryPrice.toFixed(2)}, stop $${pos.stopPrice.toFixed(2)}` : 'none'}.`,
+      `All-time: ${s.trades} trades, win rate ${s.winRatePct == null ? '—' : s.winRatePct.toFixed(0) + '%'}, P&L ${s.pnl >= 0 ? '+' : '-'}$${Math.abs(s.pnl).toFixed(2)}, max drawdown ${s.maxDrawdownPct.toFixed(2)}%.`
+    ].join('\n');
+    return { custom_id: `${date}:${id}`, model: MODELS.haiku, max_tokens: 160,
+      system: `You are ${a.name}, one of Odin's five PAPER-trading councillors in ASGARD (${a.label}; strategy ${a.strategy}). Write your own two-sentence after-close self-review of today, in first person, plain text, no markdown. Use ONLY the numbers given — never invent one. Everything is simulated paper trading; do not recommend any real trade.`,
+      messages: [{ role: 'user', content: facts }] };
+  });
+  const sub = await submitAndRemember(env, 'trader-reviews', requests, { date });
+  await env.RAYVEN_KV.put(CLOSE_LAST_KEY, date);
+  return { ok: true, date, sampled: Object.keys(AGENTS).length, reviewsSubmitted: sub.ok, batch: sub.id || null, error: sub.error || null };
+}
+async function collectTraderReviews(env, entry, results) {
+  let n = 0;
+  for (const r of results) {
+    if (!r.custom_id || !r.text) continue;
+    const id = r.custom_id.split(':').pop(); if (!AGENTS[id]) continue;
+    await appendCappedLog(env, JOURNAL_KEY(id), { date: (entry.meta && entry.meta.date) || r.custom_id.slice(0, 10), text: String(r.text).trim().slice(0, 600), label: 'PAPER' }, JOURNAL_CAP); n++;
+  }
+  return { note: `${n} review(s) journaled` };
+}
+export async function getTraderJournal(env, agentId) { return await readCappedLog(env, JOURNAL_KEY(agentId)); }

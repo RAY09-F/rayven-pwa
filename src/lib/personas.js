@@ -239,7 +239,7 @@ const ODIN_TOOLS = [
     'approvals_list', 'approve', 'reject', 'delegate',
     'routine_create', 'routine_list', 'routine_pause', 'routine_resume', 'routine_delete', 'routine_run_now', 'routine_history',
     // asgard-upgrade Phase 4.2 (appended): the PAPER kill switch and readiness
-    'trading_halt', 'trading_resume', 'trading_status', 'trading_readiness'
+    'trading_halt', 'trading_resume', 'trading_status', 'trading_readiness', 'paper_backtest'
 ];
 
 export const PERSONAS = {

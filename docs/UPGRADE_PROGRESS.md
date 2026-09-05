@@ -334,3 +334,30 @@ committed and pushed phase by phase. Anything that needed Rayan's eyes or a deci
   Live: Odin ran `trading_readiness` (smoke header) and reported mode paper, no live path, gates not met.
 - Finding: the readiness drawdown gate read 59.8% because it measured the **cash** curve (cash falls whenever a
   position opens). 4.3 switches it to realised equity.
+
+## Phase 4.3 + 4.4 — a better simulation, and the council page
+- **Holidays:** NYSE closures and 1:00 p.m. early closes for 2026–2028 in `marketData.js` (verified on nyse.com
+  2026-09-05). Odin's weekly paper read-out carries a NOTE when the calendar's last year is the current year.
+- **Fill model** (`broker.FILL_MODEL`): crypto 10 bps slippage + 0.26% commission (Kraken taker); ETFs 5 bps, $0.
+  Stated by `trading_status`, by the backtest, and carried on every trade (`fees`); `pnl` is net of commissions.
+- **Per-councillor stats** `paper:stats:<agent>` — win rate, avg win/loss, max drawdown ("the book if only this
+  agent traded"), Sharpe-style (per-trade mean/std × √n), fees — written only when one of its trades closes,
+  plus ONE equity sample per agent after the NYSE close (`runPaperCloseTasksIfDue`, first tick in the 10 minutes
+  after the close, marker `paper:close:last_date`). `/paper-trading/status` returns `stats` (equity series left out).
+- **`paper_backtest`** (Odin): replays the CACHED candle window (`paper:candles:<agent>`, written by the live cycle)
+  through the agent's own strategy with the same sizing, stop and fill model on a fresh $10,000; answers
+  "insufficient cached history" under 5 trading days; never fetches, never writes. Live: VOLSTAGG over 8 cached
+  days → 0 closed trades, one open at the end (honest about the short window).
+- **Daily self-review per trader**, cheap tier, **through the Message Batches API** (`src/lib/batch.js`, Phase 6.2
+  brought forward): the close tasks submit ONE batch with five requests (FRIGGA, FANDRAL, VOLSTAGG, HOGUN,
+  HEIMDALL, each given only its real numbers); later ticks poll `system:batches` and, once ended, append each
+  review to `paper:journal:<agent>` (cap 60). Odin's paper read-outs quote the latest note per trader, so the
+  Market-close report and State of the realm carry them without a routine change. Worst case ≈ 17 writes per
+  trading day (10 samples + 5 journals + 2 state).
+- **Readiness drawdown** now measures realised equity (start + cumulative closed P&L), not cash.
+- **4.4 team.html:** the agent card gets one STATS line (trades, win rate, P&L, max drawdown, PAPER) from
+  `status.stats`, matched by display name like everything else on that page. No restructuring.
+- Verified: Node harness (stats on close, backtest refusals and a run, close tasks sampling 10 agents and
+  submitting a mocked batch, the collector journaling the reviews, status carrying stats, the read-out quoting the
+  notes) PASS; deployed bea98019…, smoke ALL PASS; live `/paper-trading/status` carries `stats`; Odin ran the
+  backtest. The first real batch submits after the next NYSE close (Tuesday 2026-09-08, Monday is Labor Day).

@@ -445,6 +445,8 @@ async function poll() {
     live.open = {}; live.agents = {};
     Object.entries(d.agents || {}).forEach(([id, a]) => { if (a && a.name) live.agents[a.name] = { id, ...a }; });
     Object.entries(d.openPositions || {}).forEach(([id, p]) => { const nm = p.name || (d.agents && d.agents[id] && d.agents[id].name); if (nm) live.open[nm] = p; });
+    // asgard-upgrade Phase 4.4: per-councillor PAPER stats, keyed by display name like everything else here.
+    live.stats = {}; Object.entries(d.stats || {}).forEach(([id, s]) => { const nm = (s && s.name) || (d.agents && d.agents[id] && d.agents[id].name); if (nm && s) live.stats[nm] = s; });
     // asgard-upgrade Phase 2.6: the same 30-second poll also reads /council/status
     // (the three visible councils; keyed by display name). A failure here never
     // touches the paper-trading readout above.
@@ -621,6 +623,9 @@ function showCard(n) {
     if (!live.ok) html += `<div class="live">LIVE LINK UNAVAILABLE FROM HERE · PAPER · SIMULATED</div>`;
     else if (p) html += `<div class="live"><b class="up">● IN TRADE</b> since ${new Date(p.entryTime).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}<br>ENTRY <b>$${Number(p.entryPrice).toLocaleString('en-US', { maximumFractionDigits: 2 })}</b> · STOP <b>$${Number(p.stopPrice).toLocaleString('en-US', { maximumFractionDigits: 2 })}</b><br>PAPER · SIMULATED</div>`;
     else html += `<div class="live"><b>WATCHING</b> · flat, waiting for its setup<br>PAPER · SIMULATED</div>`;
+    // Phase 4.4: one short stats line per trader (win rate, P&L, drawdown) — PAPER.
+    const st = live.ok && live.stats && live.stats[n.name];
+    if (st && st.trades) html += `<div class="live">STATS · ${st.trades} TRADES · WIN ${st.winRatePct == null ? '—' : st.winRatePct.toFixed(0) + '%'} · P&amp;L <b class="${st.pnl > 0 ? 'up' : st.pnl < 0 ? 'down' : ''}">${money(st.pnl)}</b> · MAX DD ${Number(st.maxDrawdownPct || 0).toFixed(1)}% · PAPER</div>`;
   } else {
     card.style.setProperty('--accent', TOOL_INK.c);
     html = `<h3 style="color:${TOOL_INK.text}">${n.name}</h3><div class="kicker">TOOL · IN ${n.owner.name}'S REACH${n.note ? ' · ' + n.note : ''}</div>`;
