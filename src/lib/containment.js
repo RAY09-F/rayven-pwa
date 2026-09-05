@@ -112,8 +112,11 @@ export const APPROVAL_WHILE_TAINTED = new Set([
   'learn_capability', 'forge_capability',                                // capability creation
   'remember_this', 'keep_brief',                                         // long-term memory writes
   'allow_host',                                                          // widening egress
-  'browser_navigate'                                                     // only to a NEW domain (see below)
+  'browser_navigate',                                                    // only to a NEW domain (see below)
+  'publish_note', 'share_file', 'ntfy_push', 'discord_webhook', 'url_shorten', 'qr_code'   // Phase 7: anything that publishes, links or pushes
 ]);
+// Phase 7: catalogue modules register the tools whose results are outside content.
+export function registerUntrustedSources(names) { for (const n of names || []) UNTRUSTED_SOURCES.add(n); }
 
 export function needsApprovalWhileTainted(toolName, input, meta) {
   if (!APPROVAL_WHILE_TAINTED.has(toolName)) return false;

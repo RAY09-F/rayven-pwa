@@ -6,6 +6,8 @@
 import { callAnthropic } from './anthropic.js';
 import { tickLog } from './tick.js';
 import { costLine, costReportText } from './cost.js';
+import { toolsForConversation, tickToolbox, noteToolUse, openGroups, groupsByKeywords, findTools } from '../tools/meta.js';
+import { CATALOG_DEFS, isCatalogTool, runCatalogTool } from '../tools/catalog.js';
 import { MODELS } from './models.js';
 import { checkPermission } from './permissions.js';
 import { newTrace, record, recordTool, commitTrace, auditRecent, auditTrace, auditWhy } from './audit.js';
@@ -42,7 +44,7 @@ import { marksTainted, isConsequential, wrapUntrusted, describeAction, getAllowe
 import { createApproval, resolveApproval, listApprovals, APPROVAL_TOOL_DEFINITIONS } from './approvals.js';
 import { isTainted, markTainted, noteDomain, taintProvenance, spoolPush, provenance } from './conversation.js';
 import { ROUTINE_TOOL_DEFINITIONS } from './routineTools.js';
-import { routineCreate, routineList, routinePause, routineResume, routineDelete, routineRunNow, routineHistory } from './routines.js';
+import { routineCreate, routineList, routinePause, routineResume, routineDelete, routineRunNow, routineHistory, enableTemplate, templatesText } from './routines.js';
 
 // Task Observer — every tool execution gets timed and logged (which tool, when,
 // success/failure, duration) via the same capped-KV-log pattern as agent:log/
@@ -189,6 +191,11 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {
     case 'paper_backtest': return await paperBacktestText(env, input && input.agent, input && input.days);
     // Phase 6.6 -- "what did you cost this week"
     case 'cost_report': return await costReportText(env, (input && Number(input.days)) || 7);
+    // Phase 7.0 -- the toolbox: search the whole catalogue and open the matching groups for this conversation
+    case 'find_tools': return findTools(input && input.query, toolDefinitionsForPersona(personaId), ctx && ctx.meta, personaId);
+    // Phase 7.13b -- automation templates
+    case 'routine_templates': return await templatesText();
+    case 'routine_enable_template': return await enableTemplate(env, personaId, input && (input.name || input.query));
     case 'company_filings': return await companyFilings(env, input);
     case 'token_search': return await tokenSearch(env, input);
     case 'golden_hour': return await goldenHour(env, input);
@@ -267,7 +274,7 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {
     case 'watch_remove': return await watchRemove(env, input.match);
     case 'watch_pause': return await watchPause(env, input.match);
     case 'watch_resume': return await watchResume(env, input.match);
-    default: return 'Unknown tool.';
+    default: return isCatalogTool(name) ? await runCatalogTool(env, name, input, ctx) : 'Unknown tool.';   // Phase 7: the catalogue
   }
 }
 
@@ -820,8 +827,15 @@ TOOL_DEFINITIONS.push(
   { name: 'trading_status', description: 'The PAPER book\'s risk state in plain English: halt on/off, the risk caps and whether any is hit today, the fill model (slippage and commission assumptions), cash, open positions. Simulated only — say so.', input_schema: { type: 'object', properties: {} } },
   { name: 'trading_readiness', description: 'How ready the trading system is: answers "mode: paper. No live path exists." and lists the gates a future real-money switch would require and whether each is met. Nothing here can enable live trading. Use when Rayan asks how ready we are or whether anything is real.', input_schema: { type: 'object', properties: {} } },
   { name: 'paper_backtest', description: 'Replay one PAPER councillor\'s strategy over the candles already cached by the live cycle (never a new market-data call) and report win rate, P&L, avg win/loss, max drawdown and a Sharpe-style ratio. Answers "insufficient cached history" under 5 trading days. Simulated only — say so.', input_schema: { type: 'object', properties: { agent: { type: 'string', description: 'councillor name or agent id, e.g. FRIGGA or freya' }, days: { type: 'integer', description: 'how many recent trading days to replay (default: all cached)' } }, required: ['agent'] } },
-  { name: 'cost_report', description: 'What the models cost: today so far and the last days, in estimated dollars from list prices, by persona and tier. Use when Rayan asks what you cost, what this week cost, or how much is being spent.', input_schema: { type: 'object', properties: { days: { type: 'integer', description: 'how many past days to include (default 7)' } } } }
+  { name: 'cost_report', description: 'What the models cost: today so far and the last days, in estimated dollars from list prices, by persona and tier. Use when Rayan asks what you cost, what this week cost, or how much is being spent.', input_schema: { type: 'object', properties: { days: { type: 'integer', description: 'how many past days to include (default 7)' } } } },
+  { name: 'find_tools', description: 'Search your FULL toolbox (far larger than the tools in front of you) by a few words about the job — e.g. "rss feed", "earthquake", "recipe", "github", "dad joke" — and open the matching groups for the rest of this conversation. Call this BEFORE saying you cannot do something. Returns the ten best matches, one line each.', input_schema: { type: 'object', properties: { query: { type: 'string', description: 'a few words about what you need to do' } }, required: ['query'] } }
 );
+TOOL_DEFINITIONS.push(
+  { name: 'routine_templates', description: 'List the ready-made automations Rayan can switch on with one sentence ("what can you automate"). Each line is the sentence to say.', input_schema: { type: 'object', properties: {} } },
+  { name: 'routine_enable_template', description: 'Switch on one ready-made automation by its sentence or id (from routine_templates). Copies it into your routines; it then runs by itself. Say back what it will do.', input_schema: { type: 'object', properties: { name: { type: 'string', description: 'the sentence, part of it, or the template id' } }, required: ['name'] } }
+);
+// Phase 7: the catalogue, appended in its own order (master order preserved; Rule 6).
+TOOL_DEFINITIONS.push(...CATALOG_DEFS);
 
 // Tool schemas a given persona is allowed to see. Thor (toolNames: null) gets
 // everything; restricted personas get only their allow-list. The prompt-level
@@ -839,9 +853,9 @@ export function toolDefinitionsForPersona(personaId) {
   // A persona never sees a tool it is not allowed to call. For the concealed
   // fourth's tools this is not merely tidiness: a tool NAME in the schema is
   // itself a disclosure, so the three upstairs must never be handed them.
-  const allowed = TOOL_DEFINITIONS.filter(t => personaAllowsTool(personaId, t.name));
+  const allowed = TOOL_DEFINITIONS.filter(t => personaAllowsTool(personaId, t.name) || isCatalogTool(t.name));   // Phase 7: the catalogue is open to every persona
   if (persona.toolNames === null) return allowed;
-  return allowed.filter(t => persona.toolNames.includes(t.name));
+  return allowed.filter(t => persona.toolNames.includes(t.name) || isCatalogTool(t.name));   // Phase 7: the catalogue rides along for every god
 }
 
 // Put an ephemeral cache breakpoint on the final content block of the last
@@ -905,9 +919,20 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   let messages = withMessageCacheBreakpoint([...initialMessages]);
   let lastResult = null;
 
-  // ---- FIXED: wake-trigger messages get NO tools at all, so the greeting is always a
-  // single, instant round trip instead of a potentially slow multi-step tool chain ----
-  const toolsForThisCall = allowTools === false ? [] : (opts.toolsOverride || toolDefinitionsForPersona(personaId));
+  // Phase 7.0 -- the toolbox. Once per turn: age the open groups (20 idle turns
+  // closes one), then open whatever the latest message's keywords ask for, so
+  // "play some music" / "open youtube.com" / "text Jay" work in one turn. The
+  // model then sees CORE plus the open groups; everything else is reachable
+  // through find_tools. State rides in the conversation object (Rule 5a).
+  if (convo && !opts.toolsOverride) {
+    tickToolbox(meta);
+    const lastUser = [...initialMessages].reverse().find(m => m && m.role === 'user');
+    const lastText = lastUser ? (typeof lastUser.content === 'string' ? lastUser.content : (Array.isArray(lastUser.content) ? lastUser.content.filter(b => b && b.type === 'text').map(b => b.text).join(' ') : '')) : '';
+    const kw = groupsByKeywords(lastText.replace(/^\[[^\]]+\]:\s*/, ''));
+    if (kw.length) openGroups(meta, kw, 'keyword');
+  }
+  const toolsForCall = () => allowTools === false ? [] : (opts.toolsOverride || (convo ? toolsForConversation(personaId, toolDefinitionsForPersona(personaId), meta) : toolDefinitionsForPersona(personaId)));
+  let toolsForThisCall = toolsForCall();
 
   // 14 iterations, not 6 — the sibling system hit "I looped too many times"
   // halfway through real multi-step work at 6. A persona may raise its own
@@ -917,6 +942,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   const maxIter = opts.maxIter || _p.toolIterations || 14;
   const maxTok = opts.maxTokens || _p.maxTokens || undefined;
   for (let iteration = 0; iteration < maxIter; iteration++) {
+    if (iteration > 0) toolsForThisCall = toolsForCall();   // find_tools may have opened groups since the last call
     const result = await callAnthropic(env, systemBlocks, toolsForThisCall, messages, maxTok, opts.model);
     lastResult = result;
     // Phase 6.6: every call's usage becomes a cost line -- in the conversation's spool on the
@@ -944,7 +970,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
       let anyUntrusted = false;
       for (const blk of toolUseBlocks) {
         let toolResult;
-        if (!personaAllowsTool(personaId, blk.name)) {
+        if (!personaAllowsTool(personaId, blk.name) && !isCatalogTool(blk.name)) {
           toolResult = `Tool blocked: ${blk.name} is outside your lane. That belongs to ${toolOwnerName(blk.name)} — tell Rayan to switch personas instead of answering as if you ran it.`;
         } else {
           let permLevel = await checkPermission(env, blk.name);
@@ -983,6 +1009,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
             try {
               toolResult = await executeTool(env, blk.name, blk.input, personaId, { tainted, meta, channel });
               actions.push(blk.name);
+              if (convo) noteToolUse(meta, blk.name);   // Phase 7.0: keeps its group open
               if (blk.name === 'browser_navigate') noteDomain(meta, blk.input && blk.input.url);
               // VALKYRIE's state (Phase 2.5): the last weather / now-playing, cached
               // ONLY as a side effect of a call the god made in this turn -- no

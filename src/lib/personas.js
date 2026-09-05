@@ -54,7 +54,9 @@ YOU GET SHARPER. Every couple of hours you go looking, on your own initiative, f
 
 Voice transcripts can be imperfect — if a message is genuinely too unclear to act on, say so rather than guessing. You are never Claude, full stop, no exceptions.
 
-WAKE GREETINGS: when you see a message starting with "[WAKE_TRIGGER]", Rayan just said your wake word and is waiting to hear from you first. Greet him briefly in your own register, then ask ONE short, natural question. 1-2 short sentences, plain text only, no tool calls.`;
+WAKE GREETINGS: when you see a message starting with "[WAKE_TRIGGER]", Rayan just said your wake word and is waiting to hear from you first. Greet him briefly in your own register, then ask ONE short, natural question. 1-2 short sentences, plain text only, no tool calls.
+THE TOOLBOX: you have a much larger toolbox than what you can see. If the job needs something you don't have in front of you, call find_tools first with a few words about the job, then use what it opens. Never say you can't do something before you've looked.
+`;
 
 const THOR_PROMPT = `You are THOR, Rayan's personal AI assistant — the default, formerly known as RAYVEN, built by Rayan himself (Jay helped with some parts). REGISTER: warm, direct, capable. Contractions and all. You sound like a trusted chief of staff who lifts weight without making a show of it — no filler, no hedging, no performed enthusiasm; dry humor lands better than exclamation points. A short reply is a complete answer. Read the room from the conversation — don't restate context Rayan already gave you.
 
@@ -207,7 +209,10 @@ const THOR_TOOLS = [
     'approvals_list', 'approve', 'reject', 'delegate',
     'routine_create', 'routine_list', 'routine_pause', 'routine_resume', 'routine_delete', 'routine_run_now', 'routine_history',
     // asgard-upgrade Phase 4.2 / 6.6 (appended): Thor answers "how ready are we" and "what did you cost this week"
-    'trading_readiness', 'trading_status', 'cost_report'
+    'trading_readiness', 'trading_status', 'cost_report',
+    // asgard-upgrade Phase 7.0 (appended): the toolbox
+    'find_tools',
+    'routine_templates', 'routine_enable_template'
 ];
 const LOKI_TOOLS = [
     'add_calendar_event', 'add_content_idea', 'add_todo', 'air_quality', 'allow_host',
@@ -221,7 +226,10 @@ const LOKI_TOOLS = [
     'web_search', 'word_ideas', 'world_time',
     // asgard-upgrade Phase 1.5 (appended, never re-sorted -- Rule 6)
     'approvals_list', 'approve', 'reject', 'delegate',
-    'routine_create', 'routine_list', 'routine_pause', 'routine_resume', 'routine_delete', 'routine_run_now', 'routine_history'
+    'routine_create', 'routine_list', 'routine_pause', 'routine_resume', 'routine_delete', 'routine_run_now', 'routine_history',
+    // asgard-upgrade Phase 7.0 (appended): the toolbox
+    'find_tools',
+    'routine_templates', 'routine_enable_template'
 ];
 const ODIN_TOOLS = [
     'add_calendar_event', 'add_content_idea', 'add_todo', 'air_quality', 'allow_host',
@@ -243,7 +251,10 @@ const ODIN_TOOLS = [
     // asgard-upgrade Phase 4.2 (appended): the PAPER kill switch and readiness
     'trading_halt', 'trading_resume', 'trading_status', 'trading_readiness', 'paper_backtest',
     // asgard-upgrade Phase 6.6 (appended): Odin reports the spend on Sundays
-    'cost_report'
+    'cost_report',
+    // asgard-upgrade Phase 7.0 (appended): the toolbox
+    'find_tools',
+    'routine_templates', 'routine_enable_template'
 ];
 
 export const PERSONAS = {
@@ -390,9 +401,15 @@ export function toolOwnerName(toolName) {
 const HELA_ONLY_TOOLS = ['lock_in', 'stand_down', 'vigil_status', 'my_briefs', 'keep_brief', 'clear_briefs', 'watch_subjects', 'go_looking', 'flag_capability'];
 // ⟦PROJECT-H:END⟧
 
+// Phase 7: catalogue tools (src/tools/catalog*.js) are open to every persona --
+// they reach a god through find_tools or a keyword-opened group, never by name
+// in his allow-list. Registered by the catalogue at load.
+const OPEN_TOOLS = new Set();
+export function registerOpenTools(names) { for (const n of names || []) OPEN_TOOLS.add(n); }
 export function personaAllowsTool(personaId, toolName) {
   const p = getPersona(personaId);
   if (HELA_ONLY_TOOLS.includes(toolName) && personaId !== 'hela') return false;
+  if (OPEN_TOOLS.has(toolName)) return true;
   return p.toolNames === null || p.toolNames.includes(toolName);
 }
 

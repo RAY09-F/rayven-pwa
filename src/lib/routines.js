@@ -496,3 +496,19 @@ export async function seedRoutinesIfMissing(env) {
 
 // Phase 5.1: the vault export reads routines raw.
 export { readIndex as readRoutinesIndex, readRoutine as readRoutineRaw };
+
+// Phase 7.13b: templates are code; enabling one copies it into the store (2 writes, Rule 5a2).
+export async function enableTemplate(env, owner, query) {
+  const { templateById, listTemplates } = await import('./templates.js');
+  const t = templateById(query);
+  if (!t) return `No template matches "${query}". Say "what can you automate" to hear the list.`;
+  if (t.owner !== owner && owner !== 'hela') return `That one belongs to ${getPersona(t.owner).name} — ask ${getPersona(t.owner).name} to switch it on.`;
+  const index = await readIndex(env);
+  if (index.some(e => e.id === t.id)) { const r = await readRoutine(env, t.id); if (r && r.enabled !== false && !r.deleted) return `"${t.name}" is already on.`; if (r) { r.enabled = true; r.deleted = false; r.pausedReason = null; await writeRoutine(env, r); const e = index.find(x => x.id === t.id); if (e) { e.enabled = true; e.deleted = false; } await writeIndex(env, index); return `"${t.name}" is back on: ${t.say}.`; } }
+  const { id, say, ...rest } = t;
+  const routine = { id, ...rest, enabled: true, createdBy: `template:${id}`, createdAt: new Date().toISOString(), runs: [], state: {}, failures: 0 };
+  // (templates are code, validated by the runner when they run)
+  await writeRoutine(env, routine); index.push({ id, name: t.name, owner: t.owner, enabled: true }); await writeIndex(env, index);
+  return `On: "${t.name}" — ${say}. It runs by itself from now; say "pause ${t.name.toLowerCase()}" to stop it.${/\$event\.payload|ntfy_push/.test(JSON.stringify(t.steps)) ? ' (Some of these use the phone push, which needs the NTFY_TOPIC secret.)' : ''}`;
+}
+export async function templatesText() { const { listTemplates } = await import('./templates.js'); return 'Things I can automate — say the sentence to switch one on:\n' + listTemplates().map(t => `- ${t.say}  [${t.owner}]`).join('\n'); }

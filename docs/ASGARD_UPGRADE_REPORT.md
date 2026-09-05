@@ -57,6 +57,41 @@ says how a move would go (copy, not rebuild; run both for a month). Asgard is
 also an MCP server at `/mcp` so a future agent can use its tools with the same
 rules Thor has.
 
+## Here is everything Asgard can do now, by saying…
+
+The gods see about forty tools each; the rest (277 in all) open the moment your sentence needs them, or when a
+god calls `find_tools`. Say it to any of them unless a name is given.
+
+**Reading and research:** "read this page/PDF …", "what's on Hacker News", "what's trending", "read the feed at …",
+"watch this feed" (Loki), "find papers on …" (arXiv, Crossref), "find the book …", "is there an archived copy of …",
+"search the Federal Register for …", "Wikipedia says what about …".
+**Markets (Odin, all read-only, PAPER-labelled):** "price of bitcoin / ethereum", "top ten coins", "what's trending on
+CoinGecko", "TVL of aave", "bitcoin fees right now", "fear and greed", "prediction markets about …", "exchange rate
+USD to EUR", "show me the paper equity chart".
+**World and safety:** "any weather alerts for Kern County", "NWS forecast", "earthquakes near us", "CAL FIRE
+incidents", "space weather", "where is the ISS", "picture of the day", "tides at …", "elevation of …", "what's near
+… (cafes, pharmacies)", "facts about Japan", "population of the US".
+**Life admin:** "add milk to the shopping list", "note: …", "read my notes", "add … to my reading list", "log gym",
+"how are my habits", "I spent 40 on gas", "expenses this week", "convert 10 miles to km", "recipe for …",
+"cocktail …", "scan barcode …", "exercises for biceps", "decode VIN …", "recalls for a 2003 Accord".
+**Work:** "find customer-service jobs in Bakersfield" (never applies), "tell me about Chevron".
+**Dev:** "is Cloudflare having an outage", "npm/pypi info for …", "DNS for …", "whois …", "check this URL",
+"shorten this link", "where does this short link go", "make a QR code for …", "preview this page", "hash this",
+"base64 …", "give me a UUID", "test this regex", "pretty-print this JSON".
+**Media and fun:** "TV show Loki", "what's on TV tonight", "game deals for Hades", "free games right now",
+"trivia", "draw cards", "pokemon pikachu", "D&D fireball", "Magic card Black Lotus", "dad joke", "joke", "advice",
+"a quote", "useless fact", "yes or no", "random dog/fox/cat", "xkcd", "meme templates", "Star Wars Luke",
+"Star Trek Picard", "Rick and Morty".
+**Pictures and pages:** "describe this image …", "what objects are in …", "classify this image", "sentiment of …",
+"publish a note titled …" (a page at /notes/…), "share the file …" (a temporary signed link).
+**Memory and self:** "what did I say about …", "memory between … and …", "journal: …", "read my journal",
+"self stats", "what did you cost this week".
+**Automation (Loki, mostly):** "what can you automate" lists 25 one-sentence templates — "rain tomorrow → tell me
+tonight at nine", "earthquake over 4.0 within 100 miles → tell me", "new job matching my criteria → 8 am digest",
+"habit not logged by 8 pm → one nudge", "weekly expenses → Sunday summary" … — and saying one switches it on.
+**Phone pushes and Discord** wait for two secrets (`NTFY_TOPIC`, `DISCORD_WEBHOOK_URL`); the tools tell you exactly
+what to type.
+
 ## What costs money and roughly how much
 
 - Claude: Sonnet 5 for the gods ($2 / $10 per million tokens), Haiku for the

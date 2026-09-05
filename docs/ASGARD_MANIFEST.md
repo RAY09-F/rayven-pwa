@@ -1,15 +1,15 @@
 # ASGARD MANIFEST — ground truth, generated from code
 
-Generated 2026-09-05T06:41:05.178Z by scripts/gen-manifest.mjs. Do not hand-edit the derived tables; re-run the script.
+Generated 2026-09-05T19:53:42.658Z by scripts/gen-manifest.mjs. Do not hand-edit the derived tables; re-run the script.
 
 ## Personas
 
 | id | name | model | max_tokens | history depth | inline memories | tool iterations | tools visible | memory key | voice secret | bot token secret | hidden |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| thor | THOR | claude-sonnet-5 | 1400 | 30 turns | 15 | 14 | 85 | memory:longterm | ELEVENLABS_VOICE_ID_THOR (→ ELEVENLABS_VOICE_ID) | TELEGRAM_BOT_TOKEN_THOR (→ TELEGRAM_BOT_TOKEN) | no |
-| loki | LOKI | claude-sonnet-5 | 1400 | 30 turns | 15 | 14 | 55 | memory:longterm:loki | ELEVENLABS_VOICE_ID_LOKI (→ ELEVENLABS_VOICE_ID) | TELEGRAM_BOT_TOKEN_LOKI | no |
-| odin | ODIN | claude-sonnet-5 | 1400 | 30 turns | 15 | 14 | 66 | memory:longterm:odin | ELEVENLABS_VOICE_ID_ODIN (→ ELEVENLABS_VOICE_ID) | TELEGRAM_BOT_TOKEN_ODIN | no |
-| hela | HELA | claude-sonnet-5 | 8000 | 80 turns | 45 | 24 | 150 | memory:longterm:hela | ELEVENLABS_VOICE_ID_HELA (→ ELEVENLABS_VOICE_ID) | TELEGRAM_BOT_TOKEN_HELA | yes |
+| thor | THOR | claude-sonnet-5 | 1400 | 30 turns | 15 | 14 | 209 | memory:longterm | ELEVENLABS_VOICE_ID_THOR (→ ELEVENLABS_VOICE_ID) | TELEGRAM_BOT_TOKEN_THOR (→ TELEGRAM_BOT_TOKEN) | no |
+| loki | LOKI | claude-sonnet-5 | 1400 | 30 turns | 15 | 14 | 176 | memory:longterm:loki | ELEVENLABS_VOICE_ID_LOKI (→ ELEVENLABS_VOICE_ID) | TELEGRAM_BOT_TOKEN_LOKI | no |
+| odin | ODIN | claude-sonnet-5 | 1400 | 30 turns | 15 | 14 | 193 | memory:longterm:odin | ELEVENLABS_VOICE_ID_ODIN (→ ELEVENLABS_VOICE_ID) | TELEGRAM_BOT_TOKEN_ODIN | no |
+| hela | HELA | claude-sonnet-5 | 8000 | 80 turns | 45 | 24 | 277 | memory:longterm:hela | ELEVENLABS_VOICE_ID_HELA (→ ELEVENLABS_VOICE_ID) | TELEGRAM_BOT_TOKEN_HELA | yes |
 
 Model ids live in src/lib/models.js: sonnet=claude-sonnet-5, haiku=claude-haiku-4-5-20251001, workersAiFree=@cf/meta/llama-3.2-3b-instruct, embedding=@cf/baai/bge-base-en-v1.5, reranker=@cf/baai/bge-reranker-base.
 
@@ -22,7 +22,7 @@ Model ids live in src/lib/models.js: sonnet=claude-sonnet-5, haiku=claude-haiku-
 | ODIN | TELEGRAM_BOT_TOKEN_ODIN | POST /telegram/odin | secret_token verified; sends the paper report |
 | HELA | TELEGRAM_BOT_TOKEN_HELA | POST /telegram/hela | token set, webhook DELIBERATELY unregistered — she does not exist off the device |
 
-## Tools (150)
+## Tools (277)
 
 All dispatch through `runTool` in src/lib/tools.js; the "implemented in" column is the module the case calls. Permission: hard-confirm = live confirmation always; gateable = Rayan can set auto/notify/confirm/off; auto = runs. Every consequential tool escalates to confirm once the session has read untrusted content (src/lib/containment.js).
 
@@ -178,6 +178,133 @@ All dispatch through `runTool` in src/lib/tools.js; the "implemented in" column 
 | routine_history | The last runs of one of your routines: when, ok or failed, delivered how. | src/lib/routines.js | auto | — | THOR, LOKI, ODIN, HELA |
 | flag_capability | Mark one of your saved capabilities as broken, with the error it gave. A flag only -- it stays saved until you… | src/lib/hela.js | auto | — | HELA |
 | delegate | Hand a task to one of YOUR OWN five councillors by name or id. wait true (default) runs it now and returns the… | src/lib/tools.js (inline) | auto | — | THOR, LOKI, ODIN, HELA |
+| trading_halt | Halt PAPER trading: no NEW simulated positions open until trading_resume. Open positions stay open and their s… | src/lib/paperTrading.js | auto | — | ODIN, HELA |
+| trading_resume | Lift a PAPER trading halt so new simulated positions may open again on the next signal. Simulated only. | src/lib/paperTrading.js | auto | — | ODIN, HELA |
+| trading_status | The PAPER book's risk state in plain English: halt on/off, the risk caps and whether any is hit today, the fil… | src/lib/paperTrading.js | auto | — | THOR, ODIN, HELA |
+| trading_readiness | How ready the trading system is: answers "mode: paper. No live path exists." and lists the gates a future real… | src/lib/paperTrading.js | auto | — | THOR, ODIN, HELA |
+| paper_backtest | Replay one PAPER councillor's strategy over the candles already cached by the live cycle (never a new market-d… | src/lib/paperTrading.js | auto | — | ODIN, HELA |
+| cost_report | What the models cost: today so far and the last days, in estimated dollars from list prices, by persona and ti… | src/lib/cost.js | auto | — | THOR, ODIN, HELA |
+| find_tools | Search your FULL toolbox (far larger than the tools in front of you) by a few words about the job — e.g. "rss … | src/lib/tools.js (inline) | auto | — | THOR, LOKI, ODIN, HELA |
+| routine_templates | List the ready-made automations Rayan can switch on with one sentence ("what can you automate"). Each line is … | src/lib/routines.js | auto | — | THOR, LOKI, ODIN, HELA |
+| routine_enable_template | Switch on one ready-made automation by its sentence or id (from routine_templates). Copies it into your routin… | src/lib/routines.js | auto | — | THOR, LOKI, ODIN, HELA |
+| read_document | Read a public PDF, image, Office file or web page at an https URL and return it as markdown (Workers AI toMark… | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| read_page | Fetch a public web page and return its readable text as markdown (up to 8,000 characters). Outside content — t… | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| rss_read | Read any public RSS or Atom feed: the newest items with title, date, link and a one-line summary (n up to 20). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| rss_watch | Watch an RSS/Atom feed: new items raise the feed.new event (a routine can turn that into a message). Up to 10 … | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| rss_unwatch | Stop watching a feed (by URL or part of its title). | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| trending_now | What is trending on Google right now for a country (RSS). geo like US, GB, CA. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| hackernews | Hacker News: mode "top" or "new" for the front page, or "search" with q for the Algolia search. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| wayback | Is there an archived copy of a URL in the Internet Archive? Optional date YYYYMMDD picks the closest snapshot. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| wiki_search | Search English Wikipedia and get the top matches with a one-line snippet and link. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| wiki_pageviews | Daily English-Wikipedia page views for an article over the last 14 days (a rough popularity signal). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| arxiv_search | Search arXiv for papers: title, authors, date, abstract snippet, link. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| crossref_search | Search Crossref for scholarly works (DOIs): title, authors, year, journal, DOI link. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| openlibrary_search | Search Open Library for books: title, author, first published, link. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| book_by_isbn | Look a book up by ISBN on Open Library: title, publisher, publish date, pages. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| archive_search | Search the Internet Archive (books, audio, video, software): identifier, title, year, link. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| federal_register | Search the US Federal Register (rules, notices, executive orders): title, agency, date, link. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| coingecko_price | Current USD price and 24h change for one or more coins by CoinGecko id (bitcoin, ethereum, solana …). No key; … | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| coingecko_markets | Top coins by market cap with price, 24h change and volume (n up to 20). No key; cached 60 s. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| coingecko_trending | The coins trending on CoinGecko right now (searches in the last 24h). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| defillama_tvl | Total value locked for one DeFi protocol (DefiLlama slug, e.g. aave, uniswap, lido) or one chain (e.g. Ethereu… | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| btc_mempool | Bitcoin network right now: recommended fees (sat/vB) and mempool size, from mempool.space. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| fear_greed | The Crypto Fear & Greed index (alternative.me): today and the last 7 days. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| polymarket_markets | READ-ONLY: active Polymarket prediction markets matching a query, with the current yes-price. No wallet, no tr… | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| fx_rates | Exchange rates for a base currency (open.er-api.com; the fallback when Frankfurter fails): the majors, or a sp… | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| paper_equity_chart | A PNG chart URL (QuickChart) of the PAPER book's simulated cash over time, built from the recorded equity curv… | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| nws_alerts | Active National Weather Service alerts for a US state (area like CA) or a point (lat, lon). Kern County: use l… | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| nws_forecast | NWS forecast for a US point: the next periods (name, temperature, wind, short forecast). Default is Bakersfiel… | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| quakes | Recent earthquakes from USGS: minimum magnitude, past days, optionally near a place (default Bakersfield, 300 … | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| calfire_incidents | Active CAL FIRE incidents this year: name, county, acres, containment, updated. Optional county filter (defaul… | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| space_weather | Space weather from NOAA SWPC: the planetary K index (geomagnetic activity) for the last hours and any current … | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| iss_now | Where the International Space Station is right now (latitude, longitude, altitude, speed) and how far from Bak… | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| nasa_apod | NASA's Astronomy Picture of the Day: title, explanation (short), and the image link. Uses NASA_API_KEY if set,… | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| tides | Today's high and low tide predictions for a NOAA station id (e.g. 9410170 San Diego, 9410660 Los Angeles, 9414… | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| elevation | Elevation in metres and feet for a latitude/longitude (Open Topo Data, SRTM 90 m). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| zip_lookup | US ZIP code → city, state, latitude, longitude (Zippopotam). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| ip_geo | Rough location and network for a public IP address (geojs.io). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| osm_search | Find a place by name with OpenStreetMap Nominatim (free fallback behind Google Maps): display name and coordin… | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| osm_reverse | Coordinates → the nearest address (OpenStreetMap Nominatim). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| osm_nearby | Places of a kind near a point via Overpass (OpenStreetMap): cafe, restaurant, pharmacy, fuel, park, hospital, … | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| country_info | Facts about a country: capital, region, income level and latest population (World Bank) plus a one-line summar… | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| world_bank | A World Bank indicator for a country, latest years: e.g. SP.POP.TOTL population, NY.GDP.MKTP.CD GDP (US$), FP.… | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| shopping_list | Rayan's shopping list: action add / remove / read / clear, with an item name. | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| quick_note | Jot a quick dated note (kept, never edited). Read them back with notes_read. | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| notes_read | Read quick notes: for one date (YYYY-MM-DD) or the most recent ones. | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| reading_list | Rayan's reading list (links or titles): action add / done / read. | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| habit_log | Log a habit as done today (e.g. gym, water, reading). Streaks are counted from consecutive days. | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| habits_status | Every habit with its current streak and whether it is logged today. | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| expense_log | Log an expense Rayan tells you (amount in dollars, category, note). His own typed numbers only — no bank data. | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| expenses_week | This week's logged expenses: total and by category, plus the last few entries. | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| unit_convert | Convert units locally: length, weight, temperature, volume, speed, data (e.g. 10 mi to km, 72 F to C, 3 cups t… | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| recipe_search | Recipes from TheMealDB by name or main ingredient: name, category, area, link. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| cocktail_search | Cocktail recipes from TheCocktailDB by name: ingredients and instructions. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| food_by_barcode | A packaged food by barcode (Open Food Facts): name, brand, Nutri-Score, calories and macros per 100 g. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| exercises | Exercises for a muscle group from wger (biceps, triceps, chest, shoulders, back, abs, quads, hamstrings, glute… | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| vin_decode | Decode a vehicle VIN (NHTSA): year, make, model, body, engine, plant. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| recalls | US safety recalls for a vehicle (NHTSA): make, model, year → campaign, component, summary. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| cloudflare_status | Cloudflare's own status page summary: overall indicator and any open incidents. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| npm_info | An npm package: latest version, description, license, last publish, weekly downloads. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| pypi_info | A PyPI package: latest version, summary, license, home page. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| dns_lookup | DNS records for a name via Cloudflare DNS over HTTPS: A, AAAA, MX, TXT, NS, CNAME. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| whois | Domain registration facts via RDAP: registrar, created, expires, status, name servers. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| http_check | Check a URL: status code, server, content type, and the redirect chain (followed by hand, each hop guarded). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| url_shorten | Shorten a public https URL with is.gd. Waits for approval when the session has read outside content. | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| url_unshorten | Where a short link really goes: follows redirects by hand (each hop checked) and reports the final URL. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| qr_code | A QR code image URL for some text or a link (api.qrserver.com). Waits for approval when the session has read o… | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| page_preview | Title, description and image of a public web page (Microlink, free tier). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| color_info | A colour by hex (E7C24A) or name: its name, RGB, HSL, and a contrasting text colour (thecolorapi). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| text_hash | Hash text locally: sha256 (default), sha1, sha384 or sha512. | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| base64 | Base64-encode or decode text locally. | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| uuid | Generate random UUIDs (up to 20). | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| regex_test | Test a JavaScript regular expression against text: the matches (with groups), locally. | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| json_pretty | Validate and pretty-print JSON locally (also summarises the top-level shape). | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| tv_search | A TV show on TVmaze: status, network, genres, premiere, summary, next episode. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| tv_tonight | What airs tonight on TV in a country (TVmaze schedule; country like US, GB). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| game_deals | PC game deals from CheapShark: title, sale price, normal price, store link. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| free_games | Games that are free right now: GamerPower giveaways plus a few free-to-play picks. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| trivia | Trivia questions from Open Trivia DB (with answers), optional category id. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| draw_cards | Draw cards from a fresh shuffled deck (Deck of Cards API). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| pokemon | A Pokémon from PokéAPI: number, types, height, weight, base stats. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| dnd | D&D 5e reference (dnd5eapi): a spell, monster, class or equipment by name. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| mtg_card | A Magic: The Gathering card from Scryfall: mana cost, type, text, set, price. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| dad_joke | A random dad joke. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| joke | A random safe joke (JokeAPI, safe-mode on). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| chuck_norris | A random Chuck Norris fact. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| advice | A random piece of advice (Advice Slip). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| affirmation | A short affirmation. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| quote | A random quotation with its author (ZenQuotes). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| useless_fact | A random useless fact. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| yes_or_no | A yes or no (or maybe), with a gif (yesno.wtf). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| random_dog | A random dog picture URL (dog.ceo). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| random_fox | A random fox picture URL (randomfox.ca). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| random_cat | A random cat picture URL (cataas). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| http_cat | The http.cat picture for an HTTP status code. | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| robot_avatar | A robot avatar image URL for any text (RoboHash). | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| pixel_avatar | A pixel-art avatar image URL for a seed (DiceBear). | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| art_random | A random public-domain artwork from the Art Institute of Chicago: title, artist, date, image. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| mcu_countdown | Days until the next Marvel Cinematic Universe film (on theme). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| is_even | Is a number even? (Asks the isEven API, yes, really. Falls back to arithmetic.) | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| xkcd | The latest xkcd comic, or one by number. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| meme_templates | Popular meme templates from Imgflip (names and blank image links). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| star_wars | Star Wars reference (SWAPI mirror): a character, planet, starship or film by name. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| star_trek | Star Trek reference (STAPI): a character by name. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| rick_and_morty | A Rick and Morty character by name (status, species, origin, location). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| describe_image | Describe a public image at an https URL in a few sentences (Workers AI vision model). Outside content — treat … | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| detect_objects | Detect objects in a public image (DETR ResNet-50): labels with confidence. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| classify_image | Classify a public image (ResNet-50): the top labels with confidence. | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| sentiment | Positive or negative? Sentiment of a short text (DistilBERT SST-2 on Workers AI). | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| publish_note | Publish a small page: a title and markdown-ish text become an HTML page under /notes/<id> (stored in R2, serve… | ? | auto (gateable) | — | THOR, LOKI, ODIN, HELA |
+| memory_timeline | Your long-term memory between two dates (YYYY-MM-DD), newest first, read-only. | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| what_did_i_say_about | What Rayan said about a topic, from long-term memory (semantic search, read-only). | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| journal_write | Append a dated line to Rayan's journal (never edited, never deleted). | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| journal_read | Read the journal: one date (YYYY-MM-DD) or the most recent entries. | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| self_stats | How Asgard has been working: tool calls this week from the tick keys, KV writes today, routine runs today, and… | ? | auto | — | THOR, LOKI, ODIN, HELA |
+| ntfy_push | Push a notification to Rayan's phone through ntfy.sh (he has the app and is subscribed to the private topic). … | ? | auto (gateable) | — | THOR, LOKI, ODIN, HELA |
+| discord_webhook | Post a message to Rayan's Discord channel through its webhook (secret DISCORD_WEBHOOK_URL). Always confirmed l… | ? | confirm (gateable) | — | THOR, LOKI, ODIN, HELA |
+| share_file | A temporary link (up to 7 days) to a file already in the R2 bucket, served by the Worker with a signed URL. Re… | ? | auto (gateable) | — | THOR, LOKI, ODIN, HELA |
+| jobs_search | Search job listings (no-key boards: Remotive, Jobicy, Arbeitnow, The Muse — remote-heavy): title, company, loc… | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
+| company_lookup | A company in brief: the Wikipedia summary (and, if it is public, a pointer to SEC filings by ticker). | ? | auto | untrusted source → taints session | THOR, LOKI, ODIN, HELA |
 
 ## Cron jobs (one trigger: `*/5 * * * *`, UTC; each job decides for itself whether it is due)
 
@@ -247,8 +374,12 @@ Reply path (a message from Rayan): history 1, status stamps 2, audit trace + ind
 | /activity | activity log |
 | /admin/* | operator routes, gated by ADMIN_TOKEN (X-Asgard-Admin header) |
 | /admin/approval-test |  |
+| /admin/core-tokens |  |
 | /admin/tick |  |
+| /admin/tool-test |  |
+| /admin/toolbox |  |
 | /admin/tools.json | GET every tool schema as sent to Anthropic + per-persona visibility |
+| /admin/vault.json |  |
 | /admin/webhooks | GET each bot's webhook URL and last Telegram error (never tokens) |
 | /agent/log | sibling query log |
 | /agent/query | POST, HMAC-signed sibling-agent channel (JARVIS/KEVOS) |
@@ -263,17 +394,17 @@ Reply path (a message from Rayan): history 1, status stamps 2, audit trace + ind
 | /goals | GET/POST list |
 | /healthz |  |
 | /history | web conversation turns by persona |
-| /hub | 301 → / |
-| /hub/ |  |
 | /kpi | GET/POST list |
 | /loki/brief-latest | cached brief |
 | /loki/brief-now | POST run |
+| /mcp |  |
 | /memory | GET long-term memory by persona |
 | /memory/delete | POST delete one fact |
 | /memory/map | memory map (hidden excluded) |
 | /memory/share | POST copy a memory between personas |
 | /memory/update | POST edit |
 | /monitors | watchlist |
+| /notes/* |  |
 | /notifications | notification log |
 | /odin/report-now | POST run |
 | /odin/reports | cached reports |
@@ -283,6 +414,7 @@ Reply path (a message from Rayan): history 1, status stamps 2, audit trace + ind
 | /permissions/all | structured view |
 | /ping | latency probe |
 | /roundtable | POST two-persona debate |
+| /share/* |  |
 | /spotify/callback | OAuth |
 | /spotify/control | POST |
 | /spotify/login | OAuth |
@@ -294,6 +426,7 @@ Reply path (a message from Rayan): history 1, status stamps 2, audit trace + ind
 | /voice/audio/* | Twilio fetches spoken audio (one-time id, 15 min TTL) |
 | /voice/transcript | last call transcript |
 | /voice/turn | POST Twilio conversation turn |
+| /hub | 301 → / |
 | /thor|/loki|/odin | 301 → /?persona=<id> |
 | (anything else GET) | static assets from public/ |
 
@@ -303,10 +436,11 @@ Debug routes (32, all behind DEBUG_SECRET): /debug-account-stats, /debug-approve
 
 | name | read by | what dies without it | set on the live Worker? |
 |---|---|---|---|
-| ADMIN_TOKEN | src/index.js | every /admin/* route refuses (fails closed); smoke test webhook check | yes |
+| ADMIN_TOKEN | mcp.js, src/index.js | every /admin/* route refuses (fails closed); smoke test webhook check | yes |
 | AGENT_KEY_JARVIS_RAYVEN | checkin.js, sibling-agents.js, tools.js | ask_jarvis + inbound /agent/query from JARVIS | yes |
 | AGENT_KEY_RAYVEN_KEVOS | checkin.js, sibling-agents.js, tools.js | ask_kevos + inbound /agent/query from KEVOS | yes |
-| ANTHROPIC_API_KEY | anthropic.js, checkin.js, sibling-agents.js | everything that thinks — every reply, brief, report, vigil | yes |
+| ANTHROPIC_API_KEY | anthropic.js, batch.js, checkin.js, sibling-agents.js, src/index.js | everything that thinks — every reply, brief, report, vigil | yes |
+| ASGARD_CONTACT | http.js |  | NO |
 | AYRSHARE_API_KEY | clipping.js, vizard.js, whop.js | clip publishing/history/analytics (retired business) | yes |
 | CF_ACCOUNT_ID | healthz.js |  | NO |
 | CF_ANALYTICS_TOKEN | healthz.js |  | NO |
@@ -316,6 +450,9 @@ Debug routes (32, all behind DEBUG_SECRET): /debug-account-stats, /debug-approve
 | GOOGLE_MAPS_API_KEY | maps.js, src/index.js | all maps_* tools | yes |
 | JARVIS_AGENT_URL | checkin.js, tools.js | ask_jarvis | NO |
 | KEVOS_AGENT_URL | checkin.js, tools.js | ask_kevos | NO |
+| LEDGER | ledger.js |  | NO |
+| LEDGER_BACKEND | ledger.js |  | NO |
+| LIVE_BROKER_KEY | broker.js |  | NO |
 | OPENROUTER_API_KEY | comms.js | ask_alternate_model | yes |
 | PUBLIC_BASE_URL | comms.js, src/index.js | var: base URL for Twilio callbacks (defaults to the workers.dev URL) | no (has a default) |
 | R2_PUBLIC_BASE | kit.js | var: public R2 base for generated images (defaults to the r2.dev URL) | no (has a default) |

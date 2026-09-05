@@ -18,7 +18,8 @@ export const GATEABLE_TOOLS = [
 // as those tools are actually added (Phase 4/5) — each new tool name gets pushed
 // into GATEABLE_TOOLS at the same time so get_tool_permissions doesn't list
 // controls for features that don't exist yet.
-export const DEFAULT_PERMISSION_LEVELS = {};
+export const DEFAULT_PERMISSION_LEVELS = { discord_webhook: 'confirm' };   // Phase 7.11: posts to a room Rayan does not control
+GATEABLE_TOOLS.push('discord_webhook', 'ntfy_push', 'publish_note', 'share_file');
 
 // Anything that spends money, sends a message to another human, or touches
 // physical hardware is ALWAYS confirm — hardcoded, not policy-editable,

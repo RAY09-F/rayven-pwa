@@ -38,8 +38,13 @@ import { emit, takePendingEvents, eventsFromDrained } from './lib/events.js';
 import { healthReport, publicHealth, runSystemCheckIfDue } from './lib/healthz.js';
 import { buildVault, runVaultBackupIfDue } from './lib/vault.js';
 import { collectBatchesIfAny } from './lib/batch.js';
+import { runPollersIfDue } from './lib/pollers.js';
 import { resumeBatchedRoutine } from './lib/routines.js';
 import { handleMcp } from './lib/mcp.js';
+import { openGroups, groupsByKeywords, toolsForConversation, coreFor, openGroupNames, groupOf } from './tools/meta.js';
+import { MODELS } from './lib/models.js';
+import { hmacHex, shareKeyAllowed } from './tools/catalog-comms.js';
+import { TTS_FALLBACK_MODEL } from './tools/catalog-ai.js';
 import { readTickLast, WRITE_CEILING_PER_DAY } from './lib/tick.js';
 import { runTimersIfDue } from './lib/kit.js';
 import { igRefreshIfDue } from './lib/instagram.js';
@@ -513,6 +518,59 @@ export default {
     // Bearer = ADMIN_TOKEN, auto/notify tools only, every call tainted.
     if (url.pathname === '/mcp') {
       return handleMcp(request, env, (e, t, i, p, c) => executeTool(e, t, i, p, c), { ...corsHeaders, 'Access-Control-Allow-Headers': corsHeaders['Access-Control-Allow-Headers'] + ', authorization, mcp-protocol-version' });
+    }
+    // Phase 7.9: published notes, served from R2 (asgard/notes/<id>.html). Never anything else under asgard/.
+    if (url.pathname.startsWith('/notes/') && request.method === 'GET') {
+      const id = url.pathname.slice('/notes/'.length).replace(/[^a-zA-Z0-9-]/g, '');
+      if (!id || !env.CLIPS) return new Response('Not found.', { status: 404, headers: corsHeaders });
+      const obj = await env.CLIPS.get(`asgard/notes/${id}.html`).catch(() => null);
+      if (!obj) return new Response('No such note.', { status: 404, headers: corsHeaders });
+      return new Response(obj.body, { headers: { ...corsHeaders, 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-robots-tag': 'noindex' } });
+    }
+    // Phase 7.11: a temporary signed link to one R2 object — no KV, no new secret, no public bucket.
+    if (url.pathname.startsWith('/share/') && request.method === 'GET') {
+      const parts = url.pathname.slice('/share/'.length).split('/');
+      if (parts.length < 3 || !env.CLIPS || !env.ADMIN_TOKEN) return new Response('Bad link.', { status: 400, headers: corsHeaders });
+      const sig = parts.pop(), expiry = Number(parts.pop()), key = parts.map(decodeURIComponent).join('/');
+      if (!(expiry > Date.now())) return new Response('This link has expired.', { status: 410, headers: corsHeaders });
+      if (!shareKeyAllowed(key)) return new Response('Refused.', { status: 403, headers: corsHeaders });
+      const expected = await hmacHex(env.ADMIN_TOKEN, `${key}|${expiry}`);
+      if (!(await timingSafeEqual(String(sig || ''), expected))) return new Response('Bad signature.', { status: 403, headers: corsHeaders });
+      const obj = await env.CLIPS.get(key).catch(() => null);
+      if (!obj) return new Response('Gone.', { status: 404, headers: corsHeaders });
+      return new Response(obj.body, { headers: { ...corsHeaders, 'content-type': (obj.httpMetadata && obj.httpMetadata.contentType) || 'application/octet-stream', 'cache-control': 'private, no-store', 'x-robots-tag': 'noindex' } });
+    }
+    // Phase 7.0: live tool testing without a model turn, the toolbox preview, and CORE token counts (all ADMIN_TOKEN).
+    if ((url.pathname === '/admin/tool-test' || url.pathname === '/admin/toolbox' || url.pathname === '/admin/core-tokens') && request.method === 'GET') {
+      const provided = request.headers.get('X-Asgard-Admin') || '';
+      const expected = env.ADMIN_TOKEN || '';
+      if (!expected || !(await timingSafeEqual(provided, expected))) return json({ error: 'X-Asgard-Admin required' }, corsHeaders, 401);
+      if (url.pathname === '/admin/tool-test') {
+        const name = url.searchParams.get('name') || ''; let args = {};
+        try { args = JSON.parse(url.searchParams.get('args') || '{}'); } catch (e) { return json({ error: 'args must be JSON' }, corsHeaders, 400); }
+        const persona = url.searchParams.get('persona') || 'thor';
+        const t0 = Date.now();
+        try { const result = await executeTool(env, name, args, persona, { tainted: false, meta: {}, channel: 'admin-test' }); return json({ name, persona, ms: Date.now() - t0, chars: String(result == null ? '' : result).length, result }, corsHeaders); }
+        catch (e) { return json({ name, persona, ms: Date.now() - t0, error: String(e && e.message || e) }, corsHeaders, 200); }
+      }
+      if (url.pathname === '/admin/toolbox') {
+        const persona = url.searchParams.get('persona') || 'thor', message = url.searchParams.get('message') || '';
+        const meta = {}; openGroups(meta, groupsByKeywords(message), 'keyword');
+        const defs = toolDefinitionsForPersona(persona);
+        const sent = toolsForConversation(persona, defs, meta);
+        return json({ persona, message, openedGroups: openGroupNames(meta), core: coreFor(persona, defs).map(d => d.name), sent: sent.map(d => d.name), sentCount: sent.length, allowedTotal: defs.length, groups: [...new Set(defs.map(d => groupOf(d.name)))].sort() }, corsHeaders);
+      }
+      // core-tokens: measured with the Anthropic count_tokens endpoint, never guessed
+      const out = {};
+      for (const id of ['thor', 'loki', 'odin']) {
+        const core = coreFor(id, toolDefinitionsForPersona(id));
+        try {
+          const r = await fetch('https://api.anthropic.com/v1/messages/count_tokens', { method: 'POST', headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: MODELS.sonnet, tools: core, messages: [{ role: 'user', content: 'hi' }] }) });
+          const j = await r.json().catch(() => null);
+          out[id] = { tools: core.length, inputTokens: j && j.input_tokens != null ? j.input_tokens : null, error: r.ok ? null : JSON.stringify(j).slice(0, 200) };
+        } catch (e) { out[id] = { tools: core.length, inputTokens: null, error: e.message }; }
+      }
+      return json(out, corsHeaders);
     }
     // Phase 5.1: the vault export. Hidden material only with X-Asgard-Vault: hela.
     if (url.pathname === '/admin/vault.json' && request.method === 'GET') {
@@ -1308,9 +1366,18 @@ How to speak on a phone call:
         // same as POST / — unknown or missing falls back to THOR's voice.
         const { text, persona, assistant } = await request.json();
         const voiceId = getPersonaVoiceId(env, resolvePersonaId(persona || assistant));
-        if (!env.ELEVENLABS_API_KEY || !voiceId) {
-          return new Response('Missing ELEVENLABS_API_KEY or a voice id (ELEVENLABS_VOICE_ID / per-persona ELEVENLABS_VOICE_ID_*) in Cloudflare secrets.', { status: 500, headers: corsHeaders });
-        }
+        // Phase 7.9: the borrowed voice. If ElevenLabs is not configured or errors (quota, outage), Workers AI melotts
+        // answers instead of silence, flagged with X-Asgard-Voice: fallback so the hall can say so once.
+        const melo = async (why) => {
+          if (!env.AI) return new Response(`TTS unavailable: ${why}; and Workers AI is not bound for the fallback voice.`, { status: 500, headers: corsHeaders });
+          try {
+            const out = await env.AI.run(TTS_FALLBACK_MODEL, { prompt: String(text || '').slice(0, 2000), lang: 'en' });
+            const audio = out && out.audio ? Uint8Array.from(atob(out.audio), c => c.charCodeAt(0)) : (out instanceof ArrayBuffer ? new Uint8Array(out) : null);
+            if (!audio) return new Response(`TTS unavailable: ${why}; the fallback voice returned no audio.`, { status: 500, headers: corsHeaders });
+            return new Response(audio, { headers: { ...corsHeaders, 'content-type': 'audio/mpeg', 'X-Asgard-Voice': 'fallback', 'X-Asgard-Voice-Why': String(why).slice(0, 120).replace(/[^\x20-\x7e]/g, ' ') } });
+          } catch (e) { return new Response(`TTS unavailable: ${why}; fallback voice failed: ${e.message}`, { status: 500, headers: corsHeaders }); }
+        };
+        if (!env.ELEVENLABS_API_KEY || !voiceId) return melo('ElevenLabs is not configured');
         const elevenRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
           method: 'POST',
           headers: {
@@ -1326,7 +1393,7 @@ How to speak on a phone call:
         });
         if (!elevenRes.ok) {
           const errorDetail = await elevenRes.text();
-          return new Response(`ElevenLabs error (${elevenRes.status}): ${errorDetail}`, { status: 500, headers: corsHeaders });
+          return melo(`ElevenLabs error (${elevenRes.status}): ${errorDetail.slice(0, 100)}`);
         }
         return new Response(elevenRes.body, { headers: { ...corsHeaders, 'content-type': 'audio/mpeg' } });
       } catch (err) {
@@ -1492,6 +1559,8 @@ How to speak on a phone call:
       job(runPaperCloseTasksIfDue),
       // Phase 5.2: the nightly vault backup to R2 (03:30 Pacific, includes the hidden realm — it is a backup).
       job(runVaultBackupIfDue),
+      // Phase 7.13a: the pollers (weather/fire/quake, market/sentiment/yield, trends/feeds) — no subrequest unless an enabled routine subscribes.
+      job(runPollersIfDue),
       // The legacy daily paper report is replaced by ODIN's market-close ROUTINE
       // (Phase 3.4), which honours config:paper:report:hour and defaults to 13:05.
       // The clipping pass (retired business; publishes at most one clip per

@@ -16,7 +16,11 @@ export const EVENT_KINDS = [
   'extension.offline', 'extension.online', 'kv.quota.warning',
   'councillor.finished', 'approval.created', 'approval.resolved',
   'clip.posted',               // report only
-  'hall.opened'                // the hall woke a god after a long idle
+  'hall.opened',               // the hall woke a god after a long idle
+  // Phase 7.13a: polled events (src/lib/pollers.js) -- each has ONE poller duty, seen-state in the councillor's key
+  'market.move', 'sentiment.extreme', 'yield.cross',   // Odin's court
+  'weather.alert', 'fire.incident', 'quake',            // Sylvie
+  'trend.new', 'feed.new'                               // Kang
 ];
 
 // Events raised inside this cron invocation, consumed by the routines runner.
