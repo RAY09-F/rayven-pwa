@@ -307,12 +307,15 @@ export async function runVizardPollIfDue(env) {
   if (!env.VIZARD_API_KEY) return null;
   const last = Number(await env.RAYVEN_KV.get(KV.lastPoll)) || 0;
   if (Date.now() - last < POLL_MS) return null;
+
+  // Nothing in flight means nothing to poll: return BEFORE stamping lastPoll.
+  // With the key set and no jobs, the stamp alone was 288 writes a day for a
+  // loop that then did nothing (asgard-upgrade Phase 0.4, Rule 5c).
+  const jobs = await readJson(env, KV.jobs, []);
+  if (!jobs.length) return null;
   await env.RAYVEN_KV.put(KV.lastPoll, String(Date.now()));
 
   await refreshExpiringUrls(env);
-
-  const jobs = await readJson(env, KV.jobs, []);
-  if (!jobs.length) return null;
 
   const auto = (await env.RAYVEN_KV.get(KV.auto)) === '1';
   const remaining = [];

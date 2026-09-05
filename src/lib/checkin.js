@@ -3,6 +3,7 @@
 // Both were already written as scheduled()-invoked functions in worker.js — they
 // just never actually ran because wrangler.toml had no cron trigger. Phase 0 adds
 // that trigger; these functions themselves are untouched logic.
+import { MODELS } from './models.js';
 import { loadHistory, saveHistory, sanitizeHistory, getTodos } from './kv-store.js';
 import { getRecentMemoryBlock, addLongTermMemory } from './memory.js';
 import { askAgentForCheckIn } from './sibling-agents.js';
@@ -71,7 +72,7 @@ You do NOT have calendar or meeting access — never claim to check his schedule
       res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-sonnet-5', max_tokens: 400, system: systemBlocks, tools, messages: convo })
+        body: JSON.stringify({ model: MODELS.sonnet, max_tokens: 400, system: systemBlocks, tools, messages: convo })
       });
     } catch (err) {
       claudeError = `Network error calling Anthropic: ${err.message}`;
@@ -215,7 +216,7 @@ You do NOT have calendar or meeting access — never claim to check his schedule
       res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-sonnet-5', max_tokens: 900, system: systemBlocks, tools, messages: convo })
+        body: JSON.stringify({ model: MODELS.sonnet, max_tokens: 900, system: systemBlocks, tools, messages: convo })
       });
     } catch (err) {
       claudeError = `Network error calling Anthropic: ${err.message}`;
@@ -327,7 +328,7 @@ ${workerSource}`;
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-5',
+        model: MODELS.sonnet,
         max_tokens: 700,
         messages: [{ role: 'user', content: reviewPrompt }]
       })

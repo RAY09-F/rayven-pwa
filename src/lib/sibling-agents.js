@@ -1,6 +1,7 @@
 // Agent-to-agent protocol with JARVIS (Jay's assistant) and KEVOS (Kevin's
 // assistant): outbound calls (askSiblingAgent / askAgentForCheckIn) and the
 // inbound HMAC-authenticated endpoint (handleAgentQuery). Ported unchanged.
+import { MODELS } from './models.js';
 import { hmacHex, timingSafeEqual, appendCappedLog } from './util.js';
 
 export async function askSiblingAgent(agentName, agentUrl, secret, question) {
@@ -115,7 +116,7 @@ Rules:
         'content-type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-5',
+        model: MODELS.sonnet,
         max_tokens: 400,
         system: agentSystemPrompt,
         messages: [{ role: 'user', content: question }]

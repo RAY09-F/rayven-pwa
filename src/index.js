@@ -11,7 +11,7 @@ import { isAffirmative, setToolPermission, getPermissions, GATEABLE_TOOLS, HARD_
 import {
   resolveSenderTag, getBotInfo, messageAddressesBot, textMentionsJarvis, textMentionsKevin,
   sendTelegramMessage, getBotInfoFor, getRayanPrivateChatId } from './lib/telegram.js';
-import { executeTool, callClaudeWithTools, getTaskLog } from './lib/tools.js';
+import { executeTool, callClaudeWithTools, getTaskLog, TOOL_DEFINITIONS, toolDefinitionsForPersona } from './lib/tools.js';
 import { handleSpotifyLogin, handleSpotifyCallback, spotifyNowPlayingData, spotifyPause, spotifyResume, spotifyNext, spotifyPrevious } from './lib/spotify.js';
 import { runLokiBriefIfDue, runLokiBrief, runOdinReportIfDue, runOdinReport, getOdinReports } from './lib/reports.js';
 import { runPaperTradingCycleIfDue, runPaperTradingDailyReportIfDue, sendPaperTradingReportNow, getPaperStatus, getPaperChartData, forceDemoTrade, INSTRUMENTS } from './lib/paperTrading.js';
@@ -48,7 +48,11 @@ function json(data, corsHeaders, status = 200) {
 // slow responses, and without dedupe a long turn runs twice — duplicate
 // replies, double billing), so nothing here may depend on the response body.
 async function handleChatTurn(env, ctx, opts) {
-  const { personaId, isTelegram, body, botToken } = opts;
+  // smoke: set by scripts/smoke.mjs via the X-Asgard-Smoke header. The turn runs
+  // for real (Claude, tools) but nothing it says is saved: no history write, no
+  // auto-memory capture, no status stamps. A smoke run must never pollute a
+  // conversation or spend a KV write.
+  const { personaId, isTelegram, body, botToken, smoke = false } = opts;
   const persona = getPersona(personaId);
 
   let userMessage;
@@ -126,7 +130,7 @@ async function handleChatTurn(env, ctx, opts) {
 
   const historyEntryContent = isTelegram ? `[${senderTag}]: ${userMessage}` : userMessage;
 
-  ctx.waitUntil(setPersonaStatus(env, personaId, isTelegram ? 'replying on Telegram' : 'replying on the web interface', 0.5, 'seconds'));
+  if (!smoke) ctx.waitUntil(setPersonaStatus(env, personaId, isTelegram ? 'replying on Telegram' : 'replying on the web interface', 0.5, 'seconds'));
 
   // Pending-confirmation flow — persona-scoped so Loki's pending action can't
   // be confirmed at Odin's table.
@@ -188,7 +192,7 @@ async function handleChatTurn(env, ctx, opts) {
   // genuinely short-but-meaningful message just comes back with an empty [].
   const isGroupChat = isTelegram && (telegramChatType === 'group' || telegramChatType === 'supergroup');
   const rayanIsSender = !isGroupChat || senderTag === 'Rayan';
-  if (!isWakeTrigger && rayanIsSender && typeof userMessage === 'string' && userMessage.trim().length >= 8) {
+  if (!smoke && !isWakeTrigger && rayanIsSender && typeof userMessage === 'string' && userMessage.trim().length >= 8) {
     ctx.waitUntil(extractAndSaveFacts(env, userMessage, personaId).catch(err => {
       console.error('Auto-memory extraction failed:', err.message);
     }));
@@ -226,7 +230,7 @@ async function handleChatTurn(env, ctx, opts) {
   // accounts get compromised and membership changes. Start tainted there.
   const result = await callClaudeWithTools(env, persona.systemPrompt, channelContext, longTermMemoryBlock, claudeMessages, !isWakeTrigger, wakeCodeCheckContext, personaId, channelStartsTainted(isTelegram, telegramChatType));
 
-  ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
+  if (!smoke) ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
 
   if (!result.ok) {
     // Say WHAT went wrong. "Claude API error" on its own sent Rayan looking in
@@ -247,7 +251,7 @@ async function handleChatTurn(env, ctx, opts) {
 
   history.push({ role: 'assistant', content: reply });
   if (history.length > _hl2) history = history.slice(-_hl2);
-  await saveHistory(env, memoryKey, history);
+  if (!smoke) await saveHistory(env, memoryKey, history);
 
   return { reply: await sendReply(reply) };
 }
@@ -335,7 +339,7 @@ export default {
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'content-type, x-agent-sig'
+      'Access-Control-Allow-Headers': 'content-type, x-agent-sig, x-asgard-smoke, x-asgard-admin'
     };
 
     if (request.method === 'OPTIONS') {
@@ -368,6 +372,57 @@ export default {
       if (!expected || !(await timingSafeEqual(provided, expected))) {
         return new Response('Unauthorized.', { status: 401, headers: corsHeaders });
       }
+    }
+
+    // ---- ADMIN ROUTE GATE (asgard-upgrade Phase 0) ---------------------
+    // /admin/* is the operator surface for the upgrade: the tool registry as
+    // sent to Anthropic, the Telegram webhook report, later the vault export.
+    // Same posture as /debug-*: one choke point before any matching, fails
+    // CLOSED without ADMIN_TOKEN, timing-safe compare, and a separate secret
+    // from DEBUG_SECRET so the two can be rotated independently.
+    //   npx wrangler secret put ADMIN_TOKEN --name asgrard-backend
+    if (url.pathname.startsWith('/admin/')) {
+      const expected = env.ADMIN_TOKEN;
+      const provided = request.headers.get('x-asgard-admin') || '';
+      if (!expected || !(await timingSafeEqual(provided, expected))) {
+        return new Response('Unauthorized.', { status: 401, headers: corsHeaders });
+      }
+    }
+
+    // Every tool schema exactly as it goes to Anthropic, plus which persona sees
+    // which. scripts/gen-tools-json.mjs saves this as docs/TOOLS.json.
+    if (url.pathname === '/admin/tools.json' && request.method === 'GET') {
+      const perPersona = {};
+      for (const id of ALL_PERSONA_IDS) perPersona[id] = toolDefinitionsForPersona(id).map(t => t.name);
+      return json({ generatedAt: new Date().toISOString(), count: TOOL_DEFINITIONS.length, perPersona, tools: TOOL_DEFINITIONS }, corsHeaders);
+    }
+
+    // Where each bot's webhook actually points, and Telegram's last delivery
+    // error, read straight from getWebhookInfo. Never the tokens. Read-only:
+    // re-pointing stays on /debug-telegram-webhook?set=1.
+    if (url.pathname === '/admin/webhooks' && request.method === 'GET') {
+      const origin = new URL(request.url).origin;
+      const bots = {};
+      for (const personaId of ALL_PERSONA_IDS) {
+        const token = getPersonaBotToken(env, personaId);
+        const expected = personaId === DEFAULT_PERSONA_ID ? `${origin}/` : `${origin}/telegram/${personaId}`;
+        if (!token) { bots[personaId] = { tokenSecret: getPersona(personaId).telegramTokenEnv, configured: false }; continue; }
+        try {
+          const info = await (await fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`)).json();
+          const r = info.result || {};
+          bots[personaId] = {
+            tokenSecret: getPersona(personaId).telegramTokenEnv, configured: true,
+            url: r.url || '', expected, matches: (r.url || '') === expected,
+            pendingUpdates: r.pending_update_count || 0,
+            lastErrorMessage: r.last_error_message || null,
+            lastErrorAt: r.last_error_date ? new Date(r.last_error_date * 1000).toISOString() : null,
+            hasCustomCertificate: !!r.has_custom_certificate
+          };
+        } catch (err) {
+          bots[personaId] = { tokenSecret: getPersona(personaId).telegramTokenEnv, configured: true, error: err.message };
+        }
+      }
+      return json({ origin, checkedAt: new Date().toISOString(), bots }, corsHeaders);
     }
 
     // Cheap latency probe for the frontend telemetry header (real round-trip
@@ -901,7 +956,8 @@ export default {
     if (url.pathname === '/browser/status' && request.method === 'GET') {
       const raw = await env.RAYVEN_KV.get('browser:lastpoll');
       const last = raw ? parseInt(raw, 10) : null;
-      return json({ lastPoll: last, connected: !!(last && Date.now() - last < 60000) }, corsHeaders);
+      // 10 minutes, not 60 s: the heartbeat is stamped at most every 5 minutes now.
+      return json({ lastPoll: last, connected: !!(last && Date.now() - last < 600000) }, corsHeaders);
     }
 
     if (url.pathname === '/debug-reset-history') {
@@ -1071,10 +1127,14 @@ How to speak on a phone call:
 
     if (url.pathname === '/browser/poll' && request.method === 'GET') {
       // Heartbeat stamp for /browser/status, throttled to one KV write per
-      // minute so the 6-second poll loop doesn't burn the write quota.
+      // FIVE minutes (asgard-upgrade Phase 0.4). At one per minute the
+      // extension's 6-second poll loop alone was up to 1,440 writes a day --
+      // more than the free plan's entire daily allowance, and very likely
+      // most of the baseline. /browser/status treats anything within 10
+      // minutes as connected, so nothing visible changes.
       try {
         const lastRaw = await env.RAYVEN_KV.get('browser:lastpoll');
-        if (!lastRaw || Date.now() - parseInt(lastRaw, 10) > 60000) {
+        if (!lastRaw || Date.now() - parseInt(lastRaw, 10) > 300000) {
           ctx.waitUntil(env.RAYVEN_KV.put('browser:lastpoll', String(Date.now())));
         }
       } catch (e) {}
@@ -1168,7 +1228,8 @@ How to speak on a phone call:
       // ASGARD hub, "assistant" from the per-assistant pages); anything unknown
       // falls back to THOR so an old cached PWA still works.
       const personaId = resolvePersonaId(body.persona || body.assistant);
-      const result = await handleChatTurn(env, ctx, { personaId, isTelegram: false, body, botToken: null });
+      const smoke = request.headers.get('X-Asgard-Smoke') === '1';
+      const result = await handleChatTurn(env, ctx, { personaId, isTelegram: false, body, botToken: null, smoke });
       if (!result) return new Response('OK', { headers: corsHeaders });
       if (result.error) {
         const status = result.details ? 500 : 400;

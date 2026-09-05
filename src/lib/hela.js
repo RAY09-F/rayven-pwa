@@ -458,12 +458,14 @@ export async function runHelaForgeIfDue(env, personaId = 'hela') {
 // out together would quadruple the search bill for no benefit — spreading them
 // costs the same as one and every persona still comes round on its own
 // interval.
-const K_FORGE_TURN = 'forge:turn';
+// The turn used to live in KV ('forge:turn') and was rewritten on EVERY cron
+// tick -- 288 writes a day that carried no information a clock does not. It
+// is now derived from the five-minute slot number, which rotates identically
+// and costs nothing (asgard-upgrade Phase 0.4). The old key is left alone.
 export async function runForgeRotation(env, ids) {
   const order = ids && ids.length ? ids : ['thor', 'loki', 'odin', 'hela'];
-  const turn = Number(await env.RAYVEN_KV.get(K_FORGE_TURN)) || 0;
-  await env.RAYVEN_KV.put(K_FORGE_TURN, String((turn + 1) % order.length));
-  return await runHelaForgeIfDue(env, order[turn % order.length]);
+  const turn = Math.floor(Date.now() / 300000) % order.length;
+  return await runHelaForgeIfDue(env, order[turn]);
 }
 
 export async function runHelaForge(env, personaId = 'hela') {

@@ -16,10 +16,11 @@
 //   - sharing across personas for the memory map: sharing COPIES the memory and
 //     preserves original attribution, so a secondhand memory never reads as
 //     firsthand.
+import { MODELS } from './models.js';
 import { PERSONAS, ALL_PERSONA_IDS, DEFAULT_PERSONA_ID, getPersona } from './personas.js';
 import { callAnthropicSimple } from './anthropic.js';
 
-const EMBEDDING_MODEL = '@cf/baai/bge-base-en-v1.5';
+const EMBEDDING_MODEL = MODELS.embedding;
 
 // Cross-encoder rerank. Verified against Cloudflare's published schema rather
 // than assumed: input { query, contexts: [{text}], top_k }, output
@@ -36,7 +37,7 @@ const EMBEDDING_MODEL = '@cf/baai/bge-base-en-v1.5';
 // too slow to run over the whole store. The standard answer is to use both:
 // embed to get a wide candidate set, then rerank to order it. That is what the
 // widened topK below is for.
-const RERANK_MODEL = '@cf/baai/bge-reranker-base';
+const RERANK_MODEL = MODELS.reranker;
 const RECALL_K = 24;      // candidates fetched
 const RETURN_K = 6;       // candidates kept after reranking
 const FLOOR = 0.12;       // below this a memory is noise, and noise costs context

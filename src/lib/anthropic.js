@@ -2,6 +2,7 @@
 // errors. Ported unchanged from worker.js. Used by the main chat loop and by
 // every background subsystem that needs a Claude call (code check, monitoring
 // relevance filter, email classification, day-planning briefing).
+import { MODELS } from './models.js';
 
 export async function callAnthropic(env, systemBlocks, tools, messages, maxTokens) {
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -17,7 +18,7 @@ export async function callAnthropic(env, systemBlocks, tools, messages, maxToken
         // for the same work, with a newer cutoff and 1M context. Safe to swap
         // because this file sets no temperature/top_p: Claude 4.7+ rejects those
         // two being sent together, and we send neither.
-        model: 'claude-sonnet-5',
+        model: MODELS.sonnet,
         max_tokens: maxTokens || 1400,   // 900 was clipping longer answers mid-thought
         system: systemBlocks,
         tools: tools,
@@ -56,7 +57,7 @@ export async function callAnthropicSimple(env, systemPrompt, userText, maxTokens
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-5',
+        model: MODELS.sonnet,
         max_tokens: maxTokens || 400,
         system: systemPrompt,
         messages: [{ role: 'user', content: userText }]
