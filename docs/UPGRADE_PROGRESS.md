@@ -305,3 +305,32 @@ committed and pushed phase by phase. Anything that needed Rayan's eyes or a deci
 - Verified: deployed 9b6e17ce…, smoke ALL PASS; a Telegram-shaped group probe (`@ASGARD status` from a
   bot sender) to the legacy webhook ran the whole path and reached the Telegram send, which refused the fake
   chat id ("chat not found") — the code path is live. A real group message from JARVIS/KEVOS has not been seen.
+
+## Phase 4.1 + 4.2 — the broker interface and the risk caps
+- `src/lib/broker.js`: `Broker` (interface), `PaperBroker` (the existing portfolio logic behind it — same KV keys,
+  same agent ids, same position shape plus a `fees` field, same trade log), `LiveBroker` (a stub: every method
+  throws `LIVE_TRADING_DISABLED` with the unmet gates). Mode is `config:trading:mode`, read only, `paper` when
+  missing; **no code writes `config:trading:mode` or `config:trading:live_ack`, no go-live tool exists, no key.**
+  `tradingGates()` lists the five gates as documentation; `tradingReadiness()` answers "mode: paper. No live path
+  exists." Signatures are shaped like a paper/live broker API (Alpaca-style orders) — a shape only, nothing calls it.
+- `src/lib/paperTrading.js`: every entry and exit now goes through the broker (`brokerFor()` per cycle; the
+  demo trade too). Verified 4.1 on the live URL before adding anything else: `/paper-trading/status` top-level
+  shape, the open-position list (id, qty, entry price, side) and the trade ids/count are **identical** before
+  and after the deploy (5ca2e6ed…). Fills now carry the Phase 4.3 model (crypto 10 bps slippage + 0.26%
+  commission; ETFs 5 bps, $0) and trades log `pnl` net of commissions with a `fees` field — this landed with 4.1
+  rather than after it, but it changes future fills only, never the stored shape.
+- Risk caps (4.2), PAPER too: per-trade risk stays the ATR stop; **daily loss cap 3%** of the starting balance
+  (no new positions for the rest of the day); **position cap 20%** of the starting balance per councillor; **no
+  new NYSE positions in the last 10 minutes** before the close (early closes honoured); max positions per
+  councillor is structurally 1 (one slot per agent). Kill switch: `config:trading:halt`; tools `trading_halt`,
+  `trading_resume`, `trading_status`, `trading_readiness` (appended to the master order and Odin's list; Thor
+  sees everything). A halt blocks NEW orders only and never force-closes.
+- `src/lib/marketData.js`: NYSE full-day closures and 1:00 p.m. early closes for **2026, 2027 and 2028**, copied
+  from nyse.com/markets/hours-calendars on 2026-09-05; `isNyseSessionOpen` honours both; `minutesToNyseClose()`.
+- Verified without eyes: a Node harness with a mocked KV and market feed — demo enter through the broker (fees
+  applied, cash conserved), status shape unchanged, a halt blocks new entries while exits still run, resume
+  lifts it, readiness lists unmet gates, mode `live` refuses every order with `LIVE_TRADING_DISABLED` and the
+  cycle survives, demo exit logs the trade net of fees, holiday/early-close/minutes-to-close all correct.
+  Live: Odin ran `trading_readiness` (smoke header) and reported mode paper, no live path, gates not met.
+- Finding: the readiness drawdown gate read 59.8% because it measured the **cash** curve (cash falls whenever a
+  position opens). 4.3 switches it to realised equity.

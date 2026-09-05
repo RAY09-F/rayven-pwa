@@ -33,7 +33,7 @@ import {
 } from './maps.js';
 import { askSiblingAgent } from './sibling-agents.js';
 import { watchAdd, watchList, watchRemove, watchPause, watchResume } from './monitoring.js';
-import { getPaperSummaryText } from './paperTrading.js';
+import { getPaperSummaryText, tradingHaltText, tradingStatusText, tradingReadinessText } from './paperTrading.js';
 import { getPersona, personaAllowsTool, toolOwnerName, DEFAULT_PERSONA_ID } from './personas.js';
 import { marksTainted, isConsequential, wrapUntrusted, describeAction, getAllowedHosts, allowHost, needsApprovalWhileTainted, UNTRUSTED_HANDLING } from './containment.js';
 import { createApproval, resolveApproval, listApprovals, APPROVAL_TOOL_DEFINITIONS } from './approvals.js';
@@ -178,6 +178,11 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {
     case 'crypto_price': return await cryptoPrice(env, input);
     case 'stock_price': return await stockPrice(env, input);
     case 'paper_trading_status': return await getPaperSummaryText(env, input && input.period);
+    // Phase 4.2 -- the PAPER kill switch and readiness (plain English; no live path exists)
+    case 'trading_halt': return await tradingHaltText(env, true, input && input.reason, personaId);
+    case 'trading_resume': return await tradingHaltText(env, false, null, personaId);
+    case 'trading_status': return await tradingStatusText(env);
+    case 'trading_readiness': return await tradingReadinessText(env);
     case 'company_filings': return await companyFilings(env, input);
     case 'token_search': return await tokenSearch(env, input);
     case 'golden_hour': return await goldenHour(env, input);
@@ -801,6 +806,14 @@ TOOL_DEFINITIONS.push({
   description: 'Hand a task to one of YOUR OWN five councillors by name or id. wait true (default) runs it now and returns the report into this turn; wait false queues it for the next five-minute tick and the report arrives on your Telegram bot. A councillor uses only its own narrow tools and can never send a text, call, or post -- it hands those back for confirmation.',
   input_schema: { type: 'object', properties: { councillor: { type: 'string', description: 'councillor name or id, e.g. "jane_foster"' }, task: { type: 'string', description: 'the task, plainly, with everything the councillor needs' }, wait: { type: 'boolean', description: 'default true' } }, required: ['councillor', 'task'] }
 });
+
+// asgard-upgrade Phase 4.2 (appended, never re-sorted -- Rule 6): the PAPER kill switch and readiness.
+TOOL_DEFINITIONS.push(
+  { name: 'trading_halt', description: 'Halt PAPER trading: no NEW simulated positions open until trading_resume. Open positions stay open and their stops still apply; nothing is ever force-closed. Use when Rayan says stop/halt/pause the trading. Simulated only.', input_schema: { type: 'object', properties: { reason: { type: 'string', description: 'why, in a few words' } } } },
+  { name: 'trading_resume', description: 'Lift a PAPER trading halt so new simulated positions may open again on the next signal. Simulated only.', input_schema: { type: 'object', properties: {} } },
+  { name: 'trading_status', description: 'The PAPER book\'s risk state in plain English: halt on/off, the risk caps and whether any is hit today, the fill model (slippage and commission assumptions), cash, open positions. Simulated only — say so.', input_schema: { type: 'object', properties: {} } },
+  { name: 'trading_readiness', description: 'How ready the trading system is: answers "mode: paper. No live path exists." and lists the gates a future real-money switch would require and whether each is met. Nothing here can enable live trading. Use when Rayan asks how ready we are or whether anything is real.', input_schema: { type: 'object', properties: {} } }
+);
 
 // Tool schemas a given persona is allowed to see. Thor (toolNames: null) gets
 // everything; restricted personas get only their allow-list. The prompt-level

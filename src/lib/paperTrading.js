@@ -31,6 +31,16 @@ import {
 import { appendCappedLog, readCappedLog } from './util.js';
 import { getPersonaBotToken } from './personas.js';
 import { sendTelegramMessage, getRayanPrivateChatId } from './telegram.js';
+import { getBroker, getHalt, setHalt, tradingReadiness, fillModelFor } from './broker.js';
+import { minutesToNyseClose, nyseCalendarLastYear } from './marketData.js';
+
+// Phase 4.2 -- risk caps that apply to PAPER too, so the record is honest.
+const DAILY_LOSS_CAP = 0.03;          // realised loss today >= 3% of the starting balance -> no new positions until tomorrow
+const POSITION_CAP_FRACTION = 0.20;   // one councillor's position never exceeds 20% of the starting balance
+const NEAR_CLOSE_MINUTES = 10;        // no new NYSE positions in the last 10 minutes of the session
+// "max 2 open positions per councillor": the book has exactly one position slot
+// per agent id and every councillor wraps exactly one agent, so this cap is
+// structural -- it cannot be exceeded and needs no check.
 
 const TZ_NY = 'America/New_York';
 const TZ_LA = 'America/Los_Angeles';
@@ -364,8 +374,9 @@ function stopDistanceFraction(candles, lastClose) {
   return Math.min(MAX_STOP_FRACTION, Math.max(MIN_STOP_FRACTION, raw));
 }
 
-async function logTrade(env, agentDef, position, exitPrice, exitTime, exitReason) {
-  const pnl = (exitPrice - position.entryPrice) * position.qty;
+async function logTrade(env, agentDef, position, exitPrice, exitTime, exitReason, fees) {
+  const commissions = ((fees && fees.entryCommission) || 0) + ((fees && fees.exitCommission) || 0);
+  const pnl = (exitPrice - position.entryPrice) * position.qty - commissions;   // net of commissions; slippage is already in the fill prices
   const pnlPct = (exitPrice - position.entryPrice) / position.entryPrice;
   const entry = {
     id: crypto.randomUUID(),
@@ -383,15 +394,32 @@ async function logTrade(env, agentDef, position, exitPrice, exitTime, exitReason
     pnl,
     pnlPct,
     entryReason: position.entryReason,
-    exitReason
+    exitReason,
+    fees: fees ? { commissions, slippageBps: fees.slippageBps || 0 } : null
   };
   await appendCappedLog(env, TRADES_KEY, entry, TRADES_CAP);
   return entry;
 }
 
-function closePosition(portfolio, agentId, position, exitPrice) {
-  portfolio.cash += position.qty * exitPrice;
-  delete portfolio.positions[agentId];
+// Phase 4.1: every fill goes through the broker (PaperBroker today; LiveBroker
+// is a stub that refuses). The broker holds the same in-memory portfolio the
+// cycle loads and saves; the trade log hook below is the one it calls on exit.
+function brokerFor(env, portfolio, instrumentCache) {
+  const quotes = new Map();
+  for (const [instrumentId, raw] of instrumentCache.entries()) if (raw && raw.ok && raw.candles && raw.candles.length) quotes.set(instrumentId, raw.candles[raw.candles.length - 1]);
+  return getBroker(env, portfolio, {
+    quotes,
+    providerOf: agentOrInstrument => { const a = AGENTS[agentOrInstrument]; const instr = INSTRUMENTS[a ? a.instrumentId : agentOrInstrument]; return instr ? instr.provider : 'twelvedata'; },
+    hooks: { onClose: (agentId, position, exitPrice, exitTime, reason, fees) => logTrade(env, AGENTS[agentId], position, exitPrice, exitTime, reason, fees) }
+  });
+}
+
+// Risk state computed once per cycle: today's realised P&L and the halt.
+async function riskStateFor(env, portfolio) {
+  const [trades, halt] = await Promise.all([readCappedLog(env, TRADES_KEY), getHalt(env)]);
+  const today = nyDateString(Date.now());
+  const todayPnl = trades.filter(t => nyDateString(t.exitTime) === today).reduce((s, t) => s + t.pnl, 0);
+  return { halt, todayPnl, dailyLossCapHit: todayPnl <= -DAILY_LOSS_CAP * portfolio.startingBalance, trades };
 }
 
 async function fetchInstrumentCandles(env, instrumentId) {
@@ -408,7 +436,7 @@ async function fetchInstrumentCandles(env, instrumentId) {
 // instrumentCache is populated once per tick per instrument (not per agent),
 // so two agents sharing an instrument (btc: original+TYR, spy: original+BALDR,
 // etc.) only ever cost one real fetch each.
-async function processAgent(env, agentId, portfolio, instrumentCache) {
+async function processAgent(env, agentId, portfolio, instrumentCache, broker, risk) {
   const a = AGENTS[agentId];
   const instr = INSTRUMENTS[a.instrumentId];
   const sessionOpen = instr.provider === 'kraken' ? true : isNyseSessionOpen();
@@ -443,39 +471,36 @@ async function processAgent(env, agentId, portfolio, instrumentCache) {
   const position = portfolio.positions[agentId] || null;
   let outcome;
 
-  // HARD STOP LOSS — checked before any strategy logic, no exceptions.
+  // HARD STOP LOSS — checked before any strategy logic, no exceptions. Exits
+  // are never blocked by the halt or the caps: a halt stops NEW orders only.
   if (position && lastCandle.low <= position.stopPrice) {
-    await logTrade(env, a, position, position.stopPrice, lastCandle.time, `ATR-based stop hit (${((position.stopFraction || STOP_LOSS_PCT) * 100).toFixed(2)}% below entry) — no exceptions`);
-    closePosition(portfolio, agentId, position, position.stopPrice);
-    outcome = { agentId, action: 'stopped_out', price: position.stopPrice };
+    const c = await broker.closePosition(agentId, { price: position.stopPrice, time: lastCandle.time, reason: `ATR-based stop hit (${((position.stopFraction || STOP_LOSS_PCT) * 100).toFixed(2)}% below entry) — no exceptions` });
+    outcome = c.ok ? { agentId, action: 'stopped_out', price: c.fill.price, quoted: position.stopPrice } : { agentId, error: c.error };
   } else {
     const signal = SIGNAL_FNS[a.strategy](candles, !!position);
     if (position && signal.action === 'exit') {
-      await logTrade(env, a, position, lastCandle.close, lastCandle.time, signal.reason);
-      closePosition(portfolio, agentId, position, lastCandle.close);
-      outcome = { agentId, action: 'closed', reason: signal.reason, price: lastCandle.close };
+      const c = await broker.closePosition(agentId, { price: lastCandle.close, time: lastCandle.time, reason: signal.reason });
+      outcome = c.ok ? { agentId, action: 'closed', reason: signal.reason, price: c.fill.price, quoted: lastCandle.close } : { agentId, error: c.error };
     } else if (!position && signal.action === 'enter') {
       const pairId = CORRELATED_PAIR[agentId];
-      if (pairId && portfolio.positions[pairId]) {
+      if (risk && risk.halt && risk.halt.halted) {
+        outcome = { agentId, action: 'skipped_halted', reason: `trading halt is on (${risk.halt.reason || 'no reason given'}) — no new PAPER positions until resumed` };
+      } else if (risk && risk.dailyLossCapHit) {
+        outcome = { agentId, action: 'skipped_daily_loss_cap', reason: `today's realised PAPER loss (${risk.todayPnl.toFixed(2)}) has reached the ${DAILY_LOSS_CAP * 100}% daily cap — no new positions until tomorrow` };
+      } else if (instr.provider !== 'kraken' && minutesToNyseClose() <= NEAR_CLOSE_MINUTES) {
+        outcome = { agentId, action: 'skipped_near_close', reason: `inside the last ${NEAR_CLOSE_MINUTES} minutes before the NYSE close — no new positions` };
+      } else if (pairId && portfolio.positions[pairId]) {
         outcome = { agentId, action: 'skipped_correlation', reason: `${pairId.toUpperCase()} is already simulated-long — correlation filter blocked stacking ${agentId.toUpperCase()}` };
       } else {
         const vol = computeVolatility(candles);
         const sizeFraction = sizeFractionForVolatility(vol);
-        const spend = portfolio.cash * sizeFraction;
+        const spend = Math.min(portfolio.cash * sizeFraction, POSITION_CAP_FRACTION * portfolio.startingBalance);   // per-councillor position cap
         const qty = spend / lastCandle.close;
         const stopFraction = stopDistanceFraction(candles, lastCandle.close);
-        if (qty > 0 && spend <= portfolio.cash) {
-          portfolio.cash -= spend;
-          portfolio.positions[agentId] = {
-            qty, entryPrice: lastCandle.close, entryTime: lastCandle.time,
-            stopPrice: lastCandle.close * (1 - stopFraction),
-            strategy: a.strategy, entryReason: signal.reason,
-            sizeFraction, volatilityAtEntry: vol, stopFraction
-          };
-          outcome = { agentId, action: 'entered', reason: signal.reason, qty, price: lastCandle.close, sizeFraction, stopFraction };
-        } else {
-          outcome = { agentId, action: 'skipped_no_cash', reason: 'position sizing produced zero/invalid size' };
-        }
+        const o = await broker.placeOrder({ agentId, symbol: a.instrumentId, side: 'buy', qty, price: lastCandle.close, time: lastCandle.time, stop: lastCandle.close * (1 - stopFraction), reason: signal.reason, provider: instr.provider, meta: { strategy: a.strategy, sizeFraction, volatilityAtEntry: vol, stopFraction } });
+        outcome = o.ok
+          ? { agentId, action: 'entered', reason: signal.reason, qty, price: o.fill.price, quoted: lastCandle.close, sizeFraction, stopFraction, fees: o.fill.commission }
+          : { agentId, action: 'skipped_no_cash', reason: o.error };
       }
     } else {
       outcome = { agentId, action: 'hold', reason: signal.reason };
@@ -510,13 +535,10 @@ export async function forceDemoTrade(env, agentId, action) {
     const spend = portfolio.cash * sizeFraction;
     const qty = spend / lastCandle.close;
     const stopFraction = stopDistanceFraction(candles, lastCandle.close);
-    portfolio.cash -= spend;
-    portfolio.positions[agentId] = {
-      qty, entryPrice: lastCandle.close, entryTime: lastCandle.time,
-      stopPrice: lastCandle.close * (1 - stopFraction),
-      strategy: a.strategy, entryReason: 'MANUAL TEST ENTRY — demo requested by Rayan, not a real strategy signal',
-      sizeFraction, volatilityAtEntry: vol, stopFraction, manual: true
-    };
+    const cache = new Map([[a.instrumentId, raw]]);
+    const broker = await brokerFor(env, portfolio, cache);
+    const o = await broker.placeOrder({ agentId, symbol: a.instrumentId, side: 'buy', qty, price: lastCandle.close, time: lastCandle.time, stop: lastCandle.close * (1 - stopFraction), reason: 'MANUAL TEST ENTRY — demo requested by Rayan, not a real strategy signal', provider: INSTRUMENTS[a.instrumentId].provider, meta: { strategy: a.strategy, sizeFraction, volatilityAtEntry: vol, stopFraction, manual: true } });
+    if (!o.ok) return { ok: false, error: o.error };
     await savePortfolio(env, portfolio);
     await appendCappedLog(env, EQUITY_LOG_KEY, { time: Date.now(), cash: portfolio.cash }, EQUITY_LOG_CAP);
     return { ok: true, action: 'entered', agentId, price: lastCandle.close, qty, stopPrice: portfolio.positions[agentId].stopPrice };
@@ -524,11 +546,13 @@ export async function forceDemoTrade(env, agentId, action) {
 
   if (action === 'exit') {
     if (!position) return { ok: false, error: `${agentId} has no open position to exit` };
-    const entry = await logTrade(env, a, position, lastCandle.close, lastCandle.time, 'MANUAL TEST EXIT — demo requested by Rayan, not a real strategy signal');
-    closePosition(portfolio, agentId, position, lastCandle.close);
+    const cache = new Map([[a.instrumentId, raw]]);
+    const broker = await brokerFor(env, portfolio, cache);
+    const c = await broker.closePosition(agentId, { price: lastCandle.close, time: lastCandle.time, reason: 'MANUAL TEST EXIT — demo requested by Rayan, not a real strategy signal' });
+    if (!c.ok) return { ok: false, error: c.error };
     await savePortfolio(env, portfolio);
     await appendCappedLog(env, EQUITY_LOG_KEY, { time: Date.now(), cash: portfolio.cash }, EQUITY_LOG_CAP);
-    return { ok: true, action: 'closed', agentId, price: lastCandle.close, pnl: entry.pnl };
+    return { ok: true, action: 'closed', agentId, price: c.fill.price, pnl: c.trade ? c.trade.pnl : null };
   }
 
   return { ok: false, error: `unknown action ${action}, expected 'enter' or 'exit'` };
@@ -541,9 +565,11 @@ export async function runPaperTradingCycleIfDue(env) {
   const results = [];
   let mutated = false;
   const instrumentCache = new Map();
+  const risk = await riskStateFor(env, portfolio);
+  const broker = await brokerFor(env, portfolio, instrumentCache);   // PaperBroker; a LiveBroker (mode 'live') refuses every call and no trade happens
   for (const agentId of Object.keys(AGENTS)) {
     try {
-      const outcome = await processAgent(env, agentId, portfolio, instrumentCache);
+      const outcome = await processAgent(env, agentId, portfolio, instrumentCache, broker, risk);
       results.push(outcome);
       if (outcome && PORTFOLIO_MUTATING_ACTIONS.has(outcome.action)) mutated = true;
     } catch (err) {
@@ -774,4 +800,32 @@ export async function sendPaperTradingReportNow(env, dateOverride) {
     await appendCappedLog(env, REPORT_FAILURES_KEY, { date, at: new Date().toISOString(), error: sendResult.error }, 30);
   }
   return { ok: sendResult.ok, sendResult, text, markError };
+}
+
+// ---- Phase 4.2: the kill switch and readiness, in plain English ---------------
+export async function tradingHaltText(env, on, reason, by) {
+  const rec = await setHalt(env, on, reason, by, nyDateString(Date.now()));
+  return on
+    ? `PAPER trading halted${reason ? ` (${reason})` : ''}. New PAPER positions are blocked until you say resume; open positions stay open and their stops still apply. Nothing is ever force-closed. This is all simulated — no real money.`
+    : `PAPER trading resumed at ${rec.at}. New PAPER positions may open again on the next signal. Simulated only — no real money.`;
+}
+export async function tradingStatusText(env) {
+  const [portfolio, halt, trades] = await Promise.all([getPortfolio(env), getHalt(env), readCappedLog(env, TRADES_KEY)]);
+  const today = nyDateString(Date.now());
+  const todayPnl = trades.filter(t => nyDateString(t.exitTime) === today).reduce((s, t) => s + t.pnl, 0);
+  const open = Object.keys(portfolio.positions).length;
+  const km = fillModelFor('kraken'), tm = fillModelFor('twelvedata');
+  return [
+    'PAPER / SIMULATED — no real money, no real trades.',
+    `Kill switch: ${halt.halted ? `HALTED since ${halt.at}${halt.reason ? ` (${halt.reason})` : ''}` : 'not halted'}.`,
+    `Risk caps (they apply to the PAPER book too): per-trade risk via the ATR stop (about 1% of cash at risk); daily loss cap ${DAILY_LOSS_CAP * 100}% of the starting balance (today's realised: ${todayPnl >= 0 ? '+' : '-'}$${Math.abs(todayPnl).toFixed(2)}${todayPnl <= -DAILY_LOSS_CAP * portfolio.startingBalance ? ' — CAP HIT, no new positions today' : ''}); one position per councillor, never above ${POSITION_CAP_FRACTION * 100}% of the starting balance; no new NYSE positions in the last ${NEAR_CLOSE_MINUTES} minutes before the close.`,
+    `Fill model: ${km.note}; ${tm.note}.`,
+    `Book: $${portfolio.cash.toFixed(2)} simulated cash, ${open} open position${open === 1 ? '' : 's'}, ${trades.length} closed trades since the start.`,
+    `NYSE holiday calendar loaded through ${nyseCalendarLastYear()}.`
+  ].join('\n');
+}
+export async function tradingReadinessText(env) {
+  const [portfolio, trades, equity] = await Promise.all([getPortfolio(env), readCappedLog(env, TRADES_KEY), readCappedLog(env, EQUITY_LOG_KEY)]);
+  const r = await tradingReadiness(env, { trades, equity, startingBalance: portfolio.startingBalance });
+  return r.text;
 }

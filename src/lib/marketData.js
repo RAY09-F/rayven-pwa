@@ -41,11 +41,34 @@ function nyParts(date = new Date()) {
 // On a holiday this will wrongly think NYSE is open and attempt a fetch —
 // Twelve Data will just return stale/no new data, so it fails safe (no
 // candle change means no new signal), but it is not a real holiday calendar.
+// NYSE full-day closures and 1:00 p.m. ET early closes, copied from
+// nyse.com/markets/hours-calendars on 2026-09-05 (Phase 4.3). Static on
+// purpose -- no automatic refresh. Odin's Sunday report warns when the list's
+// last year is the current year (see nyseCalendarLastYear).
+export const NYSE_HOLIDAYS = new Set([
+  '2026-01-01', '2026-01-19', '2026-02-16', '2026-04-03', '2026-05-25', '2026-06-19', '2026-07-03', '2026-09-07', '2026-11-26', '2026-12-25',
+  '2027-01-01', '2027-01-18', '2027-02-15', '2027-03-26', '2027-05-31', '2027-06-18', '2027-07-05', '2027-09-06', '2027-11-25', '2027-12-24',
+  '2028-01-17', '2028-02-21', '2028-04-14', '2028-05-29', '2028-06-19', '2028-07-04', '2028-09-04', '2028-11-23', '2028-12-25'
+]);
+export const NYSE_EARLY_CLOSE = new Set(['2026-11-27', '2026-12-24', '2027-11-26', '2028-07-03', '2028-11-24']);   // 1:00 p.m. ET
+export function nyseCalendarLastYear() { return 2028; }
+export function nyseCloseMinutes(dateStr) { return NYSE_EARLY_CLOSE.has(dateStr) ? 13 * 60 : 16 * 60; }
+export function isNyseHoliday(date = new Date()) { return NYSE_HOLIDAYS.has(nyParts(date).date); }
+
 export function isNyseSessionOpen(date = new Date()) {
-  const { hour, minute, weekday } = nyParts(date);
+  const { date: d, hour, minute, weekday } = nyParts(date);
   if (weekday < 1 || weekday > 5) return false;
+  if (NYSE_HOLIDAYS.has(d)) return false;
   const minutesSinceMidnight = hour * 60 + minute;
-  return minutesSinceMidnight >= 9 * 60 + 30 && minutesSinceMidnight < 16 * 60;
+  return minutesSinceMidnight >= 9 * 60 + 30 && minutesSinceMidnight < nyseCloseMinutes(d);
+}
+
+// Minutes left in today's regular session (0 when closed). Phase 4.2 uses it
+// to refuse NEW paper positions in the last 10 minutes before the close.
+export function minutesToNyseClose(date = new Date()) {
+  if (!isNyseSessionOpen(date)) return 0;
+  const { date: d, hour, minute } = nyParts(date);
+  return nyseCloseMinutes(d) - (hour * 60 + minute);
 }
 
 export function isBitcoinSessionOpen() {
