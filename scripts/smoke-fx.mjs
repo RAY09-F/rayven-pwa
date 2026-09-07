@@ -39,9 +39,12 @@ await must('/team.html', [['loads exactly one team overlay tag', /<script src="\
   const r = await get('/');
   if (r.status !== 200) bad('GET /', `status ${r.status}`);
   else {
-    const tags = (r.text.match(/<script src="\/fx\/asgard-fx\.js"><\/script>/g) || []).length;
-    if (tags === 1) ok('hall loads exactly one FX tag'); else bad('hall loads exactly one FX tag', `found ${tags}`);
-    if (/AsgardFX\.init\(/.test(r.text)) ok('hall calls AsgardFX.init once'); else bad('hall calls AsgardFX.init');
+    // 2026-09-06: the hall is the concept-art page (INSTALL-HALLS). It loads no FX engine on purpose.
+    if (/<title>The Halls of Asgard<\/title>/.test(r.text)) ok('hall is the concept-art page'); else bad('hall is the concept-art page', 'title changed');
+    const pics = ['thor', 'loki', 'odin'].filter(g => r.text.includes(`src="/img/${g}.jpg"`)).length;
+    if (pics === 3) ok('hall shows the three scene pictures'); else bad('hall shows the three scene pictures', `found ${pics}`);
+    if (/HallsVoice/.test(r.text)) ok('hall carries the voice port (TTS, mic, wake, vault)'); else bad('hall carries the voice port');
+    if (!/asgard-fx\.js/.test(r.text)) ok('hall loads no FX engine', '(by design)'); else bad('hall loads no FX engine', 'the FX tag is back');
   }
 }
 console.log(fails ? `\n${fails} FAIL` : '\nALL PASS');
