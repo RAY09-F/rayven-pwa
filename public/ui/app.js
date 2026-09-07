@@ -1,12 +1,12 @@
 import {createArsenal} from './arsenal.js';
 import {initialPersona,editableTarget,readPreferences,assistantState} from './state.js';
-import {createPresence} from './scene.js?v=rendered-realms-1';
+import {createPresence} from './scene.js?v=hologram-realms-1';
 const halls=['thor','loki','odin'];
 let storage;try{storage=window.localStorage;}catch{}
 let arsenal=null;
 let preferences=readPreferences(storage),presence=null,speechPhase='idle',micState='off';
 const errors={},lastFailed={},workspace=document.querySelector('.workspace'),dialog=document.getElementById('settings-dialog');
-const profile={thor:['The Storm Forge','Everyday help. A steady hand.','Thor’s rendered hammer assembly'],loki:['The Impossible Relic','A little order. A different perspective.','Loki’s rendered yellow crystal and pearl ribbons'],odin:['The All-Seeing Eye','Space to think. Clarity to act.','Odin’s rendered gold iris assembly']};
+const profile={thor:['Storm intelligence','A clear mind. A powerful ally.','Thor’s three-dimensional particle hologram with a winged helmet'],loki:['Beyond the obvious','A different perspective changes everything.','Loki’s yellow-gold particle hologram with swept horns'],odin:['The long view','Perspective for what comes next.','Odin’s crowned particle hologram with beard and a single luminous eye']};
 function persist(k,v){try{localStorage.setItem(k,v);}catch{}}
 function refreshState(){
   const hall=activeHall();
@@ -490,7 +490,7 @@ const output=document.getElementById('output-setting');output.checked=preference
 output.addEventListener('change',()=>{preferences.output=output.checked;persist('asgard:voice-output',output.checked?'1':'0');if(!output.checked){stopSpeaking();resumeListeningAfterSpeech();}});
 const still=document.getElementById('still-setting');still.checked=preferences.still;
 const motionQuery=matchMedia('(prefers-reduced-motion: reduce)');
-function motionNote(){document.getElementById('motion-note').textContent=preferences.still||motionQuery.matches||presence?.status().renderMode!=='webgl'?'Motion is still':'Subtle motion';}
+function motionNote(){document.getElementById('motion-note').textContent=preferences.still||motionQuery.matches?'Motion is still':'Hologram motion';}
 still.addEventListener('change',()=>{preferences.still=still.checked;persist('asgardfx:still',still.checked?'1':'0');presence?.setStill(still.checked);motionNote();});motionQuery.addEventListener('change',motionNote);motionNote();
 const quality=document.getElementById('quality-setting');quality.value=preferences.quality;
 quality.addEventListener('change',()=>{preferences.quality=quality.value;persist('asgard:render-quality',quality.value);presence?.setQuality(quality.value);});

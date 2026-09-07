@@ -49,7 +49,7 @@ await must('/team.html', [['loads exactly one team overlay tag', /<script src="\
     if (!/asgard-fx\.js/.test(r.text)) ok('homepage has one scene owner'); else bad('homepage has duplicate FX engine');
     const app=await get('/ui/app.js');
     if(app.status===200 && /HallsVoice/.test(app.text))ok('voice contract retained');else bad('voice contract retained');
-    await must('/ui/scene.js', [['real renderer', /new THREE.WebGLRenderer/], ['still fallback', /SVGRenderer/]]);
+    await must('/ui/scene.js', [['real renderer', /new THREE.WebGLRenderer/], ['particle projection fallback', /createParticleProjection/]]);
     await must('/ui/vendor/three.module.min.js', []);
     await must('/ui/interface.css', []);
   }
