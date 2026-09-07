@@ -1,7 +1,9 @@
+import {createArsenal} from './arsenal.js';
 import {initialPersona,editableTarget,readPreferences,assistantState} from './state.js';
-import {createPresence} from './scene.js';
+import {createPresence} from './scene.js?v=rendered-realms-1';
 const halls=['thor','loki','odin'];
 let storage;try{storage=window.localStorage;}catch{}
+let arsenal=null;
 let preferences=readPreferences(storage),presence=null,speechPhase='idle',micState='off';
 const errors={},lastFailed={},workspace=document.querySelector('.workspace'),dialog=document.getElementById('settings-dialog');
 const profile={thor:['The Storm Forge','Everyday help. A steady hand.','Thor’s rendered hammer assembly'],loki:['The Impossible Relic','A little order. A different perspective.','Loki’s rendered yellow crystal and pearl ribbons'],odin:['The All-Seeing Eye','Space to think. Clarity to act.','Odin’s rendered gold iris assembly']};
@@ -23,7 +25,7 @@ function show(id){
   document.getElementById('presence-name').innerHTML=id[0].toUpperCase()+id.slice(1)+'<span class="name-period">.</span>';
   document.getElementById('realm-name').textContent=profile[id][0].toUpperCase();document.getElementById('presence-role').textContent=profile[id][1];document.getElementById('presence-scene').setAttribute('aria-label',profile[id][2]);document.getElementById('conversation-name').textContent=id[0].toUpperCase()+id.slice(1);
   try{const url=new URL(location.href);url.searchParams.delete('persona');url.searchParams.delete('hall');url.hash=id;history.replaceState(null,'',url);}catch{}
-  if(presence?.status().persona!==id)presence?.setPersona(id);refreshState();
+  if(presence?.status().persona!==id)presence?.setPersona(id);arsenal?.switchPersona();refreshState();
 }
 // Text-only construction: no assistant HTML is ever inserted into the document.
 function formatReply(container,text){
@@ -101,6 +103,7 @@ function formatReply(container,text){
     if (vaultIntercept(text)) { input.value = ''; return; }   /* her vocabulary never leaves this device */
 
     errors[hall]=false;lastFailed[hall]=text;busy[hall] = true;
+    const activityId=arsenal?.startRequest(hall);
     listeningPaused=true;killRecognition();refreshState();
     input.value = '';
     var stage = document.getElementById('hall-' + hall);
@@ -140,7 +143,7 @@ function formatReply(container,text){
       pending.remove();
       addErr(hall, err?.name==='AbortError'?'The reply took too long. Restore your message and try again.':'Couldn’t reach the assistant. Check your connection and try again.');
     } finally {
-      clearTimeout(timeout);busy[hall] = false;refreshState();
+      clearTimeout(timeout);busy[hall] = false;arsenal?.finishRequest(activityId,!!errors[hall]);refreshState();
       if (!spoken || speechPhase==='idle') resumeListeningAfterSpeech();   /* an error still hands the mic back */
       stage.classList.remove('thinking');
       stage.querySelectorAll('.sendbtn').forEach(function(b){ b.disabled = false; });
@@ -476,7 +479,7 @@ function formatReply(container,text){
 
 
 document.querySelectorAll('.persona').forEach(b=>b.addEventListener('click',()=>{show(b.dataset.go);resumeListeningAfterSpeech();}));
-addEventListener('keydown',e=>{if(dialog.open||e.ctrlKey||e.metaKey||e.altKey||editableTarget(e.target))return;if(['1','2','3'].includes(e.key)){show(halls[Number(e.key)-1]);resumeListeningAfterSpeech();}});
+addEventListener('keydown',e=>{if(document.querySelector('dialog[open]')||e.ctrlKey||e.metaKey||e.altKey||editableTarget(e.target))return;if(['1','2','3'].includes(e.key)){show(halls[Number(e.key)-1]);resumeListeningAfterSpeech();}});
 document.querySelectorAll('.suggestion').forEach(b=>b.addEventListener('click',()=>{const input=document.getElementById('in-'+activeHall());input.value=b.dataset.prompt;input.focus();}));
 document.querySelectorAll('.stop-speech').forEach(b=>b.addEventListener('click',()=>{stopSpeaking();resumeListeningAfterSpeech();}));
 const settingsButton=document.querySelector('.settings-btn');
@@ -497,5 +500,11 @@ reopen.addEventListener('click',()=>{conversation.hidden=false;workspace.classLi
 document.addEventListener('visibilitychange',()=>{if(document.hidden){killRecognition();stopSpeaking();}else resumeListeningAfterSpeech();});
 addEventListener('pagehide',e=>{voiceOff();stopSpeaking();if(!e.persisted)presence?.dispose();});
 show(initialPersona(location.search,location.hash));
-createPresence(document.getElementById('presence-scene'),{persona:activeHall(),still:preferences.still,quality:preferences.quality,onStatus:text=>{document.getElementById('render-notice').textContent=text;}}).then(p=>{presence=p;p.setStill(preferences.still);p.setQuality(preferences.quality);if(p.status().persona!==activeHall())p.setPersona(activeHall());motionNote();refreshState();});
-window.AsgardUI={status:()=>({persona:activeHall(),state:workspace.dataset.state,mic:micState,voiceOutput:preferences.output,render:presence?.status()||null})};
+arsenal=createArsenal({getPersona:activeHall,getDraft:()=>document.getElementById('in-'+activeHall()).value,
+  setDraft:text=>{if(conversation.hidden)reopen.click();const input=document.getElementById('in-'+activeHall());input.value=text;input.focus();},
+  onSelect:id=>presence?.select(id),resetView:()=>presence?.resetView()});
+createPresence(document.getElementById('presence-scene'),{persona:activeHall(),still:preferences.still,quality:preferences.quality,onSelect:id=>arsenal?.openAgent(id),onStatus:text=>{document.getElementById('render-notice').textContent=text;}}).then(p=>{presence=p;p.setStill(preferences.still);p.setQuality(preferences.quality);if(p.status().persona!==activeHall())p.setPersona(activeHall());motionNote();refreshState();});
+window.AsgardUI={status:()=>({persona:activeHall(),state:workspace.dataset.state,mic:micState,voiceOutput:preferences.output,arsenal:arsenal?.status(),render:presence?.status()||null})};
+
+// Bring the real composer into view without changing its draft.
+document.querySelector('[data-focus-chat]').addEventListener('click',()=>{if(conversation.hidden)reopen.click();const input=document.getElementById('in-'+activeHall());input.focus();input.scrollIntoView({block:'center',behavior:'auto'});});

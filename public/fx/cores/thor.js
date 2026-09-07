@@ -98,7 +98,7 @@
     const discG = new THREE.RingGeometry(PLINTH[2][0] - 0.035, PLINTH[2][0] + 0.004, 64); geos.push(discG);
     const disc = new THREE.Mesh(discG, mats.rim); disc.rotation.x = -Math.PI / 2; disc.position.y = y + 0.001; root.add(disc);
     // the relic: the hammer inside its shells
-    const relic = O.relic = new THREE.Group(); relic.position.y = RELIC_Y; root.add(relic);
+    const relic = O.relic = new THREE.Group(); relic.position.y = RELIC_Y; if(C.presentation==='focused')relic.scale.setScalar(1.13); root.add(relic);
     const hammer = O.hammer = new THREE.Group(); relic.add(hammer);
     const add = (g, m, x, yy, z) => { geos.push(g); const mesh = new THREE.Mesh(g, m); mesh.position.set(x, yy, z); hammer.add(mesh); return mesh; };
     add(new THREE.BoxGeometry(1.24, 0.6, 0.6), mats.steel, 0, HEAD_Y, 0);                       // head
@@ -109,6 +109,15 @@
     add(new THREE.CylinderGeometry(0.1, 0.1, 0.06, 12), mats.cap, 0, HEAD_Y - 0.33, 0);         // collar
     add(new THREE.CylinderGeometry(0.095, 0.095, 0.05, 12), mats.cap, 0, HEAD_Y - 0.95, 0);     // ring
     add(new THREE.CylinderGeometry(0.12, 0.1, 0.1, 12), mats.cap, 0, HEAD_Y - 1.13, 0);         // pommel (bottom at -1.03 local: above the plinth)
+    if(C.presentation==='focused'){
+      hammer.rotation.z=-.24;
+      // Raised cheek plates, milled grooves and a wrapped grip give the hammer scale.
+      for(const z of [-.315,.315]){
+        add(new THREE.BoxGeometry(.98,.43,.025),mats.cap,0,HEAD_Y,z);
+        for(let i=0;i<5;i++)add(new THREE.BoxGeometry(.025,.25,.033),i===2?mats.band:mats.leather,(i-2)*.17,HEAD_Y,z*1.055);
+      }
+      for(let i=0;i<7;i++)add(new THREE.CylinderGeometry(.086,.086,.025,12),mats.cap,0,HEAD_Y-.45-i*.085,0);
+    }
     const shell = O.shell = new THREE.Group(); relic.add(shell);
     O.ribbons = []; O.axes = [];
     for (const spec of SHELLS) {

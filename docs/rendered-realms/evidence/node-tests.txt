@@ -1,0 +1,31 @@
+✔ every local utility accepts valid representative input and yields finite structured output (3.007331ms)
+✔ revenue calculations reconcile units and avoid division by zero (1.187519ms)
+✔ automation and usage math uses entered rates and bounded schedules (0.409367ms)
+✔ content utilities preserve data and escape spreadsheet formulas (0.453062ms)
+✔ the doubled catalogue keeps proposals distinct and does not double-count workflow combinations (2.961091ms)
+✔ catalogue exactly follows public backend tool schemas and permissions (4.476655ms)
+✔ search combines persona, category, words and saved filters (0.545672ms)
+✔ schema values preserve types, reject malformed objects and enforce numeric bounds (0.404259ms)
+✔ tool drafts route through discovery and retain approval boundaries (0.270297ms)
+✔ thor: all five council meshes are pickable, finite, still-safe and disposed (13.010633ms)
+✔ loki: all five council meshes are pickable, finite, still-safe and disposed (6.998675ms)
+✔ odin: all five council meshes are pickable, finite, still-safe and disposed (5.545736ms)
+✔ homepage mirrors and schema catalogue contains no withheld tool names (0.420193ms)
+✔ valid explicit persona wins over hall and hash (1.570557ms)
+✔ invalid routing falls through to valid public persona or Thor (0.217107ms)
+✔ preferences retain recognized values (1.48637ms)
+✔ invalid preferences and unavailable storage have safe defaults (0.315496ms)
+✔ editable target detection protects composed input targets (0.458511ms)
+✔ status priority keeps pending work and errors truthful (0.204588ms)
+✔ pending microphone is never reported as confirmed listening (0.163907ms)
+✔ thor: real geometry survives states, quality changes, disposal and reinitialization (138.57103ms)
+✔ loki: real geometry survives states, quality changes, disposal and reinitialization (133.124849ms)
+✔ odin: real geometry survives states, quality changes, disposal and reinitialization (152.994582ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 543.982734

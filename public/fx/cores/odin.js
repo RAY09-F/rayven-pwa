@@ -63,9 +63,13 @@
     const discG = new THREE.RingGeometry(PLINTH[2][0] - 0.035, PLINTH[2][0] + 0.004, 64); geos.push(discG);
     const disc = new THREE.Mesh(discG, mats.rim); disc.rotation.x = -Math.PI / 2; disc.position.y = y + 0.001; root.add(disc);
     // the relic: iris ring facing the room, blades hinged on it, a light behind them
-    const relic = O.relic = new THREE.Group(); relic.position.y = RELIC_Y; root.add(relic);
+    const relic = O.relic = new THREE.Group(); relic.position.y = RELIC_Y; if(C.presentation==='focused')relic.scale.setScalar(1.13); root.add(relic);
     const irisRingG = new THREE.TorusGeometry(IRIS_R + 0.06, 0.05, 8, 40); geos.push(irisRingG);
     O.irisRing = new THREE.Mesh(irisRingG, mats.ring); relic.add(O.irisRing);
+    if(C.presentation==='focused'){
+      const marker=new THREE.BoxGeometry(.035,.17,.055);geos.push(marker);
+      for(let i=0;i<16;i++){const a=i*TAU/16,m=new THREE.Mesh(marker,i%4===0?mats.pupil:mats.blade);m.position.set(Math.sin(a)*.95,Math.cos(a)*.95,.015);m.rotation.z=-a;O.irisRing.add(m);}
+    }
     let bladeG;
     if(C.presentation==='focused'){
       const profile=new THREE.Shape();profile.moveTo(0,-0.12);profile.lineTo(-0.72,-0.10);profile.lineTo(-0.84,0.05);profile.lineTo(-0.34,0.19);profile.lineTo(0,0.12);profile.closePath();

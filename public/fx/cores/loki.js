@@ -143,9 +143,14 @@
     const discG = new THREE.RingGeometry(PLINTH[2][0] - 0.035, PLINTH[2][0] + 0.004, 64); geos.push(discG);
     const disc = new THREE.Mesh(discG, mats.rim); disc.rotation.x = -Math.PI / 2; disc.position.y = y + 0.001; root.add(disc);
     // the relic: crystal + shell
-    const relic = O.relic = new THREE.Group(); relic.position.y = RELIC_Y; root.add(relic);
+    const relic = O.relic = new THREE.Group(); relic.position.y = RELIC_Y; if(C.presentation==='focused')relic.scale.setScalar(1.13); root.add(relic);
     const crystalG = buildCrystal(THREE); geos.push(crystalG);
     O.crystal = new THREE.Mesh(crystalG, mats.crystal); relic.add(O.crystal);
+    if(C.presentation==='focused'){
+      const facets=new THREE.EdgesGeometry(crystalG,22);geos.push(facets);
+      mats.facets=new THREE.LineBasicMaterial({color:0xffedab,transparent:true,opacity:.55});
+      O.crystal.add(new THREE.LineSegments(facets,mats.facets));
+    }
     const shell = O.shell = new THREE.Group(); relic.add(shell);
     O.ribbons = []; O.axes = [];
     for (const spec of RIBBONS) {
