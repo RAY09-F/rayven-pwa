@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>ASGARD</title>
+<style>
+  :root { color-scheme: dark; --pearl: #ECEAF2; --plum: #292337; --void: #0B0A12; --silver: #C8D1DC; --petrol: #285E6B; --uv: #7965CF; --citrine: #E7C24A; }
+  html, body { margin: 0; min-height: 100%; background: var(--void); color: var(--pearl); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 48px 20px 64px; }
+  h1 { margin: 0 0 6px; font: 600 22px/1.2 "Cinzel", Georgia, serif; letter-spacing: .38em; text-indent: .38em; text-align: center; color: var(--silver); }
+  p.sub { margin: 0 0 32px; text-align: center; color: rgba(200,209,220,.7); font-size: 13px; letter-spacing: .12em; text-transform: uppercase; }
+  nav { display: grid; gap: 14px; }
+  nav a { display: block; padding: 20px 22px; border-radius: 12px; text-decoration: none; color: var(--pearl); background: rgba(41,35,55,.6); border: 1px solid rgba(200,209,220,.16); min-height: 44px; }
+  nav a:hover, nav a:focus-visible { border-color: var(--citrine); outline: none; }
+  nav a b { display: block; font: 600 13px/1.2 "Cinzel", Georgia, serif; letter-spacing: .28em; color: var(--silver); margin-bottom: 6px; }
+  nav a span { color: rgba(200,209,220,.75); font-size: 14px; }
+  #strip { margin-top: 28px; padding: 14px 18px; border-radius: 10px; background: rgba(11,10,18,.7); border: 1px solid rgba(200,209,220,.14); display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 13px; color: rgba(200,209,220,.8); min-height: 44px; align-items: center; }
+  #strip b { color: var(--pearl); font-weight: 600; }
+  #strip i { font-style: normal; color: var(--citrine); font-size: 11px; letter-spacing: .12em; }
+  footer { margin-top: 26px; text-align: center; font-size: 12px; color: rgba(200,209,220,.5); }
+</style>
+</head>
+<body>
+<main>
+  <h1>ASGARD</h1>
+  <p class="sub">The hub · three doors and a pulse</p>
+  <nav aria-label="Rooms">
+    <a href="/"><b>THE HALL</b><span>Thor, Loki and Odin — talk, voice, the wake word, the arc cores.</span></a>
+    <a href="/team.html"><b>THE COUNCILS</b><span>Odin's high seat: the trading council, its tools, the PAPER book.</span></a>
+    <a href="/healthz?public=1"><b>HEALTH</b><span>The public status of the Worker, as JSON.</span></a>
+  </nav>
+  <div id="strip" role="status" aria-live="polite"><span>Reading the pulse…</span></div>
+  <footer>PAPER / SIM wherever a trading number appears. Nothing here is real money.</footer>
+</main>
+<script>
+  (function () {
+    var el = document.getElementById('strip');
+    function row(label, value, tag) { return '<span>' + label + ' <b>' + value + '</b>' + (tag ? ' <i>' + tag + '</i>' : '') + '</span>'; }
+    fetch('/healthz?public=1', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (h) {
+      var pnl = (typeof h.paper_pnl === 'number') ? ((h.paper_pnl >= 0 ? '+' : '−') + '$' + Math.abs(h.paper_pnl).toFixed(2)) : 'Unavailable';
+      el.innerHTML = row('Gods awake', h.gods_awake != null ? h.gods_awake : 'Unavailable') + row('Councillors', h.councillors != null ? h.councillors : 'Unavailable') + row('Extension', h.extension_online === true ? 'online' : h.extension_online === false ? 'offline' : 'Unavailable') + row('Paper book', pnl, 'PAPER / SIM');
+    }).catch(function (e) { el.innerHTML = '<span>Health: <b>Unavailable</b> (' + String(e.message).slice(0, 60) + ')</span>'; });
+  })();
+</script>
+</body>
+</html>

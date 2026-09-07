@@ -1,0 +1,1 @@
+{"name":"asgard-interface-checks","private":true,"type":"module","scripts":{"dev":"node scripts/ui-preview.mjs","test:ui":"node --test scripts/ui-state.test.mjs"}}

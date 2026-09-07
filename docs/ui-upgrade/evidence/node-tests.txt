@@ -1,0 +1,18 @@
+✔ valid explicit persona wins over hall and hash (1.604768ms)
+✔ invalid routing falls through to valid public persona or Thor (0.281374ms)
+✔ preferences retain recognized values (1.303424ms)
+✔ invalid preferences and unavailable storage have safe defaults (0.298419ms)
+✔ editable target detection protects composed input targets (0.416227ms)
+✔ status priority keeps pending work and errors truthful (0.229326ms)
+✔ pending microphone is never reported as confirmed listening (0.147513ms)
+✔ thor: real geometry survives states, quality changes, disposal and reinitialization (118.761669ms)
+✔ loki: real geometry survives states, quality changes, disposal and reinitialization (100.600752ms)
+✔ odin: real geometry survives states, quality changes, disposal and reinitialization (136.497836ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 475.252386

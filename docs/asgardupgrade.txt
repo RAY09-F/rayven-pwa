@@ -1,0 +1,1398 @@
+ASGARD UPGRADE — THE COUNCILS BECOME REAL
+=========================================
+For Claude Code, running in ~/rayven-pwa on Rayan's Chromebook.
+Read this whole file before doing anything. Then work through it phase by
+phase, in order. Do not skip ahead.
+
+This file has three parts. PART A (Phases 0–3) is for this session. PART B
+(Phases 4–6) and PART C (Phases 7–9: the tool arsenal, the visual overhaul,
+storage relief) are for later sessions — when a part is done, stop, report,
+and wait for Rayan to say "continue Part B" or "continue Part C". Do not
+start a later part on your own. Part C may run before Part B if Rayan asks:
+Phase 7 needs all of Part A (Phases 0–3) done — items that name Part B
+degrade to "not tracked yet" or are skipped and noted; Phase 8 needs Phase 0
+(any route a page reads that 404s hides that strip segment instead of
+erroring); Phase 9 needs Parts A and B stable.
+
+NOTE ON THE VISUALS: Phase 8 in this file is the thorough version. If
+docs/strike-one-hall.txt and docs/strike-two-hub-team.txt have already been
+run — check for public/fx/asgard-fx.js — then the FX engine, the hall, the
+hub and the councils page are already done. In that case Phase 8 becomes:
+read what those built, then only refine and extend it. Never rebuild the
+engine, and never re-patch a hall hook that already exists.
+
+WHO YOU ARE WORKING FOR
+-----------------------
+Rayan has zero coding experience. Talk to him in plain English, one step at a
+time, no jargon. He cannot merge code by hand, so you make every edit yourself
+and never ask him to "add this line here". When you need something only he can
+do (a secret, a paid plan, a decision), STOP, explain in one or two plain
+sentences exactly what to do, and wait.
+
+WHAT THIS IS
+------------
+Asgard is one Cloudflare Worker (asgrard-backend) with four personas sharing
+one backend: THOR (main assistant), LOKI (calendar, reminders, follow-through),
+ODIN (business, revenue, paper trading) and HELA (hidden — the vault; only
+reachable through the wake phrases; her tools are stripped from the other
+three). Frontend files live in public/ and are served by the same Worker.
+Storage is KV (RAYVEN_KV), R2 (CLIPS bucket), Vectorize and Workers AI. Voice is
+ElevenLabs. Telegram bots exist for Thor, Loki, Odin and Hela (Hela's webhook is
+deliberately unregistered). A Chrome extension on Rayan's Chromebook polls
+/browser/poll for browser control.
+
+public/team.html ("The Councils of Asgard") already shows five councillors per
+god. Today Thor's and Loki's five are labelled "A ROLE ON <GOD>'S TOOLS, NOT A
+SEPARATE BRAIN YET". Odin's five are real: they are the paper-trading agents in
+src/lib/paperTrading.js. This upgrade makes ALL of them real, gives every god
+full automation over anything he can already do, makes Odin's trading
+real-ready without ever being real, and lays the groundwork to move Asgard to
+Obsidian + Hermes Agent one day.
+
+THE ROSTERS (names are Rayan's — do not change them)
+-----------------------------------------------------
+THOR — Bilskirnir, the storm council
+  JANE FOSTER  the Seer     web search, deep research, look up, news
+  VALKYRIE     the Road     maps, music (Spotify), YouTube, weather
+  HULK         the Hands    browser navigate / read / click / type / screenshot
+  KORG         the Herald   texts, calls, JARVIS and KEVOS, translate
+  DARCY        the Keeper   memory, to-dos, calendar, reminders
+
+LOKI — The Ledger, the council of follow-through
+  MISS MINUTES the Clock    calendar, reminders, countdowns, world time
+  HUNTER B-15  the Runner   web search, news, research, look up
+  MOBIUS       the Ledger   to-dos, ideas, memory
+  SYLVIE       the Apocalypses  weather, air and world, FX and calculator, chance
+  KANG         the Watch    watchlist, monitors, page history, pause/resume
+
+ODIN — Hlidskjalf, the trading council (these five already exist as code)
+  VOLSTAGG  S&P 500 (SPY) trend         KV id  baldr
+  HEIMDALL  Gold (GLD) momentum         KV id  vidar
+  FANDRAL   Bitcoin mean-reversion      KV id  tyr
+  HOGUN     Nasdaq (QQQ) trend          KV id  heimdall
+  FRIGGA    Ethereum momentum           KV id  freya
+  THE TRAP: the agent whose KV id is 'heimdall' is DISPLAYED as HOGUN, and the
+  agent displayed as HEIMDALL has KV id 'vidar'. This is deliberate. Never
+  rename an id or a KV key — they hold live positions and trade history.
+
+HELA — the vault council (visible ONLY to Hela; invisible to the other three)
+  SKURGE   the Executioner   runs her saved capabilities and browser actions
+  FENRIS   the Hunter        the vigil: research on the least-recently-read subject
+  EITRI    the Forge         researches and saves new capabilities (her forge)
+  SURTUR   the Ending        compiles the day into one brief. NEVER deletes anything.
+  GORR     the Auditor       tests saved capabilities and FLAGS broken ones
+                             (a flag on the capability — never a deletion, never memory)
+  Rayan may rename any of these five later. Use these unless he says otherwise.
+
+HARD RULES — these override everything else in this file
+--------------------------------------------------------
+1. HELA'S MEMORY IS NEVER CLEARED. No endpoint, tool, cron or cleanup may
+   delete or trim memory:longterm:hela, her history, or any persona's long-term
+   memory. Compaction means "append a summary", never "remove originals". Do
+   not re-add anything like /hela/forget-session. If a task in this file seems
+   to need deletion, it doesn't — stop and ask.
+2. Never rename or move a KV key, an agent id, a persona id, a tool name, or a
+   secret name. Add new ones; leave existing ones alone.
+3. No new npm dependencies. No build step. Nothing that makes the Chromebook do
+   more work than it does today (2.7 GB RAM, no swap — heavy installs crash the
+   whole container). If you believe a dependency is unavoidable, stop and
+   explain in plain English why; do not install it.
+4. Secrets: never print, log, or paste a secret value. Never create a .dev.vars
+   file. When a new secret is needed, tell Rayan exactly this, filling in NAME:
+        nano ~/secret.txt        (paste the value, Ctrl+O, Enter, Ctrl+X)
+        npx wrangler secret put NAME < ~/secret.txt
+        rm ~/secret.txt
+   and wait for him to confirm before continuing.
+5. KV WRITE BUDGET. A blown write quota once silenced every bot at the same
+   time. So:
+   (a) On the reply path (a message from Rayan on the web or Telegram), the
+       only KV writes allowed are the ones that exist today, plus ONE write
+       when an approval is created. Autonomy-log entries, audit lines, cost
+       counters, delegation queue items, the taint flag and event spool all
+       ride INSIDE the persona history object the reply already saves — a
+       `_spool` ring buffer (last 50 entries) on that object. Zero extra
+       writes.
+       (a2) One exception: a tool Rayan explicitly invokes that changes HIS
+       OWN data (shopping list, notes, reading list, habits, expenses,
+       journal, rss_watch / job_watch, routine_enable_template) may make ONE
+       write to that family's single key. These are bounded by how often he
+       talks; budget them at 50/day in the table.
+   (b) All bookkeeping for one cron tick — autonomy-log entries, audit lines,
+       drained spool entries, queued events, "last checked" stamps — goes into
+       ONE key `tick:YYYY-MM-DD:HHMM`, written once at the end of the tick,
+       only if non-empty. Never a shared daily key with read-modify-write: KV
+       is last-writer-wins and eventually consistent, so overlapping writers
+       lose data.
+   (c) A councillor's state key is written only when its duty actually DID
+       something (sent, changed, traded, delegated). A no-op check writes
+       nothing and does not count as a "run".
+   (d) Trader stats keys update only when a trade closes; the equity curve is
+       sampled once at market close. Routine run history lives inside
+       routines:<id> (last 20 runs): one write per run, no separate history
+       key. Hard cap 60 routine runs per day.
+   (e) Ceiling: a counter of writes added by this file, kept in the tick key.
+       When it passes 2,500 since 00:00 UTC, every writer added by this file
+       stops until the next UTC day and Thor tells Rayan once. Conversation
+       history writes are never blocked.
+   Before every deploy, print a table: feature → worst-case KV writes/day.
+   Everything new combined must stay under 3,000/day.
+   If Phase 0.4 finds the Workers Paid plan is NOT active, STOP after Phase 0
+   and tell Rayan: "Everything after Phase 0 needs the $5/month Workers Paid
+   plan (Cloudflare dashboard → Workers & Pages → Plans). Turn it on and say
+   continue." Do not build Phases 1–6 on the free plan — its 1,000 writes/day,
+   50 subrequests per invocation and 10 ms CPU per cron run cannot carry this.
+6. For a given (persona, open-group set) the tool array sent to Anthropic
+   must be byte-identical every time it is sent, built from ONE fixed master
+   order (prompt caching breaks silently otherwise). It may change only at
+   the first message of a conversation (keyword rules) or when find_tools
+   opens a group (Phase 7) — each change is one accepted cache miss. Append
+   new tools at the end of the master order; never re-sort.
+7. When an upstream service refuses something, surface what it said. Never
+   collapse a remote failure into a generic string.
+8. Hard-confirm tools (SMS, calls) stay hard-confirm with the existing LIVE
+   confirmation. Automation may QUEUE them for approval; it may never send
+   them, and a Telegram approval never replaces the live confirmation. Same
+   for social posting. Real-money trading: there is no code path, and this
+   file adds none — Phase 4 builds gates and a stub only.
+9. The clipping business stays exactly where it is. Do not start, resume, or
+   reconfigure it. Odin may report its status; nothing more.
+10. Do not touch the trio's persona prompts except where this file says to. Do
+    not touch index.html / public/index.html (the hall) in Parts A or B at
+    all; in Part C Phase 8 touch it only by the anchor method in 8.2 — never
+    by loading the whole file. team.html: in Parts A/B only the edits in
+    Phase 2.6; in Phase 8 the edits in 8.3.
+11. Every phase ends with: node --check on every changed file, a deploy, the
+    smoke test (Phase 0.5) against the LIVE URL, then a git commit
+    "asgard-upgrade phase N: <what>" and a push. If the live smoke test fails
+    and you cannot fix it within a few tries, git revert the phase commit,
+    redeploy, and tell Rayan plainly what broke.
+12. Write progress to docs/UPGRADE_PROGRESS.md at the end of every phase (what
+    was done, what was verified, what's waiting on Rayan). If this session dies
+    — it will, the Chromebook runs out of memory — Rayan will restart and say
+    "continue asgard-upgrade.txt from the progress file". Make that possible.
+13. Work on the branch that is actually deployed. Check which branch HEAD is
+    live before starting (asgard-three-personas was never merged into main at
+    one point — do not switch branches, do not merge, just work where the live
+    code is). Before any edit: git branch pre-asgard-upgrade-backup, so the
+    starting point is parked. Nothing gets deleted.
+14. Time. Cloudflare cron fires in UTC; every time in this file is Pacific.
+    Do NOT implement cron syntax. A schedule is either
+    { at: 'HH:MM', days: [0..6], tz: 'America/Los_Angeles' } or
+    { every: N } (minutes). "Due" = format now in tz with Intl.DateTimeFormat
+    and compare against the last-run stamp in state. Build this once as
+    src/lib/schedule.js in Phase 2; Phase 3 reuses it.
+15. Telegram trust. Messages from Rayan's own Telegram user id in a PRIVATE
+    chat with one of the four bots are trusted (the code already identifies
+    him). Everything else on Telegram — the shared group, any other user — is
+    untrusted content (Phase 1). APPROVE / REJECT replies and buttons are
+    honoured only from Rayan's id in a private chat, never from the group.
+16. R2. Every object this file creates lives under the prefix asgard/ or
+    asgard-vault/. Every existing R2 list/get/delete tool refuses any key under
+    those prefixes, the same way Hela's tools are blocked from the trio.
+    Nothing under those prefixes is ever deleted by code.
+17. When you say "done", it means: deployed, smoke-tested live, committed,
+    pushed. Not "written".
+
+======================================================================
+PART A — THIS SESSION
+======================================================================
+
+======================================================================
+PHASE 0 — SURVEY, MANIFEST, SMOKE TEST (nothing changes behaviour yet)
+======================================================================
+0.1  Read src/ fully, the wrangler config fully, and the extension folder
+     fully. In public/, read ONLY team.html's CONFIG block and its fetch/poll
+     code, and the list of routes each page calls — never load the whole 3D
+     HTML files into context (they are hundreds of KB and will crash the
+     session). Do not rely on notes or memory of this codebase; read the code
+     that exists right now.
+
+0.2  Confirm the council rename was applied. In src/lib/paperTrading.js the
+     five agents must DISPLAY as FRIGGA (id freya), FANDRAL (id tyr), VOLSTAGG
+     (id baldr), HOGUN (id heimdall), HEIMDALL (id vidar), and Odin's PAPER
+     TRADING paragraph in src/lib/personas.js must list "FRIGGA, FANDRAL,
+     VOLSTAGG, HOGUN, HEIMDALL". If any of that still shows STRANGE / MAGNI /
+     GROOT / TYR, apply the rename now — display name, label and theme line
+     only, ids and keys untouched — following docs/prompt-rename-odin-council.txt
+     if it is present. Also confirm public/team.html shows the same five names
+     for Odin.
+
+0.3  Write docs/ASGARD_MANIFEST.md — the ground truth, generated from code:
+     - every tool: name, one-line purpose, which file dispatches it, permission
+       level (auto / notify / confirm / hard-confirm), which personas see it
+     - every cron job: cadence, what it does, worst-case KV writes per run
+     - every KV key prefix in use and what lives under it
+     - every route the Worker serves, public or not
+     - every secret NAME the code reads (names only, never values), and which
+       feature dies if it is missing
+     - every persona: id, model, max_tokens, history depth, voice secret name
+     - the four Telegram bots: which persona, which secret name, webhook route
+     Also produce docs/TOOLS.json: an array of every tool with its exact name,
+     description and input_schema as sent to Anthropic. src/ probably cannot
+     be imported by plain Node (Worker globals), so serve it from a new admin
+     route GET /admin/tools.json (auth as in 0.5) and save it from there with
+     a 10-line scripts/gen-tools-json.mjs (plain Node, no deps). Regenerate it
+     whenever tools change.
+
+0.4  Measure and record in the progress file:
+     - today's RAYVEN_KV read/write counts from Cloudflare's GraphQL Analytics
+       API, the way it was done before (from the terminal, not the Worker)
+     - whether the Workers Paid plan is active (see Hard Rule 5 — stop after
+       this phase if not), and the plan's subrequest and CPU caps
+     - whether /browser/poll, /browser/result or /status write KV on every
+       hit. If so, throttle that heartbeat to one write per 5 minutes — it is
+       very likely most of today's baseline
+     - if the 5-minute paper-trading cron still writes the portfolio
+       unconditionally (288 writes/day), fix it: write only when something
+       changed
+     - which Claude model id each persona runs, checked against the vendor's
+       current models page. There was a note that claude-sonnet-5 is cheaper
+       than the older Sonnet with a newer cutoff — verify it still is; if the
+       code runs an older, dearer id, change it to the current one. One
+       constant per model id in one place; no scattered strings.
+     - the current Haiku model id (for Phase 2's cheap tier) — verify it
+     Optional, ask Rayan in the Rule 4 format only if he wants the KV-usage
+     line on /healthz later: secret CF_ANALYTICS_TOKEN (a read-only Analytics
+     API token) and var CF_ACCOUNT_ID. If he says skip, everything still works
+     and /healthz reports "kv usage: unavailable".
+
+0.5  Build scripts/smoke.mjs (plain Node, no deps). It takes the LIVE base URL
+     (never wrangler dev — local has no KV, no secrets) and checks:
+     - GET /status, /todos, /monitors, /calendar, /paper-trading/status,
+       /browser/status, /spotify/now-playing all return 200 and valid JSON
+     - POST / with each of thor, loki, odin and the message "reply with the
+       single word OK", sending header X-Asgard-Smoke: 1, returns a reply
+       within 60 s. Add that header to the Worker: when present, the turn
+       skips the history and memory save (so smoke runs never pollute
+       conversations). Hela is NOT messaged — ever — check only that her
+       routes answer.
+     - GET /team.html and the hall page return 200 and non-empty HTML
+     - GET /admin/webhooks with header X-Asgard-Admin matching a new secret
+       ADMIN_TOKEN (first new secret — Hard Rule 4) returns, for each of the
+       four bots, the webhook URL Telegram has on file and any
+       last_error_message — never the tokens. The script prints them.
+     - prints PASS / FAIL per line and exits non-zero on any FAIL
+     If something already fails on the live URL today (a webhook pointing at
+     the old rayven-backend host, a 400 on a webhook), fix that first — it is
+     a live bug.
+
+0.6  Deploy, smoke, commit, push. Phase 0 done. If the paid plan is not
+     active, stop here and tell Rayan (Hard Rule 5).
+
+======================================================================
+PHASE 1 — CONTAINMENT (automation is not safe without this)
+======================================================================
+Check what already exists before building any of these. Build only what is
+missing. The point: once councillors run unattended and read web pages, email
+and Telegram, an injected page must not be able to make Asgard text someone,
+post something, or leak memory.
+
+1.1  Taint bit and provenance. One flag per conversation, stored inside the
+     persona history object (Rule 5a). Set the moment any untrusted content
+     enters the context: web fetch, search result, page read by the
+     extension, email body, Telegram message that is not from Rayan's private
+     chat (Rule 15), any social API response, any capability response. While
+     tainted: SMS, calls, social posts, capability creation, long-term memory
+     writes, and browser navigation to a new domain are queued as approvals
+     (1.5) instead of executed. The approval shows the literal recipient, the
+     literal body, and where the content came from ("derived from a page
+     fetched at 14:02"). The model never writes the approval text.
+     Define here, once, the provenance shape every memory write from now on
+     carries: { source, persona, ts, trust } with trust one of
+     'rayan' | 'trusted-tool' | 'untrusted-content'. Entries without a trust
+     field are READ as 'legacy' and are never rewritten.
+
+1.2  Egress allowlist for HELA's capabilities and any tool that can POST or
+     send: KV list of allowed hosts (one key), deny by default, a tool to
+     request adding a host that queues an approval. Keep every existing guard
+     (https only, no private ranges, no metadata, never own host, no secrets
+     in a capability, 12 s timeout, 6,000-char cap, 40 max).
+
+1.3  Untrusted wrapping. Every tool result that carries outside content is
+     returned JSON-encoded with a source label, and the instruction to the
+     model about what to do with it goes as a text block placed AFTER the
+     tool_result block in the same user message (that is the API's shape).
+
+1.4  Audit log. Every tool call, memory write and outbound request produces
+     one audit line: timestamp, persona, councillor if any, tool, parameter
+     SHAPE and hash (never values), triggering_event_id chaining back to the
+     input that caused it. On the reply path the line goes into the history
+     object's _spool (Rule 5a); in cron it goes into the tick key (Rule 5b).
+     Each tick drains every persona's spool entries newer than the previous
+     tick's `lastDrained` stamp into the tick key without rewriting the
+     history key. Ninety days from now the question "which page caused that
+     action" must be answerable. Once a day, COPY tick keys older than 30 days
+     into R2 under asgard/audit/YYYY-MM-DD.json; never delete the KV keys.
+
+1.5  Approvals inbox. One KV key `approvals` (pending list, capped at 50).
+     Tools: approvals_list, approve, reject. Each new approval is also sent to
+     Rayan's private Telegram by the persona's bot as
+     "[APPROVAL 1234] <what> — reply APPROVE 1234 or REJECT 1234". The
+     Telegram handler honours those two replies only from Rayan's id in a
+     private chat (Rule 15). Hard-confirm tools keep the live confirmation on
+     top (Rule 8).
+
+1.6  Deploy, smoke, commit, push.
+
+======================================================================
+PHASE 2 — THE COUNCILS: TWENTY REAL SUB-AGENTS
+======================================================================
+Design principle: WRAP, DON'T DUPLICATE. Many councillor duties already exist
+as code (watchlist checks, calendar, the paper-trading agents, Hela's vigil and
+forge). The councillor becomes the face and the accountability for that job.
+It gets its own small brain, its own narrow toolset, its own schedule and its
+own state — it does not get a copy of logic that already exists.
+
+2.1  New file src/lib/council.js — the registry. One entry per councillor:
+       id            lowercase stable id, e.g. 'jane_foster'. Never changes.
+       owner         'thor' | 'loki' | 'odin' | 'hela'
+       name, role, theme   display only — from the rosters above
+       tools         the exact tool names this councillor may call (map the
+                     wedges in team.html's CONFIG to real tool names; Odin's
+                     five get the paper-trading tools; Hela's five get her
+                     tools and nothing else)
+       prompt        a short system prompt (10–20 lines): who they serve,
+                     what they do, how they report, what they never do
+       tier          'free' | 'cheap' | 'owner'  (see 2.3)
+       duty          the standing job, if any, as a schedule (Rule 14)
+       stateKey      council:<owner>:<id>  — ONE JSON object: last run,
+                     last result, counters, whatever the duty needs
+       budget        worst-case KV writes/day (goes into the Rule 5 table)
+     Hela's five carry hidden: true and are filtered from anything the trio
+     can see — /status, /council/status, tool schemas, the memory map, the
+     team page — exactly the way her tools are already stripped.
+
+2.2  The runner: runCouncillor(env, councillorId, task, ctx). It runs a small
+     tool loop with ONLY that councillor's tools, that councillor's prompt,
+     the owner's shared core rules, and a maximum of 6 tool round trips. It
+     returns { summary, actions, data }. A run that did something records one
+     autonomy-log entry (spool on the reply path, tick key in cron) so the
+     team page's live tags and the HUD's fourth panels light up, plus one
+     audit line. Councillors inherit the taint bit and the approval rules —
+     a councillor can queue an SMS; it can never send one.
+
+2.3  Model tiers, kept in ONE constant MODELS at the top of council.js, using
+     the ids verified in 0.4:
+       free   → Workers AI @cf/meta/llama-3.2-3b-instruct  (triage, yes/no
+                decisions, "is this worth waking the owner for")
+       cheap  → the current Claude Haiku model (real work: research
+                summaries, calendar reasoning, self-reviews)
+       owner  → whatever the owning god runs today (only when the owner
+                explicitly delegates something hard)
+     Default tier per councillor: free for Kang / Miss Minutes / Gorr checks,
+     cheap for everyone else, owner only on delegation.
+
+2.4  Delegation. Each god gets one new tool, delegate: { councillor, task,
+     wait: true|false }. wait:true runs it now and hands the result back into
+     the god's turn. wait:false drops the task into the history object's
+     _spool as a queued delegation (no extra write); the next cron tick runs
+     it and the result is delivered by the god's Telegram bot or spoken next
+     time the hall opens. A god may only delegate to his own five. Hela may
+     only delegate to hers. Cross-god work goes through Phase 3's routines.
+
+2.5  Standing duties. A duty IS a routine: each one below is stored as a
+     pre-built routine (Phase 3 format) owned by the god, with one delegate
+     step. Duties marked EXISTS wrap code that already runs; the councillor
+     layer records the run and reports it. Duties marked NEW are built in
+     Phase 3 as pre-built routines (3.4) — in this phase they are registered
+     with duty: null and "on delegation only".
+     THOR
+       JANE FOSTER   on delegation. NEW (3.4): Sunday evening world note.
+       VALKYRIE      on delegation. Her state caches the last weather and
+                     now-playing result ONLY as a side effect of a tool call
+                     Thor made in that turn — no polling.
+       HULK          on delegation. EXISTS: extension health — if the last
+                     /browser/poll is older than 10 minutes, set a flag once
+                     in his state; Thor mentions it once, not on every turn.
+       KORG          on delegation. Owns the siblings protocol (Part B, 3.5).
+       DARCY         NEW (3.4): nightly memory hygiene.
+     LOKI
+       MISS MINUTES  EXISTS: every 5 min, next calendar event within 30 min →
+                     one reminder, once (state remembers what was sent).
+       HUNTER B-15   on delegation. NEW (3.4): morning headline for the brief.
+       MOBIUS        NEW (3.4): evening to-do nudge inside the brief.
+       SYLVIE        NEW (3.4): morning weather/air/FX inside the brief.
+       KANG          EXISTS: every 5 min, the existing watchlist/monitor
+                     check, now reported as Kang. Pause/resume stays his.
+     ODIN
+       the five traders: EXISTS — their cron step, now recorded per
+       councillor (a write only when a trade opens or closes, Rule 5c/5d).
+       Self-reviews are Part B (Phase 4), not here.
+     HELA
+       FENRIS   EXISTS = the 3-hour vigil, now run as Fenris
+       EITRI    EXISTS = the 30-minute forge while locked in, now run as Eitri
+       SURTUR   EXISTS = the 22-hour daily assembly, now run as Surtur
+       SKURGE   on delegation only
+       GORR     NEW (3.4): weekly capability test — flag broken ones in her
+                capability list (a flag, never a deletion; she decides with
+                forget_capability)
+     All duties no-op instantly when there is nothing to do — one KV read per
+     tick at most, no write (Rule 5c).
+
+2.6  Routes and page:
+     - GET /council/status → for the three visible gods: each councillor's
+       id, name, last run time, last summary (one line), duty cadence, and
+       whether it is currently running. Hela's are never included.
+     - Each god's HUD fourth panel (FIELD LOG / THE LEDGER / COUNSEL) keeps
+       working unchanged because it reads the autonomy log.
+     - public/team.html, only these edits: (a) the honesty label "A ROLE ON
+       <GOD>'S TOOLS, NOT A SEPARATE BRAIN YET" becomes "OWN BRAIN · LAST RAN
+       <time>" once /council/status reports a run for that councillor, and
+       stays as-is until then; (b) the room's 30-second poll also reads
+       /council/status. Do not restructure the file, do not touch the 3D
+       renderer, do not change names or colours.
+
+2.7  Persona prompts, minimal additions only: one short paragraph in each
+     god's prompt naming his five councillors, what each is for, and that he
+     may delegate with the delegate tool. Nothing else in those prompts
+     changes. Hela's paragraph goes in her prompt only.
+
+2.8  Deploy, smoke, commit, push. Then ask Rayan to send "who's on your
+     council?" to Thor, Loki and Odin on Telegram — never Hela — and paste
+     the three replies back. Each must name his own five and nobody else's.
+
+======================================================================
+PHASE 3 — FULL AUTOMATION: ROUTINES AND EVENTS
+======================================================================
+Goal: anything Asgard can do on request, Rayan can have it do on a schedule or
+in response to something happening, by TALKING, with no code.
+
+3.1  src/lib/events.js — an in-Worker event bus. Existing systems emit typed
+     events (add the emit calls where the things happen):
+       watchlist.hit, monitor.changed, timer.done, calendar.upcoming,
+       email.received (draft-only access stays draft-only), telegram.message
+       (with from: rayan | jay | kevin | other, and which chat),
+       paper.trade.opened, paper.trade.closed, paper.report.sent,
+       extension.offline, extension.online, kv.quota.warning,
+       councillor.finished, approval.created, approval.resolved,
+       clip.posted (report only).
+     Events raised during a request go into the history object's _spool
+     (Rule 5a) and are drained by the next tick; events raised inside cron
+     are handled in the same invocation. No separate event key, no firehose.
+
+3.2  src/lib/routines.js — a routine is:
+       { id, owner, name, trigger, steps, deliver, enabled, createdBy, runs }
+       trigger:  { kind: 'schedule', at: '07:00', days: [1,2,3,4,5],
+                   tz: 'America/Los_Angeles' }
+              or { kind: 'schedule', every: 30 }
+              or { kind: 'event', event: 'watchlist.hit', filter: {...} }
+       steps:    ordered list of { councillor?, tool, args } or
+                 { delegate: { councillor, task } } — args may reference
+                 earlier step results and the event payload by simple path
+                 ("$steps[0].summary", "$event.url")
+       deliver:  telegram (which bot), notify, speak-next-time-hall-opens,
+                 silent
+       runs:     last 20 runs, kept inside this same object (Rule 5d)
+     Storage: routines:index (one JSON array of ids + names + owner) and
+     routines:<id>. Tools for every god: routine_create, routine_list,
+     routine_pause, routine_resume, routine_delete, routine_run_now,
+     routine_history. A god creates routines from plain speech: "Loki, every
+     weekday at seven send me the brief" → routine_create with a schedule
+     trigger. The god reads the routine back in one sentence before saving.
+     Hela's routines are hers alone and invisible to the trio.
+
+3.3  The runner lives in the existing 5-minute cron: due schedules + drained
+     events → run each routine's steps → deliver. Guard rails:
+     - a routine may not call hard-confirm tools, post to social, or create
+       capabilities; those steps become approvals (1.5)
+     - critic step before any irreversible action (sending to a Telegram
+       group, writing long-term memory, adding an egress host): the free
+       tier model is asked "does this action match the routine's stated
+       intent and the event that fired it?" and must return strict JSON
+       { ok: boolean, why: string }; anything unparseable = approval
+     - max 12 routine runs per tick, 60 per day; overflow rolls forward
+     - a routine that fails 3 runs in a row pauses itself and tells its owner
+     - each run: at most 2 KV writes total, counted in the budget table
+
+3.4  Ship these routines pre-built (enabled; each says so in the first
+     Telegram message it sends, with "say 'Loki, pause the morning brief' to
+     stop it"). These are the NEW duties from 2.5:
+     THOR   "While you were away" — when the hall opens after 6+ hours idle,
+            Thor speaks a 3-sentence recap from the autonomy log. Jane's
+            Sunday 18:00 world note: what changed this week in the subjects
+            Rayan's long-term memory shows he cares about (tier cheap).
+            Darcy's 03:00 memory hygiene: reads Thor's, Loki's and Odin's
+            conversations from the day — never Hela's — and APPENDS a dated
+            summary to long-term memory with provenance (1.1). Never removes
+            anything.
+     LOKI   Morning brief 07:00 weekdays / 09:00 weekends: calendar,
+            reminders due, weather + air + one FX rate (Sylvie), to-dos
+            older than 3 days (Mobius), one headline (Hunter B-15). Evening
+            "tomorrow at a glance" 21:00.
+     ODIN   Market-open note 06:35 Pacific weekdays and market-close report
+            13:05 Pacific. The close report REPLACES the existing daily paper
+            report — keep honouring config:paper:report:hour, default it to
+            13:05. Paper only, labelled PAPER · SIMULATED every time, never a
+            recommendation. Sunday "state of the realm" 17:00: paper P&L by
+            councillor, KV writes today, "model spend: not tracked yet"
+            (until Part B 6.6), what is waiting on Rayan (secrets by name,
+            plans, the Ayrshare situation — report only, Rule 9).
+     HELA   Gorr's weekly capability test (Sunday 02:00, only while locked
+            in). Nothing else new; her vigil / forge / daily already run.
+     SYSTEM (owned by Thor, tier free, reports to Rayan's private Telegram):
+            every 30 min —
+            · webhook check for all four bots via getWebhookInfo. The
+              correct host is a wrangler var TELEGRAM_WEBHOOK_HOST (add it;
+              never derive it from the incoming request URL). Re-set a wrong
+              webhook at most once per bot per day and tell Rayan each time.
+              Hela's webhook stays unregistered — check it, never set it.
+            · extension last-poll age (from the throttled heartbeat, 0.4)
+            · KV writes today vs cap, warning at 70% — only if
+              CF_ANALYTICS_TOKEN was set in 0.4; otherwise "unavailable"
+            · presence of every secret NAME from the manifest (a misnamed
+              secret — ELEVENLABS_VOICE_ID_THOR with a trailing underscore —
+              once broke Thor's voice; report missing names, never values)
+            Add GET /healthz returning these as JSON (no secrets, no tokens),
+            and GET /healthz?public=1 returning ONLY { gods_awake,
+            councillors, extension_online, paper_pnl } for the hub page.
+
+3.5  (PART B) Siblings protocol — see Part B below. Not this session.
+
+3.6  Deploy, smoke, commit, push. Verify by creating one routine by voice
+     ("Loki, in ten minutes tell me the routines work") and receiving it.
+     Then STOP. Write the progress file, tell Rayan Part A is done in plain
+     English (what now works, one sentence he can say to try each thing,
+     anything waiting on him), and wait for "continue Part B".
+
+======================================================================
+PART B — LATER SESSIONS (only when Rayan says "continue Part B")
+======================================================================
+
+3.5  Siblings protocol (Korg). In the shared Telegram group, messages that
+     start with a fixed structured prefix are treated as agent-to-agent:
+        @ASGARD task: <plain request>      → Thor runs it and replies
+        @ASGARD status                     → one-line status
+        @JARVIS ... / @KEVOS ...           → Asgard ignores (not his)
+     @ASGARD task runs Thor with a FIXED allowlist: web search, weather,
+     time, FX/calculator, paper-trading status. No memory, browser,
+     calendar, email, to-do or delegate tools. Thor never quotes long-term
+     memory in a group reply. Group replies pass the 3.3 critic. Everything
+     from the group is tainted (Phase 1). Replies use the same prefix so
+     JARVIS and KEVOS can parse them. Write the exact format into
+     docs/SIBLINGS_PROTOCOL.md so Rayan can hand it to Jay and Kevin. Keep it
+     this simple; do not adopt A2A or any protocol library. Deploy, smoke,
+     commit, push.
+
+======================================================================
+PHASE 4 — ODIN'S TRADING: PAPER NOW, REAL-READY LATER, NEVER REAL BY ACCIDENT
+======================================================================
+Odin's paper trading stays exactly what it is: a fake $10,000, real market
+data, a full trade log, labelled PAPER · SIMULATED everywhere, and Odin's
+prompt rules about never recommending a real trade and never inventing a
+number stay word for word. This phase makes the simulation stronger and puts a
+broker interface in front of it so that IF, months from now, Rayan decides to
+trade real money, it is a switch with gates — not a rebuild. This phase adds
+NO go-live tool, NO broker, NO keys, and no code may write config:trading:mode
+or config:trading:live_ack. No real-money code path can execute.
+
+4.1  src/lib/broker.js — one interface, two implementations:
+       Broker: getQuote(symbol), getPositions(), getBalance(),
+               placeOrder({agentId, symbol, side, qty, type, stop}),
+               cancelOrder(id), closePosition(id)
+       PaperBroker: the existing paperTrading portfolio logic moved BEHIND
+               this interface. Same KV keys, same ids, same behaviour, same
+               reports. Refactor only. Verify: dump /paper-trading/status
+               before and after and compare shape, the open-position list
+               (id, symbol, side, qty, entry price) and the trade-log ids and
+               length. Ignore prices, P&L and timestamps. Do this BEFORE 4.3
+               adds slippage.
+       LiveBroker: a stub. Every method throws LIVE_TRADING_DISABLED with the
+               list of gates not met. Shape its signatures to a real broker
+               API that offers a free paper endpoint and a live endpoint with
+               the same request shape (Alpaca is the usual example — verify
+               on their current docs; do not sign up, do not add keys, do not
+               implement it).
+     Selection: config:trading:mode, read only, 'paper' when missing. The
+     gates a future switch would require, listed by trading_readiness as
+     documentation:
+       - secret LIVE_BROKER_KEY exists (it does not)
+       - config:trading:live_ack holds a phrase typed by Rayan through a
+         future go-live tool that this file does NOT add, which would itself
+         require a live confirmation AND a Telegram approval — two yeses on
+         two surfaces
+       - the paper journal shows at least 30 distinct trading days
+       - paper max drawdown over those days is under config:trading:risk
+         (default 8%)
+       - trading_halt is not set
+     Today trading_readiness answers: "mode: paper. No live path exists."
+     and lists the gates and their status.
+
+4.2  Risk caps that apply to PAPER too (so the record is honest):
+     per-trade risk 1% (existing stop), per-day loss cap 3% → halt for the
+     day, per-councillor position cap, max 2 open positions per councillor,
+     no new positions in the last 10 minutes before the close. Kill switch:
+     tools trading_halt / trading_resume / trading_status / trading_readiness
+     (plain English). Halt blocks new orders only; it never force-closes.
+
+4.3  Better simulation:
+     - static NYSE holiday list for 2026 and 2027 in marketData.js (verify
+       against nyse.com). No automatic refresh; Odin's Sunday report warns
+       when the list's last year is the current year.
+     - slippage and commission assumptions applied to every paper fill and
+       stated in the report
+     - per-councillor equity curve and stats, one key per councillor,
+       written only when a trade closes plus one sample at market close
+       (Rule 5d): win rate, average win/loss, max drawdown, Sharpe-style
+       ratio; /paper-trading/status returns them
+     - paper_backtest tool: first check how many candles marketData caches;
+       if fewer than 5 trading days, answer "insufficient cached history".
+       Otherwise replay cached candles through a councillor's strategy for N
+       days and report the same stats. Never extra Twelve Data calls
+       (800/day free cap).
+     - daily self-review per trader after the close, tier cheap, appended to
+       a per-councillor journal key (one write per trading day each). Odin's
+       close report quotes one line from each. These five reviews are the
+       first Batch API candidates (6.2).
+
+4.4  Odin's room on team.html already polls /paper-trading/status. Add the
+     per-councillor stats to what it already displays (a short line under
+     each trader: P&L, win rate, drawdown) — no restructuring.
+
+4.5  Deploy, smoke, commit, push. Run trading_readiness and confirm it reports
+     mode: paper, no live path, gates listed and not met.
+
+======================================================================
+PHASE 5 — THE OBSIDIAN + HERMES FOUNDATION
+======================================================================
+Rayan is not moving Asgard today. Asgard stays on Cloudflare. This phase makes
+a future move a COPY rather than a rebuild. Two facts to design around, both
+to be verified against current docs before you rely on them: (1) Hermes Agent
+(Nous Research) loads MEMORY.md and USER.md into its system prompt at session
+start and treats an Obsidian vault folder as notes it can read and write;
+(2) MCP tool calls can be served statelessly over plain HTTP by a Worker, and
+most agents can call MCP servers. Do not install Hermes or Obsidian anywhere;
+they do not run on this Chromebook.
+
+5.1  The vault export. GET /admin/vault.json (header X-Asgard-Admin, secret
+     ADMIN_TOKEN from Phase 0) returns [{ path, content }] describing a folder
+     laid out as an Obsidian vault:
+       MEMORY.md                 the shared long-term memory, condensed to what
+                                 an agent should know at session start (a
+                                 rendering — the KV originals are untouched)
+       USER.md                   who Rayan is, how he wants to be spoken to,
+                                 standing rules (plain English, from the
+                                 persona prompts' shared core)
+       personas/thor.md, loki.md, odin.md, hela.md   full system prompts
+       councils/<god>/<councillor>.md               prompt, tools, duty, state summary
+       memory/<god>/YYYY-MM-DD.md                   dated long-term memory entries with provenance
+       history/<god>/latest.md                      recent conversation, rendered
+       trading/journal.md, trading/<councillor>.md  paper journal and stats
+       routines/<id>.md                             each routine as natural language + JSON block
+       tools/TOOLS.md and tools/TOOLS.json          from Phase 0.3
+       capabilities/hela.md                         her saved capabilities (names, purposes, URLs — never secrets)
+       MIGRATION.md                                 see 5.3
+     Hela's folders are included ONLY when the request also carries header
+     X-Asgard-Vault: hela; by default her material is left out entirely.
+
+5.2  scripts/export-vault.mjs (plain Node, no deps): calls that route with the
+     admin token read from ~/.asgard-admin-token (a file, never an argument),
+     writes the folder ~/asgard-vault/, and prints a count of files. This
+     folder can be opened in Obsidian as-is on any machine, and dropped into a
+     Hermes install as its notes. Also a nightly SYSTEM routine step (tier
+     free) that writes the same export — INCLUDING Hela, it is a backup — as
+     one JSON object to R2 under asgard-vault/YYYY-MM-DD.json. One R2 write
+     per night. Rule 16 keeps the trio's R2 tools out of it and nothing there
+     is ever deleted by code.
+
+5.3  docs/MIGRATION.md — plain English, honest, for Rayan and for whichever
+     agent does the move one day:
+     - what copies straight across (memories, prompts, routines as text,
+       the trading journal, the vault folder)
+     - what needs a machine Asgard does not have (Hermes itself, Obsidian
+       itself, the browser extension's host) and the smallest machine that
+       would do it (a Raspberry Pi 4 with 4 GB or better, per Hermes's own
+       community install notes — verify before quoting)
+     - what stays on Cloudflare no matter what (KV, R2, the Worker as the
+       MCP server, cron) and why that is the right shape
+     - the exact order to do it in, and how to run both side by side for a
+       month before trusting the new one
+
+5.4  Asgard as an MCP server. Add POST /mcp implementing JSON-RPC 2.0 over
+     POST for initialize, tools/list and tools/call with NO server state:
+     never emit a session id; answer initialize with capabilities { tools: {} }.
+     Read the current spec page on modelcontextprotocol.io first and match its
+     protocolVersion string and required headers; if it cannot be fetched,
+     ship the 2025-06-18 shape (sessions optional there) and say so in the
+     progress file. Auth: Bearer token matching ADMIN_TOKEN. Exposes ONLY
+     tools with permission level auto or notify, and never Hela's; confirm
+     and hard-confirm tools are omitted from tools/list and refused at
+     tools/call with a JSON-RPC error "requires live confirmation; not
+     available over MCP". Every MCP call sets the taint bit. Same dispatch,
+     same approval rules — an external agent calling through MCP gets no more
+     power than Thor has, and less. This is what lets a future Hermes (or
+     JARVIS, or KEVOS) use Asgard's tools without any of them being
+     rewritten. Test with a 20-line scripts/mcp-smoke.mjs that lists tools
+     and calls weather.
+
+5.5  Deploy, smoke, commit, push. Run the export script once, list the
+     folder, and confirm MEMORY.md, USER.md and all four persona files exist
+     and read correctly.
+
+======================================================================
+PHASE 6 — EVERYTHING ELSE WORTH ADDING (do in this order, each is small)
+======================================================================
+Each item: check it isn't already there, build it, keep it inside the write
+budget, add it to the manifest. Deploy and commit after every three items.
+
+6.1  Tool subsets, cache-safe: choose a tool subset per persona and per
+     CONVERSATION (keyword rules, no model call) at the first message and
+     keep it fixed for that conversation, built from the fixed ordered master
+     list so the same subset is always byte-identical. If the subset cannot
+     be held stable across the conversation, skip this item and note it —
+     a changing subset costs more than sending every tool. If Part C is
+     running before Part B, skip this item entirely: Phase 7.0's toolbox
+     replaces it.
+6.2  Batch work off the live bill: ONLY the weekly world note, the five
+     trader self-reviews and Darcy's 03:00 hygiene go through the Anthropic
+     Message Batches API (one plain fetch wrapper if no client exists):
+     submit, store the batch id in the SYSTEM state, collect on later ticks
+     (batches can take up to 24 h). The morning brief, evening glance and
+     market notes stay on the live API — they are time-sensitive.
+6.3  Memory provenance everywhere: apply the 1.1 shape to any writer still
+     missing it. Untrusted-origin writes are quarantined as approvals.
+     Entries without a trust field are read as legacy, never rewritten.
+6.4  Memory search on Workers AI embeddings (@cf/baai/bge-m3, 1024
+     dimensions) with the reranker — ONLY if the current embedder is a paid
+     model. It needs a NEW Vectorize index (Rayan runs
+     `npx wrangler vectorize create asgard-mem-bge --dimensions=1024
+     --metric=cosine`; you add the binding), a one-off re-embed from cron at
+     50 entries per tick, and the old index stays untouched. Otherwise defer.
+6.5  Cloudflare Browser Run as a READER for public pages (watchlist checks,
+     search-result fetching, Fenris's research) so the extension is only used
+     for logged-in actions. It needs a [browser] binding and a
+     compatibility_date of 2026-03-24 or newer. If the current
+     compatibility_date is older, SKIP this item and note it — do not bump
+     the date in this file. Otherwise add the binding, use
+     env.BROWSER.quickAction('markdown', { url }), and pass every page through
+     the 1.2 allowlist and 1.3 wrapping. Free tier is about 10 minutes of
+     page time a day; count it.
+6.6  Cost tracker: tokens in/out per persona, councillor and tier, counted in
+     the history object's _spool on the reply path and rolled into the tick
+     key; one summary key per day written by the last tick. Odin reports it
+     Sunday. Thor answers "what did you cost this week".
+6.7  Telegram polish: inline APPROVE / REJECT buttons on approvals (honoured
+     only from Rayan's id in a private chat, Rule 15); a /council command
+     listing the god's five and their last run; the daily reports use the
+     same one-message layout every time.
+6.8  The hub: if Strike Two already built it, only add what is missing —
+     otherwise public/hub/index.html gets three links (the hall, the councils,
+     and /healthz?public=1 rendered as a small status strip). Nothing else
+     moves.
+6.9  Quarterly re-check routine (owner Thor, tier free): on the first of
+     March / June / September / December, one Telegram message: "time to
+     re-run the architecture review — models, prices and specs change."
+6.10 docs/ASGARD_UPGRADE_REPORT.md — plain English for Rayan: what is new,
+     the exact sentences to say to use each thing ("Loki, pause the morning
+     brief", "Odin, how ready are we", "Thor, delegate to Jane: ..."), what
+     costs money and roughly how much, and everything still waiting on him
+     (any secret by NAME, the paid plan, the Twelve Data key if still unset,
+     the Ayrshare situation — report only). Send him the file path when done.
+     Then STOP and wait for "continue Part C".
+
+======================================================================
+PART C — THE ARSENAL, THE SPECTACLE, STORAGE RELIEF
+(only when Rayan says "continue Part C"; Phase 7 needs all of Part A done,
+Phase 8 needs Phase 0 done, Phase 9 needs Parts A and B stable)
+======================================================================
+
+======================================================================
+PHASE 7 — THE ARSENAL: HUNDREDS OF TOOLS, WITHOUT DROWNING THE GODS
+======================================================================
+Rayan's words: "add as much tools as possible — the most necessary ones, and
+even more of the unnecessary ones just to have — so this fully automates
+absolutely everything down to the last minute detail." The catalogue below
+was checked against live public-API directories on 2026-09-04. Endpoints die;
+before shipping any tool, call the endpoint once from the Worker. If it is
+dead, geoblocked from Cloudflare, or refuses without a key we don't have,
+DROP it and list it in docs/TOOL_TESTS.md under "not shipped — why". Never
+ship a tool that has not returned real data once.
+
+7.0  THE TOOLBOX MECHANISM (build first — this replaces 6.1)
+     A god with 300 tools in front of him picks badly and pays for every one
+     on every message. So:
+     - Tool metadata — group, permission level, taint (does it return
+       outside content), budget, timeout, source label — lives in a PARALLEL
+       registry src/tools/meta.js keyed by tool name. Never inside the schema
+       object sent to Anthropic (the API rejects unknown fields).
+     - CORE per god: at most 40 tools, always sent, in the master order
+       (Rule 6). List each god's CORE by exact tool name in docs/CORE.md.
+       Thor: conversation, memory, calendar/to-dos, web search, weather,
+       maps, Spotify, browser, texts/calls (hard-confirm), delegate,
+       routines, find_tools. Loki: calendar, reminders, to-dos, memory,
+       weather, search, watchlist, delegate, routines, find_tools. Odin:
+       paper trading, markets core, business status, calculator, currency,
+       delegate, routines, find_tools. Hela: hers as today plus find_tools.
+       If a god's EXISTING tools already exceed 40, the overflow moves into
+       groups — names and schemas unchanged (Rule 2 is about renaming, not
+       grouping) — and the first-message keyword rules MUST open them for the
+       requests they serve today. Smoke additions: "play some music", "open
+       youtube.com", "text Jay" each work without an extra turn.
+     - find_tools({ query }): a meta-tool. It searches the whole catalogue
+       (name, description, group) and returns the ten best matches with one
+       line each, and OPENS their groups for the rest of this conversation:
+       the open-group list rides in the history object (Rule 5a) and the next
+       model call includes those groups' schemas, appended after CORE in the
+       master order. One cache miss per group opened — accepted. Groups also
+       open automatically at the FIRST message of a conversation by keyword
+       rules (no model call). A group CLOSES after 20 turns in which none of
+       its tools was called (counter in the history object) and on history
+       compaction — Telegram chats never restart, so without this the whole
+       catalogue would eventually ride on every turn.
+     - Measure CORE size with the Anthropic count_tokens endpoint, not by
+       guessing. CORE must stay under ~10k tokens per god.
+     - The gods' prompts get one paragraph: "You have a much larger toolbox
+       than what you can see. If the job needs something you don't have,
+       call find_tools first, then use what it opens. Never say you can't do
+       something before you've looked."
+     - One helper for every external call, src/lib/http.js: User-Agent
+       "Asgard/1.0 (+<contact var ASGARD_CONTACT>)" (several free APIs
+       require a UA with contact), 10 s timeout for catalogue tools (Hela's
+       capabilities keep their 12 s), RAW body capped at 1 MB (larger → Rule 7
+       error "response too large: N bytes"), then parse, then each tool
+       SHAPES its result (chosen fields, top-N) to at most 6,000 chars before
+       it becomes a tool_result — never truncate raw JSON mid-stream.
+       read_document may return 8,000 chars plus "truncated: N chars total".
+       Every n / limit argument has a hard maximum of 20. JSON / XML / RSS
+       parsing (hand-written RSS/Atom parser — small, no deps), Rule 7 error
+       surfacing, the taint mark. Every redirect hop is re-checked by the
+       same guards (a shortener must not be able to bounce a request to a
+       private address or the Worker's own host).
+     - Caching: use the Workers Cache API (caches.default with a
+       Cache-Control max-age), never a module-level variable (isolate memory
+       is per-colo and evicted at will) and never KV.
+     - URL rules. Read-only tools that take a model-supplied URL (read_page,
+       read_document, rss_read, wayback, http_check, url_unshorten,
+       page_preview, describe/detect/classify_image) may fetch any public
+       https host under the existing guards (no private ranges, no metadata,
+       never own host, timeout, cap) and ALWAYS set the taint bit. The 1.2
+       allowlist governs Hela's capabilities and every tool that can POST or
+       send. Add publish_note, share_file, ntfy_push, discord_webhook,
+       url_shorten and qr_code to the 1.1 tainted-gated list (approval while
+       tainted). discord_webhook is permission 'confirm' and never callable
+       from a routine (3.3).
+     - Live testing without a model turn: add GET /admin/tool-test?name=&args=
+       (ADMIN_TOKEN) that dispatches one tool and returns the shaped result.
+       Every live test goes through it and is logged in docs/TOOL_TESTS.md.
+     - Rate limits: Worker egress IPs are shared with every other Cloudflare
+       tenant, so anonymous per-IP limits (GitHub 60/hr, CoinGecko no-key,
+       Nominatim 1/s, Reddit, Semantic Scholar, ipapi.co, MusicBrainz, Jikan,
+       iTunes) may already be exhausted when you test — expect 403/429. Any
+       per-IP-limited no-key API ships as a FALLBACK only, never as the
+       primary for a duty that polls.
+     - Ship in batches of about 10 tools: build, live-test each, add to the
+       manifest and TOOLS.json, print the CORE token count and the catalogue
+       size, deploy, smoke, commit.
+     - At the start of Phase 7 ask Rayan ONCE, one checklist message: which
+       of these he has or wants: Notion, Todoist, Google Tasks, a Discord
+       server, GitHub token (no-key GitHub is effectively zero from a shared
+       IP), CoinGecko Demo key (free; header x-cg-demo-api-key; the 30/min
+       tier needs it), Whop API, Finnhub (free), FRED (free), NASA (free),
+       USAJobs (free), Adzuna (free), TMDB (free), Ticketmaster (free),
+       Steam, any smart-home devices (Hue, Govee, Kasa...). Keyed groups are
+       built only for what he confirms; every no-key tool below is built
+       regardless. Secrets arrive by Rule 4, never in chat.
+
+7.1  READING & RESEARCH (Jane Foster, Hunter B-15, Fenris)
+     read_document(url)        Workers AI env.AI.toMarkdown() — PDF, images,
+                               HTML, Office files → markdown (check current
+                               pricing on the docs page; it was free at launch)
+     read_page(url)            Browser Run markdown if 6.5 shipped, else
+                               fetch + toMarkdown
+     rss_read(url, n)          any RSS/Atom feed (n ≤ 20)
+     rss_watch(url) / rss_unwatch   new items → event feed.new. Kang polls
+                               at { every: 15 }; the feed list and seen-ids
+                               live in Kang's own state key council:loki:kang,
+                               written only when a feed has a new item
+                               (worst case 96/day, in the table)
+     news_search(q, geo)       Google News RSS (news.google.com/rss/search?q=)
+     trending_now(geo)         Google Trends RSS (trends.google.com/trending/rss?geo=US — verify)
+     hackernews(top|new|q)     hacker-news.firebaseio.com + hn.algolia.com/api/v1/search
+     reddit_read(sub, sort)    reddit.com/r/<sub>/<sort>.json with UA — may be
+                               blocked from Workers; test, drop if 403
+     wayback(url, date)        archive.org/wayback/available
+     wiki_search(q), wiki_pageviews(title)   Wikipedia API + wikimedia pageviews
+     arxiv_search(q)           export.arxiv.org/api/query (Atom)
+     crossref_search(q)        api.crossref.org/works?query=
+     semantic_scholar(q)       api.semanticscholar.org/graph/v1/paper/search (rate-limited)
+     openlibrary_search(q), book_by_isbn(isbn)
+     gutenberg_search(q)       gutendex.com/books?search=
+     archive_search(q)         archive.org/advancedsearch.php
+     federal_register(q)       federalregister.gov/api/v1/documents.json
+     sec_search(q|ticker)      efts.sec.gov full-text + data.sec.gov submissions
+                               (UA required; may 403 cloud IPs — test first;
+                               top 20 hits, shaped)
+     universities(q)           universities.hipolabs.com/search
+     Not shipped, on purpose: YouTube transcripts (no official API), lyrics
+     (rights), anything that requires scraping a site that forbids it.
+
+7.2  MARKETS & ECONOMY (Odin's court — all read-only, all PAPER-labelled
+     where they touch the simulation; nothing here trades)
+     coingecko_price(ids), coingecko_markets(n), coingecko_trending
+                               api.coingecko.com/api/v3 (no key, ~30/min — cache 60 s in memory)
+     dexscreener_search(q)     api.dexscreener.com/latest/dex/search
+     defillama_tvl(x), defillama_yields   api.llama.fi / yields.llama.fi
+     btc_mempool()             mempool.space/api (fees, mempool size)
+     fear_greed()              api.alternative.me/fng/
+     stooq_quote(symbol)       stooq.com CSV — delayed/EOD, the free fallback
+                               when Twelve Data's 800/day runs out
+     treasury_yields()         the Treasury's own daily yield-curve XML feed
+                               on home.treasury.gov (interest-rates XML,
+                               data=daily_treasury_yield_curve), or FRED
+                               DGS10/DGS2 when FRED_API_KEY exists. FiscalData
+                               does NOT publish the par curve — not the source.
+     bls_latest(series)        api.bls.gov/publicAPI/v1 (no key, 25/day) —
+                               often 403s cloud IPs: test first, drop if so
+     fred_series(id)           FRED — needs free FRED_API_KEY (CPI, unemployment, fed funds)
+     finnhub_quote / finnhub_news / earnings_calendar   needs free FINNHUB_API_KEY
+     polymarket_markets(q)     gamma-api.polymarket.com (public read — READ ONLY, no wallet, ever)
+     defillama tools           require a protocol or chain argument — never
+                               return the whole list (the full endpoints are
+                               many MB)
+     currency fallback         open.er-api.com/v6/latest/USD when Frankfurter fails
+     Not shipped: congress_trades — no maintained free source (House Stock
+     Watcher is stale and tens of MB).
+     chart_image(spec)         quickchart.io/chart → PNG URL. Odin's Telegram
+                               reports gain a real equity-curve image; the
+                               spec is built by code, never by the model.
+
+7.3  WORLD, WEATHER, SAFETY (Valkyrie, Sylvie) — Bakersfield / Kern County matter here
+     nws_alerts(area|point)    api.weather.gov/alerts/active (UA required)
+     nws_forecast(lat,lon)     api.weather.gov points → hourly + discussion (US only)
+     air_quality(lat,lon)      Open-Meteo air-quality endpoint (if not already a tool)
+     quakes(minMag, days, near)  earthquake.usgs.gov/fdsnws/event/1/query
+     calfire_incidents(active) incidents.fire.ca.gov/umbraco/api/IncidentApi/List?year= (verify)
+     space_weather()           services.swpc.noaa.gov/products (Kp, alerts)
+     iss_now()                 api.wheretheiss.at/v1/satellites/25544
+     nasa_apod()               api.nasa.gov/planetary/apod (DEMO_KEY works; free key better)
+     tides(station)            api.tidesandcurrents.noaa.gov (CA coast)
+     elevation(lat,lon)        api.opentopodata.org/v1/srtm90m
+     zip_lookup(zip)           api.zippopotam.us/us/<zip>
+     ip_geo(ip)                ipapi.co or get.geojs.io
+     osm_search(q) / osm_reverse(lat,lon)   nominatim.openstreetmap.org (UA, 1 req/s) — free
+                               fallback behind Google Maps
+     osm_nearby(what,lat,lon,r)  Overpass API (10 s timeout, small radius)
+     country_info(name)        restcountries.com/v3.1
+     world_bank(indicator, country)  api.worldbank.org/v2
+
+7.4  LIFE ADMIN (Miss Minutes, Mobius, Darcy) — all state in ONE KV key per
+     tool family, written only on change
+     ntfy_push(title, msg, priority, click)  ntfy.sh — phone push with no
+                               account: POST https://ntfy.sh/<topic>. The
+                               topic is the only credential ntfy has, so it is
+                               a SECRET (NTFY_TOPIC, set by Rule 4 — a long
+                               random string), never a var in the committed
+                               config. Topics are public to anyone who knows
+                               them: never send secrets or memory through it.
+                               Rayan installs the ntfy app and subscribes once.
+     shopping_list add/remove/read
+     quick_note(text) / notes_read(date)
+     reading_list add/read (pairs with read_page + wayback)
+     habit_log(name) / habits_status  (streaks, Mobius nags gently)
+     expense_log(amount, category, note) / expenses_week  (Rayan's own typed
+                               numbers only — no bank data, no bank links)
+     unit_convert(v, from, to) local: length, weight, temp, volume, speed, data
+     recipe_search(q)          themealdb.com (test key "1"), thecocktaildb.com
+     food_by_barcode(code)     world.openfoodfacts.org/api/v2/product/<code>
+     nutrition(food)           USDA FoodData Central — needs free key; else skip
+     exercises(muscle)         wger.de/api/v2 (no key)
+     vin_decode(vin), recalls(make, model, year)   vpic.nhtsa.dot.gov, api.nhtsa.gov/recalls
+     Not shipped, say so plainly: gas prices (no free API exists), package
+     tracking without a key (none free — 17track/AfterShip if he ever adds a
+     key), Amazon prices (no public API).
+
+7.5  WORK & JOB HUNT (Jane Foster, Hunter B-15) — Rayan is job hunting;
+     Thor already knows his criteria from long-term memory. Ask him to
+     confirm role type, location radius and pay floor once; store as one
+     config key.
+     jobs_search(q, location)  Adzuna (free app id/key, best for a US city);
+                               USAJobs (free key + email UA); no-key: Remotive
+                               (always with ?search=&limit=20 — the bare
+                               endpoint is multi-MB), Jobicy, Arbeitnow, The
+                               Muse (remote-heavy). Results shaped to 20.
+     job_watch(criteria)       daily 08:00 digest of NEW matches only (state
+                               remembers seen ids) — a pre-built routine
+                               owned by Loki, run by Hunter B-15
+     company_lookup(name)      Wikipedia summary + SEC filings if public
+     Not shipped: anything that applies on Rayan's behalf. Never.
+
+7.6  DEV & INFRA (Hulk; the SYSTEM routine)
+     cloudflare_status()       cloudflarestatus.com/api/v2/summary.json
+     cf_worker_info / cf_kv_usage   Cloudflare API, read-only, only if
+                               CF_ANALYTICS_TOKEN exists (0.4)
+     github_activity(repo)     api.github.com public (60/hr no key) — the
+                               rayven-pwa repo and the siblings' public repos
+     npm_info(pkg), pypi_info(pkg)
+     dns_lookup(name, type)    cloudflare-dns.com/dns-query (accept: application/dns-json)
+     whois(domain)             rdap.org/domain/<domain>
+     http_check(url)           status + headers + redirect chain (manual redirects)
+     url_shorten(url)          is.gd/create.php?format=json
+     url_unshorten(url)        follow redirects manually
+     qr_code(text)             api.qrserver.com → URL
+     page_preview(url)         api.microlink.io (free tier, no key — verify)
+     color_info(hex|name)      thecolorapi.com
+     hash/base64/uuid/regex_test/json_pretty   local pure functions
+     Never: anything that deploys, edits code, or touches secrets.
+
+7.7  MEDIA & ENTERTAINMENT (Valkyrie)
+     itunes_search(term, media)   music, podcasts, apps, movies
+     tv_search(show), tv_tonight(country)   api.tvmaze.com
+     anime_search(q)           api.jikan.moe/v4
+     musicbrainz(artist)       musicbrainz.org/ws/2 (UA)
+     songlink(url)             api.song.link (cross-platform links, rate-limited)
+     game_deals(q)             cheapshark.com/api/1.0/deals
+     free_games()              gamerpower.com/api/giveaways, freetogame.com/api
+     movies(q)                 TMDB — needs free key; else skip
+     events_near(city, q)      Ticketmaster Discovery — needs free key; else skip
+     youtube_trending()        only if a YouTube Data API key already exists
+     board_games(q)            boardgamegeek.com/xmlapi/search
+     trivia(n, category), draw_cards(n), pokemon(name), dnd(q), mtg_card(q)
+                               opentdb.com, deckofcardsapi.com, pokeapi.co,
+                               dnd5eapi.co, api.scryfall.com
+
+7.8  CURIOSITIES — the "just to have" shelf (Thor keeps these; each is a
+     15-line tool; all free, all no-key, all harmless)
+     dad_joke (icanhazdadjoke.com, Accept: application/json), joke
+     (v2.jokeapi.dev — safe-mode ON), chuck_norris, advice (adviceslip),
+     affirmation (affirmations.dev), quote (api.quotable.io — verify; else
+     zenquotes.io), useless_fact (uselessfacts.jsph.pl), yes_or_no
+     (yesno.wtf), random_dog (dog.ceo), random_fox (randomfox.ca),
+     random_cat (cataas.com), http_cat(code), robot_avatar(text)
+     (robohash.org), pixel_avatar(seed) (api.dicebear.com), art_random
+     (api.artic.edu, collectionapi.metmuseum.org), mcu_countdown
+     (whenisthenextmcufilm.com/api — on theme), is_even(n)
+     (api.isevenapi.xyz — yes, really), xkcd(), meme_templates
+     (api.imgflip.com/get_memes), star_wars(q) (swapi.info — the maintained
+     https mirror; swapi.dev's certificate lapses), star_trek(q) (stapi.co),
+     rick_and_morty(q). Skip anything that insults, profiles people by name
+     (agify/genderize/nationalize), or quotes living people.
+
+7.9  AI & MEDIA GENERATION (Workers AI — inside the free daily neurons; verify
+     each model id on the current models page before use)
+     describe_image(url)       a current Workers AI vision model
+     detect_objects(url)       @cf/facebook/detr-resnet-50
+     classify_image(url)       @cf/microsoft/resnet-50
+     tts_fallback(text)        @cf/myshell-ai/melotts — and wire it in
+                               AUTOMATICALLY: when ElevenLabs errors or its
+                               quota is out, /tts returns melotts audio
+                               instead of silence and Thor says once that his
+                               voice is borrowed today
+     sentiment(text)           distilbert (already used for triage)
+     publish_note(title, md)   render to a small HTML page stored in R2 under
+                               asgard/notes/ and served by the Worker at
+                               /notes/<id> (never memory, never secrets — the
+                               tool takes only what the god passes it). The
+                               bucket itself stays private: confirm in 8.0
+                               that CLIPS has no public access (r2.dev off,
+                               no custom domain) and keep it so.
+
+7.10 HOME & DEVICES — plain truth first: the Worker cannot reach anything on
+     Rayan's home network (no Roku, Chromecast, local Hue bridge, printers).
+     Cloud APIs only: Govee (key), Hue Remote API (OAuth), Tuya/SmartLife
+     (developer account). Build ONLY for devices Rayan confirms he owns in
+     the 7.0 checklist; if none, skip this group and say so.
+
+7.11 COMMS & SHARING (Korg)
+     ntfy (7.4), discord_webhook(msg) — only if he gives a webhook URL as a
+     secret; permission 'confirm'; never from a routine. Email stays
+     draft-only; Telegram and Twilio as they are.
+     share_file(r2key) → a temporary link served by the Worker:
+     GET /share/<key>/<expiry>/<hmac> with hmac = HMAC-SHA256(ADMIN_TOKEN,
+     key + expiry), expiry ≤ 7 days — no KV write, no new secret, no public
+     bucket. share_file REFUSES every key under asgard/ and asgard-vault/
+     except asgard/notes/ (Rule 16) — the nightly vault backup includes Hela
+     and must never be linkable.
+
+7.12 MEMORY & SELF (Darcy, Mobius)
+     memory_search(q) if not already a tool; memory_timeline(from, to)
+     read-only; what_did_i_say_about(topic); journal_write(text) /
+     journal_read(date) — appended, dated, never edited (Rule 5a2);
+     self_stats() — tool usage counts per week from tick keys, cost from 6.6
+     ("not tracked yet" until Part B).
+
+7.13 AUTOMATION RECIPES — "down to the last minute detail"
+     7.13a First, the events and pollers the recipes need. Add to events.js:
+       market.move, sentiment.extreme, yield.cross, weather.alert,
+       fire.incident, quake, trend.new. Each has ONE poller duty —
+       Sylvie for weather.alert / fire.incident / quake, Odin's court for
+       market.move / sentiment.extreme / yield.cross, Kang for trend.new and
+       feed.new — at { every: 15 }, seen-state in that councillor's state
+       key, written only on a new hit (Rule 5c). A poller makes NO
+       subrequest unless at least one enabled routine subscribes to its
+       event.
+     7.13b Templates are CODE (src/lib/templates.js), not KV. Ship 25 of
+     them, disabled; routine_enable_template(name) copies one into
+     routines:<id> and the index (2 writes, Rule 5a2). Loki lists them when
+     asked "what can you automate". Each is one sentence Rayan can say:
+       "rain tomorrow → tell me tonight at nine"
+       "NWS alert for Kern County → push it to my phone"
+       "CAL FIRE incident within 50 miles → tell me"
+       "earthquake over 4.0 within 100 miles → tell me"
+       "BTC moves 5% in a day → Odin notes it (paper context only)"
+       "Fear & Greed hits extreme → Odin notes it"
+       "earnings this week for the paper tickers → Monday morning"
+       "treasury 10-year crosses a level I name → tell me"
+       "new job matching my criteria → 8 am digest"
+       "a feed I watch posts → one-line summary in the brief"
+       "trending now → noon digest of the top five"
+       "APOD picture → in the morning brief"
+       "calendar event has an address → drive time 45 minutes before"
+       "meeting in 10 minutes → push to phone"
+       "to-do untouched for a week → Mobius asks if it's dead"
+       "habit not logged by 8 pm → one nudge"
+       "weekly expenses → Sunday summary"
+       "reading list has 5+ items → Sunday reading hour reminder"
+       "Spotify Friday 5 pm → start the weekend playlist"
+       "extension offline while hall open → Thor says so once"
+       "KV writes at 70% → warn me"
+       "webhook wrong → fix once and tell me"
+       "Sunday 6 pm → Jane's world note"
+       "first of the quarter → architecture re-check"
+       "paper trading drawdown past 5% → Odin explains, halts new paper
+        positions for the day" (needs Phase 4's trading_halt — hidden from
+        the list until Part B has run)
+     Every template passes through Phase 3's guard rails; none can send an
+     SMS, post, or spend.
+
+7.14 Finish: regenerate the manifest and TOOLS.json, print the final counts
+     (CORE per god, catalogue total, groups), and write the plain-English
+     section of docs/ASGARD_UPGRADE_REPORT.md: "here is everything Asgard can
+     do now, by saying…". Deploy, smoke, commit, push.
+
+======================================================================
+PHASE 8 — THE SPECTACLE
+======================================================================
+FIRST: check whether public/fx/asgard-fx.js exists. If it does, Strike One
+and Strike Two already built the engine, the hall, the hub and the councils
+page. In that case SKIP 8.1 and 8.2's hall work entirely — read what exists,
+then use this phase only to extend it (8.3's items that were skipped, and
+anything Rayan asked for after seeing it). Never rebuild the engine. Never
+re-patch a hook that is already there.
+
+If the FX layer does NOT exist, build it as described below. Two truths
+first. (1) You cannot see pixels — there is no browser in your sandbox and
+Playwright will not run on this Chromebook. Rayan is the QA: give him the
+checklist in 8.5 after every page. (2) The hall is ~300 KB in one file and
+loading it into context will kill the session. The method in 8.2 is
+mandatory.
+
+8.0  Inventory public/: every page, what links to it, what it calls. Report
+     to Rayan in five lines and propose: the hub is the front door, the hall
+     is the product, team.html is the councils; any leftover per-persona
+     pages (thor/, loki/, odin/) are redirected by the Worker (301 to
+     /?p=<god>) — never deleted (Rule 13). He decides before you touch
+     anything. Also confirm the CLIPS R2 bucket has no public access and
+     that the Worker still serves public/ as static assets.
+
+8.1  THE FX LAYER — new files, so cp can't conflict and the giant page is
+     barely touched:
+       public/fx/asgard-fx.js       the engine: WebGL2 shader backdrop with a
+                                    canvas-2D fallback that is still handsome,
+                                    a fake-bloom compositor (glow layer at
+                                    quarter resolution, upscaled smooth — never
+                                    CSS filter on an animated layer), a
+                                    particle system, a WebAudio micro-SFX
+                                    synth (no audio files), a quality
+                                    governor, an FPS/render-path overlay
+       public/fx/thor.js, loki.js, odin.js, hub.js, team.js
+                                    per-realm looks that plug into the engine.
+                                    Hela's look lives INSIDE asgard-fx.js —
+                                    there is no /fx/hela.js (a public file
+                                    name is a disclosure).
+     Everything in 8.3 that is not a hook call is done INSIDE the fx files:
+     they inject their own <style> and <canvas>, watch the transcript with a
+     MutationObserver, and fetch panel data themselves. If a feature cannot
+     be done that way, drop it — never widen the hall edit.
+     Hook API (the only thing pages call):
+       AsgardFX.init({ page, persona })
+       AsgardFX.setPersona(id)               realm shift transition
+       AsgardFX.setState(state, level)       idle | listening | thinking |
+                                             speaking — level 0..1 from the
+                                             hall's TTS analyser IF it already
+                                             has one; if it does not, call
+                                             setState('speaking') with no
+                                             level and the engine synthesizes
+                                             one. Do not add an analyser to
+                                             the hall (wrapping the audio
+                                             element breaks iOS playback).
+       AsgardFX.wake(id)
+       AsgardFX.pulse(kind)                  'send' | 'receive' | 'error' |
+                                             'switch' | 'vault-open' |
+                                             'vault-close'
+       AsgardFX.mute(bool)
+     Quality governor: DPR capped at 1.5; if FPS < 45 for 3 s drop one tier
+     (halve particles → bloom off → DPR 1 → static backdrop); ?fx=0 disables
+     the layer entirely; ?debug=1 shows FPS, tier and RENDER PATH (it must
+     read WebGL on Rayan's Chromebook — 2D is the fallback, not the target);
+     prefers-reduced-motion freezes motion. Render tiers: webgl2 → webgl1
+     (write the shaders once in GLSL ES 1.00) → canvas 2D; handle
+     webglcontextlost / webglcontextrestored on every page — the hall already
+     holds one GL context for its 3D forms and a second full-screen context
+     on a 2.7 GB machine is exactly where loss happens. Every animation has a
+     hard time backstop so a thrown frame can never leave a mute assistant.
+     The FX layer stores only mute and quality tier in localStorage — never a
+     persona id. Three.js, if used anywhere, loads from the three existing
+     CDN mirrors.
+
+8.2  SAFE EDITING OF HUGE FILES (mandatory for the hall AND team.html)
+     - Never Read the whole file. Find anchors with grep -n. Inspect with
+       sed -n 'A,Bp' in windows of at most 120 lines, and never print a line
+       longer than 2,000 characters (use awk substr windows on long lines).
+     - Make edits with scripts/patch.mjs <file> <anchorFile> <replacementFile>
+       (plain Node): it REPLACES the anchor text with the replacement text,
+       requires the anchor to appear EXACTLY once, else exits non-zero and
+       changes nothing, and prints only the byte delta. To insert, the
+       replacement begins with the anchor verbatim. No regex, no multi-edit.
+     - After every edit run scripts/check-scripts.mjs <file>: it splits the
+       <script> blocks, skips type=importmap / application/json / x-shader
+       blocks, saves type=module blocks as .mjs and the rest as .js, runs
+       node --check on each, and prints only PASS/FAIL per block.
+     - Never cp the root index.html over public/index.html or the reverse.
+       If both exist and differ, report it and leave both alone; Rayan
+       decides.
+     - Hall edits are limited to: one <script src="/fx/asgard-fx.js"> tag,
+       one init call, and one hook call at each EXISTING point: wake
+       sequences, listening start/stop, thinking, TTS start/level/stop,
+       persona switch, message sent, reply received, TTS error, Hela
+       open/close. Nothing else in the hall changes. Rayan's standing rules
+       from past builds still hold: forms centred in the ring, breathing
+       capped at 0.975 of the ring, the vault box empties on close with no
+       server call.
+     - team.html: fx/team.js hooks whatever the renderer already exposes on
+       window (CONFIG, the scene state, the poll data). If it exposes
+       nothing, ship only the overlay effects (vignette, palette, dim) and
+       say so — do not rewrite the renderer.
+
+8.3  THE LOOK, PAGE BY PAGE (concepts first — see 8.4)
+     HUB — "the Bifrost". Full-screen fragment-shader light bridge with depth
+       fog and a star field; three realm portals (storm blue / emerald / gold)
+       floating with pointer and gyro parallax; a boot sequence on first
+       visit (skippable, remembered in localStorage — this is his own page,
+       that is fine); a live strip from GET /healthz?public=1 — a new
+       PUBLIC shape returning only { gods_awake, councillors,
+       extension_online, paper_pnl } (the full /healthz lists secret NAMES
+       and webhook URLs and must never feed a public page) — plus
+       /council/status and /paper-trading/status ("3 GODS AWAKE · 20
+       COUNCILLORS · PAPER P&L …"); a low Bifrost hum synthesized in
+       WebAudio, only after the first tap (autoplay rules). No hint of Hela
+       anywhere on the hub.
+     HALL — every function untouched; the FX layer adds: a volumetric
+       backdrop per god (Thor: layered storm-cloud noise, rain streaks,
+       forked lightning that fires on speech peaks; Loki: emerald mist with
+       drifting glyph particles that gather while he thinks; Odin: slow gold
+       dust, a low sun, generic bird silhouettes far back; Hela keeps hers);
+       glass panels made from a pre-rendered blurred snapshot of the backdrop
+       (backdrop-filter halved the frame rate once — never again); a kinetic
+       transcript where words land in time with the TTS analyser; a 600 ms
+       realm-shift wipe on persona switch; idle life (the hammer crackles
+       every 20–40 s, the mind stone breathes in a heartbeat pattern,
+       Gungnir glints); the fourth panels become instruments (Odin: a
+       sparkline equity curve from /paper-trading/status; Loki: a 24-hour
+       ring of today's calendar; Thor: a live storm map of councillor
+       activity from /council/status); per-god cursor/touch trails (micro-
+       lightning / green embers / gold motes); micro-SFX for send, receive,
+       wake, switch, with a mute toggle that is remembered.
+     TEAM — keep the CONFIG structure and the software 3D; add council-in-
+       session mode (a running councillor's gem ignites and a glyph stream
+       flows down its tether to the god while the room dims), a depth-of-
+       field vignette, a slow idle camera drift, and a night-watch palette
+       after 21:00 local.
+     Everything must still work on iPhone Safari as a home-screen app: no
+       WebGL context loss on tab switch (handle webglcontextlost/restored),
+       gyro only after a tap-to-allow, 30+ FPS on the phone, 55+ on the
+       Chromebook.
+     Rayan's standing rule on imagery: names are text labels only. No
+       character likenesses, no logos, no film imagery. Generic objects —
+       hammer, spear, horned crown, a gem, birds, storm — are fine.
+
+8.4  CONCEPTS FIRST. For each page, before building, write three five-line
+     concepts into docs/DESIGN_CONCEPTS.md (mood, motion, colour, the one
+     "shock" moment, what it costs in frame time) and ask Rayan to pick one
+     or say "all of it". Then build that page, deploy it, and stop for his
+     checklist before the next page. One page per commit.
+
+8.5  RAYAN'S CHECKLIST (send after every page, in plain English): close the
+     Linux terminal first (Claude Code running beside the page makes every
+     FPS number pessimistic), open the page on the Chromebook with ?debug=1
+     — read out the FPS and RENDER PATH; tap once and confirm sound; say the
+     wake word and confirm the wake sequence still plays and he still gets a
+     reply; switch persona; open and close the vault with the phrases; then
+     the same on the phone from the home-screen icon. If anything is below
+     45 FPS on the Chromebook, drop a tier by default for that page and tell
+     him.
+
+8.6  PERFORMANCE RULES earned by past builds (all mandatory): no canvas
+     resize inside the frame loop; static layers pre-rendered once;
+     additive blending only on small layers; clamp requestAnimationFrame
+     timestamps (a negative first-frame delta once produced NaN and silently
+     killed a wake sequence); write off-screen tests positively so NaN is
+     rejected; clamp every radial-gradient radius finite; never filter an
+     animated layer; adaptive stride with size compensation when particles
+     are thinned; three CDN mirrors for any library; RENDER PATH must show
+     WebGL on his machine.
+
+======================================================================
+PHASE 9 — STORAGE RELIEF (optional; only after Parts A and B are stable)
+======================================================================
+KV allows 1,000 writes a day free and ~33,000 a day paid, and every rule
+above bends around that. Cloudflare Durable Objects with SQLite storage allow
+100,000 row writes a day on the FREE plan (5 million reads, 5 GB) and 50
+million a month on paid (verify on the Durable Objects pricing page first).
+     9.1  One Durable Object class, AsgardLedger, SQLite-backed, with tables
+          tick, audit, events, routines, routine_runs, council_state, cost.
+          It extends DurableObject from "cloudflare:workers" (a runtime
+          module, not an npm package — Rule 3 holds) and is exported from
+          the Worker's entry module. Binding LEDGER; one instance via
+          env.LEDGER.idFromName('asgard'); a migration with
+          new_sqlite_classes in the wrangler config; a wrangler var
+          LEDGER_BACKEND = 'kv' | 'do' selects the path.
+     9.2  COPY-FORWARD, never move. New writes go to the ledger; existing
+          tick: / audit KV keys are never deleted or read-migrated. Only the
+          state this file introduced goes to the ledger: ticks, audit,
+          events, routine runs, cost counters (single-path behind the flag),
+          plus routines and councillor state (DUAL-written to KV and the
+          ledger for the two-week trial, because routines are Rayan's data
+          and a flip-back must lose none). NEVER move memory:, history, the
+          paper portfolio and trade log, Hela's capabilities, or any config
+          key — those stay in KV, untouched.
+     9.3  Every reader goes through one accessor, src/lib/ledger.js, so they
+          switch together: /council/status, the HUD autonomy log, the spool
+          drain's lastDrained stamp (1.4), the 30-day R2 audit copy (1.4),
+          the 60-runs/day counter (3.3), the Rule 5e ceiling, /healthz,
+          self_stats. After two clean weeks, Rule 5's ceilings apply to KV
+          writers only; ledger writers report their own counts in /healthz.
+     9.4  Deploy, smoke, commit, push. Rollback for THIS phase only: if the
+          live smoke fails, set LEDGER_BACKEND=kv and redeploy. NEVER git
+          revert the migration commit — removing a bound class needs a
+          deleted_classes migration and the reverted config will not deploy.
+
+======================================================================
+WHAT NOT TO BUILD (so it isn't proposed again)
+======================================================================
+- No local models, no Ollama, no Hermes install, no Obsidian install, no
+  Raspberry Pi steps — there is no Pi and the Chromebook cannot host them.
+- No OpenRouter or any other model gateway in the main path.
+- No A2A, no agent-protocol libraries, no MCP hosting platforms.
+- No real broker integration, no broker signup, no broker keys, no go-live
+  tool.
+- No new Telegram bots (councillors speak through their god). No new
+  ElevenLabs voices (councillor results are spoken by their god).
+- No voice-streaming rewrite — it would need hall edits beyond the Phase 8
+  hook points Rule 10 allows.
+- No cron-syntax parser (Rule 14).
+- No self-critique on every turn — only before irreversible actions.
+- No deletion of anything under memory:, history, tick:, audit, R2, or
+  Hela's keys.
+- Nothing about the clipping business beyond reading its status.
+- No tool that acts on Rayan's behalf with a third party — applying for a
+  job, placing a trade or bet, buying, subscribing, signing up. Reading is
+  fine; acting is his.
+- No scraping of sites that forbid it, no lyrics, no character likenesses or
+  film imagery on any page.
+
+======================================================================
+HOW TO REPORT BACK TO RAYAN
+======================================================================
+After each phase, one short message in plain English: what now works, one
+sentence he can say to try it, and anything waiting on him. No file listings
+unless he asks. If something cannot work on this setup, say so plainly and
+say what would make it work — never ship code that pretends.

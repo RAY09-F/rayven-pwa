@@ -1,0 +1,440 @@
+// Searchable long-term memory, persona-namespaced. Each persona (see
+// personas.js) owns its own KV array of facts — THOR inherits the legacy
+// 'memory:longterm' key so nothing saved as RAYVEN is lost. On top of the flat
+// arrays this module keeps:
+//   - stable per-memory ids, embedded via Workers AI (@cf/baai/bge-base-en-v1.5)
+//     and indexed in Vectorize for semantic search (one shared index; results
+//     are scoped per persona because search only surfaces ids present in that
+//     persona's own array)
+//   - conflict handling: adding a near-duplicate fact marks the old one
+//     superseded rather than silently duplicating or deleting it
+//   - KV read-after-write protection: get() right after put() can return the
+//     old value, which silently loses data in read-modify-write cycles (this
+//     ate memories in the sibling system — 8 saved, 3 survived). Fix: an
+//     in-isolate cache plus a version stamp in a separate key; if KV hands back
+//     an older version than the cache has, the cache wins.
+//   - sharing across personas for the memory map: sharing COPIES the memory and
+//     preserves original attribution, so a secondhand memory never reads as
+//     firsthand.
+import { MODELS } from './models.js';
+import { PERSONAS, ALL_PERSONA_IDS, DEFAULT_PERSONA_ID, getPersona } from './personas.js';
+import { callAnthropicSimple } from './anthropic.js';
+import { provenance } from './conversation.js';
+
+const EMBEDDING_MODEL = MODELS.embedding;
+
+// Cross-encoder rerank. Verified against Cloudflare's published schema rather
+// than assumed: input { query, contexts: [{text}], top_k }, output
+// { response: [{ id, score }] } where id indexes back into contexts.
+// GA, $0.0031 per M input tokens — a 24-candidate rerank is roughly 700 tokens,
+// so about two millionths of a cent. Effectively free at any volume Rayan will
+// reach.
+//
+// Why bother: the embedding above is a BI-encoder. It turns the query and each
+// memory into vectors separately and compares them, which is fast and gives
+// good RECALL but mediocre PRECISION — it will happily rank "he likes espresso"
+// near "what coffee machine did he buy". A cross-encoder reads the query and the
+// candidate TOGETHER and scores the pair, which is far better at ordering but
+// too slow to run over the whole store. The standard answer is to use both:
+// embed to get a wide candidate set, then rerank to order it. That is what the
+// widened topK below is for.
+const RERANK_MODEL = MODELS.reranker;
+const RECALL_K = 24;      // candidates fetched
+const RETURN_K = 6;       // candidates kept after reranking
+const FLOOR = 0.12;       // below this a memory is noise, and noise costs context
+const CONFLICT_SIMILARITY_THRESHOLD = 0.92;
+const RECENT_INLINE_COUNT = 15;
+
+// ---- versioned KV array access (read-after-write safe within this isolate) ----
+const memCache = new Map(); // kvKey -> { version, data }
+
+async function getRawByKey(env, kvKey) {
+  try {
+    const [raw, verRaw] = await Promise.all([
+      env.RAYVEN_KV.get(kvKey),
+      env.RAYVEN_KV.get(`${kvKey}:ver`)
+    ]);
+    const kvVersion = verRaw ? parseInt(verRaw, 10) || 0 : 0;
+    const cached = memCache.get(kvKey);
+    if (cached && cached.version > kvVersion) return cached.data; // stale KV read — trust the cache
+    const data = raw ? JSON.parse(raw) : [];
+    memCache.set(kvKey, { version: kvVersion, data });
+    return data;
+  } catch (e) {
+    const cached = memCache.get(kvKey);
+    return cached ? cached.data : [];
+  }
+}
+
+async function saveRawByKey(env, kvKey, mem) {
+  const trimmed = mem.length > 500 ? mem.slice(-500) : mem;
+  const cached = memCache.get(kvKey);
+  const newVersion = ((cached && cached.version) || 0) + 1;
+  memCache.set(kvKey, { version: newVersion, data: trimmed });
+  await Promise.all([
+    env.RAYVEN_KV.put(kvKey, JSON.stringify(trimmed)),
+    env.RAYVEN_KV.put(`${kvKey}:ver`, String(newVersion))
+  ]);
+}
+
+function memoryKeyFor(personaId) {
+  return getPersona(personaId).memoryKey;
+}
+
+async function getRawMemory(env, personaId) {
+  return await getRawByKey(env, memoryKeyFor(personaId));
+}
+
+// The SHARED core store is THOR's legacy array — it holds who Rayan is, his
+// businesses, preferences, plans. LOKI and ODIN read it (read-only) alongside
+// their own store so all three personas know Rayan; their writes still land in
+// their own arrays. THOR's base IS the shared store, so for him this is empty.
+async function getSharedCoreMemory(env, personaId) {
+  if (personaId === DEFAULT_PERSONA_ID) return [];
+  const own = getPersona(personaId).memoryKey;
+  const shared = getPersona(DEFAULT_PERSONA_ID).memoryKey;
+  if (own === shared) return [];
+  const base = await getRawByKey(env, shared);
+  // Skip anything this persona already holds a shared copy of, so the same
+  // fact never appears twice in one prompt.
+  return base.filter(m => !m.supersededBy);
+}
+
+async function saveRawMemory(env, personaId, mem) {
+  await saveRawByKey(env, memoryKeyFor(personaId), mem);
+}
+
+async function embed(env, text) {
+  const result = await env.AI.run(EMBEDDING_MODEL, { text: [text] });
+  const vector = result && result.data && result.data[0];
+  if (!vector) throw new Error('Embedding call returned no vector.');
+  return vector;
+}
+
+export async function getLongTermMemory(env, personaId = DEFAULT_PERSONA_ID) {
+  return await getRawMemory(env, personaId);
+}
+
+// Only the most recent N, formatted for inline system-prompt injection. Older
+// context is expected to come through search_memory instead.
+export async function getRecentMemoryBlock(env, personaId = DEFAULT_PERSONA_ID) {
+  const [mem, sharedCore] = await Promise.all([
+    getRawMemory(env, personaId),
+    getSharedCoreMemory(env, personaId)
+  ]);
+  // A persona may carry more of its memory inline than the house default.
+  const INLINE = (PERSONAS[personaId] && PERSONAS[personaId].memoryInline) || RECENT_INLINE_COUNT;
+  if (!mem.length && !sharedCore.length) return `Your permanent long-term memory is currently empty.`;
+
+  const formatItem = (m) => {
+    const shared = m.sharedFrom ? ` (told to you by ${m.sharedFrom.toUpperCase()})` : '';
+    const trust = m.prov && m.prov.trust === 'untrusted-content' ? ' (from outside content, not from Rayan)' : '';
+    return `- [${m.date}]${m.supersededBy ? ' (superseded by a newer memory)' : ''}${shared}${trust} ${m.fact}`;
+  };
+
+  let block = '';
+  if (sharedCore.length) {
+    // All three personas share one brain: the household core (who Rayan is,
+    // his businesses, preferences) is always visible, firsthand.
+    const coreRecent = sharedCore.slice(-INLINE);
+    block += `Shared household memory (known to all three of you — treat as firsthand knowledge):\n` +
+      coreRecent.map(formatItem).join('\n') + '\n\n';
+  }
+  if (mem.length) {
+    const recent = mem.slice(-INLINE);
+    const olderCount = mem.length - recent.length;
+    block += `Your ${recent.length} most recent long-term memories:\n` + recent.map(formatItem).join('\n');
+    if (olderCount > 0) {
+      block += `\n\n${olderCount} older memories exist beyond this — use search_memory to look them up by topic, person, project, date, or keyword whenever something from before might be relevant, rather than assuming this recent list is everything you know.`;
+    }
+  } else {
+    block += `You have not saved any memories of your own yet.`;
+  }
+  return block;
+}
+
+// prov: the Phase 1.1 provenance shape { source, persona, ts, trust } built by
+// conversation.provenance(). Entries saved before it have none and are read as
+// 'legacy' -- they are never rewritten.
+export async function addLongTermMemory(env, fact, personaId = DEFAULT_PERSONA_ID, sharedFrom = null, prov = null) {
+  const cleanFact = String(fact).trim();
+  const mem = await getRawMemory(env, personaId);
+  const id = crypto.randomUUID();
+  const entry = { id, date: new Date().toISOString().slice(0, 10), fact: cleanFact, supersededBy: null };
+  if (sharedFrom) entry.sharedFrom = sharedFrom;
+  if (prov && typeof prov === 'object') entry.prov = prov;
+
+  let vector = null;
+  try {
+    vector = await embed(env, cleanFact);
+  } catch (err) {
+    console.error('Embedding failed for new memory:', err.message);
+  }
+
+  if (vector) {
+    // Conflict/duplicate handling — if this is near-identical to an existing,
+    // still-current memory OF THIS PERSONA, mark that one superseded. The
+    // Vectorize index is shared, but `mem.find` scopes the effect per persona.
+    try {
+      const queryResult = await env.VECTORIZE.query(vector, { topK: 1, returnMetadata: 'none' });
+      const best = queryResult && queryResult.matches && queryResult.matches[0];
+      if (best && best.score >= CONFLICT_SIMILARITY_THRESHOLD) {
+        const prior = mem.find(m => m.id === best.id && !m.supersededBy);
+        if (prior) prior.supersededBy = id;
+      }
+    } catch (err) {
+      console.error('Vectorize conflict-check query failed:', err.message);
+    }
+
+    try {
+      await env.VECTORIZE.upsert([{ id, values: vector, metadata: { date: entry.date, persona: personaId } }]);
+    } catch (err) {
+      console.error('Vectorize upsert failed for new memory:', err.message);
+    }
+  }
+
+  mem.push(entry);
+  await saveRawMemory(env, personaId, mem);
+  return "Got it — I'll remember that.";
+}
+
+// Auto-capture: remember_this only fires when the model itself decides to call
+// it mid-turn, which means anything said quietly while the model's attention is
+// on composing a reply can slip past. This runs as a second, independent pass
+// on every message so nothing said depends on the model happening to notice —
+// fired via ctx.waitUntil from index.js so it never adds latency to the reply.
+const EXTRACTION_PROMPT = `Read the message below and pull out anything genuinely worth remembering long-term about the sender: stated preferences, plans, decisions, facts about people/projects/businesses, numbers, deadlines — anything he'd expect not to have to repeat. Ignore small talk, one-off questions with no durable content, and anything obviously transient (e.g. "what's the weather").
+
+Reply with ONLY a JSON array of short, atomic, third-person fact strings ("Rayan ..."), one per fact — no other text. If nothing is worth keeping, reply with exactly: []`;
+
+export async function extractAndSaveFacts(env, text, personaId = DEFAULT_PERSONA_ID) {
+  const message = String(text || '').trim();
+  if (!message) return { saved: 0 };
+
+  const res = await callAnthropicSimple(env, EXTRACTION_PROMPT, message, 300);
+  if (!res.ok) {
+    console.error('Auto-memory extraction call failed:', res.error);
+    return { saved: 0 };
+  }
+
+  let facts;
+  try {
+    const jsonMatch = res.text.match(/\[[\s\S]*\]/);
+    facts = JSON.parse(jsonMatch ? jsonMatch[0] : res.text);
+  } catch (err) {
+    console.error('Auto-memory extraction returned non-JSON:', res.text.slice(0, 200));
+    return { saved: 0 };
+  }
+  if (!Array.isArray(facts) || !facts.length) return { saved: 0 };
+
+  // Sequential, not Promise.all: addLongTermMemory does read-modify-write on one
+  // shared array (getRawMemory -> push -> saveRawMemory), so saving several facts
+  // concurrently would race and drop all but the last write.
+  let saved = 0;
+  for (const fact of facts) {
+    const clean = String(fact || '').trim();
+    if (!clean) continue;
+    await addLongTermMemory(env, clean, personaId, null, provenance('auto-capture', personaId, 'rayan'));
+    saved++;
+  }
+  return { saved };
+}
+
+function keywordMatches(item, keyword) {
+  if (!keyword) return false;
+  return item.fact.toLowerCase().includes(keyword.toLowerCase());
+}
+
+function inDateRange(item, dateFrom, dateTo) {
+  if (dateFrom && item.date < dateFrom) return false;
+  if (dateTo && item.date > dateTo) return false;
+  return true;
+}
+
+// query: natural-language search text; keyword: substring filter; dateFrom/dateTo bounds.
+export async function searchMemory(env, { query, keyword, dateFrom, dateTo }, personaId = DEFAULT_PERSONA_ID) {
+  // Search spans the persona's own store PLUS the shared household core, so
+  // Loki and Odin can always find who Rayan is, his businesses, his plans.
+  const [own, sharedCore] = await Promise.all([
+    getRawMemory(env, personaId),
+    getSharedCoreMemory(env, personaId)
+  ]);
+  const mem = own.concat(sharedCore.filter(s => !own.some(o => o.sharedFromId === s.id)));
+  if (!mem.length) return "Your long-term memory is empty, sir.";
+
+  const byId = new Map(mem.map(m => [m.id, m]));
+  const ranked = new Map(); // id -> score
+
+  if (query) {
+    try {
+      const vector = await embed(env, query);
+      const queryResult = await env.VECTORIZE.query(vector, { topK: RECALL_K, returnMetadata: 'none' });
+      for (const match of (queryResult.matches || [])) {
+        if (byId.has(match.id)) ranked.set(match.id, match.score);
+      }
+    } catch (err) {
+      console.error('Semantic search failed, falling back to keyword/date only:', err.message);
+    }
+  }
+
+  if (keyword) {
+    for (const item of mem) {
+      if (keywordMatches(item, keyword) && !ranked.has(item.id)) ranked.set(item.id, 0.5);
+    }
+  }
+
+  // No query and no keyword — a pure date-range browse.
+  if (!query && !keyword) {
+    for (const item of mem) ranked.set(item.id, 0.5);
+  }
+
+  let results = Array.from(ranked.entries())
+    .map(([id, score]) => ({ item: byId.get(id), score }))
+    .filter(r => r.item && inDateRange(r.item, dateFrom, dateTo));
+
+  if (!results.length) return "Nothing in memory matches that, sir.";
+
+  // Rerank. The vector score and the flat 0.5 given to keyword hits are not on
+  // the same scale, so sorting them against each other was always slightly
+  // arbitrary — a keyword match could outrank a strong semantic one or vice
+  // versa depending on nothing meaningful. The cross-encoder puts every
+  // candidate on one honest scale, so the union no longer needs the two kinds of
+  // hit to be comparable: recall gets them into the room, rerank orders them.
+  let reranked = false;
+  if (query && results.length > 1) {
+    try {
+      const contexts = results.map(r => ({ text: r.item.fact }));
+      const out = await env.AI.run(RERANK_MODEL, { query, contexts, top_k: Math.min(RETURN_K, contexts.length) });
+      const scored = (out && out.response) || [];
+      if (scored.length) {
+        const picked = scored
+          .filter(x => typeof x.id === 'number' && results[x.id] && x.score >= FLOOR)
+          .map(x => ({ item: results[x.id].item, score: x.score }));
+        if (picked.length) { results = picked; reranked = true; }
+      }
+    } catch (err) {
+      // Falls through to the original ordering. A worse-ordered answer beats no
+      // answer, and this runs on every recall.
+      console.error('Rerank unavailable, using vector order:', err.message);
+    }
+  }
+
+  if (!reranked) {
+    results.sort((a, b) => b.score - a.score || (a.item.date < b.item.date ? 1 : -1));
+    results = results.slice(0, RETURN_K);
+  }
+
+  return results.map(r => {
+    const supersededNote = r.item.supersededBy ? ' (note: superseded by a more recent memory)' : '';
+    const sharedNote = r.item.sharedFrom ? ` (told to you by ${r.item.sharedFrom.toUpperCase()} — secondhand)` : '';
+    return `- [${r.item.date}]${sharedNote} ${r.item.fact}${supersededNote}`;
+  }).join('\n');
+}
+
+// ---- memory map support (frontend force-directed graph) ----
+
+// Every persona's memories, keyed by persona id — one hub per persona.
+// Hidden personas are excluded: this feeds the shared memory map in the HUD,
+// and a hub appearing there would announce an existence that is meant to stay
+// unannounced. Their stores still work — they just aren't drawn.
+export async function getMemoryMap(env) {
+  const map = {};
+  for (const id of ALL_PERSONA_IDS) {
+    if (PERSONAS[id].hidden) continue;
+    map[id] = await getRawMemory(env, id);
+  }
+  return map;
+}
+
+// Sharing copies the memory into the target persona's store and preserves
+// original attribution (sharedFrom), so a secondhand memory never reads as
+// firsthand. The original stays where it is.
+export async function shareMemory(env, memId, fromPersonaId, toPersonaId) {
+  if (!PERSONAS[fromPersonaId] || !PERSONAS[toPersonaId]) return { ok: false, error: 'Unknown persona.' };
+  if (fromPersonaId === toPersonaId) return { ok: false, error: 'Cannot share a memory with its own owner.' };
+  const sourceMem = await getRawMemory(env, fromPersonaId);
+  const item = sourceMem.find(m => m.id === memId);
+  if (!item) return { ok: false, error: 'Memory not found on source persona.' };
+  const targetMem = await getRawMemory(env, toPersonaId);
+  if (targetMem.some(m => m.sharedFromId === memId)) return { ok: false, error: 'Already shared with that persona.' };
+  const copy = {
+    id: crypto.randomUUID(),
+    date: new Date().toISOString().slice(0, 10),
+    fact: item.fact,
+    supersededBy: null,
+    sharedFrom: item.sharedFrom || fromPersonaId, // original attribution survives re-shares
+    sharedFromId: memId
+  };
+  if (item.prov) copy.prov = { ...item.prov, source: `shared:${item.prov.source}` };
+  targetMem.push(copy);
+  await saveRawMemory(env, toPersonaId, targetMem);
+  try {
+    const vector = await embed(env, item.fact);
+    await env.VECTORIZE.upsert([{ id: copy.id, values: vector, metadata: { date: copy.date, persona: toPersonaId } }]);
+  } catch (err) {
+    console.error('Vectorize upsert failed for shared memory:', err.message);
+  }
+  return { ok: true, copy };
+}
+
+// Click-to-edit from the memory map.
+export async function updateMemoryFact(env, personaId, memId, newFact) {
+  if (!PERSONAS[personaId]) return { ok: false, error: 'Unknown persona.' };
+  const clean = String(newFact || '').trim();
+  if (!clean) return { ok: false, error: 'Empty fact.' };
+  const mem = await getRawMemory(env, personaId);
+  const item = mem.find(m => m.id === memId);
+  if (!item) return { ok: false, error: 'Memory not found.' };
+  item.fact = clean;
+  await saveRawMemory(env, personaId, mem);
+  try {
+    const vector = await embed(env, clean);
+    await env.VECTORIZE.upsert([{ id: memId, values: vector, metadata: { date: item.date, persona: personaId } }]);
+  } catch (err) {
+    console.error('Vectorize re-embed failed for edited memory:', err.message);
+  }
+  return { ok: true, item };
+}
+
+// Hand-delete from the memory viewer. Removes the fact from the persona's
+// array and best-effort removes its vector so search can't resurface it.
+export async function deleteMemoryFact(env, personaId, memId) {
+  if (!PERSONAS[personaId]) return { ok: false, error: 'Unknown persona.' };
+  const mem = await getRawMemory(env, personaId);
+  const idx = mem.findIndex(m => m.id === memId);
+  if (idx === -1) return { ok: false, error: 'Memory not found.' };
+  const [removed] = mem.splice(idx, 1);
+  // Anything superseded by the deleted memory becomes current again rather
+  // than pointing at a ghost.
+  for (const m of mem) if (m.supersededBy === memId) m.supersededBy = null;
+  await saveRawMemory(env, personaId, mem);
+  try { await env.VECTORIZE.deleteByIds([memId]); } catch (err) {
+    console.error('Vectorize delete failed for removed memory:', err.message);
+  }
+  return { ok: true, removed };
+}
+
+// One-time backfill for memories that predate embeddings (no id yet). Run
+// manually via /debug-memory-migrate. Covers every persona's store.
+export async function migrateMemoryEmbeddings(env) {
+  let migrated = 0, failed = 0, total = 0;
+  for (const personaId of ALL_PERSONA_IDS) {
+    const mem = await getRawMemory(env, personaId);
+    total += mem.length;
+    for (const item of mem) {
+      if (item.id) continue; // already migrated
+      item.id = crypto.randomUUID();
+      item.supersededBy = item.supersededBy || null;
+      try {
+        const vector = await embed(env, item.fact);
+        await env.VECTORIZE.upsert([{ id: item.id, values: vector, metadata: { date: item.date, persona: personaId } }]);
+        migrated++;
+      } catch (err) {
+        failed++;
+        console.error('Migration embedding failed for one memory:', err.message);
+      }
+    }
+    await saveRawMemory(env, personaId, mem);
+  }
+  return { ok: true, migrated, failed, total };
+}

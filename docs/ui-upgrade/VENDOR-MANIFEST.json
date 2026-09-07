@@ -1,0 +1,30 @@
+{
+  "package": "three",
+  "version": "0.185.1",
+  "license": "MIT",
+  "upstream": "https://github.com/mrdoob/three.js/tree/r185",
+  "download_base": "https://cdn.jsdelivr.net/npm/three@0.185.1/",
+  "modifications": "SVGRenderer.js and Projector.js import the local three.module.min.js instead of a bare three import. Runtime files otherwise vendored unchanged.",
+  "files": [
+    {
+      "file": "Projector.js",
+      "sha256": "b0d5535a29f84ffb939339bc7ded5bc778aabcd31cda9c4a5621e44a7d7d0e43"
+    },
+    {
+      "file": "SVGRenderer.js",
+      "sha256": "36a473ceb5b0e96ce3ed0f7afa3c402bc95818f40a152f58a4916337b10be99c"
+    },
+    {
+      "file": "THREE-LICENSE.txt",
+      "sha256": "8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc"
+    },
+    {
+      "file": "three.core.min.js",
+      "sha256": "05b2609338c76cd65daf74f3ac515bc9a5045e1b3b33edc07d8c9bd55250fa90"
+    },
+    {
+      "file": "three.module.min.js",
+      "sha256": "86bcee248b64f44bcfc23c331ae74619061957d59cab040171dcb6fb5900beb6"
+    }
+  ]
+}
