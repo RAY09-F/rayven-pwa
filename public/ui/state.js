@@ -40,6 +40,17 @@ export function parseReplyPayload(raw,contentType=''){
   if(contentType.toLowerCase().includes('text/html'))throw Error('The assistant returned a page instead of a reply.');
   try{return JSON.parse(raw);}catch{if(contentType.toLowerCase().includes('json'))throw Error('The response could not be read.');return raw;}
 }
+// Only classify bounded provider text. Never return provider-controlled wording to the UI.
+export function requestErrorMessage(status,raw){
+  let data=null;
+  if(typeof raw==='string'&&raw.length<=16384){try{data=JSON.parse(raw);}catch{data=raw;}}
+  const detail=(typeof data==='string'?data:typeof data?.error==='string'?data.error:'').slice(0,1024).toLowerCase();
+  if(/credit balance is too low|insufficient credits|not enough credits/.test(detail))return 'The assistant’s provider account is out of credits. The account owner needs to add credits before replies can resume.';
+  if(status===429||/rate.limit|too many requests/.test(detail))return 'The assistant is receiving too many requests. Wait a moment, then try again.';
+  if(status===401||status===403||/invalid.api.key|authentication.error|authentication failed/.test(detail))return 'The assistant’s API connection was rejected. The account owner needs to check its credentials or permissions.';
+  if([502,503,504].includes(status)||/service unavailable|overloaded_error/.test(detail))return 'The assistant service is temporarily unavailable. Try again shortly.';
+  return 'The assistant couldn’t reply'+(Number.isInteger(status)&&status>=400&&status<=599?' ('+status+')':'')+'. Try again later.';
+}
 export function nearTranscriptEnd(tx){return tx.scrollHeight-tx.scrollTop-tx.clientHeight<=80;}
 
 // Deliberately small Markdown subset. Model strings only reach text nodes; links require HTTP(S).

@@ -1,6 +1,6 @@
 // Tool discovery uses the checked-in backend schemas. Requests still pass through existing chat and approval gates.
 import {CAST} from './council-data.js';
-import {createExpansion} from './expansion.js?v=bifrost-aperture-1';
+import {createExpansion} from './expansion.js?v=bifrost-aperture-2';
 export const MISSIONS=[
   ['research','Evidence brief','Compare sources, separate facts from assumptions.','Use find_tools to locate research and web-search tools. Research my subject, cross-check important claims against independent sources, and give me a concise sourced brief. Subject: '],
   ['calendar','Plan my day','Calendar, priorities and room to breathe.','Read my existing calendar and to-dos using the available tools. Propose a realistic day with breaks and conflicts called out. Do not change any events without my confirmation. My priority: '],

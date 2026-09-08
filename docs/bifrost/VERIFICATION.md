@@ -5,7 +5,7 @@ Verified locally on September 7, 2026 (Pacific; September 8 UTC). Release proof 
 ## Source and browser checks
 
 - Baseline: 29 existing tests and file smoke checks passed before changes.
-- Final combined suite: **49 tests pass**, zero failures. `node --test scripts/hologram.test.mjs scripts/local-tools.test.mjs scripts/rendered-realms.test.mjs scripts/ui-state.test.mjs scripts/conversation.test.mjs` — [log](evidence/tests.txt).
+- Final combined suite: **52 tests pass**, zero failures. `node --test scripts/hologram.test.mjs scripts/local-tools.test.mjs scripts/rendered-realms.test.mjs scripts/ui-state.test.mjs scripts/conversation.test.mjs` — [log](evidence/tests.txt).
 - **55 browser assertions pass**: [27 conversation/state checks](evidence/browser-interactions.txt), [21 rendering/layout checks](evidence/browser-visual.txt), [7 result/reading checks](evidence/browser-receipts.txt). Reproducible CLI files: `scripts/bifrost-{browser,visual,receipt}-check.js`.
 - `node scripts/smoke-fx.mjs --files`, relevant module syntax, index mirror comparison and `git diff --check` pass. [Smoke log](evidence/smoke.txt).
 - Wrangler 4.122.0 deployment dry run passes, preserving existing Worker-first assets, KV, R2, Vectorize, AI, ledger binding/migration and variables. [Dry run](evidence/deploy-dry-run.txt).
@@ -27,6 +27,6 @@ The browser uses Three.js r185's actual WebGL renderer and compiles/paints the m
 
 The environment has about 2.7 GiB RAM and swap. A 10-second balanced rendering sample is recorded in [performance.txt](evidence/performance.txt); it is a bounded measurement on this environment, not a 60 FPS claim. Repeated switching retains one canvas and stable per-persona renderer resource counts. Geometry disposal and hidden-document scheduling also have deterministic tests.
 
-Local replies are explicitly labeled fixtures. They do not prove a live provider connection. Physical microphone/speaker behavior, a real phone's software keyboard, assistive technology and every external provider remain unverified. The keyboard test shrinks the visible viewport to 390×460 and checks actual Send bounds. Expected fixture 503 responses exercise errors; no uncaught application JavaScript errors pass the final interaction sweep.
+Local replies are explicitly labeled fixtures. They do not prove a live provider connection. Physical microphone/speaker behavior, a real phone's software keyboard, assistive technology and every external provider remain unverified. The keyboard test shrinks the visible viewport to 390×460 and checks actual Send bounds. Known provider credit, authentication, rate-limit and unavailable responses have bounded safe-message tests; hostile/oversized provider payloads are not exposed. Expected fixture 503 responses exercise errors; no uncaught application JavaScript errors pass the final interaction sweep.
 
 CLI 0.153.4, Playwright CLI 0.1.19 and one reused headless Chrome browser were used. Three specialist agents had bounded disjoint assignments; heavy checks were serialized. No optimizer extension or global configuration change was made. Codex subscription/cache-token metrics were unavailable, so no token savings percentage is claimed.

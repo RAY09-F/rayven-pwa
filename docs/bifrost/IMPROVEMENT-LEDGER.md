@@ -9,6 +9,7 @@
 | Copy, latest-message and focus handling | Better long conversations and keyboard continuity | Browser transcript and dialog tests |
 | Mobile viewport-aware composer | Send remains reachable when the keyboard reduces visible height | 390×460 viewport check; physical keyboard remains separate evidence |
 | Local action receipts and JSON export | Actual calculation result, timestamp, inputs and next step | Browser calculation/export check |
+| Actionable provider failures | The live credit blocker is explained without exposing raw provider details; draft recovery remains available | Safe error classification tests and live HTTP evidence |
 | Content-derived release manifest | Live asset identity can be verified independently of deployment claims | SHA-256/MIME verification script |
 | Complete searchable backlog index | All 445 capability entries and 40 workflow/request briefs retained without readiness inflation | Deterministic inventory check |
 

@@ -1,6 +1,6 @@
-import {createArsenal} from './arsenal.js?v=bifrost-aperture-1';
-import {initialPersona,editableTarget,readPreferences,assistantState,createRequestLedger,replyText,restoreDraft,nearTranscriptEnd,formatReply,parseReplyPayload} from './state.js?v=bifrost-aperture-1';
-import {createPresence} from './scene.js?v=bifrost-aperture-1';
+import {createArsenal} from './arsenal.js?v=bifrost-aperture-2';
+import {initialPersona,editableTarget,readPreferences,assistantState,createRequestLedger,replyText,restoreDraft,nearTranscriptEnd,formatReply,parseReplyPayload,requestErrorMessage} from './state.js?v=bifrost-aperture-2';
+import {createPresence} from './scene.js?v=bifrost-aperture-2';
 const halls=['thor','loki','odin'];
 let storage;try{storage=window.localStorage;}catch{}
 let arsenal=null;
@@ -129,7 +129,7 @@ function show(id){
     try{
       const res=await fetch(API.base+API.chat,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(API.body(hall,text)),signal:request.controller.signal});
       const raw=await res.text();if(!requests.current(request))return;
-      if(!res.ok)throw new Error('The assistant couldn’t reply ('+res.status+').');
+      if(!res.ok)throw new Error(requestErrorMessage(res.status,raw));
       const data=parseReplyPayload(raw,res.headers.get('content-type')||'');
       const reply=API.reply(data);if(!reply)throw new Error('The response could not be read.');
       const follow=scrollFollow[hall]!==false,bubble=request.pending.querySelector('.bubble');bubble.classList.remove('pending-label');formatReply(bubble,reply);responseActions(request.pending,reply,request);updateTranscript(hall,follow);outcome='received';

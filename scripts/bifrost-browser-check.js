@@ -29,8 +29,10 @@ async (page) => {
  await page.locator('#in-thor').fill('New draft');
  await page.locator('#tx-thor .errline button').click();
  check(await page.locator('#in-thor').inputValue().then(t=>t.includes('New draft')&&t.includes('simulate error')),'Recovery preserves a newer draft');
+ let releaseCancel;const cancelGate=new Promise(resolve=>releaseCancel=resolve);
+ await page.route('**/__fixture/chat',async route=>{if(route.request().postDataJSON()?.message==='Cancel fixture request'){await cancelGate;await route.abort().catch(()=>{});}else await route.continue();});
  await page.locator('#in-thor').fill('Cancel fixture request');await page.locator('#in-thor').press('Enter');
- await page.getByRole('button',{name:'Stop waiting',exact:true}).click();
+ await page.getByRole('button',{name:'Stop waiting',exact:true}).click();releaseCancel();await page.unroute('**/__fixture/chat');
  check(await page.locator('#tx-thor .request-notice').innerText().then(t=>t.includes('Server work may continue')),'Cancellation states actual server scope');
  check(!(await page.locator('#hall-thor .sendbtn').isDisabled()),'Cancelled request releases local send control');
  await page.getByRole('button',{name:'Settings',exact:true}).click();

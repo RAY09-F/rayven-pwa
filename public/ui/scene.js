@@ -1,5 +1,5 @@
-import {createHologramPersona} from './hologram-persona.js?v=bifrost-sculpture-1';
-import {createParticleProjection} from './hologram-projection.js?v=bifrost-sculpture-1';
+import {createHologramPersona} from './hologram-persona.js?v=bifrost-aperture-2';
+import {createParticleProjection} from './hologram-projection.js?v=bifrost-aperture-2';
 // One scene owner. Persona geometry and software projection share the same buffers.
 export async function createPresence(host,{persona='thor',still=false,quality='balanced',onStatus=()=>{},onSelect=()=>{}}={}){
  let THREE,scene,camera,renderer=null,projection=null,model=null,canvas=null;
