@@ -191,10 +191,10 @@ test('unavailable WebGL keeps conversation fallback honest and releases owned DO
  finally{presence?.dispose();for(const [key,descriptor]of saved){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else delete globalThis[key];}}
 });
 
-test('r185 surface shader preserves standard depth/lighting and adds material-local bands',()=>{
+test('r184 surface shader preserves standard depth/lighting and adds material-local bands',()=>{
   const model=createHologramPersona(THREE,new THREE.Scene(),'thor');
   const face=model.root.getObjectByName('faceted-face'),shader={uniforms:{},vertexShader:THREE.ShaderLib.standard.vertexShader,fragmentShader:THREE.ShaderLib.standard.fragmentShader};
-  assert.equal(THREE.REVISION,'185','shader contract is pinned to the locally vendored renderer');
+  assert.equal(THREE.REVISION,'184','shader contract is pinned to the locally vendored renderer');
   face.material.onBeforeCompile(shader);
   assert.ok(shader.vertexShader.includes('vBifrostPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;'));
   assert.ok(shader.fragmentShader.includes('float bifrostRim ='));

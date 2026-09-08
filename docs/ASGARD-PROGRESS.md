@@ -131,3 +131,12 @@ Engineering/report checkpoints through Wave10 are saved. Do not call the whole b
 - Rechecked live release after that push: still floating-761d8ca5ef4f; Cloudflare still e0f22382-5553-4069-94bd-8b1e5acb2523 at100%. Before-push byte verification matched25assets and MIME on both hosts. Evidence saved in docs/verification. No brain deployment or traffic change occurred.
 - Created docs/presentations/asgard-brain-report.html and .pdf:17slides covering completed code, actual live status, all23new tool entries, tests, measured usage, blockers, omissions and future ideas. Browser checked all17slides at1280×720and375×812, keyboard navigation and PDF export; no desktop clipping or horizontal overflow. Mobile slides scroll vertically where necessary. Inspected cover and usage slides; PDF has17page objects. Presentation is separate from the live interface.
 - Current remaining work: model/voice spending decision; AI Gateway management scope; billing-plan visibility; optional vendor keys; real companion/device acceptance; provider tool discovery/context editing; reliable queued-job recovery; seven-day conversation-copy trial; then individual-wave canaries. No whole-brief completion claim.
+
+
+## Prism Foundry design integration — 2026-09-08
+
+Separate from the blocked brain waves: the supplied Prism Foundry prototype is ported into Loki’s actual index scene using three.js 0.184.0, procedural geometry, physical crystal materials, studio environment, projected labels and raycast callbacks. Existing Thor/Odin scenes and conversation behavior are preserved.
+
+151 tests pass. Real Chromium checks cover desktop/phone rendering, hover → correct advisor panel, active autorotation stopping after drag, still-mode scheduling, local fixture conversation, and repeated hall mounts. A rapid-hall-switch stale-status race was found and fixed; the last choice wins, with one canvas and no leftover labels. Hardware GPU performance is not established by this SwiftShader environment.
+
+See [implementation decisions and evidence](prism-foundry/IMPLEMENTATION.md). Frontend fingerprint: `floating-09c8bbec9862`. No Cloudflare deployment was made for this design task; the pending backend waves were not bundled into a deployment.

@@ -6,6 +6,10 @@
     "dev": "node scripts/ui-preview.mjs",
     "test:ui": "node --test scripts/ui-state.test.mjs",
     "test": "node --test --test-concurrency=1 scripts/*.test.mjs",
-    "test:release": "npm test && node evals/latency.mjs \"$ASGARD_LATENCY_EVIDENCE\" && node evals/grade.mjs \"$ASGARD_SELECTION_EVIDENCE\""
+    "test:release": "npm test && node evals/latency.mjs \"$ASGARD_LATENCY_EVIDENCE\" && node evals/grade.mjs \"$ASGARD_SELECTION_EVIDENCE\"",
+    "vendor:three": "node scripts/sync-three-vendor.mjs"
+  },
+  "dependencies": {
+    "three": "0.184.0"
   }
 }
