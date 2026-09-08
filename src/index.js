@@ -1,3 +1,4 @@
+import { voiceWebSocket } from './lib/voice-websocket.js';
 // ASGARD backend — Cloudflare Worker entrypoint. HTTP router plus the main
 // chat-handling logic; all integrations live in ./lib/*.js. Three personas
 // (THOR/LOKI/ODIN — see lib/personas.js) share this one brain: same worker,
@@ -107,7 +108,7 @@ async function handleChatTurn(env, ctx, opts) {
   // for real (Claude, tools) but nothing it says is saved: no history write, no
   // auto-memory capture, no status stamps. A smoke run must never pollute a
   // conversation or spend a KV write.
-  const { personaId, isTelegram, body, botToken, smoke = false, onText, onReset, signal, afterResponse } = opts;
+  const { personaId, isTelegram, body, botToken, smoke = false, onText, onReset, signal, afterResponse, voiceTurn } = opts;
   const persona = getPersona(personaId);
 
   let userMessage;
@@ -371,6 +372,13 @@ async function handleChatTurn(env, ctx, opts) {
   // with anyone who is not Rayan (Rule 15). The bit persists in meta.
   tickTaint(meta);   // one turn older: a taint clears once its turns have rolled out of the window
   const convo = { meta, channel: isTelegram ? (isGroupChat ? 'telegram-group' : 'telegram') : 'web', sender: senderTag };
+  if (!smoke && voiceTurn) {
+    const beforeVoice = history.slice();
+    voiceTurn.commit = async heardChars => {
+      const heard = String(voiceTurn.generated || '').slice(0,heardChars);
+      await saveConversation(env,memoryKey,heard ? [...beforeVoice,{role:'assistant',content:heard}] : beforeVoice,meta);
+    };
+  }
   let result;
   try {
     result = await callClaudeWithTools(env, persona.systemPrompt, channelContext, longTermMemoryBlock, claudeMessages, !isWakeTrigger && !smoke, wakeCodeCheckContext, personaId, channelStartsTainted(isTelegram, telegramChatType, senderTag === 'Rayan'), convo, { onText, onReset, signal, effort: /\b(research|compare|strategy|plan)\b/i.test(userMessage) ? 'high' : 'low' });
@@ -403,7 +411,12 @@ async function handleChatTurn(env, ctx, opts) {
 
   history.push({ role: 'assistant', content: reply });
   if (history.length > _hl2) history = history.slice(-_hl2);
-  if (!smoke) await saveConversation(env, memoryKey, history, meta);
+  if (!smoke && voiceTurn) {
+    voiceTurn.commit = async heardChars => {
+      const heard = reply.slice(0,heardChars);
+      await saveConversation(env,memoryKey,heard ? [...history.slice(0,-1),{role:'assistant',content:heard}] : history.slice(0,-1),meta);
+    };
+  } else if (!smoke) await saveConversation(env, memoryKey, history, meta);
 
   if (!smoke && !isWakeTrigger && rayanIsSender && typeof userMessage === 'string' && userMessage.trim().length >= 8) {
     const extract = () => extractAndSaveFacts(env, userMessage, personaId).catch(err => {
@@ -1388,6 +1401,15 @@ How to speak on a phone call:
       return json({ transcript: t ? JSON.parse(t) : [] }, corsHeaders);
     }
 
+    if (url.pathname === '/voice/config' && request.method === 'GET') return json({enabled:env.VOICE_STREAM_ENABLED==='true',input:'browser-recognition',output:'pcm_16000'},corsHeaders);
+    if (url.pathname === '/voice/stream') return voiceWebSocket(request,env,ctx,async(personaId,message,options)=>{
+      const afterResponse=[];
+      const result=await handleChatTurn(env,ctx,{personaId,isTelegram:false,body:{message},botToken:null,...options,afterResponse});
+      // Voice history is committed from the browser's heard-alignment receipt.
+      for(const task of afterResponse)ctx.waitUntil(task());
+      return result;
+    });
+
     if (url.pathname === '/tts' && request.method === 'POST') {
       try {
         // Accepts "persona" (ASGARD hub) or "assistant" (per-assistant pages),
@@ -1415,7 +1437,7 @@ How to speak on a phone call:
           },
           body: JSON.stringify({
             text: text,
-            model_id: 'eleven_turbo_v2_5',
+            model_id: 'eleven_flash_v2_5',
             voice_settings: getPersonaVoiceSettings(resolvePersonaId(persona || assistant))
           })
         });

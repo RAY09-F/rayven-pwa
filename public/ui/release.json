@@ -1,11 +1,11 @@
 {
   "name": "The Floating Realms",
-  "id": "floating-571c32c247e6",
-  "sourceBase": "bdf9bdb9f97a7fbaba07692ea42049749e3c7b0f",
-  "fingerprint": "571c32c247e6207c31a9dad6c0b11af6bddbed4e4cc2ff7a384b046d5f94af66",
+  "id": "floating-00e7625664f1",
+  "sourceBase": "5584e393b45f80cd63e7a55b13767c7b38da2a0c",
+  "fingerprint": "00e7625664f14d29795fd55a97e8299b5bd952bc8e23995c46fe6f97b9898034",
   "assets": {
     "/index.html": "2bd37f436b123702559f411532ad3292d9bfc01e2512111d809c724f2d6a6325",
-    "/ui/app.js": "9991c97a7de74b7c0aa38cd979118650c4df8ab017e38ed8a3221b2e5bb3f3a5",
+    "/ui/app.js": "fa3f92b1794975e9a92cfc1b30a3b92b7be5f1a3ff6b7886bc2eda75f9e96fef",
     "/ui/arsenal.js": "35899d7e899188f5e43f3041417420a7833d500090dd97d54532a1226383c809",
     "/ui/council-data.js": "b86861df6e9cf144fd528aefb9a4911d0fc42c9e7359853708e8344b44b15b60",
     "/ui/event-stream.js": "7978c5abf5a4b18b5d5a1eaf003aa654dbd2cc14119ee05a93d9a27c286684a6",
@@ -29,6 +29,7 @@
     "/ui/vendor/SVGRenderer.js": "36a473ceb5b0e96ce3ed0f7afa3c402bc95818f40a152f58a4916337b10be99c",
     "/ui/vendor/THREE-LICENSE.txt": "8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc",
     "/ui/vendor/three.core.min.js": "05b2609338c76cd65daf74f3ac515bc9a5045e1b3b33edc07d8c9bd55250fa90",
-    "/ui/vendor/three.module.min.js": "86bcee248b64f44bcfc23c331ae74619061957d59cab040171dcb6fb5900beb6"
+    "/ui/vendor/three.module.min.js": "86bcee248b64f44bcfc23c331ae74619061957d59cab040171dcb6fb5900beb6",
+    "/ui/voice-stream.js": "7ae50d79afbad810d3657f176f8ad537b063d07d04c13b2c2fafe0f6bb5fbf90"
   }
 }

@@ -1,6 +1,6 @@
 # ASGARD brain and arsenal progress
 
-Current wave: 6, streaming voice transport and playback. Wave5 activation is explicitly BLOCKED. Wave4 live acceptance is explicitly BLOCKED. Wave3 live acceptance is explicitly BLOCKED. Wave2 activation is explicitly BLOCKED. Wave1 live acceptance is explicitly BLOCKED. Wave 0 completed its available read-only measurements; successful paid inference/audio measurements are explicitly BLOCKED.
+Current wave: 7, tool-family coverage and adapters. Wave6 activation is explicitly BLOCKED. Wave5 activation is explicitly BLOCKED. Wave4 live acceptance is explicitly BLOCKED. Wave3 live acceptance is explicitly BLOCKED. Wave2 activation is explicitly BLOCKED. Wave1 live acceptance is explicitly BLOCKED. Wave 0 completed its available read-only measurements; successful paid inference/audio measurements are explicitly BLOCKED.
 
 ## Rules carried forward
 
@@ -65,3 +65,13 @@ Wave1: implement the shared Messages API streaming/parser/error handling and sta
 - Context-editing request support is separately gated by CONTEXT_EDITING_ENABLED. Thinking clearing comes first; applied edits are reconstructed from the final stream event and logged. Neither flag is enabled in production.
 - Thirteen combined offline checks passed, including fact replacement, timestamps, no-op repeats, profile size, legacy preservation and existing streaming behavior. Replacement fixture: rayan.drink changed from tea at 2026-09-01T00:00:00Z to coffee at 2026-09-02T00:00:00Z; the object contains only the current drink property. This is test data, not Rayan's actual preferences or production KV.
 - BLOCKED: real extraction/recall, 60-turn persona test, provider context-editing compatibility and measured zero added response latency need funded model access. Cross-isolate KV concurrent-write behavior also requires stronger verification before activation; local timestamp checks do not make eventually consistent KV transactional. No Wave5 deployment. No old data deleted. Wave5 explicitly blocked before Wave6 starts.
+
+## Wave 6 — gated streaming voice path implemented; physical/live acceptance BLOCKED
+
+- Added a browser↔Worker voice socket and a reused ElevenLabs multi-context connection. Existing browser speech recognition supplies transcripts; no Deepgram signup or paid fallback was enabled. Text deltas flow continuously without hand-splitting sentences. Flash replaces Turbo on the existing TTS request path.
+- New playback schedules PCM buffers through Web Audio, with alignment receipts, interruption, model cancellation and heard-text history commits. Microphone input requests echo cancellation; user toggles own its lifetime. New VOICE_STREAM_ENABLED flag remains unset/off.
+- Independent review found four lifecycle defects; fixed and covered by tests: racing next-turn interruption, closed speech socket preventing abort, stalled connection establishment, and late microphone permission reactivating a disabled mic.
+- Seven dedicated offline voice checks pass, along with the existing streaming checks, five browser fixture checks and a successful Worker dry-run build. These are not speaker-latency or echo-cancellation measurements.
+- Brief corrections: §9.5's decodeAudioData-per-MP3-fragment instruction (around lines 1125–1128) conflicts with MDN: complete file data is required. Chose pcm_16000, 32 KB/s raw versus 4 KB/s for 32kbps MP3, roughly eight times audio bandwidth, with no MP3-fragment decoder dependency. §9.7's stop-before-gain-ramp cannot prevent a stop click; ramp first, stop at the end of the 20ms ramp. No rollout until actual provider/playback tests verify this choice.
+- The actual index has no double-clap implementation in app.js or either index file; its existing wake-word path was preserved. No licensed wake SDK installed and no new visualizer/hall/artwork/CSS changes made. The visualizer acceptance item conflicts with the explicit no-face-change constraint; physical audio checks remain pending.
+- BLOCKED: real Chromebook speech-to-sound under one second, 200ms barge-in, speaker echo, voice type/PVC check, ElevenLabs protocol and alignment verification, and Deepgram input (key/signup unavailable). No release uploaded/deployed, no real-person messages sent. Wave6 explicitly blocked before Wave7 starts.
