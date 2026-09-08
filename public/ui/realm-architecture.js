@@ -22,12 +22,12 @@ export function createRealm(T,scene,persona,{simplified=false}={}){
   const core=mesh(ownG(new T.OctahedronGeometry(.13)),ownM(new T.MeshBasicMaterial({color:color.clone().lerp(new T.Color(0xffffff),.65)})),group);core.position.y=1.59;
   const tetherMaterial=ownM(new T.LineBasicMaterial({color,transparent:true,opacity:.36}));
   const p=COUNCIL_POSITIONS[i];const line=new T.Line(ownG(new T.BufferGeometry().setFromPoints([new T.Vector3(0,1.7,-.5),new T.Vector3(p[0],p[1]+.7,p[2])])),tetherMaterial);root.add(line);tethers.push(line);
-  const anchor=new T.Object3D();anchor.position.set(0,3.05,.7);group.add(anchor);anchors.push({id,anchor,gem:g});
+  const anchor=new T.Object3D();anchor.position.set(0,.8+1.55*1.16,0);group.add(anchor);anchors.push({id,anchor,gem:g});
  });
  const seamMaterial=ownM(new T.MeshBasicMaterial({color:{thor:0x73c9ff,loki:0x79c99f,odin:0xefc581}[persona],transparent:true,opacity:.20}));
  const seam=mesh(ownG(new T.TorusGeometry(2.25,.013,4,64)),seamMaterial);seam.rotation.x=Math.PI/2;seam.position.y=.64;seam.castShadow=false;
  let disposed=false;
  return {root,pickables,anchors,gems,select(id){selected=id;gems.forEach((g,i)=>{g.material.emissiveIntensity=g.userData.councillor===id?.9:.48;tethers[i].material.opacity=g.userData.councillor===id?.85:.36;});},
- update(time,animated,state,focused=false,center={x:0,y:0,z:0}){tethers.forEach((line,i)=>{const p=gems[i].parent.position,a=line.geometry.attributes.position;a.setXYZ(0,center.x,center.y+1.7,center.z-.5);a.setXYZ(1,p.x,p.y+.7,p.z);a.needsUpdate=true;line.geometry.computeBoundingSphere();});seamMaterial.opacity=state==='error'?.55:['thinking','listening','speaking'].includes(state)?.52:focused?.42:.20;seamMaterial.color.setHex(state==='error'?0xe69873:{thor:0x73c9ff,loki:0x79c99f,odin:0xefc581}[persona]);if(animated)gems.forEach((g,i)=>{g.position.y=.80+Math.sin(time*1.25+i)*.15;g.rotation.y=Math.PI/8+time*.20+i*.25;});},
+ update(time,animated,state,focused=false,center={x:0,y:0,z:0}){tethers.forEach((line,i)=>{const p=gems[i].parent.position,a=line.geometry.attributes.position;a.setXYZ(0,center.x,center.y+1.7,center.z-.5);a.setXYZ(1,p.x,p.y+.7,p.z);a.needsUpdate=true;line.geometry.computeBoundingSphere();});seamMaterial.opacity=state==='error'?.55:['thinking','listening','speaking'].includes(state)?.52:focused?.42:.20;seamMaterial.color.setHex(state==='error'?0xe69873:{thor:0x73c9ff,loki:0x79c99f,odin:0xefc581}[persona]);if(animated)gems.forEach((g,i)=>{g.position.y=.80+Math.sin(time*1.25+i)*.15;g.rotation.y=Math.PI/8+time*.20+i*.25;});anchors.forEach(({anchor,gem})=>{anchor.position.copy(gem.position);anchor.position.y+=1.55*1.16;});},
  dispose(){if(disposed)return;disposed=true;geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());root.removeFromParent();}};
 }

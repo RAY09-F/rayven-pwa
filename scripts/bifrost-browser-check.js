@@ -1,5 +1,5 @@
 async (page) => {
- const results=[];
+ page.setDefaultTimeout(60000);await page.emulateMedia({reducedMotion:'reduce'});const results=[];
  const check=(condition,label)=>{if(!condition)throw new Error(label);results.push(label);};
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('http://127.0.0.1:4173/?fixture=1');

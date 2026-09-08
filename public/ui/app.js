@@ -1,6 +1,6 @@
-import {createArsenal} from './arsenal.js?v=floating-realms-2';
-import {initialPersona,editableTarget,readPreferences,assistantState,createRequestLedger,replyText,restoreDraft,nearTranscriptEnd,formatReply,parseReplyPayload,requestErrorMessage} from './state.js?v=floating-realms-2';
-import {createPresence} from './scene.js?v=floating-realms-2';
+import {createArsenal} from './arsenal.js?v=floating-realms-3';
+import {initialPersona,editableTarget,readPreferences,assistantState,createRequestLedger,replyText,restoreDraft,nearTranscriptEnd,formatReply,parseReplyPayload,requestErrorMessage} from './state.js?v=floating-realms-3';
+import {createPresence} from './scene.js?v=floating-realms-3';
 const halls=['thor','loki','odin'];
 let storage;try{storage=window.localStorage;}catch{}
 let arsenal=null;

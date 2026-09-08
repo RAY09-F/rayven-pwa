@@ -1,0 +1,364 @@
+TAP version 13
+# Subtest: duplicate submission is rejected per persona while other conversations remain independent
+ok 1 - duplicate submission is rejected per persona while other conversations remain independent
+  ---
+  duration_ms: 16.830038
+  type: 'test'
+  ...
+# Subtest: a response retains its originating conversation independently of the selected persona
+ok 2 - a response retains its originating conversation independently of the selected persona
+  ---
+  duration_ms: 1.356396
+  type: 'test'
+  ...
+# Subtest: cancelled request cannot finish or overwrite a replacement, even if the transport resolves late
+ok 3 - cancelled request cannot finish or overwrite a replacement, even if the transport resolves late
+  ---
+  duration_ms: 5.302226
+  type: 'test'
+  ...
+# Subtest: malformed or structured responses never become object string success messages
+ok 4 - malformed or structured responses never become object string success messages
+  ---
+  duration_ms: 5.037474
+  type: 'test'
+  ...
+# Subtest: restoring a failed request preserves the current draft and keeps exact repeated drafts singular
+ok 5 - restoring a failed request preserves the current draft and keeps exact repeated drafts singular
+  ---
+  duration_ms: 1.494615
+  type: 'test'
+  ...
+# Subtest: scroll following ends when the reader moves into older content
+ok 6 - scroll following ends when the reader moves into older content
+  ---
+  duration_ms: 0.990039
+  type: 'test'
+  ...
+# Subtest: rich content preserves literal HTML and rejects executable or relative link protocols
+ok 7 - rich content preserves literal HTML and rejects executable or relative link protocols
+  ---
+  duration_ms: 11.872552
+  type: 'test'
+  ...
+# Subtest: ordered and unordered list runs stay separate and ordered starts are retained
+ok 8 - ordered and unordered list runs stay separate and ordered starts are retained
+  ---
+  duration_ms: 5.158797
+  type: 'test'
+  ...
+# Subtest: code blocks retain markup literally, including an unfinished final fence
+ok 9 - code blocks retain markup literally, including an unfinished final fence
+  ---
+  duration_ms: 3.24267
+  type: 'test'
+  ...
+# Subtest: HTML error pages and malformed declared JSON are not successful assistant replies
+ok 10 - HTML error pages and malformed declared JSON are not successful assistant replies
+  ---
+  duration_ms: 3.965421
+  type: 'test'
+  ...
+# Subtest: stale audio error after stop/persona switch cannot clear newer audio ownership
+ok 11 - stale audio error after stop/persona switch cannot clear newer audio ownership
+  ---
+  duration_ms: 31.079197
+  type: 'test'
+  ...
+# Subtest: duplicate audio failures start fallback once and stopping detaches synthesis callbacks
+ok 12 - duplicate audio failures start fallback once and stopping detaches synthesis callbacks
+  ---
+  duration_ms: 7.905867
+  type: 'test'
+  ...
+# Subtest: conversation focus stays compact across controls and clears on real departure or minimize
+ok 13 - conversation focus stays compact across controls and clears on real departure or minimize
+  ---
+  duration_ms: 15.471282
+  type: 'test'
+  ...
+# Subtest: viewport resize keeps mobile composer controls visible without scrolling desktop or transcript history
+ok 14 - viewport resize keeps mobile composer controls visible without scrolling desktop or transcript history
+  ---
+  duration_ms: 17.613481
+  type: 'test'
+  ...
+# Subtest: release diagnostics expose identity and real counts without dumping every asset hash
+ok 15 - release diagnostics expose identity and real counts without dumping every asset hash
+  ---
+  duration_ms: 8.862883
+  type: 'test'
+  ...
+# Subtest: known low-credit provider failure gives actionable account recovery without raw details
+ok 16 - known low-credit provider failure gives actionable account recovery without raw details
+  ---
+  duration_ms: 4.603086
+  type: 'test'
+  ...
+# Subtest: provider rate limit, authorization and temporary availability failures use fixed recovery messages
+ok 17 - provider rate limit, authorization and temporary availability failures use fixed recovery messages
+  ---
+  duration_ms: 11.082182
+  type: 'test'
+  ...
+# Subtest: malicious, structured and oversized server errors cannot inject arbitrary wording or credentials
+ok 18 - malicious, structured and oversized server errors cannot inject arbitrary wording or credentials
+  ---
+  duration_ms: 1.756019
+  type: 'test'
+  ...
+# Subtest: thor floating council has visible displacement and freezes on reduced motion
+ok 19 - thor floating council has visible displacement and freezes on reduced motion
+  ---
+  duration_ms: 217.635254
+  type: 'test'
+  ...
+# Subtest: thor individual movement leaves siblings and base coordinates intact
+ok 20 - thor individual movement leaves siblings and base coordinates intact
+  ---
+  duration_ms: 181.07284
+  type: 'test'
+  ...
+# Subtest: thor field follows shared clock, freezes and cleans up
+ok 21 - thor field follows shared clock, freezes and cleans up
+  ---
+  duration_ms: 46.013934
+  type: 'test'
+  ...
+# Subtest: loki floating council has visible displacement and freezes on reduced motion
+ok 22 - loki floating council has visible displacement and freezes on reduced motion
+  ---
+  duration_ms: 15.394896
+  type: 'test'
+  ...
+# Subtest: loki individual movement leaves siblings and base coordinates intact
+ok 23 - loki individual movement leaves siblings and base coordinates intact
+  ---
+  duration_ms: 25.407195
+  type: 'test'
+  ...
+# Subtest: loki field follows shared clock, freezes and cleans up
+ok 24 - loki field follows shared clock, freezes and cleans up
+  ---
+  duration_ms: 31.293549
+  type: 'test'
+  ...
+# Subtest: odin floating council has visible displacement and freezes on reduced motion
+ok 25 - odin floating council has visible displacement and freezes on reduced motion
+  ---
+  duration_ms: 87.151439
+  type: 'test'
+  ...
+# Subtest: odin individual movement leaves siblings and base coordinates intact
+ok 26 - odin individual movement leaves siblings and base coordinates intact
+  ---
+  duration_ms: 77.864673
+  type: 'test'
+  ...
+# Subtest: odin field follows shared clock, freezes and cleans up
+ok 27 - odin field follows shared clock, freezes and cleans up
+  ---
+  duration_ms: 16.676338
+  type: 'test'
+  ...
+# Subtest: 390px opposing advisor drags keep names separate and above gem tips
+ok 28 - 390px opposing advisor drags keep names separate and above gem tips
+  ---
+  duration_ms: 64.163893
+  type: 'test'
+  ...
+# Subtest: 320px opposing advisor drags keep names separate and above gem tips
+ok 29 - 320px opposing advisor drags keep names separate and above gem tips
+  ---
+  duration_ms: 8.978025
+  type: 'test'
+  ...
+# Subtest: measured dimensions determine spacing and the nearest upward placement
+ok 30 - measured dimensions determine spacing and the nearest upward placement
+  ---
+  duration_ms: 8.976512
+  type: 'test'
+  ...
+# Subtest: top boundary collision resolves sideways without moving down
+ok 31 - top boundary collision resolves sideways without moving down
+  ---
+  duration_ms: 7.498226
+  type: 'test'
+  ...
+# Subtest: viewport clamps offscreen rectangles and retains an unobstructed position
+ok 32 - viewport clamps offscreen rectangles and retains an unobstructed position
+  ---
+  duration_ms: 0.90877
+  type: 'test'
+  ...
+# Subtest: thor: real depth, named construction, bounded geometry and all runtime states
+ok 33 - thor: real depth, named construction, bounded geometry and all runtime states
+  ---
+  duration_ms: 2458.310259
+  type: 'test'
+  ...
+# Subtest: thor: Still freezes every transform and animated pieces move independently
+ok 34 - thor: Still freezes every transform and animated pieces move independently
+  ---
+  duration_ms: 579.714807
+  type: 'test'
+  ...
+# Subtest: thor: full resources dispose exactly once, including textures and instanced meshes
+ok 35 - thor: full resources dispose exactly once, including textures and instanced meshes
+  ---
+  duration_ms: 948.701579
+  type: 'test'
+  ...
+# Subtest: thor: preview resources dispose exactly once, including textures and instanced meshes
+ok 36 - thor: preview resources dispose exactly once, including textures and instanced meshes
+  ---
+  duration_ms: 412.573331
+  type: 'test'
+  ...
+# Subtest: loki: real depth, named construction, bounded geometry and all runtime states
+ok 37 - loki: real depth, named construction, bounded geometry and all runtime states
+  ---
+  duration_ms: 271.184462
+  type: 'test'
+  ...
+# Subtest: loki: Still freezes every transform and animated pieces move independently
+ok 38 - loki: Still freezes every transform and animated pieces move independently
+  ---
+  duration_ms: 67.606885
+  type: 'test'
+  ...
+# Subtest: loki: full resources dispose exactly once, including textures and instanced meshes
+ok 39 - loki: full resources dispose exactly once, including textures and instanced meshes
+  ---
+  duration_ms: 118.799833
+  type: 'test'
+  ...
+# Subtest: loki: preview resources dispose exactly once, including textures and instanced meshes
+ok 40 - loki: preview resources dispose exactly once, including textures and instanced meshes
+  ---
+  duration_ms: 119.960826
+  type: 'test'
+  ...
+# Subtest: odin: real depth, named construction, bounded geometry and all runtime states
+ok 41 - odin: real depth, named construction, bounded geometry and all runtime states
+  ---
+  duration_ms: 979.391309
+  type: 'test'
+  ...
+# Subtest: odin: Still freezes every transform and animated pieces move independently
+ok 42 - odin: Still freezes every transform and animated pieces move independently
+  ---
+  duration_ms: 287.031549
+  type: 'test'
+  ...
+# Subtest: odin: full resources dispose exactly once, including textures and instanced meshes
+ok 43 - odin: full resources dispose exactly once, including textures and instanced meshes
+  ---
+  duration_ms: 308.434773
+  type: 'test'
+  ...
+# Subtest: odin: preview resources dispose exactly once, including textures and instanced meshes
+ok 44 - odin: preview resources dispose exactly once, including textures and instanced meshes
+  ---
+  duration_ms: 97.222805
+  type: 'test'
+  ...
+# Subtest: thor: council identities, colors, anchors, selection and disposal
+ok 45 - thor: council identities, colors, anchors, selection and disposal
+  ---
+  duration_ms: 54.077424
+  type: 'test'
+  ...
+# Subtest: loki: council identities, colors, anchors, selection and disposal
+ok 46 - loki: council identities, colors, anchors, selection and disposal
+  ---
+  duration_ms: 72.67273
+  type: 'test'
+  ...
+# Subtest: odin: council identities, colors, anchors, selection and disposal
+ok 47 - odin: council identities, colors, anchors, selection and disposal
+  ---
+  duration_ms: 55.936763
+  type: 'test'
+  ...
+# Subtest: state, layout and camera inputs normalize malformed data and enforce bounds
+ok 48 - state, layout and camera inputs normalize malformed data and enforce bounds
+  ---
+  duration_ms: 3.899542
+  type: 'test'
+  ...
+# Subtest: production scene and factories do not import or load reference photographs
+ok 49 - production scene and factories do not import or load reference photographs
+  ---
+  duration_ms: 135.019479
+  type: 'test'
+  ...
+# Subtest: valid explicit persona wins over hall and hash
+ok 50 - valid explicit persona wins over hall and hash
+  ---
+  duration_ms: 8.521024
+  type: 'test'
+  ...
+# Subtest: invalid routing falls through to valid public persona or Thor
+ok 51 - invalid routing falls through to valid public persona or Thor
+  ---
+  duration_ms: 71.528327
+  type: 'test'
+  ...
+# Subtest: preferences retain recognized values
+ok 52 - preferences retain recognized values
+  ---
+  duration_ms: 3.471952
+  type: 'test'
+  ...
+# Subtest: invalid preferences and unavailable storage have safe defaults
+ok 53 - invalid preferences and unavailable storage have safe defaults
+  ---
+  duration_ms: 25.336881
+  type: 'test'
+  ...
+# Subtest: editable target detection protects composed input targets
+ok 54 - editable target detection protects composed input targets
+  ---
+  duration_ms: 1.691259
+  type: 'test'
+  ...
+# Subtest: status priority keeps pending work and errors truthful
+ok 55 - status priority keeps pending work and errors truthful
+  ---
+  duration_ms: 1.377182
+  type: 'test'
+  ...
+# Subtest: pending microphone is never reported as confirmed listening
+ok 56 - pending microphone is never reported as confirmed listening
+  ---
+  duration_ms: 4.294836
+  type: 'test'
+  ...
+# Subtest: thor: real geometry survives states, quality changes, disposal and reinitialization
+ok 57 - thor: real geometry survives states, quality changes, disposal and reinitialization
+  ---
+  duration_ms: 2132.831004
+  type: 'test'
+  ...
+# Subtest: loki: real geometry survives states, quality changes, disposal and reinitialization
+ok 58 - loki: real geometry survives states, quality changes, disposal and reinitialization
+  ---
+  duration_ms: 1360.136002
+  type: 'test'
+  ...
+# Subtest: odin: real geometry survives states, quality changes, disposal and reinitialization
+ok 59 - odin: real geometry survives states, quality changes, disposal and reinitialization
+  ---
+  duration_ms: 1516.430416
+  type: 'test'
+  ...
+1..59
+# tests 59
+# suites 0
+# pass 59
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8806.133792

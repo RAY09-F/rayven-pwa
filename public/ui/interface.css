@@ -71,3 +71,6 @@ html[data-persona=odin] .conversation .request-receipt summary{color:#36434b}
 .motion-readout{display:block;font-size:10px;color:var(--accent);letter-spacing:0;line-height:1.6}
 #presence-scene[data-render=fallback] .hero-nameplate{display:none}
 @media(max-width:700px){.hero-nameplate{font-size:17px}#council-dock .council-member{font-size:9px;letter-spacing:0;min-height:44px}}
+
+/* Compact nameplates retain separate touch targets without covering adjacent gems. */
+@media(max-width:850px){#council-dock .council-member{min-height:32px}}

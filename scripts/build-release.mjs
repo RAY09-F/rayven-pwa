@@ -7,6 +7,6 @@ async function walk(dir){for(const entry of await readdir(dir,{withFileTypes:tru
 await walk('public/ui');files.sort();
 const assets={};for(const file of files)assets[file.replace('public','')]=createHash('sha256').update(await readFile(file)).digest('hex');
 const fingerprint=createHash('sha256').update(JSON.stringify(assets)).digest('hex');
-const release={name:'The Reference Realms',id:`realms-${fingerprint.slice(0,12)}`,sourceBase:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),fingerprint,assets};
+const release={name:'The Floating Realms',id:`floating-${fingerprint.slice(0,12)}`,sourceBase:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),fingerprint,assets};
 await writeFile('public/ui/release.json',JSON.stringify(release,null,2)+'\n');
 console.log(`${release.id}: ${files.length} assets fingerprinted`);
