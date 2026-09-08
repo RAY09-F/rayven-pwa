@@ -156,3 +156,13 @@ Active at100%:806a7e9b-e716-4544-bfdd-3f9420d9e25d. Live release:floating-5c8b8a
 Both preparatory assets and final index received10%canaries before100%:11passingHTTPsamples over315seconds and361seconds respectively. All52asset hashes/MIME types verified unpinned on both existing hosts. Real live WebGL and advisor selection passed on desktop/phone; a normal browser reload without version overrides confirmed the new release. No observed Worker error events, no purchases, no KV deletion and no real-person sends.
 
 [Open Prism Foundry](https://asgrard-backend.rayanfahil2.workers.dev/?hall=loki). [Deployment receipt and evidence](prism-foundry/DEPLOYMENT.md). Preserve the versioned asset path for staged compatibility; use the isolated release branch for UI-only deployment until the brain release gates are resolved.
+
+
+### Loki emerald HUD update — rollout started
+
+User requested the gold HUD/text accents become green with everything else unchanged. Active candidate614ed300-86a9-4479-917f-0ff396dce0c4, releasefloating-1e9b7365c2e9, source89d2898 on deploy/prism-foundry. Only active CSS and release metadata change; all scene/model JavaScript, HTML, layout and backend remain unchanged. Existing86tests and browser computed-color/layout checks pass. Prior100%version806a7e9b-e716-4544-bfdd-3f9420d9e25d. Canary requires10%forfiveactualminutes then100%andliveverification. See release worktree docs/prism-foundry/green-evidence/.
+
+
+### Loki emerald HUD update COMPLETE — 2026-09-08
+
+Live at 100%: `614ed300-86a9-4479-917f-0ff396dce0c4`, release `floating-1e9b7365c2e9`. Loki HUD accents and floating name are emerald #20AF73. Scene materials, layout, behavior, other halls and backend are unchanged. Existing 86 tests passed. Canary: 11 passing samples over 443 seconds, with a documented sampling restart and uninterrupted error tail; no observed Worker errors. Both public hosts verified all 52 asset hashes and MIME types. Normal live WebGL browser reload verified green colors and release, without overrides. [Receipt](prism-foundry/GREEN-UPDATE.md). Main's blocked brain work remains undeployed.

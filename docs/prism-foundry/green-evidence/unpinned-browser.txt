@@ -1,0 +1,16 @@
+### Result
+{"name":"rgb(32, 175, 115)","heading":"rgb(32, 175, 115)","send":"rgb(32, 175, 115)","scene":"prism-foundry","release":"floating-1e9b7365c2e9"}
+### Ran Playwright code
+```js
+await (async page => {
+ await page.unrouteAll({behavior:'ignoreErrors'});
+ await page.addInitScript(()=>localStorage.setItem('asgardfx:still','1'));
+ await page.goto('https://asgrard-backend.rayanfahil2.workers.dev/?hall=loki',{waitUntil:'domcontentloaded',timeout:90000});
+ await page.waitForFunction(()=>window.AsgardUI?.status().render?.frames>0,{},{timeout:90000});
+ const colors=await page.evaluate(()=>({name:getComputedStyle(document.querySelector('.prism-core b')).color,heading:getComputedStyle(document.querySelector('.presence-heading h1')).color,send:getComputedStyle(document.querySelector('#hall-loki .sendbtn')).backgroundColor,scene:AsgardUI.status().render.scene}));
+ if([colors.name,colors.heading,colors.send].some(c=>c!=='rgb(32, 175, 115)'))throw Error('Live theme mismatch');
+ const release=await page.evaluate(()=>fetch('/ui/release.json',{cache:'no-store'}).then(r=>r.json()).then(r=>r.id)); if(release!=='floating-1e9b7365c2e9')throw Error('Wrong unpinned release: '+release); return {...colors,release};
+})(page);
+```
+### Events
+- New console entries: .playwright-cli/console-2026-09-08T10-33-28-937Z.log#L6

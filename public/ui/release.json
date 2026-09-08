@@ -1,8 +1,8 @@
 {
   "name": "The Floating Realms",
-  "id": "floating-09c8bbec9862",
-  "sourceBase": "424e1885c53f215fe7d22cc0554388d95863bbf4",
-  "fingerprint": "09c8bbec9862698a018555d11e650671c955b88c5b4269682d664fefb83f34ea",
+  "id": "floating-3227b5f37598",
+  "sourceBase": "76626fb881f3d4a620ff1002df99e043bf5f820a",
+  "fingerprint": "3227b5f3759886f4d5a70c1f371d7790e6fa89a2fe2560442305f76776f7ffa3",
   "assets": {
     "/index.html": "0bed9983ca3719b4f5886ae9fae11e197810a5a4711b7a56fde0a5514fc66439",
     "/ui/app.js": "7bac88ffca690df395507748eb4e7f185e3a15cfe3290cc710dfc967441a5f96",
@@ -14,7 +14,7 @@
     "/ui/hologram-persona.js": "165ccb5045be00c3b4bfa72c51f0bc7dafe6354194825e6896bf00a352a20e2c",
     "/ui/hologram-projection.js": "8e8140a74dda4eca0f91791898260870529b4452f430a44adc8c4a33d99e749f",
     "/ui/holographic-field.js": "06ba92add1597a645f3410e0a5690ec3f018eb942fb392ba2d09d5987d81acf4",
-    "/ui/interface.css": "b60632cee2b985fe4f7ae79c6756cc2b3b66c6a7ea21780a4d0f0bcf37611106",
+    "/ui/interface.css": "603611d4b097a69c218e5826e7e98254d96be1029c2a2d797ee3e42d601ad28d",
     "/ui/local-tools.js": "2fb0bc78ad5618f1d48a5af44effe61bdc836bb18ba10fd8e83d9723c9167888",
     "/ui/nameplate-layout.js": "524ebd0e6c6c7e7ad2ad7f6ce2e34e36c5f0e152440269dbd484682abb391f1f",
     "/ui/prism-foundry-model.js": "4d629a645d48f36d8dd8167697a36f20532e3440b17ec96cf800653fc5f64906",

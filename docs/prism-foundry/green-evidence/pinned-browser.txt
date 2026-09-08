@@ -1,0 +1,22 @@
+### Result
+{"name":"rgb(32, 175, 115)","heading":"rgb(32, 175, 115)","send":"rgb(32, 175, 115)","scene":"prism-foundry"}
+### Ran Playwright code
+```js
+await (async page => {
+ await page.unrouteAll({behavior:'ignoreErrors'});
+ await page.route('https://asgrard-backend.rayanfahil2.workers.dev/**',async route=>{const raw=route.request().url();await route.continue({url:raw+(raw.includes('?')?'&':'?')+'verify='+Date.now(),headers:{...route.request().headers(),'Cloudflare-Workers-Version-Overrides':'asgrard-backend="614ed300-86a9-4479-917f-0ff396dce0c4"'}});});
+ await page.addInitScript(()=>localStorage.setItem('asgardfx:still','1'));
+ await page.goto('https://asgrard-backend.rayanfahil2.workers.dev/?hall=loki',{waitUntil:'domcontentloaded',timeout:90000});
+ await page.waitForFunction(()=>window.AsgardUI?.status().render?.frames>0,{},{timeout:90000});
+ const colors=await page.evaluate(()=>({name:getComputedStyle(document.querySelector('.prism-core b')).color,heading:getComputedStyle(document.querySelector('.presence-heading h1')).color,send:getComputedStyle(document.querySelector('#hall-loki .sendbtn')).backgroundColor,scene:AsgardUI.status().render.scene}));
+ if([colors.name,colors.heading,colors.send].some(c=>c!=='rgb(32, 175, 115)'))throw Error('Live theme mismatch');
+ await page.screenshot({path:'/tmp/loki-green-live.png',timeout:90000});return colors;
+}
+)(page);
+```
+### Page
+- Page URL: https://asgrard-backend.rayanfahil2.workers.dev/#loki
+- Page Title: ASGARD — The Floating Realms
+- Console: 0 errors, 1 warnings
+### Events
+- New console entries: .playwright-cli/console-2026-09-08T10-33-28-937Z.log#L5
