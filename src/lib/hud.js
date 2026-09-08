@@ -42,11 +42,15 @@ function odinDesk(paper) {
       ? { v: `${today.wins} / ${today.losses}`, t: tone(today.wins - today.losses) } : null,
     all.pnl != null ? { v: money(all.pnl), t: tone(all.pnl) } : null
   ];
-  const rows = open.slice(0, 3).map(p => {
-    const pnl = Number(p.unrealizedPnl ?? p.pnl ?? 0);
-    const side = String(p.side || p.direction || 'LONG').toUpperCase();
-    const who = String(p.name || p.label || '').toUpperCase();
-    return { k: `${String(p.symbol || p.instrument || p.label || '').toUpperCase()} ${side}${who ? ' · ' + who : ''}`.trim(), v: money(pnl), t: tone(pnl) };
+  // Rows come from closed trades, not open positions. An open position carries
+  // no P/L field -- there is no mark price in the payload -- so reading one
+  // would print a confident $0 against every line.
+  const rows = (paper.recentTrades || []).slice(0, 3).map(t => {
+    const pnl = Number(t.pnl ?? 0);
+    const [instrument] = String(t.market || t.label || '').split(' \u2014 ');
+    const who = String(t.agentName || '').toUpperCase();
+    const side = String(t.side || '').toUpperCase();
+    return { k: `${instrument.toUpperCase()}${side ? ' ' + side : ''}${who ? ' \u00b7 ' + who : ''}`.trim(), v: money(pnl), t: tone(pnl) };
   });
   return { stats, rows, signal: winRate != null ? `WIN RATE ${Math.round(winRate)}%` : undefined };
 }
