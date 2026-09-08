@@ -88,3 +88,13 @@ Wave1: implement the shared Messages API streaming/parser/error handling and sta
 - Media family: added TMDB movie lookup (read token/terms needed) and a disabled AssemblyAI submit/status adapter (key and verified allowance needed). Existing Workers AI image generation reused. No paid transcription or image generation run. Podcast Index signing/transcript support is not verified and is not claimed implemented.
 - Communications family: reused ntfy as comms_push; both spellings now refuse all sends unless COMMS_PUSH_ENABLED is explicitly true and the secret topic is at least 32 characters. Added a UTF-8 byte limit and removed secret-bearing network errors. No topic generated or printed, no real notification sent. Discord's existing confirmation gate remains. Authenticated/key-query provider responses are never cached by the new adapter.
 - Browser family: reread extension-related dispatch before adding public cloud read/screenshot adapters. Both stay disabled until a scoped token and quota are verified; they do not access logged-in sessions. Corrected result capping to preserve actual image content blocks rather than stringify screenshots. Real Cloudflare browser calls and redirect containment are still unverified. Jina fallback remains blocked on proxy redirect/target containment; no unchecked fetch proxy is enabled.
+
+## Wave 7 — family adapters implemented; live acceptance BLOCKED
+
+- Registry now contains 300 tools: original 277, three Wave2 context tools and 20 Wave7 additions. New entries have deferred metadata/examples; legacy provider discovery still cannot be activated without its compatibility test.
+- Twenty-seven arsenal/alias checks pass. Nine of ten free endpoint probes returned HTTP 200; dictionary timed out. Seven new adapters are being checked against real public data; evidence is in ARSENAL-TOOL-PROBES.json. Container success is not a Cloudflare-edge success or a model-selection test.
+- BLOCKED: keys/verified allowances for paid-capable adapters; scoped Browser Run token; SEC contact header; live provider selection, latency and edge verification. No family deployed, and no real-person sends. No combined Wave7 release attempted. FMP, AirNow replacement, Transitland coverage, Podcast Index and Wolfram endpoints/entitlements are unresolved, not implemented features. Existing failed SEC full-text and Semantic Scholar adapters remain dropped. Jina fallback awaits redirect-containment verification. Wave7 explicitly blocked before Wave8 begins.
+
+## Wave 8 — in progress
+
+- Check actual account plan and usage first. Reuse the SQLite ledger; any conversation migration stays disabled until verified dual-writing can begin, then requires seven full days. No KV deletion and no paid-plan change.
