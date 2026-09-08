@@ -77,3 +77,15 @@ One knowing deviation: the README describes Thor's nameplate ruler as "7-tick ..
 `scripts/hud-browser-check.js` asserts the artboard size, the 746px fit, that no micro-label wraps, and then for each realm: the accent token, display font, hash, persisted value, exactly one canvas, the mounted scene, roster and desk counts, and the switcher's pressed state. It then proves the freeze toggle and reduced motion pause every animated node. The live-data path was exercised separately against a stub backend; all three desks took live values while unsourced tiles kept their design copy.
 
 Rendering used SwiftShader software graphics; frame rate on real hardware is unverified.
+
+## Deployment
+
+Live as of 2026-09-08 on `asgrard-backend`, version `ca4425cf-7e0a-40c6-a754-8f4c5f5ba8e7`. Rollback point is `46f1a08b-a239-4a8a-a688-3fafceef488f`.
+
+Shipped from `deploy/solar-hud`, branched off `deploy/prism-foundry` — the deployed lineage, which deliberately excludes main's held-back backend work. Main's `src/` changes were **not** deployed; the only backend change in this release is the read-only `/hud/summary` route.
+
+The index moved off the frozen `/ui/astral-v1/` copy back to `/ui/` with a `solar-hud-1` cache-buster. `astral-v1` stays in the bundle so clients holding a cached index keep working.
+
+One bug reached production and was fixed in a follow-up deploy: Odin's desk rows read `unrealizedPnl` off open positions, but an open position in the paper payload carries only qty, entry price and stop — no mark price, so no P/L. Every row printed `+$0`. Rows now come from closed trades, which carry realised `pnl` alongside market and agent name. A test asserts no row can render `+$0` from an open position.
+
+Known cosmetic issue, not fixed: switching realms disposes the previous scene, which calls `forceContextLoss()`, and three.js then logs a burst of `INVALID_OPERATION: object does not belong to this context` while releasing resources. It is noisy in the console but harmless — the incoming scene mounts and renders. The same disposal path is used by the main hall's switcher, so this predates the HUD.
