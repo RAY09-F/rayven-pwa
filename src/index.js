@@ -107,7 +107,7 @@ async function handleChatTurn(env, ctx, opts) {
   // for real (Claude, tools) but nothing it says is saved: no history write, no
   // auto-memory capture, no status stamps. A smoke run must never pollute a
   // conversation or spend a KV write.
-  const { personaId, isTelegram, body, botToken, smoke = false, onText, onReset, signal } = opts;
+  const { personaId, isTelegram, body, botToken, smoke = false, onText, onReset, signal, afterResponse } = opts;
   const persona = getPersona(personaId);
 
   let userMessage;
@@ -296,11 +296,7 @@ async function handleChatTurn(env, ctx, opts) {
   // in Rayan's household memory). The short-length check filters out bare
   // acks ("ok", "yes", "lol") without an extra import — a wasted call on a
   // genuinely short-but-meaningful message just comes back with an empty [].
-  if (!smoke && !isWakeTrigger && rayanIsSender && typeof userMessage === 'string' && userMessage.trim().length >= 8) {
-    ctx.waitUntil(extractAndSaveFacts(env, userMessage, personaId).catch(err => {
-      console.error('Auto-memory extraction failed:', err.message);
-    }));
-  }
+
 
   const longTermMemoryBlock = prefetchedMemoryBlock;
 
@@ -409,6 +405,12 @@ async function handleChatTurn(env, ctx, opts) {
   if (history.length > _hl2) history = history.slice(-_hl2);
   if (!smoke) await saveConversation(env, memoryKey, history, meta);
 
+  if (!smoke && !isWakeTrigger && rayanIsSender && typeof userMessage === 'string' && userMessage.trim().length >= 8) {
+    const extract = () => extractAndSaveFacts(env, userMessage, personaId).catch(err => {
+      console.error('Auto-memory extraction failed:', err.message);
+    });
+    if (afterResponse) afterResponse.push(extract); else ctx.waitUntil(extract());
+  }
   return { reply: await sendReply(reply) };
 }
 
@@ -1530,7 +1532,7 @@ How to speak on a phone call:
       const personaId = resolvePersonaId(body.persona || body.assistant);
       const smoke = request.headers.get('X-Asgard-Smoke') === '1';
       if ((request.headers.get('Accept') || '').includes('text/event-stream')) {
-        const abort = new AbortController(), encoder = new TextEncoder();
+        const abort = new AbortController(), encoder = new TextEncoder(), afterResponse = [];
         const disconnect = () => abort.abort();
         request.signal.addEventListener('abort', disconnect, { once: true });
         const stream = new ReadableStream({
@@ -1539,14 +1541,14 @@ How to speak on a phone call:
             const work = (async () => {
               try {
                 const result = await handleChatTurn(env, ctx, { personaId, isTelegram: false, body, botToken: null, smoke,
-                  signal: abort.signal, onText: text => emit('text', { text }), onReset: () => emit('reset', {}) });
+                  signal: abort.signal, afterResponse, onText: text => emit('text', { text }), onReset: () => emit('reset', {}) });
                 if (result?.error) emit('error', { message: result.error });
                 else emit('done', { reply: result?.reply || '', persona: personaId });
               } catch (error) {
                 if (!abort.signal.aborted) emit('error', { message: 'The reply was interrupted. Please try again.' });
               } finally {
                 request.signal.removeEventListener('abort', disconnect);
-                if (!abort.signal.aborted) controller.close();
+                if (!abort.signal.aborted) { controller.close(); for (const task of afterResponse) ctx.waitUntil(task()); }
               }
             })();
             ctx.waitUntil(work);

@@ -35,7 +35,7 @@ export async function collectMessage(body, onText = () => {}) {
         open.delete(data.index); break;
       case 'message_delta':
         if (!message) throw new Error('The assistant stream is incomplete.');
-        Object.assign(message, data.delta); Object.assign(message.usage, data.usage); break;
+        Object.assign(message, data.delta); Object.assign(message.usage, data.usage); if(data.context_management)message.context_management=data.context_management; break;
       case 'message_stop': stopped = true; break;
       // ping and future event types do not terminate the response.
     }

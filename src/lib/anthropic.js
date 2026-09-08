@@ -10,6 +10,7 @@ export async function callAnthropic(env, systemBlocks, tools, messages, maxToken
   const body = { model: selectedModel, max_tokens: maxTokens || 1400, system: systemBlocks, tools, messages };
   if (/^claude-(sonnet-5|opus-5)$/.test(selectedModel)) { body.output_config = { effort: opts.effort || 'low' }; body.thinking = { type: 'adaptive' }; }
   if (opts.onText) body.stream = true;
+  if (env.CONTEXT_EDITING_ENABLED === 'true') body.context_management = { edits: [...(body.thinking ? [{type:'clear_thinking_20251015',keep:{type:'thinking_turns',value:2}}] : []), {type:'clear_tool_uses_20250919',trigger:{type:'input_tokens',value:30000},keep:{type:'tool_uses',value:3},exclude_tools:['delegate','approve','reject']}] };
   const sleep = opts.sleep || (ms => new Promise((resolve, reject) => {
     const abort = () => { clearTimeout(timer); reject(opts.signal.reason || new Error('Reply cancelled.')); };
     const timer = setTimeout(() => { opts.signal?.removeEventListener('abort', abort); resolve(); }, ms);
@@ -21,12 +22,13 @@ export async function callAnthropic(env, systemBlocks, tools, messages, maxToken
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST', signal: opts.signal,
-        headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json', ...(body.context_management ? {'anthropic-beta':'context-management-2025-06-27'} : {}) },
         body: JSON.stringify(body)
       });
       if (response.ok) {
         // Never replay an interrupted successful stream: tools or text may already have escaped.
         const data = opts.onText ? await collectMessage(response.body, opts.onText) : await response.json();
+        if (data.context_management?.applied_edits) console.log('CONTEXT_EDITS',data.context_management.applied_edits);
         return { ok: true, data };
       }
       const data = await response.json().catch(() => ({}));

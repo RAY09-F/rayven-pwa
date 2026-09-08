@@ -917,11 +917,13 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   const systemBlocks = [
     { type: 'text', text: personaAndBaseline, cache_control: { type: 'ephemeral', ttl: '1h' } }
   ];
+  const stableProfile = env.MEMORY_FACTS_ENABLED === 'true' && !getPersona(personaId).hidden;
+  if (stableProfile) systemBlocks.push({type:'text',text:longTermMemoryBlock,cache_control:{type:'ephemeral',ttl:'1h'}});
   // Per-turn facts belong after the stable system prefix. Never persist this envelope.
   const contextualMessages = initialMessages.map(message => ({ ...message }));
   const firstUser = contextualMessages.find(message => message.role === 'user');
   if (firstUser) {
-    const context = { type: 'text', text: [channelAndSender, longTermMemoryBlock, extraContext].filter(Boolean).join('\n\n') };
+    const context = { type: 'text', text: [channelAndSender, stableProfile ? null : longTermMemoryBlock, extraContext].filter(Boolean).join('\n\n') };
     firstUser.content = [context, ...(typeof firstUser.content === 'string' ? [{ type: 'text', text: firstUser.content }] : firstUser.content)];
   }
 

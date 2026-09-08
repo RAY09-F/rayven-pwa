@@ -1,6 +1,6 @@
 # ASGARD brain and arsenal progress
 
-Current wave: 5, structured memory and post-response extraction. Wave4 live acceptance is explicitly BLOCKED. Wave3 live acceptance is explicitly BLOCKED. Wave2 activation is explicitly BLOCKED. Wave1 live acceptance is explicitly BLOCKED. Wave 0 completed its available read-only measurements; successful paid inference/audio measurements are explicitly BLOCKED.
+Current wave: 6, streaming voice transport and playback. Wave5 activation is explicitly BLOCKED. Wave4 live acceptance is explicitly BLOCKED. Wave3 live acceptance is explicitly BLOCKED. Wave2 activation is explicitly BLOCKED. Wave1 live acceptance is explicitly BLOCKED. Wave 0 completed its available read-only measurements; successful paid inference/audio measurements are explicitly BLOCKED.
 
 ## Rules carried forward
 
@@ -57,3 +57,11 @@ Wave1: implement the shared Messages API streaming/parser/error handling and sta
 - Brief correction §7.3/7.6 (around lines 874–875 and 925–926): fetching a client-side tool result and answering from it necessarily needs another Messages API round trip. Removing a separate councillor model does not make fresh research literally one API request or zero latency. The fixture performs the ordinary two requests (tool selection, final answer), without a nested agent.
 - Brief family exception: Sylvie's standing FX duty requires the existing money_convert tool although her listed families say world/util. Kept that narrow existing capability. Corrected the Wave3 description that had mistakenly called Sylvie a communications profile; she handles the outside world.
 - BLOCKED: actual sourced research, actual cron delivery and live latency comparisons need funded API access; no real-person test sent. Standing-duty expansion is not activated without those checks. The existing five-delegation-per-tick drain also needs overload/recovery verification before claiming reliable bulk queuing. No Wave4 deployment. Wave4 explicitly blocked before Wave5 starts.
+
+## Wave 5 — structured writer/profile and response-first extraction implemented; activation BLOCKED
+
+- Integrated a structured successor into the existing memory module, gated by MEMORY_FACTS_ENABLED. One JSON object per subject; properties replace their old value and carry changed_at. Duplicate facts produce no writes. Legacy arrays/embeddings remain readable and untouched; no deletion or speculative second vector index.
+- A stable profile uses at most 450 UTF-8 bytes (a conservative bound below 500 tokens) and gets a one-hour system cache marker. Other structured facts are queried on demand. Automatic Haiku extraction starts after the SSE stream closes; it is not awaited by the reply.
+- Context-editing request support is separately gated by CONTEXT_EDITING_ENABLED. Thinking clearing comes first; applied edits are reconstructed from the final stream event and logged. Neither flag is enabled in production.
+- Thirteen combined offline checks passed, including fact replacement, timestamps, no-op repeats, profile size, legacy preservation and existing streaming behavior. Replacement fixture: rayan.drink changed from tea at 2026-09-01T00:00:00Z to coffee at 2026-09-02T00:00:00Z; the object contains only the current drink property. This is test data, not Rayan's actual preferences or production KV.
+- BLOCKED: real extraction/recall, 60-turn persona test, provider context-editing compatibility and measured zero added response latency need funded model access. Cross-isolate KV concurrent-write behavior also requires stronger verification before activation; local timestamp checks do not make eventually consistent KV transactional. No Wave5 deployment. No old data deleted. Wave5 explicitly blocked before Wave6 starts.
