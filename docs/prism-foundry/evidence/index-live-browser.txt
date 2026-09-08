@@ -1,0 +1,34 @@
+### Result
+{"url":"https://asgrard-backend.rayanfahil2.workers.dev/#loki","state":{"ready":true,"renderMode":"webgl","persona":"loki","scene":"prism-foundry","state":"idle","frames":3,"animationTime":0,"animated":false,"hidden":false,"rafActive":false,"width":860.84375,"height":486,"threeRevision":"184","renderScale":1,"rendererResources":{"geometries":146,"textures":6},"advisors":["miss_minutes","hunter_b15","mobius","sylvie","kang"],"hover":null,"selected":null,"autoRotate":false,"hasDragged":false,"cameraPosition":[4.273615411209966,5.2351049192817865,7.770209838563573],"quality":"balanced","shadowMapSize":1024,"objects":[{"id":"core","x":430.421875,"y":197.0758424365256},{"id":"amber","x":360.17842535471596,"y":329.07648453245247},{"id":"sapphire","x":527.4164186710527,"y":311.83056940139454},{"id":"copper","x":532.1695407078948,"y":250.71994573759684},{"id":"emerald","x":417.6218550291401,"y":226.61494407528943},{"id":"violet","x":315.17411734816574,"y":262.41703780527274}]},"mobile":{"render":{"ready":true,"renderMode":"webgl","persona":"loki","scene":"prism-foundry","state":"idle","frames":8,"animationTime":0,"animated":false,"hidden":false,"rafActive":false,"width":368,"height":322,"threeRevision":"184","renderScale":1,"rendererResources":{"geometries":146,"textures":6},"advisors":["miss_minutes","hunter_b15","mobius","sylvie","kang"],"hover":null,"selected":null,"autoRotate":false,"hasDragged":false,"cameraPosition":[4.273615411209966,5.2351049192817865,7.770209838563573],"quality":"balanced","shadowMapSize":1024,"objects":[{"id":"core","x":184,"y":130.57288326041407},{"id":"amber","x":137.46010126382413,"y":218.03009880545204},{"id":"sapphire","x":248.26387461333127,"y":206.60379289557414},{"id":"copper","x":251.41306246490151,"y":166.1148611677082},{"id":"emerald","x":175.519328332064,"y":150.14405759720822},{"id":"violet","x":107.64243217306455,"y":173.86478636481033}]},"overflow":false},"selected":"Hunter B-15","errors":[]}
+### Ran Playwright code
+```js
+await (async page => {
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ const version='806a7e9b-e716-4544-bfdd-3f9420d9e25d';
+ await page.unrouteAll({behavior:'ignoreErrors'});
+ await page.route('https://asgrard-backend.rayanfahil2.workers.dev/**',async route=>{
+  const raw=route.request().url(),url=raw+(raw.includes('?')?'&':'?')+'verify='+Date.now();
+  await route.continue({url,headers:{...route.request().headers(),'Cloudflare-Workers-Version-Overrides':`asgrard-backend="${version}"`}});
+ });
+ await page.addInitScript(()=>{localStorage.setItem('asgardfx:still','1');localStorage.setItem('asgardfx:output','0');});
+ await page.goto('https://asgrard-backend.rayanfahil2.workers.dev/?hall=loki',{waitUntil:'domcontentloaded',timeout:90000});
+ await page.waitForFunction(()=>window.AsgardUI?.status().render?.scene==='prism-foundry'&&AsgardUI.status().render.frames>0,{},{timeout:90000});
+ const state=await page.evaluate(()=>AsgardUI.status().render);
+ const box=await page.locator('#presence-scene').boundingBox(),gem=state.objects.find(o=>o.id==='sapphire');
+ await page.mouse.click(box.x+gem.x,box.y+gem.y);
+ await page.waitForFunction(()=>AsgardUI.status().render.selected==='sapphire',{},{timeout:60000});
+ const selected=await page.locator('dialog[open]').innerText();if(!selected.includes('Hunter B-15'))throw Error('Wrong live advisor');await page.keyboard.press('Escape');
+ await page.screenshot({path:'/tmp/prism-live-desktop.png',timeout:90000});
+ await page.setViewportSize({width:390,height:844});
+ await page.waitForFunction(()=>AsgardUI.status().render.width<400,{},{timeout:60000});
+ await page.screenshot({path:'/tmp/prism-live-mobile.png',timeout:90000});
+ return {url:page.url(),state,mobile:await page.evaluate(()=>({render:AsgardUI.status().render,overflow:document.documentElement.scrollWidth>innerWidth})),selected:'Hunter B-15',errors};
+}
+)(page);
+```
+### Page
+- Page URL: https://asgrard-backend.rayanfahil2.workers.dev/#loki
+- Page Title: ASGARD — The Floating Realms
+- Console: 0 errors, 1 warnings
+### Events
+- New console entries: .playwright-cli/console-2026-09-08T09-47-54-694Z.log#L7
