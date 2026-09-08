@@ -506,7 +506,7 @@ const output=document.getElementById('output-setting');output.checked=preference
 output.addEventListener('change',()=>{preferences.output=output.checked;persist('asgard:voice-output',output.checked?'1':'0');if(!output.checked){stopSpeaking();resumeListeningAfterSpeech();}});
 const still=document.getElementById('still-setting');still.checked=preferences.still;
 const motionQuery=matchMedia('(prefers-reduced-motion: reduce)');
-function motionNote(){const button=document.querySelector('[data-motion-toggle]');if(button){button.textContent=motionQuery.matches?'Reduced motion':preferences.still?'Resume motion':'Pause motion';button.disabled=motionQuery.matches;button.setAttribute('aria-pressed',String(preferences.still||motionQuery.matches));}document.getElementById('motion-note').textContent=preferences.still||motionQuery.matches?'Motion paused · Settings':presence?.status().ready?'Floating · drag an object':'3D unavailable';}
+function motionNote(){const button=document.querySelector('[data-motion-toggle]');if(button){button.textContent=motionQuery.matches?'Reduced motion':preferences.still?'Resume motion':'Pause motion';button.disabled=motionQuery.matches;button.setAttribute('aria-pressed',String(preferences.still||motionQuery.matches));}document.getElementById('motion-note').textContent=preferences.still||motionQuery.matches?'Motion paused · Settings':presence?.status().ready?activeHall()==='loki'?'Floating · drag to orbit':'Floating · drag an object':'3D unavailable';}
 document.querySelector('[data-motion-toggle]')?.addEventListener('click',()=>{still.checked=!still.checked;still.dispatchEvent(new Event('change'));});
 still.addEventListener('change',()=>{preferences.still=still.checked;persist('asgardfx:still',still.checked?'1':'0');presence?.setStill(still.checked);motionNote();});motionQuery.addEventListener('change',motionNote);motionNote();
 const quality=document.getElementById('quality-setting');quality.value=preferences.quality;
@@ -549,7 +549,7 @@ show(initialPersona(location.search,location.hash));
 arsenal=createArsenal({getPersona:activeHall,getDraft:()=>document.getElementById('in-'+activeHall()).value,
   setDraft:text=>{if(conversation.hidden)reopen.click();const input=document.getElementById('in-'+activeHall());input.value=text;input.focus();},
   onSelect:id=>presence?.select(id),resetView:()=>presence?.resetView()});
-createPresence(document.getElementById('presence-scene'),{persona:activeHall(),still:preferences.still,quality:preferences.quality,onSelect:id=>arsenal?.openAgent(id),onStatus:text=>{document.getElementById('render-notice').textContent=text;}}).then(p=>{presence=p;p.setStill(preferences.still);p.setQuality(preferences.quality);if(p.status().persona!==activeHall())p.setPersona(activeHall());motionNote();refreshState();});
+createPresence(document.getElementById('presence-scene'),{persona:activeHall(),still:preferences.still,quality:preferences.quality,onHover:id=>{document.querySelector('#presence-scene').dataset.hoverAgent=id||'';},onSelect:id=>arsenal?.openAgent(id),onStatus:text=>{document.getElementById('render-notice').textContent=text;}}).then(p=>{presence=p;p.setStill(preferences.still);p.setQuality(preferences.quality);if(p.status().persona!==activeHall())p.setPersona(activeHall());motionNote();refreshState();});
 window.AsgardUI={status:()=>({persona:activeHall(),state:workspace.dataset.state,mic:micState,voiceOutput:preferences.output,arsenal:arsenal?.status(),render:presence?.status()||null})};
 
 // Bring the real composer into view without changing its draft.
