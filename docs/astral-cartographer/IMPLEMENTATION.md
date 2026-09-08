@@ -1,0 +1,13 @@
+# Astral Cartographer
+
+Thor's council is rendered three.js geometry ported from the supplied design handoff. Found the handoff in `Prism foundry 3D model (2).zip`; README read in full before extracting/opening the prototype.
+
+The model includes the marble dais, ice peaks, brass armillary, detailed hammer, blue hologram, five refractive storm bolts, live edge arcs, tip discharges, sparks, constellation and rising dust. Lightning uses reusable midpoint-displacement buffers, three shared channels, tapering branches and return strokes/restrikes. Agent keys map to the existing Thor council IDs.
+
+`council-scene.js` now owns the canvas, PMREM studio, lighting, camera, orbit controls, projected/occluded labels, pointer hooks and cleanup for both Thor and Loki. Scene wrappers configure the different materials, colors, lighting and rendering limits. Thor uses pixel ratio <=1.25, 1024 PCF shadows and hover/label updates every third frame. Reduced-motion/pause disables animation and flashes. Clicks select; dragging stops autorotation without selecting. Context loss keeps conversation controls available.
+
+The source README is authoritative where the prototype differs: correct elapsed time (no double Clock delta read), centered ±.6 white-core flicker, .39–.47 spark radii, specified hologram/constellation opacity ranges and nonnegative strike intervals. Core-label occlusion excludes the hammer itself to avoid hiding THOR behind its own anchor. No viewer export toolbar or orbit hint is copied into the website; existing site controls remain.
+
+Three 0.184.0 is already pinned in package.json and package-lock.json and present in node_modules. Existing local vendor modules and Google Fonts loading are reused; no redundant dependency installation. No backend behavior or assets from main's blocked brain work are included in the release package.
+
+Verification is in progress. Deployment must use the isolated `deploy/prism-foundry` worktree, not main's backend. New assets are staged at `/ui/astral-v1/` while retaining the current index, then the index switches to that path after preload reaches 100%. Record previous Cloudflare versions, observe each 10% canary for at least five minutes, then promote and verify normal public asset hashes/browser separately.
