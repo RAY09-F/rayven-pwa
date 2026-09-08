@@ -1,3 +1,4 @@
+import { implementationToolName } from './tool-aliases.js';
 // Per-tool permission levels (auto/notify/confirm/off) plus the "say yes and I'll
 // do it" pending-confirmation flow. Ported from worker.js unchanged, with one
 // addition: DEFAULT_PERMISSION_LEVELS lets specific tools default to something
@@ -34,6 +35,7 @@ export async function getPermissions(env) {
 }
 
 export async function setToolPermission(env, toolName, level) {
+  toolName = implementationToolName(toolName);
   const valid = ['auto', 'notify', 'confirm', 'off'];
   if (HARD_CONFIRM_TOOLS.includes(toolName) && level !== 'confirm' && level !== 'off') {
     return `${toolName} is hardwired to confirm — it sends real messages/calls, so that gate isn't policy-editable, sir.`;
@@ -52,6 +54,7 @@ export async function getToolPermissionsText(env) {
 }
 
 export async function checkPermission(env, toolName) {
+  toolName = implementationToolName(toolName);
   if (HARD_CONFIRM_TOOLS.includes(toolName)) {
     const perms = await getPermissions(env);
     return perms[toolName] === 'off' ? 'off' : 'confirm'; // off is allowed; anything looser is not

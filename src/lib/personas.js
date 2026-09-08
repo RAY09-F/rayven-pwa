@@ -1,3 +1,4 @@
+import { implementationToolName } from './tool-aliases.js';
 // The ASGARD persona registry — THOR / LOKI / ODIN. This is the single source of
 // truth for everything persona-scoped: prompts, colors, tool allow-lists, memory
 // namespaces, Telegram bot env names, ElevenLabs voice env names, HUD metadata,
@@ -384,6 +385,7 @@ export function resolvePersonaId(requested) {
 // Which persona owns a tool — used by the dispatcher to redirect by name when a
 // restricted persona reaches for a tool outside its lane.
 export function toolOwnerName(toolName) {
+  toolName = implementationToolName(toolName);
   for (const id of ALL_PERSONA_IDS) {
     const p = PERSONAS[id];
     if (p.toolNames === null) continue;
@@ -407,6 +409,7 @@ const HELA_ONLY_TOOLS = ['lock_in', 'stand_down', 'vigil_status', 'my_briefs', '
 const OPEN_TOOLS = new Set();
 export function registerOpenTools(names) { for (const n of names || []) OPEN_TOOLS.add(n); }
 export function personaAllowsTool(personaId, toolName) {
+  toolName = implementationToolName(toolName);
   const p = getPersona(personaId);
   if (HELA_ONLY_TOOLS.includes(toolName) && personaId !== 'hela') return false;
   if (OPEN_TOOLS.has(toolName)) return true;

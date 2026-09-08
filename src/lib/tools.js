@@ -1,3 +1,4 @@
+import { implementationToolName, aliasSchemas } from './tool-aliases.js';
 // The tool schema array Claude sees, the executeTool dispatcher, and the
 // tool-use loop (callClaudeWithTools). This is the most-imported module — it wires
 // together every integration module into what RAYVEN can actually do. Ported
@@ -56,6 +57,7 @@ const TASK_LOG_CAP = 500;
 // ctx (optional): { tainted, meta } from the turn that is calling -- so a
 // memory write can carry honest provenance and a tool can see the session.
 export async function executeTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {}) {
+  name = implementationToolName(name);
   const startedAt = Date.now();
   let success = true;
   let error = null;
@@ -854,8 +856,8 @@ export function toolDefinitionsForPersona(personaId) {
   // fourth's tools this is not merely tidiness: a tool NAME in the schema is
   // itself a disclosure, so the three upstairs must never be handed them.
   const allowed = TOOL_DEFINITIONS.filter(t => personaAllowsTool(personaId, t.name) || isCatalogTool(t.name));   // Phase 7: the catalogue is open to every persona
-  if (persona.toolNames === null) return allowed;
-  return allowed.filter(t => persona.toolNames.includes(t.name) || isCatalogTool(t.name));   // Phase 7: the catalogue rides along for every god
+  if (persona.toolNames === null) return aliasSchemas(allowed);
+  return aliasSchemas(allowed.filter(t => persona.toolNames.includes(t.name) || isCatalogTool(t.name)));   // Phase 7: the catalogue rides along for every god
 }
 
 // Put an ephemeral cache breakpoint on the final content block of the last
@@ -977,7 +979,8 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
 
       const toolResults = [];
       let anyUntrusted = false;
-      for (const blk of toolUseBlocks) {
+      for (const requestedBlock of toolUseBlocks) {
+        const blk = { ...requestedBlock, name: implementationToolName(requestedBlock.name) };
         opts.signal?.throwIfAborted();
         let toolResult;
         if (allowTools === false) {
