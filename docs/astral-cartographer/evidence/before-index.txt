@@ -1,0 +1,11 @@
+
+ ⛅️ wrangler 4.122.0 (update available 4.129.1)
+───────────────────────────────────────────────
+Created:     2026-09-08T11:34:19.831Z
+Author:      rayanfahil2@gmail.com
+Source:      Unknown (deployment)
+Message:     Astral assets: verified five-minute canary complete
+Version(s):  (100%) af42d41e-ac84-4fad-8be7-5d4a37c9a43f
+                 Created:  2026-09-08T11:26:59.221Z
+                     Tag:  astral-assets
+                 Message:  Astral council assets preload; current index and backend preserved

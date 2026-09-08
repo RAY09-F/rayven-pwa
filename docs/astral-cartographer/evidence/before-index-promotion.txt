@@ -1,0 +1,16 @@
+
+ ⛅️ wrangler 4.122.0 (update available 4.129.1)
+───────────────────────────────────────────────
+Created:     2026-09-08T11:36:23.467Z
+Author:      rayanfahil2@gmail.com
+Source:      Unknown (deployment)
+Message:     Astral index: 10% canary after verified asset preload
+Version(s):  (90%) af42d41e-ac84-4fad-8be7-5d4a37c9a43f
+                 Created:  2026-09-08T11:26:59.221Z
+                     Tag:  astral-assets
+                 Message:  Astral council assets preload; current index and backend preserved
+
+             (10%) 46f1a08b-a239-4a8a-a688-3fafceef488f
+                 Created:  2026-09-08T11:35:49.693Z
+                     Tag:  astral-index
+                 Message:  Astral Cartographer Thor council index; running backend preserved

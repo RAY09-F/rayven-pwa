@@ -1,0 +1,16 @@
+### Result
+{"scene":"astral-cartographer","render":"webgl","advisors":["jane_foster","valkyrie","hulk","korg","darcy"],"release":"floating-c5ccb5e8f103","entry":"https://asgrard-backend.rayanfahil2.workers.dev/ui/astral-v1/app.js?v=astral-1"}
+### Ran Playwright code
+```js
+await (async page => {
+ await page.unrouteAll({behavior:'ignoreErrors'});
+ await page.goto('https://asgrard-backend.rayanfahil2.workers.dev/?hall=thor',{waitUntil:'domcontentloaded',timeout:90000});
+ await page.waitForFunction(()=>window.AsgardUI?.status().render?.scene==='astral-cartographer'&&AsgardUI.status().render.frames>0,{},{timeout:90000});
+ const result=await page.evaluate(async()=>({scene:AsgardUI.status().render.scene,render:AsgardUI.status().render.renderMode,advisors:AsgardUI.status().render.advisors,release:(await fetch('/ui/release.json',{cache:'no-store'}).then(r=>r.json())).id,entry:document.querySelector('script[type=module]').src}));
+ if(result.release!=='floating-c5ccb5e8f103'||result.advisors.length!==5||!result.entry.includes('/ui/astral-v1/'))throw Error('Unpinned public release mismatch');return result;
+}
+)(page);
+```
+### Page
+- Page URL: https://asgrard-backend.rayanfahil2.workers.dev/#thor
+- Page Title: ASGARD — The Floating Realms
