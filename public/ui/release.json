@@ -1,10 +1,10 @@
 {
   "name": "The Floating Realms",
-  "id": "floating-fc6dd33eeea9",
-  "sourceBase": "a7e73b615c7b538545f30a2765bd7b9e4c86cabc",
-  "fingerprint": "fc6dd33eeea9579378d0a0dc7ca4d238c41cf2fb18cd330e5353da89fa2c3579",
+  "id": "floating-c5ccb5e8f103",
+  "sourceBase": "a8a630d7c0f04f550bd859375431912c24d3810c",
+  "fingerprint": "c5ccb5e8f103379f44810655f509f0b6472eb566ad0f1426b0ddee3f11136fec",
   "assets": {
-    "/index.html": "3ff650494708405f7d7736d6d865c7e22adf5ad40d6159292f57bb93b4b03547",
+    "/index.html": "b81978c20f9975525c74f789e8f2ac362f4bcfd766c8fc0e87db7188295a7810",
     "/ui/app.js": "505f676b48529576efcfb6ed71c3b782bb7339836cd3dbbe0337c816ba4f9b7d",
     "/ui/arsenal.js": "35899d7e899188f5e43f3041417420a7833d500090dd97d54532a1226383c809",
     "/ui/astral-v1/app.js": "eb011173dd4f0bcf15b35e88d8d6881b31e1614d4c17d8f99e12f6b72f37dc4c",
