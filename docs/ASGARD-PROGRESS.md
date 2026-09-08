@@ -98,3 +98,19 @@ Wave1: implement the shared Messages API streaming/parser/error handling and sta
 ## Wave 8 — in progress
 
 - Check actual account plan and usage first. Reuse the SQLite ledger; any conversation migration stays disabled until verified dual-writing can begin, then requires seven full days. No KV deletion and no paid-plan change.
+- Current Cloudflare recheck: OAuth refreshed successfully. Script/account report usage_model=standard, which does not establish Free versus Paid billing. Billing subscriptions and AI Gateway management return 403. Production still e0f22382-5553-4069-94bd-8b1e5acb2523 at100%. No upgrade or gateway creation attempted after missing scope.
+- Gated all existing Anthropic call paths through one routing helper, including background/batches/counting. A verified spend-limit flag is mandatory before gateway traffic; request payload logging/caching are off. Explicit wrong-route 404 can fall back to the direct provider. Network ambiguity, 429 and provider failures cannot bypass a spending guardrail or replay work.
+- Corrected brief §11.3: “fallback on any non-2xx” would bypass its own spend-limit 429 and could duplicate billed inference. Narrowed fallback to an explicit missing route; other failures remain visible. Gateway cache-HIT acceptance remains blocked, not asserted.
+- Added conversation mirroring inside the existing SQLite ledger, with serialized comparison/copy and a persistent stop marker on disagreement. Existing KV keys are preserved. Flag remains off; there is no cutover/delete operation. Seven-day trial and real DO execution are unverified. Copies alone do not solve simultaneous user-turn conflicts.
+- Existing MeloTTS fallback now also handles network failure, not just HTTP errors. Five infrastructure fixtures pass, including actual TTS route with a fake speech provider; no paid audio generated.
+- Analytics access succeeds despite billing/Gateway access restrictions: trailing 24 hours reported 860 Worker requests, 0 errors, 3,127 subrequests; account KV 1,830 writes and 21,203 reads. Exact CPU quantile units and UTC-day totals need verification before treating these as the brief's per-chat baseline. These are mixed production traffic, not successful assistant-turn measurements.
+- Corrected brief lines 1498–1499, 1510, 1519 and 1577–1578 in place: separate Free internal-service request quota, paid KV overage pricing, operations rather than distinct-key allowance, and bounded gateway fallback. Sources: Cloudflare Workers limits, KV pricing and AI Gateway spend-limits documentation.
+- Usage follow-up resolved CPU units from GraphQL introspection: p50 1.278ms and p99 66.518ms for mixed production requests. Completed UTC2026-09-07 ASGARD namespace:1,833writes/21,882reads; partialSep8:578writes/6,485reads. Added measured data and caveats to PERF-BASELINE.md. Conditional $5/month recommendation only if billing confirms Free; no purchase.
+- Worker dry-run passed:936.49KiB/gzip257.14KiB. Existing bindings, migration, cron and wrangler.toml preserved.
+
+## Wave 8 — local safeguards tested; deployment/acceptance BLOCKED
+
+- BLOCKED: AI Gateway create/spend-limit management lacks permission (403); live inference remains unfunded/unapproved. No cache HIT or actual failover inference claimed. Smart Placement stays off because the required live before/after comparison cannot run.
+- Conversation mirror remains disabled; seven-day trial has not begun and cannot be compressed into this session. Real SQLite/edge trial and concurrency review remain required before activation. No KV deletion.
+- No second scheduler or parallel agent framework added. Existing queued research's five-item drain/recovery limitation still needs a durable retry implementation and real cron tests; no claim of crash-safe Workflows. Existing MCP remains; new OAuth federation and Agents SDK migration are phase2 only.
+- No Wave8 deployment. Wave8 explicitly blocked before Wave9 starts.

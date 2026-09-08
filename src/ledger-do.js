@@ -1,3 +1,4 @@
+import { mirrorConversation } from './lib/conversation-mirror.js';
 // THE LEDGER (asgard-upgrade Phase 9). One Durable Object class, SQLite-backed,
 // holding the state this upgrade introduced: ticks, audit lines, events, routine
 // runs, council state, cost counters, routines. COPY-FORWARD only: nothing in KV
@@ -23,6 +24,7 @@ const SCHEMA = [
 export class AsgardLedger extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
+    this.context=ctx; this.environment=env;
     this.sql = ctx.storage.sql;
     this.ready = false;
   }
@@ -38,6 +40,7 @@ export class AsgardLedger extends DurableObject {
   async op(b) {
     const now = Date.now();
     switch (b.op) {
+      case 'conversationMirror': return this.context.blockConcurrencyWhile(() => mirrorConversation({get:key=>this.op({op:'get',key}),put:(key,value)=>this.op({op:'put',key,value}),kv:this.environment.RAYVEN_KV},b.key,b.raw));
       case 'ping': { const t = this.rows(this.sql.exec(`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`)); return { tables: t.map(r => r.name), at: now }; }
       case 'putTick': this.sql.exec(`INSERT OR REPLACE INTO tick (key, at, body) VALUES (?, ?, ?)`, b.key, b.at || new Date(now).toISOString(), JSON.stringify(b.body)); return { written: 1 };
       case 'recentTicks': return this.rows(this.sql.exec(`SELECT body FROM tick ORDER BY key DESC LIMIT ?`, Math.max(1, Math.min(200, Number(b.n) || 12)))).map(r => JSON.parse(r.body));

@@ -1,3 +1,4 @@
+import { anthropicFetch } from './anthropic-gateway.js';
 // Agent-to-agent protocol with JARVIS (Jay's assistant) and KEVOS (Kevin's
 // assistant): outbound calls (askSiblingAgent / askAgentForCheckIn) and the
 // inbound HMAC-authenticated endpoint (handleAgentQuery). Ported unchanged.
@@ -108,7 +109,7 @@ Rules:
 - Respond with ONLY a valid JSON object in this exact shape, nothing else: {"answer": "your answer here", "refused": true or false}`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await anthropicFetch(env,'/v1/messages', {
       method: 'POST',
       headers: {
         'x-api-key': env.ANTHROPIC_API_KEY,

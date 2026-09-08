@@ -1,3 +1,4 @@
+import { anthropicFetch } from './lib/anthropic-gateway.js';
 import { logSelfCheck } from './tools/catalog-brain-dev.js';
 import { voiceWebSocket } from './lib/voice-websocket.js';
 // ASGARD backend — Cloudflare Worker entrypoint. HTTP router plus the main
@@ -607,7 +608,7 @@ export default {
       for (const id of ['thor', 'loki', 'odin']) {
         const core = coreFor(id, toolDefinitionsForPersona(id));
         try {
-          const r = await fetch('https://api.anthropic.com/v1/messages/count_tokens', { method: 'POST', headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: MODELS.sonnet, tools: core, messages: [{ role: 'user', content: 'hi' }] }) });
+          const r = await anthropicFetch(env,'/v1/messages/count_tokens', { method: 'POST', headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: MODELS.sonnet, tools: core, messages: [{ role: 'user', content: 'hi' }] }) });
           const j = await r.json().catch(() => null);
           out[id] = { tools: core.length, inputTokens: j && j.input_tokens != null ? j.input_tokens : null, error: r.ok ? null : JSON.stringify(j).slice(0, 200) };
         } catch (e) { out[id] = { tools: core.length, inputTokens: null, error: e.message }; }
@@ -1429,7 +1430,9 @@ How to speak on a phone call:
           } catch (e) { return new Response(`TTS unavailable: ${why}; fallback voice failed: ${e.message}`, { status: 500, headers: corsHeaders }); }
         };
         if (!env.ELEVENLABS_API_KEY || !voiceId) return melo('ElevenLabs is not configured');
-        const elevenRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+        let elevenRes;
+        try { elevenRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+          signal: AbortSignal.timeout(15000),
           method: 'POST',
           headers: {
             'xi-api-key': env.ELEVENLABS_API_KEY,
@@ -1442,9 +1445,10 @@ How to speak on a phone call:
             voice_settings: getPersonaVoiceSettings(resolvePersonaId(persona || assistant))
           })
         });
+        } catch { return melo('ElevenLabs connection failed'); }
         if (!elevenRes.ok) {
-          const errorDetail = await elevenRes.text();
-          return melo(`ElevenLabs error (${elevenRes.status}): ${errorDetail.slice(0, 100)}`);
+          await elevenRes.body?.cancel();
+          return melo(`ElevenLabs error (${elevenRes.status})`);
         }
         return new Response(elevenRes.body, { headers: { ...corsHeaders, 'content-type': 'audio/mpeg' } });
       } catch (err) {

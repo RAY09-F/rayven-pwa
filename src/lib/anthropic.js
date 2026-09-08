@@ -1,3 +1,4 @@
+import { anthropicFetch } from './anthropic-gateway.js';
 // Thin wrapper around the Anthropic Messages API with one retry on transient
 // errors. Ported unchanged from worker.js. Used by the main chat loop and by
 // every background subsystem that needs a Claude call (code check, monitoring
@@ -20,7 +21,7 @@ export async function callAnthropic(env, systemBlocks, tools, messages, maxToken
   for (let attempt = 0; attempt < 3; attempt++) {
     opts.signal?.throwIfAborted();
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await anthropicFetch(env,'/v1/messages', {
         method: 'POST', signal: opts.signal,
         headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json', ...(body.context_management ? {'anthropic-beta':'context-management-2025-06-27'} : {}) },
         body: JSON.stringify(body)
@@ -53,7 +54,7 @@ export async function callAnthropic(env, systemBlocks, tools, messages, maxToken
 // failure just gets picked up again next tick rather than retried in-request.
 export async function callAnthropicSimple(env, systemPrompt, userText, maxTokens, model, schema) {
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await anthropicFetch(env,'/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({

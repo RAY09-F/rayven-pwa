@@ -1,0 +1,134 @@
+[
+  {
+    "path": "workers/account-settings",
+    "success": true,
+    "settings": {
+      "default_usage_model": "standard",
+      "green_compute": false
+    }
+  },
+  {
+    "path": "subscriptions",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "workers/scripts/asgrard-backend/settings",
+    "success": true,
+    "settings": {
+      "usage_model": "standard",
+      "limits": null,
+      "placement": {},
+      "compatibility_date": "2026-08-13"
+    }
+  },
+  {
+    "path": "workers/scripts/asgrard-backend/deployments",
+    "success": true,
+    "deployments": [
+      {
+        "id": "72677f35-51d2-4a8c-a0d9-add75b63d756",
+        "created_on": "2026-09-08T06:06:56.482896Z",
+        "versions": [
+          {
+            "version_id": "e0f22382-5553-4069-94bd-8b1e5acb2523",
+            "percentage": 100
+          }
+        ]
+      },
+      {
+        "id": "d03ca64f-7a84-4cab-87c7-e1aafe3ed431",
+        "created_on": "2026-09-08T04:57:21.752495Z",
+        "versions": [
+          {
+            "version_id": "734b939b-87d0-4ee6-bc38-1392d3e31342",
+            "percentage": 100
+          }
+        ]
+      },
+      {
+        "id": "50520574-5882-4c3c-83b8-64db6afe9d47",
+        "created_on": "2026-09-08T00:52:01.683556Z",
+        "versions": [
+          {
+            "version_id": "6d6c87d5-bf48-4914-9b98-d38fb94b07d1",
+            "percentage": 100
+          }
+        ]
+      },
+      {
+        "id": "7d77e140-f973-466f-b123-1bc37295f770",
+        "created_on": "2026-09-08T00:38:49.886388Z",
+        "versions": [
+          {
+            "version_id": "80f406c1-51e4-4928-9a7d-ae12f3654da7",
+            "percentage": 100
+          }
+        ]
+      },
+      {
+        "id": "f9810b4a-bf05-485f-9ec1-e7d4247f5e9d",
+        "created_on": "2026-09-07T04:19:47.444261Z",
+        "versions": [
+          {
+            "version_id": "205b09d8-e582-4d8d-93d4-e6de5047a556",
+            "percentage": 100
+          }
+        ]
+      },
+      {
+        "id": "4f2ea6aa-ea96-4ee5-88fa-7e12115c2c6e",
+        "created_on": "2026-09-07T04:13:45.007627Z",
+        "versions": [
+          {
+            "version_id": "8814056d-e4ee-40b5-a82e-bf734e5c4f56",
+            "percentage": 100
+          }
+        ]
+      },
+      {
+        "id": "41c9f274-d0c3-4753-ba44-ffe7ed57fd7b",
+        "created_on": "2026-09-05T19:59:06.552264Z",
+        "versions": [
+          {
+            "version_id": "29267926-f27b-4be7-9be0-b14a94b773e9",
+            "percentage": 100
+          }
+        ]
+      },
+      {
+        "id": "f6a6a608-f811-4af5-8379-7aa5d8d0aca0",
+        "created_on": "2026-09-05T19:57:49.132618Z",
+        "versions": [
+          {
+            "version_id": "42370bed-c078-484b-8336-762d6bc56b61",
+            "percentage": 100
+          }
+        ]
+      },
+      {
+        "id": "ff76cf22-8bc6-420b-8dbd-106b756a362a",
+        "created_on": "2026-09-05T19:55:53.015673Z",
+        "versions": [
+          {
+            "version_id": "9958b18a-ba76-46c0-ba0b-36ae0138cd74",
+            "percentage": 100
+          }
+        ]
+      },
+      {
+        "id": "8738ec57-3cdf-4d1b-af62-5562c4ae19a0",
+        "created_on": "2026-09-05T19:54:27.947888Z",
+        "versions": [
+          {
+            "version_id": "003a6311-914e-4531-b9d8-55cc30f6ad44",
+            "percentage": 100
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "ai-gateway/gateways",
+    "error": "HTTP Error 403: Forbidden"
+  }
+]

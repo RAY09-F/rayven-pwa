@@ -1,0 +1,99 @@
+{
+  "data": {
+    "__type": {
+      "fields": [
+        {
+          "description": "CPU time 25th percentile - microseconds",
+          "name": "cpuTimeP25"
+        },
+        {
+          "description": "CPU time 50th percentile - microseconds",
+          "name": "cpuTimeP50"
+        },
+        {
+          "description": "CPU time 75th percentile - microseconds",
+          "name": "cpuTimeP75"
+        },
+        {
+          "description": "CPU time 90th percentile - microseconds",
+          "name": "cpuTimeP90"
+        },
+        {
+          "description": "CPU time 95th percentile - microseconds",
+          "name": "cpuTimeP95"
+        },
+        {
+          "description": "CPU time 99th percentile - microseconds",
+          "name": "cpuTimeP99"
+        },
+        {
+          "description": "CPU time 99.9th percentile - microseconds",
+          "name": "cpuTimeP999"
+        }
+      ]
+    },
+    "viewer": {
+      "accounts": [
+        {
+          "kvOperationsAdaptiveGroups": [
+            {
+              "dimensions": {
+                "actionType": "list",
+                "date": "2026-09-07"
+              },
+              "sum": {
+                "requests": 1
+              }
+            },
+            {
+              "dimensions": {
+                "actionType": "read",
+                "date": "2026-09-08"
+              },
+              "sum": {
+                "requests": 6485
+              }
+            },
+            {
+              "dimensions": {
+                "actionType": "write",
+                "date": "2026-09-08"
+              },
+              "sum": {
+                "requests": 578
+              }
+            },
+            {
+              "dimensions": {
+                "actionType": "write",
+                "date": "2026-09-07"
+              },
+              "sum": {
+                "requests": 1833
+              }
+            },
+            {
+              "dimensions": {
+                "actionType": "list",
+                "date": "2026-09-08"
+              },
+              "sum": {
+                "requests": 1
+              }
+            },
+            {
+              "dimensions": {
+                "actionType": "read",
+                "date": "2026-09-07"
+              },
+              "sum": {
+                "requests": 21882
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "errors": null
+}

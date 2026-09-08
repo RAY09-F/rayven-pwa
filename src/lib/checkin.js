@@ -1,3 +1,4 @@
+import { anthropicFetch } from './anthropic-gateway.js';
 // Two existing scheduled jobs, ported unchanged: the daily proactive Telegram
 // check-in, and the daily self-code-check against RAYVEN's own GitHub source.
 // Both were already written as scheduled()-invoked functions in worker.js — they
@@ -70,7 +71,7 @@ You do NOT have calendar or meeting access — never claim to check his schedule
   for (let iter = 0; iter < 4; iter++) {
     let res;
     try {
-      res = await fetch('https://api.anthropic.com/v1/messages', {
+      res = await anthropicFetch(env,'/v1/messages', {
         method: 'POST',
         headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
         body: JSON.stringify({ model: MODELS.sonnet, max_tokens: 400, system: systemBlocks, tools, messages: convo })
@@ -214,7 +215,7 @@ You do NOT have calendar or meeting access — never claim to check his schedule
   for (let iter = 0; iter < 10; iter++) {
     let res;
     try {
-      res = await fetch('https://api.anthropic.com/v1/messages', {
+      res = await anthropicFetch(env,'/v1/messages', {
         method: 'POST',
         headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
         body: JSON.stringify({ model: MODELS.sonnet, max_tokens: 900, system: systemBlocks, tools, messages: convo })
@@ -325,7 +326,7 @@ ${workerSource}`;
 
   let res;
   try {
-    res = await fetch('https://api.anthropic.com/v1/messages', {
+    res = await anthropicFetch(env,'/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({

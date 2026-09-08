@@ -1,0 +1,54 @@
+{
+  "start": "2026-09-07T07:32:07.852689+00:00",
+  "end": "2026-09-08T07:32:07.852689+00:00",
+  "response": {
+    "data": {
+      "viewer": {
+        "accounts": [
+          {
+            "kvOperationsAdaptiveGroups": [
+              {
+                "dimensions": {
+                  "actionType": "write"
+                },
+                "sum": {
+                  "requests": 1830
+                }
+              },
+              {
+                "dimensions": {
+                  "actionType": "list"
+                },
+                "sum": {
+                  "requests": 1
+                }
+              },
+              {
+                "dimensions": {
+                  "actionType": "read"
+                },
+                "sum": {
+                  "requests": 21203
+                }
+              }
+            ],
+            "workersInvocationsAdaptive": [
+              {
+                "quantiles": {
+                  "cpuTimeP50": 1278,
+                  "cpuTimeP99": 66518
+                },
+                "sum": {
+                  "errors": 0,
+                  "requests": 860,
+                  "subrequests": 3127
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "errors": null
+  }
+}

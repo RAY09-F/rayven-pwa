@@ -1495,8 +1495,8 @@ subrequests per invocation.**
 ([limits](https://developers.cloudflare.com/workers/platform/limits/))
 
 An Anthropic tool-use loop that also calls ElevenLabs, Telegram, a search API
-and KV **will hit the 50-subrequest wall**. Each `fetch`, each KV read and each
-KV write counts as one.
+and KV can exceed request limits; measure the actual workload first. Public fetches
+have a 50/request Free limit; internal KV/R2/D1 operations have a separate 1,000 limit.
 
 **Be careful how you argue the CPU half.** Workers CPU time **excludes time
 spent awaiting a `fetch`**, so an agent loop that is mostly network may not be
@@ -1507,7 +1507,7 @@ their own.
 
 **The Workers Paid plan is $5/month and it raises CPU to 30 seconds (up to 5
 minutes) and subrequests to 10,000.** It also unlocks 250 cron triggers instead
-of 5, and unlimited KV writes.
+of 5, and 1 million included KV writes/month, then $5 per million writes.
 
 > **Codex: check which plan my account is actually on, report it, price the
 > upgrade, and tell me plainly whether the current plan can carry what this
@@ -1516,7 +1516,7 @@ of 5, and unlimited KV writes.
 
 ## 11.2 KV is the real memory bottleneck
 
-Free KV: 100,000 reads/day but only **1,000 writes/day to distinct keys**, and
+Free KV: 100,000 reads/day but only **1,000 key-write operations/day**, and
 1 write/second to the same key.
 ([KV limits](https://developers.cloudflare.com/kv/platform/limits/))
 
@@ -1574,8 +1574,8 @@ What it gives, free:
 **Two things that are required, not optional, before you route traffic here:**
 
 1. **Keep `https://api.anthropic.com` as an environment-variable-controlled
-   fallback, and fail over to it automatically on any non-2xx from the gateway
-   host.** A wrong account id or gateway id in that URL is a total, silent
+   fallback, and fail over on an explicit missing gateway route (404), never a
+   spend-limit 429 or an ambiguous failure that could duplicate billed work.** A wrong account id or gateway id in that URL is a total, silent
    outage of all three assistants at once. Do not create a single point of
    failure in front of the only thing that makes ASGARD work.
 2. **Set the AI Gateway spend limit BEFORE sending the first request through

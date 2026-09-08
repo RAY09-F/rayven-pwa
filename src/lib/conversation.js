@@ -1,3 +1,4 @@
+import { ledger } from './ledger.js';
 // ---------------------------------------------------------------------------
 // THE CONVERSATION OBJECT (asgard-upgrade Phase 1, Hard Rule 5a)
 // ---------------------------------------------------------------------------
@@ -28,10 +29,12 @@ export function wrap(turns, meta) {
 }
 
 export async function loadConversation(env, key) {
+  if(env.CONVERSATION_MIRROR_ENABLED==='true')return unwrap(await ledger.conversationMirror(env,key));
   try { return unwrap(await env.RAYVEN_KV.get(key)); } catch (e) { return { turns: [], meta: {} }; }
 }
 
 export async function saveConversation(env, key, turns, meta) {
+  if(env.CONVERSATION_MIRROR_ENABLED==='true'){await ledger.conversationMirror(env,key,wrap(turns,meta));return;}
   try { await env.RAYVEN_KV.put(key, wrap(turns, meta)); } catch (e) { console.error('Conversation save failed:', e && e.message); }
 }
 

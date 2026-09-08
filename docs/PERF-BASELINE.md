@@ -49,3 +49,13 @@ Part7: council.js, schedules and delegation already exist. Improve them; do not 
 AppendixC: user confirmed skill installed at .agents/skills/ui-ux-pro-max; skip install and leave all visual assets/CSS unchanged.
 
 Sources checked: https://platform.claude.com/docs/en/models/overview ; https://platform.claude.com/docs/en/build-with-claude/token-counting ; https://platform.claude.com/docs/en/about-claude/pricing .
+
+## Wave8 production analytics follow-up — 2026-09-08
+
+Read-only GraphQL queries succeeded after refreshing Wrangler OAuth. Evidence: CLOUDFLARE-USAGE-CHECK.json and CLOUDFLARE-DAILY-USAGE.json. These are existing production traffic, not new-release results or successful model-turn measurements.
+
+- Trailing24h: 860 Worker requests, 0 recorded errors, 3,127 subrequests. CPU p50 1.278ms; p99 66.518ms. The GraphQL schema itself confirms its CPU fields are microseconds; divided by1,000. Mixed HTTP/cron traffic cannot establish chat-only CPU requirements or first-token latency.
+- ASGARD KV namespace on completed UTC date2026-09-07: 1,833 writes, 21,882 reads, 1 list. Partial2026-09-08: 578 writes, 6,485 reads, 1 list. Adaptive analytics may be sampled/estimated.
+- The completed day's writes exceed the Free1,000/day allowance by833. No claim that memory mirroring reduces writes: it keeps the KV write until a later cutover, after seven full days.
+- Billing plan cannot be established: account and script say usage_model=standard; subscriptions endpoint403. Do not call this confirmed Free or Paid. If currently Free, the $5/month Workers Paid plan is reasonable for this measured write volume; it includes1millionwrites/month, then$5/million. No upgrade performed.
+- New-release first token, first sound, tokens, schema tokens, cache hit rate and round trips remain unavailable; no before/after speedup claimed.
