@@ -1,10 +1,10 @@
 {
   "name": "The Floating Realms",
-  "id": "floating-2754fd718dff",
-  "sourceBase": "327091de2219d37286a7b618a4c5cac6f328720c",
-  "fingerprint": "2754fd718dffd307d1006b88c5e2f4579aa136fb1cfddf3d8266a0009c70c153",
+  "id": "floating-5c8b8ac7e037",
+  "sourceBase": "e0d5fc72ee72fa97c0d04a53fa2c8d06aac81f7f",
+  "fingerprint": "5c8b8ac7e037b119e20845c348aacd198997eae37c853e26335bc6328a5f3547",
   "assets": {
-    "/index.html": "2bd37f436b123702559f411532ad3292d9bfc01e2512111d809c724f2d6a6325",
+    "/index.html": "3ff650494708405f7d7736d6d865c7e22adf5ad40d6159292f57bb93b4b03547",
     "/ui/app.js": "505f676b48529576efcfb6ed71c3b782bb7339836cd3dbbe0337c816ba4f9b7d",
     "/ui/arsenal.js": "35899d7e899188f5e43f3041417420a7833d500090dd97d54532a1226383c809",
     "/ui/council-data.js": "b86861df6e9cf144fd528aefb9a4911d0fc42c9e7359853708e8344b44b15b60",

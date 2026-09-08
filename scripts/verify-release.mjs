@@ -5,7 +5,7 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 const exec=promisify(execFile),base=(process.argv[2]||'https://asgrard-backend.rayanfahil2.workers.dev').replace(/\/$/,'');
 const expected=JSON.parse(await readFile('public/ui/release.json','utf8'));
-async function get(path){const {stdout}=await exec('curl',['--fail','--silent','--show-error','--max-time','30','--write-out','\n%{content_type}',base+path],{encoding:'buffer',maxBuffer:4*1024*1024});const split=stdout.lastIndexOf(10);return {bytes:stdout.subarray(0,split),type:stdout.subarray(split+1).toString()};}
+async function get(path){const {stdout}=await exec('curl',['--fail','--silent','--show-error','--max-time','30','--write-out','\n%{content_type}',...(process.env.ASGARD_VERIFY_VERSION?['-H',`Cloudflare-Workers-Version-Overrides: asgrard-backend="${process.env.ASGARD_VERIFY_VERSION}"`]:[]),base+path+(process.env.ASGARD_VERIFY_VERSION?'?verify='+Date.now():'')],{encoding:'buffer',maxBuffer:4*1024*1024});const split=stdout.lastIndexOf(10);return {bytes:stdout.subarray(0,split),type:stdout.subarray(split+1).toString()};}
 const manifest=await get('/ui/release.json');
 if(!manifest.type.includes('json'))throw Error('Release metadata MIME is not JSON');
 const live=JSON.parse(manifest.bytes);
