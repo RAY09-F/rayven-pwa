@@ -18,3 +18,5 @@ L: deployed implementation asset; no provider required; fixture pass.
 P: deployed proposal catalogue; adapter absent.
 A/M: deployed preparation UI only; workflow/mission execution untested.
 No individual provider invocation, browser run, deployment or commit performed by this generator task.
+
+Snapshot maintenance: --check PASS at documentation-only HEAD 42f1297541f1e827f096f8d4e5b12c1fddb986ee. Validated released source/push snapshot remains 6bd0737d716ed9ff24db025a83a25aa1c1316956; current relevant files are still compared byte-for-byte. Without release proof, existing HEAD/origin-main behavior is retained.
