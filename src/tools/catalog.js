@@ -1,3 +1,4 @@
+import { TOOLS as BRAIN_DOCS } from './catalog-brain-docs.js';
 // THE CATALOGUE (asgard-upgrade Phase 7). One place that gathers every catalogue
 // module, registers each tool's metadata (group, taint) with the toolbox, marks
 // outside-content tools as untrusted sources for containment, and opens the
@@ -37,9 +38,9 @@ export const DROPPED = new Set([   // failed their live test; the reason is in d
   /* musicbrainz.org: timeout, then 503 'server busy' */ 'musicbrainz',
 ]);   // names removed after a failed live test (reason in docs/TOOL_TESTS.md)
 
-const ALL = [...RESEARCH, ...MARKETS, ...WORLD, ...LIFE, ...DEV, ...MEDIA, ...AI, ...SELF, ...COMMS, ...JOBS].filter(t => !DROPPED.has(t.name));
+const ALL = [...BRAIN_DOCS, ...RESEARCH, ...MARKETS, ...WORLD, ...LIFE, ...DEV, ...MEDIA, ...AI, ...SELF, ...COMMS, ...JOBS].filter(t => !DROPPED.has(t.name));
 export const CATALOG = Object.fromEntries(ALL.map(t => [t.name, t]));
-export const CATALOG_DEFS = ALL.map(t => ({ name: t.name, description: t.description, input_schema: t.input_schema || { type: 'object', properties: {} } }));
+export const CATALOG_DEFS = ALL.map(t => ({ name: t.name, description: t.description, input_schema: t.input_schema || { type: 'object', properties: {} }, ...(t.input_examples ? {input_examples:t.input_examples} : {}), ...(t.defer_loading ? {defer_loading:true} : {}) }));
 export const CATALOG_NAMES = ALL.map(t => t.name);
 for (const t of ALL) registerMeta(t.name, { group: t.group || 'misc', taint: !!t.taint, source: 'catalogue' });
 registerUntrustedSources(ALL.filter(t => t.taint).map(t => t.name));

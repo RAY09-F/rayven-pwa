@@ -947,7 +947,8 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
     if (kw.length) openGroups(meta, kw, 'keyword');
   }
   const toolsForCall = () => allowTools === false ? [] : (opts.toolsOverride || (env.TOOL_SEARCH_ENABLED === 'true' ? discoveryTools(toolDefinitionsForPersona(personaId)) : convo ? toolsForConversation(personaId, toolDefinitionsForPersona(personaId), meta) : toolDefinitionsForPersona(personaId)));
-  let toolsForThisCall = toolsForCall();
+  const compatibleTools = () => toolsForCall().map(tool => { if(env.TOOL_SEARCH_ENABLED==='true')return tool; const {defer_loading,...legacy}=tool;return legacy; });
+  let toolsForThisCall = compatibleTools();
 
   // 14 iterations, not 6 — the sibling system hit "I looped too many times"
   // halfway through real multi-step work at 6. A persona may raise its own
@@ -958,7 +959,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   const maxTok = opts.maxTokens || _p.maxTokens || undefined;
   try {
   for (let iteration = 0; iteration < maxIter; iteration++) {
-    if (iteration > 0) toolsForThisCall = toolsForCall();   // find_tools may have opened groups since the last call
+    if (iteration > 0) toolsForThisCall = compatibleTools();   // find_tools may have opened groups since the last call
     opts.signal?.throwIfAborted();
     if (iteration > 0) opts.onReset?.();
     const cachedTools = cacheToolPrefix(toolsForThisCall);

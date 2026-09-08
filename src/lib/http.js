@@ -18,6 +18,7 @@ export function userAgent(env) { return `Asgard/1.0 (+${(env && env.ASGARD_CONTA
 // ranges, no cloud metadata, never this Worker's own hosts.
 export function publicHostCheck(urlString) {
   let u; try { u = new URL(urlString); } catch (e) { return { ok: false, why: 'that is not a URL I can read' }; }
+  if (u.username || u.password || (u.port && u.port !== '443')) return {ok:false,why:'credentials and non-HTTPS ports are refused'};
   if (u.protocol !== 'https:') return { ok: false, why: 'https only' };
   const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, '');
   if (!host || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal') || host === 'metadata.google.internal') return { ok: false, why: `${host || '(empty)'} is not a public host` };
@@ -26,7 +27,7 @@ export function publicHostCheck(urlString) {
     const [a, b] = host.split('.').map(Number);
     if (a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127)) return { ok: false, why: `${host} is a private or reserved address` };
   }
-  if (host.includes(':')) { if (host === '::1' || host === '::' || /^f[cd]/i.test(host) || /^fe[89ab]/i.test(host)) return { ok: false, why: `${host} is a private or reserved address` }; }
+  if (host.includes(':')) { if (host === '::1' || host === '::' || /^::ffff:/i.test(host) || /^f[cd]/i.test(host) || /^fe[89ab]/i.test(host)) return { ok: false, why: `${host} is a private or reserved address` }; }
   return { ok: true, host, url: u };
 }
 
@@ -57,14 +58,14 @@ export async function httpFetch(env, urlString, opts = {}) {
   if (cacheable) { try { const hit = await caches.default.match(cacheKey); if (hit) { const text = await hit.text(); return finish(hit, text, g.url.toString(), 0, true); } } catch (e) {} }
   let url = g.url.toString(), hops = 0, res;
   for (;;) {
-    const ac = new AbortController(); const t = setTimeout(() => ac.abort(), timeoutMs);
-    try { res = await fetch(url, { method, headers, body: opts.body, redirect: 'manual', signal: ac.signal }); }
-    catch (e) { clearTimeout(t); return { ok: false, status: 0, url, error: e && e.name === 'AbortError' ? `timed out after ${timeoutMs} ms` : `network: ${e && e.message}` }; }
-    clearTimeout(t);
+    const signal = AbortSignal.timeout(timeoutMs);
+    try { res = await fetch(url, { method, headers, body: opts.body, redirect: 'manual', signal }); }
+    catch (e) { return { ok: false, status: 0, url, error: e && e.name === 'AbortError' ? `timed out after ${timeoutMs} ms` : `network: ${e && e.message}` }; }
     if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
       if (++hops > MAX_HOPS) return { ok: false, status: res.status, url, error: `too many redirects (${hops})` };
       let next; try { next = new URL(res.headers.get('location'), url).toString(); } catch (e) { return { ok: false, status: res.status, url, error: 'bad redirect location' }; }
       const g2 = publicHostCheck(next); if (!g2.ok) return { ok: false, status: res.status, url, error: `redirect refused: ${g2.why}` };
+      if (new URL(url).origin !== g2.url.origin) for (const key of Object.keys(headers)) if (/authorization|api.?key|token|cookie/i.test(key)) delete headers[key];
       url = g2.url.toString(); continue;
     }
     break;
