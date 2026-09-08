@@ -121,6 +121,10 @@ test('the backend summary reports only what the subsystems actually hold', async
       frigga: {symbol: 'eth', side: 'long', unrealizedPnl: 612, name: 'Frigga'},
       fandral: {symbol: 'btc', side: 'short', unrealizedPnl: -188, name: 'Fandral'}
     }}),
+    'paper:trades': JSON.stringify([
+      {market: 'Ethereum \u2014 FRIGGA', agentName: 'FRIGGA', side: 'long', pnl: 612, exitTime: Date.now()},
+      {market: 'Bitcoin \u2014 FANDRAL', agentName: 'FANDRAL', side: 'short', pnl: -188, exitTime: Date.now()}
+    ]),
     'todos': JSON.stringify([{id: '1', text: 'call back kari', done: false, created: '2026-09-08T18:00:00.000Z'},
                              {id: '2', text: 'ship hud', done: true, created: '2026-09-08T09:00:00.000Z'}]),
     'activity:log': JSON.stringify([{subsystem: 'monitoring', action: 'swept 4 watches'}]),
@@ -130,8 +134,11 @@ test('the backend summary reports only what the subsystems actually hold', async
   const s = await getHudSummary(env);
   assert.ok(s.generated);
   assert.equal(s.realms.odin.stats[0].v, '2', 'two open positions');
-  assert.ok(s.realms.odin.rows.some(r => /ETH LONG/.test(r.k) && r.v === '+$612' && r.t === 'up'));
-  assert.ok(s.realms.odin.rows.some(r => r.v === '-$188' && r.t === 'down'));
+  // Rows read closed trades, which carry realised P/L; open positions carry none.
+  assert.ok(s.realms.odin.rows.some(r => r.k === 'ETHEREUM LONG \u00b7 FRIGGA' && r.v === '+$612' && r.t === 'up'), JSON.stringify(s.realms.odin.rows));
+  assert.ok(s.realms.odin.rows.some(r => r.k === 'BITCOIN SHORT \u00b7 FANDRAL' && r.v === '-$188' && r.t === 'down'));
+  // An open position must never be printed with a fabricated zero.
+  assert.ok(!s.realms.odin.rows.some(r => r.v === '+$0'));
   assert.equal(s.realms.loki.stats[1].v, '2', 'two todos');
   assert.equal(s.realms.loki.stats[2].v, '1', 'one still open');
   assert.equal(s.realms.loki.signal, '1 DUE TODAY');
