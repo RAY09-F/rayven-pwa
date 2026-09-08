@@ -15,6 +15,7 @@ import { executeTool, callClaudeWithTools, getTaskLog, TOOL_DEFINITIONS, toolDef
 import { handleSpotifyLogin, handleSpotifyCallback, spotifyNowPlayingData, spotifyPause, spotifyResume, spotifyNext, spotifyPrevious } from './lib/spotify.js';
 import { runLokiBriefIfDue, runLokiBrief, runOdinReportIfDue, runOdinReport, getOdinReports } from './lib/reports.js';
 import { runPaperTradingCycleIfDue, runPaperTradingDailyReportIfDue, sendPaperTradingReportNow, getPaperStatus, getPaperChartData, forceDemoTrade, INSTRUMENTS, runPaperCloseTasksIfDue, collectTraderReviews } from './lib/paperTrading.js';
+import { getHudSummary } from './lib/hud.js';
 import { fetchKrakenCandles, fetchTwelveDataCandles } from './lib/marketData.js';
 import { handleAgentQuery } from './lib/sibling-agents.js';
 import { runProactiveCheckIn, runProactiveCheckInIfDue, runCodeCheckIfDue, runCodeCheck, runMorningBriefing, runMorningBriefingIfDue } from './lib/checkin.js';
@@ -745,6 +746,13 @@ export default {
     // Feeds ODIN's HUD paper-trading panel. Unauthenticated like /memory and
     // /activity -- read-only, and everything in the payload is already
     // labeled PAPER/SIMULATED so there is nothing here worth gating.
+    // Feeds the three-realm council HUD's left data module and ticker in one
+    // round trip. Same unauthenticated, read-only posture as /activity and
+    // /paper-trading/status -- it is an aggregate of those same sources.
+    if (url.pathname === '/hud/summary') {
+      return json(await getHudSummary(env), corsHeaders);
+    }
+
     if (url.pathname === '/paper-trading/status') {
       return json(await getPaperStatus(env), corsHeaders);
     }

@@ -3,6 +3,54 @@
   "source": "Repository tool definitions; service availability is checked on use.",
   "tools": [
     {
+      "id": "util_context",
+      "title": "util context",
+      "description": "Read one current snapshot of Pacific time, configured home location, Spotify playback, calendar, to-dos and browser extension connection. Partial failures are labeled.",
+      "group": "misc",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "plan_today",
+      "title": "plan today",
+      "description": "Read today’s Pacific calendar, open to-dos and existing reminders/timers together.",
+      "group": "misc",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "world_here",
+      "title": "world here",
+      "description": "Read forecast, air quality and California alerts for the configured default home location together. Does not track device location.",
+      "group": "misc",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
       "id": "web_search",
       "title": "web search",
       "description": "Quick Google search via SerpAPI for current, real-time, or factual info.",
@@ -2099,7 +2147,7 @@
     {
       "id": "delegate",
       "title": "delegate",
-      "description": "Hand a task to one of YOUR OWN five councillors by name or id. wait true (default) runs it now and returns the report into this turn; wait false queues it for the next five-minute tick and the report arrives on your Telegram bot. A councillor uses only its own narrow tools and can never send a text, call, or post -- it hands those back for confirmation.",
+      "description": "Hand a task to one of YOUR OWN five councillors by name or id. wait true (default) selects a narrow profile for this same turn without a separate model call; wait false queues it for the next five-minute tick and the report is saved for your next hall visit; no outgoing message is sent. A councillor uses only its own narrow tools and can never send a text, call, or post -- it hands those back for confirmation.",
       "group": "council",
       "personas": [
         "thor",
@@ -2290,6 +2338,559 @@
         "required": [
           "name"
         ]
+      }
+    },
+    {
+      "id": "browser_cloud_read",
+      "title": "browser cloud read",
+      "description": "Read a JavaScript-rendered public page with Cloudflare Browser Run. Separate from your logged-in Chrome; disabled until setup and allowance verification.",
+      "group": "browser",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Public HTTPS page"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "browser_cloud_screenshot",
+      "title": "browser cloud screenshot",
+      "description": "Capture a public page in Cloudflare Browser Run; cannot see your logged-in Chrome. Disabled until a scoped token and free allowance are verified.",
+      "group": "browser",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Public HTTPS page"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "media_movie_lookup",
+      "title": "media movie lookup",
+      "description": "Find movie titles, release dates and summaries from TMDB. Requires its free read-access token and accepted terms.",
+      "group": "media",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Movie title"
+          },
+          "response_format": {
+            "type": "string",
+            "enum": [
+              "concise",
+              "full"
+            ]
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "media_transcribe",
+      "title": "media transcribe",
+      "description": "Submit public audio for transcription or read an existing job. Disabled until AssemblyAI free allowance is verified; submission consumes allowance.",
+      "group": "media",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Public audio URL, for a new job"
+          },
+          "job_id": {
+            "type": "string",
+            "description": "Existing transcription job ID, instead of URL"
+          },
+          "response_format": {
+            "type": "string",
+            "enum": [
+              "concise",
+              "full"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "util_openalex",
+      "title": "util openalex",
+      "description": "Find scholarly works in OpenAlex, with titles, years and source links. Keyless casual access; availability is subject to shared limits.",
+      "group": "research",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Research topic"
+          },
+          "response_format": {
+            "type": "string",
+            "enum": [
+              "concise",
+              "full"
+            ]
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "util_pubmed",
+      "title": "util pubmed",
+      "description": "Find PubMed article identifiers for a health research query. A search result is not medical advice.",
+      "group": "research",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Research query"
+          },
+          "response_format": {
+            "type": "string",
+            "enum": [
+              "concise",
+              "full"
+            ]
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "dev_repo_status",
+      "title": "dev repo status",
+      "description": "Read repository branch, latest push and open-issue count from GitHub. Optional GITHUB_TOKEN raises the shared free request allowance.",
+      "group": "dev",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "repo": {
+            "type": "string",
+            "description": "owner/repository"
+          },
+          "response_format": {
+            "type": "string",
+            "enum": [
+              "concise",
+              "full"
+            ]
+          }
+        },
+        "required": [
+          "repo"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "dev_actions_status",
+      "title": "dev actions status",
+      "description": "Read the latest five GitHub Actions workflow runs. A successful push alone is not proof of a deployment.",
+      "group": "dev",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "repo": {
+            "type": "string",
+            "description": "owner/repository"
+          },
+          "response_format": {
+            "type": "string",
+            "enum": [
+              "concise",
+              "full"
+            ]
+          }
+        },
+        "required": [
+          "repo"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "dev_self_check",
+      "title": "dev self check",
+      "description": "Check the actual ASGARD homepage, expected release fingerprint and extension heartbeat. Log-only; never sends notifications.",
+      "group": "dev",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "world_recalls",
+      "title": "world recalls",
+      "description": "Search FDA food recall notices. Reports official notices, not personal medical advice.",
+      "group": "world",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Food or company name"
+          },
+          "response_format": {
+            "type": "string",
+            "enum": [
+              "concise",
+              "full"
+            ]
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "world_drug_lookup",
+      "title": "world drug lookup",
+      "description": "Read official FDA medicine labeling by drug name. Labels can be long; consult a pharmacist for personal decisions.",
+      "group": "world",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Drug name"
+          },
+          "response_format": {
+            "type": "string",
+            "enum": [
+              "concise",
+              "full"
+            ]
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "money_filings",
+      "title": "money filings",
+      "description": "Read recent SEC filing dates and forms for a company CIK. Read-only; requires a contact User-Agent, not a brokerage.",
+      "group": "markets",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cik": {
+            "type": "string",
+            "description": "SEC company identifier, up to 10 digits"
+          },
+          "response_format": {
+            "type": "string",
+            "enum": [
+              "concise",
+              "full"
+            ]
+          }
+        },
+        "required": [
+          "cik"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "money_fundamentals",
+      "title": "money fundamentals",
+      "description": "Read the latest reported US GAAP company concept from SEC filings, with units and dates. Read-only.",
+      "group": "markets",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cik": {
+            "type": "string",
+            "description": "SEC company identifier"
+          },
+          "tag": {
+            "type": "string",
+            "description": "US GAAP concept such as Revenues"
+          },
+          "response_format": {
+            "type": "string",
+            "enum": [
+              "concise",
+              "full"
+            ]
+          }
+        },
+        "required": [
+          "cik",
+          "tag"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "money_treasury",
+      "title": "money treasury",
+      "description": "Read the latest US federal Debt to the Penny figures. This is public debt, not a Treasury yield curve.",
+      "group": "markets",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "response_format": {
+            "type": "string",
+            "enum": [
+              "concise",
+              "full"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "money_macro",
+      "title": "money macro",
+      "description": "Read the ten latest FRED economic observations. Requires a free FRED API key.",
+      "group": "markets",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "series_id": {
+            "type": "string",
+            "description": "FRED series identifier, for example UNRATE"
+          },
+          "response_format": {
+            "type": "string",
+            "enum": [
+              "concise",
+              "full"
+            ]
+          }
+        },
+        "required": [
+          "series_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "web_firecrawl_search",
+      "title": "web firecrawl search",
+      "description": "Search public pages through Firecrawl. Disabled until the key and monthly free credits are verified.",
+      "group": "research",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query"
+          },
+          "response_format": {
+            "type": "string",
+            "enum": [
+              "concise",
+              "full"
+            ]
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "web_exa_search",
+      "title": "web exa search",
+      "description": "Find public pages with Exa neural search. Requires key and verified free-credit budget.",
+      "group": "research",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query"
+          },
+          "response_format": {
+            "type": "string",
+            "enum": [
+              "concise",
+              "full"
+            ]
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "doc_to_markdown",
+      "title": "doc to markdown",
+      "description": "Convert a public document using the existing guarded Cloudflare toMarkdown reader. Disabled until conversion allowance is verified.",
+      "group": "research",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "https URL of the document"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      }
+    },
+    {
+      "id": "doc_ocr",
+      "title": "doc ocr",
+      "description": "Read text from an image or short PDF through OCR.space. Requires its free key and verified allowance.",
+      "group": "research",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Public HTTPS image or PDF URL"
+          },
+          "response_format": {
+            "type": "string",
+            "enum": [
+              "concise",
+              "full"
+            ]
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "additionalProperties": false
       }
     },
     {
@@ -5053,6 +5654,41 @@
         },
         "required": [
           "key"
+        ]
+      }
+    },
+    {
+      "id": "comms_push",
+      "title": "comms push",
+      "description": "Send a phone notification only after Rayan enables COMMS_PUSH_ENABLED and configures a secret topic. Disabled by default.",
+      "group": "sharing",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "short title"
+          },
+          "message": {
+            "type": "string",
+            "description": "the message"
+          },
+          "priority": {
+            "type": "integer",
+            "description": "1 (min) to 5 (urgent), default 3"
+          },
+          "click": {
+            "type": "string",
+            "description": "optional https URL to open"
+          }
+        },
+        "required": [
+          "message"
         ]
       }
     },

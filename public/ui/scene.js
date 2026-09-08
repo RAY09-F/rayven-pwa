@@ -1,13 +1,18 @@
+import {createAstralCartographer} from './astral-cartographer.js';
+import {ASTRAL_AGENT_IDS} from './astral-cartographer-model.js';
+import {createPrismFoundry} from './prism-foundry.js';
+import {createSolarThrone} from './solar-throne.js';
+import {SOLAR_AGENT_IDS} from './solar-throne-model.js';
+import {PRISM_AGENT_IDS,buildPrismFoundry} from './prism-foundry-model.js';
 import {placeNameplate} from './nameplate-layout.js?v=floating-realms-3';
 import {createThor} from './realm-thor.js?v=floating-realms-3';
-import {createLoki} from './realm-loki.js?v=floating-realms-3';
 import {createOdin} from './realm-odin.js?v=floating-realms-3';
 import {createRealm} from './realm-architecture.js?v=floating-realms-3';
 import {createHolographicField} from './holographic-field.js?v=floating-realms-3';
 import {clampLayout,clampView,normalizedSceneState,dragObjectPosition} from './realm-controls.js?v=floating-realms-3';
-const factories={thor:createThor,loki:createLoki,odin:createOdin};
+const factories={thor:createThor,loki:buildPrismFoundry,odin:createOdin};
 // One WebGL context and scheduling owner; preview canvases only copy genuine rendered meshes.
-export async function createPresence(host,{persona='thor',still=false,quality='balanced',onStatus=()=>{},onSelect=()=>{}}={}){
+async function createLegacyPresence(host,{persona='thor',still=false,quality='balanced',onStatus=()=>{},onSelect=()=>{}}={}){
  let T,scene,camera,renderer,canvas,model,council,environment,key,field;
  let objectTargets=[],activeObject=null;
  let ready=false,disposed=false,state='idle',focused=false,error=null,frames=0,raf=0,last=0,time=0,dirty=true;
@@ -102,5 +107,20 @@ export async function createPresence(host,{persona='thor',still=false,quality='b
   for(const id of Object.keys(factories)){const m=factories[id](T,{quality:'balanced',preview:true}),s=new T.Scene();s.environment=environment;s.add(m.root,new T.HemisphereLight(0xcfe4ff,0x35404b,2));const light=new T.DirectionalLight(0xffe8c9,4);light.position.set(-3,6,5);s.add(light);const c=new T.PerspectiveCamera(34,1,.1,40);c.position.set(3,4.4,8.5);c.lookAt(0,1.8,0);previews.push({id,model:m,scene:s,camera:c});}
   setPersona(persona);
  }catch(e){fail(e);}
- return {setPersona,select(id){selected=id;council?.select(id);invalidate();},resetView(){view=clampView();cancelDrag();invalidate();},setState(next){state=normalizedSceneState(next);invalidate();},setFocus(value){focused=!!value;if(model?.setFocus)model.setFocus(focused);invalidate();},setStill(value){still=!!value;motionChange();},setQuality(value){quality=value==='high'?'high':'balanced';if(scene)scene.environment=softwareDriver&&quality==='balanced'?null:environment;invalidate(true);resize();},status(){let meshes=0,triangles=0;model?.root.traverse(o=>{if(o.isMesh){meshes++;triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3*(o.isInstancedMesh?o.count:1);}});return {ready,renderMode:ready?'webgl':'fallback',persona,state,frames,animationTime:time,dragTarget:drag?.target.id||null,cameraPosition:camera?.position.toArray(),animated:animated(),hidden:document.hidden,rafActive:!!raf,quality,width,height,error,driver,renderScale:renderer?.getPixelRatio(),lighting:softwareDriver&&quality==='balanced'?'Direct lights; software-driver budget':'Direct lights + studio environment',threeRevision:T?.REVISION,rendererResources:renderer?{...renderer.info.memory}:null,meshes,triangles,advisors:council?.anchors.map(a=>a.id)||[],objects:objectTargets.map(t=>({id:t.id,position:t.object.position.toArray()})),view:{...view},arranging,layout:{...layout()},previews:previews.length,models:typeof model?.stats==='function'?model.stats():model?.stats};},dispose(){if(disposed)return;disposed=true;cancelDrag();cancelAnimationFrame(raf);raf=0;observer.disconnect();listeners.forEach(off=>off());model?.dispose();council?.dispose();field?.dispose();previews.forEach(p=>p.model.dispose());environment?.dispose();key?.shadow.dispose();renderer?.dispose();canvas?.remove();heroLabel.remove();}};
+ return {setPersona,select(id){selected=id;council?.select(id);invalidate();},resetView(){view=clampView();cancelDrag();invalidate();},setState(next){state=normalizedSceneState(next);invalidate();},setFocus(value){focused=!!value;if(model?.setFocus)model.setFocus(focused);invalidate();},setStill(value){still=!!value;motionChange();},setQuality(value){quality=value==='high'?'high':'balanced';if(scene)scene.environment=softwareDriver&&quality==='balanced'?null:environment;invalidate(true);resize();},status(){let meshes=0,triangles=0;model?.root.traverse(o=>{if(o.isMesh){meshes++;triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3*(o.isInstancedMesh?o.count:1);}});return {ready,renderMode:ready?'webgl':'fallback',persona,state,frames,animationTime:time,dragTarget:drag?.target.id||null,cameraPosition:camera?.position.toArray(),animated:animated(),hidden:document.hidden,rafActive:!!raf,quality,width,height,error,driver,renderScale:renderer?.getPixelRatio(),lighting:softwareDriver&&quality==='balanced'?'Direct lights; software-driver budget':'Direct lights + studio environment',threeRevision:T?.REVISION,rendererResources:renderer?{...renderer.info.memory}:null,meshes,triangles,advisors:council?.anchors.map(a=>a.id)||[],objects:objectTargets.map(t=>({id:t.id,position:t.object.position.toArray()})),view:{...view},arranging,layout:{...layout()},previews:previews.length,models:typeof model?.stats==='function'?model.stats():model?.stats};},dispose(){if(disposed)return;disposed=true;cancelDrag();cancelAnimationFrame(raf);raf=0;observer.disconnect();listeners.forEach(off=>off());model?.dispose();council?.dispose();field?.dispose();previews.forEach(p=>p.model.dispose());environment?.dispose();key?.shadow.dispose();renderer?.dispose();renderer?.forceContextLoss();canvas?.remove();heroLabel.remove();}};
+}
+
+// Serialize hall changes: at most one live WebGL canvas, including rapid switches.
+export async function createPresence(host,options={}) {
+ let current=null,persona=options.persona||'thor',generation=0,disposed=false,queue=Promise.resolve();
+ const settings={...options};let state='idle',focus=false,failed=false;
+ function setPersona(id){if(!factories[id]||disposed)return queue;persona=id;const ticket=++generation;
+  queue=queue.then(async()=>{if(disposed||ticket!==generation)return;current?.dispose();current=null;failed=false;
+   try{const halls={thor:[ASTRAL_AGENT_IDS,createAstralCartographer],loki:[PRISM_AGENT_IDS,createPrismFoundry],odin:[SOLAR_AGENT_IDS,createSolarThrone]};const [ids,create]=halls[id]||halls.loki;const custom=!!halls[id]&&!['fallback','canvas','svg'].includes(new URLSearchParams(location.search).get('renderer'));const next=custom?create(host,{...settings,onHover:key=>settings.onHover?.(key?ids[key]:null),onSelect:key=>settings.onSelect?.(ids[key])}):await createLegacyPresence(host,{...settings,persona:id});
+    if(disposed||ticket!==generation){next?.dispose();return;}current=next;current?.setStill(settings.still);current?.setQuality(settings.quality);current?.setState(state);current?.setFocus(focus);
+   }catch(error){failed=true;host.dataset.render='fallback';settings.onStatus?.('3D unavailable — conversation and council controls still work.');console.error('Scene initialization failed',error);}
+  });return queue;
+ }
+ await setPersona(persona);
+ return {setPersona,select:id=>current?.select(id),resetView:()=>current?.resetView(),setState(value){state=value;current?.setState(value);},setFocus(value){focus=value;current?.setFocus(value);},setStill(value){settings.still=value;current?.setStill(value);},setQuality(value){settings.quality=value;current?.setQuality(value);},status:()=>{const actual=current?.status();return actual?.persona===persona?actual:{ready:false,persona,renderMode:failed?'fallback':'loading',frames:0};},dispose(){disposed=true;generation++;current?.dispose();current=null;}};
 }
