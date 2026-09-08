@@ -1,3 +1,4 @@
+import { TOOLS as BRAIN_BROWSER } from './catalog-brain-browser.js';
 import { TOOLS as BRAIN_MEDIA } from './catalog-brain-media.js';
 import { TOOLS as BRAIN_KNOWLEDGE } from './catalog-brain-knowledge.js';
 import { TOOLS as BRAIN_DEV } from './catalog-brain-dev.js';
@@ -44,7 +45,7 @@ export const DROPPED = new Set([   // failed their live test; the reason is in d
   /* musicbrainz.org: timeout, then 503 'server busy' */ 'musicbrainz',
 ]);   // names removed after a failed live test (reason in docs/TOOL_TESTS.md)
 
-const ALL = [...BRAIN_MEDIA, ...BRAIN_KNOWLEDGE, ...BRAIN_DEV, ...BRAIN_WORLD, ...BRAIN_MONEY, ...BRAIN_WEB, ...BRAIN_DOCS, ...RESEARCH, ...MARKETS, ...WORLD, ...LIFE, ...DEV, ...MEDIA, ...AI, ...SELF, ...COMMS, ...JOBS].filter(t => !DROPPED.has(t.name));
+const ALL = [...BRAIN_BROWSER, ...BRAIN_MEDIA, ...BRAIN_KNOWLEDGE, ...BRAIN_DEV, ...BRAIN_WORLD, ...BRAIN_MONEY, ...BRAIN_WEB, ...BRAIN_DOCS, ...RESEARCH, ...MARKETS, ...WORLD, ...LIFE, ...DEV, ...MEDIA, ...AI, ...SELF, ...COMMS, ...JOBS].filter(t => !DROPPED.has(t.name));
 export const CATALOG = Object.fromEntries(ALL.map(t => [t.name, t]));
 export const CATALOG_DEFS = ALL.map(t => ({ name: t.name, description: t.description, input_schema: t.input_schema || { type: 'object', properties: {} }, ...(t.input_examples ? {input_examples:t.input_examples} : {}), ...(t.defer_loading ? {defer_loading:true} : {}) }));
 export const CATALOG_NAMES = ALL.map(t => t.name);

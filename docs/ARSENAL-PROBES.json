@@ -1,0 +1,132 @@
+{
+  "at": "2026-09-08T07:25:56.360Z",
+  "location": "development container, not deployed Worker",
+  "checks": [
+    {
+      "name": "treasury",
+      "url": "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/debt_to_penny?sort=-record_date&page%5Bsize%5D=1",
+      "status": 200,
+      "ms": 980,
+      "json": true,
+      "bytes": 1791,
+      "sample": [
+        "data",
+        "meta",
+        "links"
+      ]
+    },
+    {
+      "name": "fda_recall",
+      "url": "https://api.fda.gov/food/enforcement.json?search=milk&limit=1",
+      "status": 200,
+      "ms": 515,
+      "json": true,
+      "bytes": 1772,
+      "sample": [
+        "meta",
+        "results"
+      ]
+    },
+    {
+      "name": "fda_drug",
+      "url": "https://api.fda.gov/drug/label.json?search=openfda.generic_name:ibuprofen&limit=1",
+      "status": 200,
+      "ms": 166,
+      "json": true,
+      "bytes": 9185,
+      "sample": [
+        "meta",
+        "results"
+      ]
+    },
+    {
+      "name": "openalex",
+      "url": "https://api.openalex.org/works?search=urban%20heat&per-page=1",
+      "status": 200,
+      "ms": 819,
+      "json": true,
+      "bytes": 12028,
+      "sample": [
+        "meta",
+        "results",
+        "group_by"
+      ]
+    },
+    {
+      "name": "pubmed",
+      "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=sleep&retmode=json&retmax=1",
+      "status": 200,
+      "ms": 591,
+      "json": true,
+      "bytes": 451,
+      "sample": [
+        "header",
+        "esearchresult"
+      ]
+    },
+    {
+      "name": "github",
+      "url": "https://api.github.com/repos/RAY09-F/rayven-pwa",
+      "status": 200,
+      "ms": 491,
+      "json": true,
+      "bytes": 5005,
+      "sample": [
+        "id",
+        "node_id",
+        "name",
+        "full_name",
+        "private",
+        "owner"
+      ]
+    },
+    {
+      "name": "github_actions",
+      "url": "https://api.github.com/repos/RAY09-F/rayven-pwa/actions/runs?per_page=1",
+      "status": 200,
+      "ms": 145,
+      "json": true,
+      "bytes": 36,
+      "sample": [
+        "total_count",
+        "workflow_runs"
+      ]
+    },
+    {
+      "name": "frankfurter",
+      "url": "https://api.frankfurter.dev/v1/latest?base=USD",
+      "status": 200,
+      "ms": 356,
+      "json": true,
+      "bytes": 434,
+      "sample": [
+        "amount",
+        "base",
+        "date",
+        "rates"
+      ]
+    },
+    {
+      "name": "openlibrary",
+      "url": "https://openlibrary.org/search.json?q=the%20hobbit&limit=1",
+      "status": 200,
+      "ms": 2110,
+      "json": true,
+      "bytes": 3872,
+      "sample": [
+        "numFound",
+        "start",
+        "numFoundExact",
+        "num_found",
+        "documentation_url",
+        "q"
+      ]
+    },
+    {
+      "name": "dictionary",
+      "url": "https://api.dictionaryapi.dev/api/v2/entries/en/aperture",
+      "error": "TimeoutError",
+      "ms": 12063
+    }
+  ]
+}

@@ -10,6 +10,8 @@ export function cacheToolPrefix(definitions) {
   return definitions.map(({cache_control,...tool},index)=>index===last?{...tool,cache_control:{type:'ephemeral',ttl:'1h'}}:tool);
 }
 export function capToolResult(value, format = 'concise') {
+  // Keep image blocks as provider content, not JSON text (the extension relies on this).
+  if (Array.isArray(value) && value.length && value.every(b=>b && (b.type==='text'||b.type==='image'))) return value.map(b=>b.type==='text'?{...b,text:capToolResult(b.text,format)}:b);
   const text = typeof value === 'string' ? value : JSON.stringify(value ?? null);
   const encoder = new TextEncoder(), bytes = encoder.encode(text), limit = format === 'full' ? 24000 : 8000;
   if (bytes.length <= limit) return text;
