@@ -1,1 +1,53 @@
-{"diagnostics":"","render":{"ready":true,"renderMode":"webgl","persona":"odin","state":"idle","frames":4,"animated":false,"hidden":false,"rafActive":false,"quality":"balanced","width":975.140625,"height":508,"error":null,"driver":"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)","renderScale":0.65,"lighting":"Direct lights; software-driver budget","threeRevision":"185","rendererResources":{"geometries":182,"textures":10},"meshes":185,"triangles":47320,"advisors":["volstagg","heimdall","fandral","hogun","frigga"],"view":{"yaw":0,"elevation":0.68,"zoom":1},"arranging":false,"layout":{"x":0,"y":0,"z":0},"previews":3,"models":{"geometries":76,"materials":12,"textures":2,"preview":false,"architecture":"basalt plaza, five bridges, beveled gold tower"}}}
+{
+  "url": "https://asgrard-backend.rayanfahil2.workers.dev/#thor",
+  "diagnostics": "Release: realms-664dc11e7020\nFingerprint: 664dc11e7020841ec511e1261160c7578d00c4292e05dfd0580ce5fc6c79bbb7\nBase revision: b6db89af202e0fed1825704434a869739a6ca52b\nAssets: 23\n\nRenderer: webgl \u00b7 Quality: balanced\nMeshes: 62 \u00b7 Triangles: 29596\nGPU geometries: 195 \u00b7 Textures: 8\nDriver: ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)\nRender scale: 1 \u00b7 Lighting: Direct lights; software-driver budget\nError: None\n\nView full release manifest",
+  "render": {
+    "ready": true,
+    "renderMode": "webgl",
+    "persona": "thor",
+    "state": "error",
+    "frames": 40,
+    "animated": false,
+    "hidden": false,
+    "rafActive": false,
+    "quality": "balanced",
+    "width": 975.140625,
+    "height": 508,
+    "error": null,
+    "driver": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+    "renderScale": 1,
+    "lighting": "Direct lights; software-driver budget",
+    "threeRevision": "185",
+    "rendererResources": {
+      "geometries": 195,
+      "textures": 8
+    },
+    "meshes": 62,
+    "triangles": 29596,
+    "advisors": [
+      "jane_foster",
+      "valkyrie",
+      "hulk",
+      "korg",
+      "darcy"
+    ],
+    "view": {
+      "yaw": 0,
+      "elevation": 0.68,
+      "zoom": 1
+    },
+    "arranging": false,
+    "layout": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "previews": 3,
+    "models": {
+      "design": "beveled Mjolnir and three solid annular armillary bands",
+      "preview": false,
+      "geometries": 79,
+      "materials": 11
+    }
+  }
+}

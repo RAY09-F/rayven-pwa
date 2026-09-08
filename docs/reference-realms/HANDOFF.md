@@ -10,4 +10,4 @@ Shared contract: CONTRACT.md. Runtime owner scene.js, model factories realm-thor
 
 All geometry/state/conversation tests pass, integrated browser checks pass, and source images were visually reviewed and refined. Physical GPU/device voice behavior remain unverified; this Chrome uses CPU SwiftShader. The existing provider previously had insufficient credits; final live smoke outcome belongs in DEPLOYMENT.md, not inferred from local fixtures.
 
-Release complete for UI: source 899ee544fb147dd84cc85fd731caa7913d2cbe0c pushed; Worker 734b939b-87d0-4ee6-bc38-1392d3e31342 active at 100%; 23 live assets and 9 live UI assertions pass. Chat remains blocked by existing Anthropic credits. See DEPLOYMENT.md. Original checkout also contains user-owned ASGARD-CODEX-BRAIN-AND-ARSENAL.md; it was not modified or added to this visual milestone.
+Release complete for UI: source 899ee544fb147dd84cc85fd731caa7913d2cbe0c pushed; Worker 734b939b-87d0-4ee6-bc38-1392d3e31342 active at 100%; 23 live assets and 9 live UI assertions pass. Chat remains blocked by existing Anthropic credits. See DEPLOYMENT.md. The original checkout and unrelated untracked files are preserved.
