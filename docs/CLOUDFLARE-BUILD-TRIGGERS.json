@@ -1,0 +1,7 @@
+{
+  "buildsApi": "403 Forbidden",
+  "githubMainChecks": 0,
+  "githubMainStatuses": 0,
+  "githubWorkflowRuns": 0,
+  "note": "No automatic deployment observed; Builds configuration itself could not be read."
+}

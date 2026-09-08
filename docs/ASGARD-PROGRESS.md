@@ -18,7 +18,7 @@ Work in order 0 through 10. One wave per commit/release; tool renames also one f
 
 ## Next action
 
-Wave1: implement the shared Messages API streaming/parser/error handling and stable cache configuration with fixture tests. Preserve JSON callers, approval gates and all existing tools. Do not enable or deploy a change without the required live acceptance; mark unmet checks blocked and continue waves in order.
+Engineering/report checkpoints through Wave10 are saved. Do not call the whole brief complete: live acceptance and all brain deployments remain blocked. Resume with the pending spending decision, gateway management access, and physical voice/extension checks; then build corrected individual wave candidates in order, with a10%/five-minute/100%rollout per wave. Never deploy the combined main branch as one release. The seven-day conversation-copy trial has not started.
 
 ## Wave 1 — implementation tested; live acceptance BLOCKED
 
@@ -123,3 +123,11 @@ Wave1: implement the shared Messages API streaming/parser/error handling and sta
 - Added60 authored selection prompts,45 persona prompts,30 actual historical failure observations across21tools, held-out labels and outcome/consistency graders. Read the recorded failure excerpts. Authored prompts are explicitly not real user utterances; no model-selection accuracy or persona pass rate invented.
 - Release test command fails closed without actual latency/search evidence. Both evidence gates returned BLOCKED as intended. No 400ms/800ms claim, cache hit, pass@k or pass^k score without real trials.
 - BLOCKED: funded/authorized model and voice runs, reviewed full live transcripts, final real-utterance golden set, physical Chromebook timing and provider compatibility. No Wave9 deployment. Wave9 explicitly blocked before Wave10 report begins.
+
+## Wave 10 — report and slideshow complete; overall live rollout BLOCKED
+
+- Wrote ASGARD-REPORT.md with all eight required sections, including exact distinctions between written/pushed/deployed/verified, every added tool, missing evidence, deliberate omissions and least-certain behavior.
+- Tested implementation pushed to main at3b42c7aa1363f41cd1653fbb55e432eadf32f3f5; remote ref confirmed. No force push. Original asgard-three-personas checkout and untracked work preserved.
+- Rechecked live release after that push: still floating-761d8ca5ef4f; Cloudflare still e0f22382-5553-4069-94bd-8b1e5acb2523 at100%. Before-push byte verification matched25assets and MIME on both hosts. Evidence saved in docs/verification. No brain deployment or traffic change occurred.
+- Created docs/presentations/asgard-brain-report.html and .pdf:17slides covering completed code, actual live status, all23new tool entries, tests, measured usage, blockers, omissions and future ideas. Browser checked all17slides at1280×720and375×812, keyboard navigation and PDF export; no desktop clipping or horizontal overflow. Mobile slides scroll vertically where necessary. Inspected cover and usage slides; PDF has17page objects. Presentation is separate from the live interface.
+- Current remaining work: model/voice spending decision; AI Gateway management scope; billing-plan visibility; optional vendor keys; real companion/device acceptance; provider tool discovery/context editing; reliable queued-job recovery; seven-day conversation-copy trial; then individual-wave canaries. No whole-brief completion claim.

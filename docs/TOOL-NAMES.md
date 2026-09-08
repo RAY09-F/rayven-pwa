@@ -283,3 +283,7 @@ Inventory prepared before Wave2 runtime changes. These are planned canonical nam
 | `company_lookup` | `web_company_lookup` |
 
 New consolidated names: `util_context`, `plan_today`, `world_here`. Provider search name: `tool_search`. The brief’s `get_context` and `media_*` examples resolve to this inventory. Hidden persona tools remain filtered from public schemas.
+
+## Brain additions (2026-09-08; not deployed)
+
+The baseline inventory above remains the277legacy names. Waves2/7 add23entries: util_context, plan_today, world_here, doc_to_markdown, doc_ocr, web_firecrawl_search, web_exa_search, money_filings, money_fundamentals, money_treasury, money_macro, world_recalls, world_drug_lookup, dev_repo_status, dev_actions_status, dev_self_check, util_openalex, util_pubmed, media_movie_lookup, media_transcribe, browser_cloud_read, browser_cloud_screenshot, comms_push. Total backend registry300; public browser catalog246. No legacy family rename has been activated.
