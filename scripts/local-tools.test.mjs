@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {LOCAL_TOOLS,runLocalTool} from '../public/ui/local-tools.js';
-import {AUTOMATIONS} from '../public/ui/expansion.js';
+import {LOCAL_TOOLS,runLocalTool} from '../public/ui/prism-v1/local-tools.js';
+import {AUTOMATIONS} from '../public/ui/prism-v1/expansion.js';
 const get=id=>LOCAL_TOOLS.find(t=>t.id==='local_'+id);
 const run=(id,args)=>runLocalTool(get(id),args);
 
@@ -44,8 +44,8 @@ test('content utilities preserve data and escape spreadsheet formulas',()=>{
  assert.ok(!run('redact',{text:'Email user@example.com; Bearer abc123; api_key=abc123'}).redacted.includes('abc123'));
 });
 test('the doubled catalogue keeps proposals distinct and does not double-count workflow combinations',()=>{
- const backend=JSON.parse(readFileSync('public/ui/tool-catalog.json')).tools;
- const queue=JSON.parse(readFileSync('public/ui/expansion-catalog.json')).tools;
+ const backend=JSON.parse(readFileSync('public/ui/prism-v1/tool-catalog.json')).tools;
+ const queue=JSON.parse(readFileSync('public/ui/prism-v1/expansion-catalog.json')).tools;
  assert.equal(queue.length,186);assert.equal(new Set(queue.map(t=>t.id)).size,186);
  assert.ok(queue.every(t=>t.status==='proposed'&&t.requirements&&t.acceptance));
  assert.equal(backend.length+LOCAL_TOOLS.length+queue.length,445);

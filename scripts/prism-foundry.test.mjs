@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as T from '../public/ui/vendor/three.module.min.js';
-import {buildPrismFoundry,PRISM_AGENT_IDS} from '../public/ui/prism-foundry-model.js';
+import * as T from '../public/ui/prism-v1/vendor/three.module.min.js';
+import {buildPrismFoundry,PRISM_AGENT_IDS} from '../public/ui/prism-v1/prism-foundry-model.js';
 
 test('Prism reference geometry and optical materials are actual WebGL meshes',()=>{
  const m=buildPrismFoundry(T,{random:()=>.5});assert.equal(T.REVISION,'184');assert.equal(m.stations.length,5);assert.equal(m.pickables.length,6);

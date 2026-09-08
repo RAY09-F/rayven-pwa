@@ -17,3 +17,11 @@ No KV deletion, billing changes, provider test calls or real-person messages.
 - Five-minute observation records live in evidence/assets-observation.json. No promotion before its final successful sample.
 
 Asset preload observation passed11/11samples over315seconds. Promoted to100%; edge propagation initially returned the previous manifest, then the unpinned live manifest and all52assets verified successfully before changing the index.
+
+## Index switch
+
+- Release source: fca0374; version806a7e9b-e716-4544-bfdd-3f9420d9e25d.
+- Release fingerprint: floating-5c8b8ac7e037 (52assets, including retained compatibility assets).
+- 10% new index /90% preloaded old index started at approximately09:55UTC. The old and new index reference separate, already available asset paths.
+- Packaged UI tests now target the versioned runtime path; all86pass. Backend src/ and wrangler.toml still match d349c75 exactly.
+- Promotion is pending successful five-minute index observation and browser checks.

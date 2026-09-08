@@ -3,9 +3,9 @@
 // No GPU, live backend or browser paint is claimed by these checks.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as THREE from '../public/ui/vendor/three.module.min.js';
-import {createHologramPersona} from '../public/ui/hologram-persona.js';
-import {createParticleProjection} from '../public/ui/hologram-projection.js';
+import * as THREE from '../public/ui/prism-v1/vendor/three.module.min.js';
+import {createHologramPersona} from '../public/ui/prism-v1/hologram-persona.js';
+import {createParticleProjection} from '../public/ui/prism-v1/hologram-projection.js';
 
 function resources(root){
   const result=new Set();
@@ -187,7 +187,7 @@ test('unavailable WebGL keeps conversation fallback honest and releases owned DO
  replace('location',{search:'?renderer=fallback'});replace('requestAnimationFrame',()=>{throw Error('No frame should run without WebGL');});replace('cancelAnimationFrame',()=>{});replace('ResizeObserver',class{observe(){}disconnect(){}});
  replace('document',{hidden:false,createElement:node,addEventListener:(k,f)=>documentListeners.set(k,f),removeEventListener:k=>documentListeners.delete(k)});
  let presence;
- try{const {createPresence}=await import('../public/ui/scene.js');const labels=[];presence=await createPresence(host,{onStatus:s=>labels.push(s)});assert.equal(presence.status().ready,false);assert.equal(presence.status().renderMode,'fallback');assert.equal(presence.status().frames,0);assert.ok(labels.some(s=>s.includes('conversation')));assert.equal(children.length,2);assert.equal(children[0].hidden,true);presence.dispose();presence.dispose();assert.equal(children.length,0);assert.equal(documentListeners.size,0);assert.equal(mediaListeners.size,0);}
+ try{const {createPresence}=await import('../public/ui/prism-v1/scene.js');const labels=[];presence=await createPresence(host,{onStatus:s=>labels.push(s)});assert.equal(presence.status().ready,false);assert.equal(presence.status().renderMode,'fallback');assert.equal(presence.status().frames,0);assert.ok(labels.some(s=>s.includes('conversation')));assert.equal(children.length,2);assert.equal(children[0].hidden,true);presence.dispose();presence.dispose();assert.equal(children.length,0);assert.equal(documentListeners.size,0);assert.equal(mediaListeners.size,0);}
  finally{presence?.dispose();for(const [key,descriptor]of saved){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else delete globalThis[key];}}
 });
 

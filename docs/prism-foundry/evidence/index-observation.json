@@ -1,0 +1,16 @@
+{
+  "version": "806a7e9b-e716-4544-bfdd-3f9420d9e25d",
+  "started": "2026-09-08T09:55:00.211Z",
+  "samples": [
+    {
+      "at": "2026-09-08T09:55:00.211Z",
+      "elapsedSeconds": 0,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T09:55:31.712Z",
+      "elapsedSeconds": 32,
+      "ok": true
+    }
+  ]
+}
