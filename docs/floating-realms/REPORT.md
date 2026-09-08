@@ -1,3 +1,5 @@
+> Historical source handoff. The subsequent WebGL corrections and actual deployment are recorded in [VERIFICATION.md](VERIFICATION.md) and [DEPLOYMENT.md](DEPLOYMENT.md).
+
 # Floating realms correction
 
 ## Scope and baseline

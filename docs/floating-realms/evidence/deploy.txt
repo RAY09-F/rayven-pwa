@@ -1,0 +1,41 @@
+
+ ⛅️ wrangler 4.122.0
+────────────────────
+🌀 Building list of assets...
+✨ Read 49 files from the assets directory /home/rayanfahil2/asgard-floating/public
+🌀 Starting asset upload...
+🌀 Found 11 new or modified static assets to upload. Proceeding with upload...
++ /ui/realm-controls.js
++ /ui/release.json
++ /ui/realm-thor.js
++ /ui/app.js
++ /ui/nameplate-layout.js
++ /ui/realm-architecture.js
++ /index.html
++ /ui/interface.css
++ /ui/holographic-field.js
++ /ui/realm-loki.js
++ /ui/scene.js
+Uploaded 3 of 11 assets
+Uploaded 7 of 11 assets
+Uploaded 11 of 11 assets
+✨ Success! Uploaded 11 files (32 already uploaded) (1.30 sec)
+
+Total Upload: 870.04 KiB / gzip: 238.88 KiB
+Worker Startup Time: 11 ms
+Your Worker has access to the following bindings:
+Binding                                                                     Resource                  
+env.LEDGER (AsgardLedger)                                                   Durable Object            
+env.RAYVEN_KV (ee3cce96335249a9a4cc990cdfd8a2a5)                            KV Namespace              
+env.VECTORIZE (rayven-memory)                                               Vectorize Index           
+env.CLIPS (asgardclips)                                                     R2 Bucket                 
+env.AI                                                                      AI                        
+env.ASSETS                                                                  Assets                    
+env.TELEGRAM_WEBHOOK_HOST ("https://asgrard-backend.rayanfahil2.w...")      Environment Variable      
+env.LEDGER_BACKEND ("do")                                                   Environment Variable      
+
+Uploaded asgrard-backend (6.69 sec)
+Deployed asgrard-backend triggers (1.50 sec)
+  https://asgrard-backend.rayanfahil2.workers.dev
+  schedule: */5 * * * *
+Current Version ID: e0f22382-5553-4069-94bd-8b1e5acb2523

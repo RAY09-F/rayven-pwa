@@ -1,3 +1,11 @@
+# Current status — deployed and verified
+
+The floating realms correction is deployed. Read [DEPLOYMENT.md](DEPLOYMENT.md) for the current release, live asset hashes, browser evidence and limits; [VERIFICATION.md](VERIFICATION.md) explains the fixes. The original handoff below is retained as the acceptance brief, not an outstanding deployment checklist.
+
+Outstanding external checks: physical Chromebook GPU performance, physical-phone/microphone behavior, and a new provider chat smoke after the existing Anthropic credit balance is restored. Cloudflare publication and real WebGL browser interaction checks are complete on the documented software-renderer environment.
+
+---
+
 # Continue the floating realms release
 
 This brief supersedes the reference release's tabletop camera and whole-scene orbit. Read REPORT.md; the previous docs/reference-realms deployment receipt refers to an older release.
