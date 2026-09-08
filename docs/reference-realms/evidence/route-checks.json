@@ -1,0 +1,32 @@
+{
+  "cacheBypass": [
+    {
+      "path": "/?verify=realms-664dc11e7020",
+      "sha256": "401f50edc01e0081ec6af6acd1b02fef66483ee32a8b371f0814d2de40359d04",
+      "matches": true
+    },
+    {
+      "path": "/ui/app.js?v=reference-realms-1",
+      "sha256": "399716723435c76d0207e8867dd7c1dd39b0588d0322acc15ac8da93a5bfa106",
+      "matches": true
+    },
+    {
+      "path": "/ui/scene.js?v=reference-realms-1",
+      "sha256": "c9cb098c037c05ec5c50b065246c30eef93d93c75a832325d0090826d72d5c67",
+      "matches": true
+    },
+    {
+      "path": "/ui/realm-loki.js?v=reference-realms-1",
+      "sha256": "411171fb635654be12058bdbf99d48c4163f0fb2464f22462893ba0f9892f3a2",
+      "matches": true
+    }
+  ],
+  "legacyForwarder": {
+    "release": "realms-664dc11e7020",
+    "matches": true
+  },
+  "thorRedirect": {
+    "status": 301,
+    "location": "https://asgrard-backend.rayanfahil2.workers.dev/?persona=thor"
+  }
+}
