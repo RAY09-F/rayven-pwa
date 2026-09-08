@@ -1,0 +1,40 @@
+
+ ⛅️ wrangler 4.122.0 (update available 4.129.1)
+───────────────────────────────────────────────
+╭ Deploy Worker Versions by splitting traffic between multiple versions
+│
+├ Fetching latest deployment
+│
+├ Your current deployment has 2 version(s):
+│
+│ (90%) e0f22382-5553-4069-94bd-8b1e5acb2523
+│       Created:  2026-09-08T06:06:55.769395Z
+│           Tag:  -
+│       Message:  -
+│
+│ (10%) 7993b681-c976-4e09-aa36-fc6d963ed459
+│       Created:  2026-09-08T09:44:59.341829Z
+│           Tag:  prism-assets
+│       Message:  Prism assets preload; existing index and backend preserved
+│
+├ Fetching versions
+│
+├ Which version(s) do you want to deploy?
+├ 1 Worker Version(s) selected
+│
+├     Worker Version 1:  7993b681-c976-4e09-aa36-fc6d963ed459
+│              Created:  2026-09-08T09:44:59.341829Z
+│                  Tag:  prism-assets
+│              Message:  Prism assets preload; existing index and backend preserved
+│
+├ What percentage of traffic should Worker Version 1 receive?
+├ 100% of traffic
+├
+├ Add a deployment message
+│ Deployment message Prism assets preload passed five-minute canary
+│
+├ Deploying 1 version(s)
+│
+│ No non-versioned settings to sync. Skipping...
+│
+╰  SUCCESS  Deployed asgrard-backend version 7993b681-c976-4e09-aa36-fc6d963ed459 at 100% (0.68 sec)

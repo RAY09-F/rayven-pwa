@@ -139,4 +139,20 @@ Separate from the blocked brain waves: the supplied Prism Foundry prototype is p
 
 151 tests pass. Real Chromium checks cover desktop/phone rendering, hover → correct advisor panel, active autorotation stopping after drag, still-mode scheduling, local fixture conversation, and repeated hall mounts. A rapid-hall-switch stale-status race was found and fixed; the last choice wins, with one canvas and no leftover labels. Hardware GPU performance is not established by this SwiftShader environment.
 
-See [implementation decisions and evidence](prism-foundry/IMPLEMENTATION.md). Frontend fingerprint: `floating-09c8bbec9862`. No Cloudflare deployment was made for this design task; the pending backend waves were not bundled into a deployment.
+See [implementation decisions and evidence](prism-foundry/IMPLEMENTATION.md). Frontend fingerprint: `floating-09c8bbec9862`. The initial implementation was not deployed at that point; the separately authorized deployment below is now complete. The pending backend waves remain excluded.
+
+
+### Prism Cloudflare rollout started — 2026-09-08
+
+User explicitly authorized deployment. Active release worktree: `/home/rayanfahil2/asgard-prism-deploy`, branch `deploy/prism-foundry`, based on live backend d349c75 (no pending brain waves). Candidate frontend preparation 327091d passed86tests. Initial active version rechecked: e0f22382-5553-4069-94bd-8b1e5acb2523 at100%. A compatibility preload under `/ui/prism-v1/` precedes the index switch; each stage requires10%forfiveactualminutes then100%. Deployment receipt/evidence are in that release worktree's `docs/prism-foundry/`. Do not deploy this main branch's pending backend waves.
+
+Prism rollout checkpoint: asset preload7993b681-c976-4e09-aa36-fc6d963ed459 passed315seconds and52liveassetchecks, promoted100%. Index version806a7e9b-e716-4544-bfdd-3f9420d9e25d is at10% with90%preload; final observation began2026-09-08T09:55:00Z. Candidate fingerprintfloating-5c8b8ac7e037. Source branchdeploy/prism-foundry preserves the running backend and versioned UI path/ui/prism-v1/. Do not mark live complete until final promotion and unpinned live checks pass.
+
+
+### Prism Cloudflare deployment COMPLETE — 2026-09-08 10:01:52 UTC
+
+Active at100%:806a7e9b-e716-4544-bfdd-3f9420d9e25d. Live release:floating-5c8b8ac7e037. Source:deploy/prism-foundry, index commitfca0374, receipt commit80a2db4. The isolated release preserves backend d349c75 and its Cloudflare bindings/runtime settings exactly. Main's brain waves remain blocked and undeployed.
+
+Both preparatory assets and final index received10%canaries before100%:11passingHTTPsamples over315seconds and361seconds respectively. All52asset hashes/MIME types verified unpinned on both existing hosts. Real live WebGL and advisor selection passed on desktop/phone; a normal browser reload without version overrides confirmed the new release. No observed Worker error events, no purchases, no KV deletion and no real-person sends.
+
+[Open Prism Foundry](https://asgrard-backend.rayanfahil2.workers.dev/?hall=loki). [Deployment receipt and evidence](prism-foundry/DEPLOYMENT.md). Preserve the versioned asset path for staged compatibility; use the isolated release branch for UI-only deployment until the brain release gates are resolved.

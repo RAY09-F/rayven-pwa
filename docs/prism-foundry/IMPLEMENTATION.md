@@ -1,5 +1,7 @@
 # Prism Foundry integration
 
+**Deployed to Cloudflare at 100%.** [Open the live scene](https://asgrard-backend.rayanfahil2.workers.dev/?hall=loki). See the [deployment receipt](DEPLOYMENT.md) for staged rollout, live browser checks and both verified hosts. The deployment uses the existing backend plus this UI; the separate pending brain waves remain excluded.
+
 The supplied README is the design specification. Its procedural model is ported into `public/ui/prism-foundry-model.js`; `prism-foundry.js` owns the renderer, studio environment, OrbitControls, projected labels and input callbacks. `scene.js` serializes mount/disposal when switching halls. Loki uses Prism Foundry; Thor and Odin retain their existing scenes and conversation controls.
 
 The original handoff lives in `design_handoff_prism_foundry/`. Its HTML, viewer shell and export buttons are not served as the application. No scene pictures or exported model replace the geometry.
