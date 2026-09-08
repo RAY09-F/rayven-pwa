@@ -74,3 +74,26 @@ html[data-persona=odin] .conversation .request-receipt summary{color:#36434b}
 
 /* Compact nameplates retain separate touch targets without covering adjacent gems. */
 @media(max-width:850px){#council-dock .council-member{min-height:32px}}
+
+/* Prism Foundry: the reference scene owns this canvas and its projected labels. */
+html[data-persona="loki"] .presence {background:radial-gradient(ellipse at 50% 40%,#0f2430,#050b12 70%)}
+#presence-scene.prism-foundry {overflow:hidden;background:transparent}
+.prism-foundry canvas {touch-action:none;cursor:grab}
+.prism-labels {position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.prism-label {position:absolute;left:0;top:0;width:max-content;max-width:calc(100% - 24px);text-align:center;transform-origin:0 0;transition:opacity .25s;color:var(--prism-color);font-family:'Cinzel',serif;text-shadow:0 0 6px var(--prism-color),0 1px 2px rgba(0,0,0,.95);filter:brightness(1.35)}
+.prism-label.hot {filter:brightness(1.8)}
+.prism-label b {display:block;font-size:15px;font-weight:700;letter-spacing:.14em;line-height:1.35}
+.prism-label small {display:block;font-family:'Cormorant Garamond',serif;font-weight:500;font-size:12px;letter-spacing:.32em;color:rgba(255,255,255,.75);line-height:1.5}
+.prism-tick {display:block;width:1px;height:14px;background:var(--prism-color);margin:0 auto 6px;box-shadow:0 0 6px var(--prism-color)}
+.prism-core {display:flex;flex-direction:column}
+.prism-core b {font-size:26px}
+.prism-core small {font-size:13px}
+.prism-core .prism-tick {order:3;margin:6px auto 0}
+/* Keep the existing council keyboard controls without duplicating the labels. */
+.prism-foundry #council-dock .council-member {opacity:0}
+.prism-foundry #council-dock .council-member:focus-visible {opacity:1}
+@media (prefers-reduced-motion:reduce){.prism-label{transition:none}}
+
+.prism-foundry #council-dock {display:flex;align-items:flex-end;justify-content:center;gap:4px;padding:8px;inset:0;pointer-events:none}
+.prism-foundry #council-dock .council-member {position:static;transform:none;width:auto;pointer-events:none}
+.prism-foundry #council-dock .council-member:focus-visible {pointer-events:auto}
