@@ -1,6 +1,6 @@
 // Tool discovery uses the checked-in backend schemas. Requests still pass through existing chat and approval gates.
 import {CAST} from './council-data.js';
-import {createExpansion} from './expansion.js';
+import {createExpansion} from './expansion.js?v=bifrost-aperture-1';
 export const MISSIONS=[
   ['research','Evidence brief','Compare sources, separate facts from assumptions.','Use find_tools to locate research and web-search tools. Research my subject, cross-check important claims against independent sources, and give me a concise sourced brief. Subject: '],
   ['calendar','Plan my day','Calendar, priorities and room to breathe.','Read my existing calendar and to-dos using the available tools. Propose a realistic day with breaks and conflicts called out. Do not change any events without my confirmation. My priority: '],
@@ -45,7 +45,7 @@ export function createArsenal({getPersona,getDraft,setDraft,onSelect=()=>{},rese
   modal.addEventListener('cancel',e=>{e.preventDefault();close();});
   modal.addEventListener('click',e=>{if(e.target===modal){const r=modal.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)close();}});
   function shell(title,subtitle){
-    if(!modal.open)returnFocus=document.activeElement;
+    if(!modal.open){const settings=document.getElementById('settings-dialog');if(settings?.open){settings.close();returnFocus=document.querySelector('.settings-btn');}else returnFocus=document.activeElement;}
     modal.replaceChildren();const head=node('header','arsenal-head'),h=node('div');h.append(node('span','eyebrow','ASGARD / '+getPersona().toUpperCase()),node('h2','',title),node('p','',subtitle));h.querySelector('h2').id='arsenal-title';head.append(h,button('×',close,'arsenal-close'));head.lastChild.setAttribute('aria-label','Close tools panel');modal.append(head);
     const body=node('div','arsenal-body');modal.append(body);if(!modal.open)modal.showModal();return body;
   }
@@ -95,7 +95,7 @@ export function createArsenal({getPersona,getDraft,setDraft,onSelect=()=>{},rese
   function openAgent(id){const p=CAST[id];if(!p||p.hall!==getPersona())return;onSelect(id);const body=shell(p.name,p.title);body.append(node('p','agent-role',p.role));
     for(const [title,text]of [['What they do',p.does],['What they look for',p.watch],['Standing duties',p.duties.map(d=>d.description).join(' ')]] ){body.append(node('h3','',title),node('p','',text));}
     if(p.hall==='odin')body.append(node('p','tool-truth','Paper simulation only. '+p.market+(p.backendId?' · paper-agent id: '+p.backendId:'')));
-    body.append(node('p','tool-truth','Assigned responsibilities; this panel does not claim background work is running.'),button('Prepare delegation',()=>prepare(`Use delegate to ask ${p.id==='hunter_b15'?'hunter_b15':p.id} (${p.name}) for help with: `),'primary-action'),button('Ask for current status',()=>prepare(`Tell me what ${p.name} is currently working on. Read actual council status where available; do not infer activity from the visual model.`)));
+    body.append(node('p','tool-truth','Council activity: unknown. These are assigned responsibilities; no live activity data is available in this panel.'),button('Prepare delegation',()=>prepare(`Use delegate to ask ${p.id==='hunter_b15'?'hunter_b15':p.id} (${p.name}) for help with: `),'primary-action'),button('Ask for current status',()=>prepare(`Tell me what ${p.name} is currently working on. Read actual council status where available; do not infer activity from the visual model.`)));
   }
   function renderCouncil(){const bar=document.getElementById('council-dock');bar.replaceChildren();for(const id of CAST[getPersona()].councillors){const p=CAST[id],b=button('',()=>openAgent(id),'council-member');b.style.setProperty('--member',p.color);b.append(node('span','council-diamond','◇'),node('span','',p.name));b.setAttribute('aria-label',p.name+' — council dossier');bar.append(b);}}
   function openActivity(){const body=shell('Session activity','Actual chat requests in this page. This is not a live backend tool trace.');
@@ -106,11 +106,11 @@ export function createArsenal({getPersona,getDraft,setDraft,onSelect=()=>{},rese
   document.querySelector('[data-open-missions]').addEventListener('click',openMissions);
   document.querySelector('[data-open-activity]').addEventListener('click',openActivity);
   document.querySelector('[data-reset-view]').addEventListener('click',resetView);
-  document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();document.querySelector('#settings-dialog[open]')?.close();openTools();}});
+  document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openTools();}});
   renderCouncil();
   fetch('/ui/tool-catalog.json?v=rendered-realms-1').then(r=>{if(!r.ok)throw Error('Catalogue unavailable');return r.json();}).then(data=>{tools=Array.isArray(data.tools)?data.tools:[];document.getElementById('arsenal-count').textContent=tools.length+' backend · 36 local';if(modal.open&&document.getElementById('arsenal-title').textContent==='The Arsenal')openTools();}).catch(()=>{catalogError=true;document.getElementById('arsenal-count').textContent='Catalogue unavailable';if(modal.open&&document.getElementById('arsenal-title').textContent==='The Arsenal')openTools();});
   return {openAgent,switchPersona(){group='all';renderCouncil();if(modal.open)close();},
     startRequest(hall){const item={id:++requestCounter,hall,at:Date.now(),start:performance.now(),state:'Awaiting reply'};journal.push(item);if(journal.length>30)journal.shift();return item.id;},
-    finishRequest(id,failed){const item=journal.find(i=>i.id===id);if(item){item.state=failed?'Request failed':'Reply received';item.ms=performance.now()-item.start;}},
+    finishRequest(id,outcome){const item=journal.find(i=>i.id===id);if(item){item.state=outcome==='cancelled'?'Stopped waiting · server work unconfirmed':outcome==='received'?'Reply received':'Request failed · server work unconfirmed';item.ms=performance.now()-item.start;}},
     status:()=>({tools:tools.length,requests:journal.length})};
 }

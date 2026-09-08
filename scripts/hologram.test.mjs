@@ -25,12 +25,12 @@ function visiblePose(root){
   return pose;
 }
 function recordingCanvas(){
-  const rectangles=[],lines=[];
+  const rectangles=[],lines=[],faces=[];
   const context={
-    rectangles,lines,setTransform(){},clearRect(){rectangles.length=0;lines.length=0;},
+    rectangles,lines,faces,setTransform(){},clearRect(){rectangles.length=0;lines.length=0;faces.length=0;},
     createRadialGradient(){return {addColorStop(){}};},
     fillRect(x,y,w,h){rectangles.push({x,y,w,h,style:this.fillStyle});},
-    beginPath(){},moveTo(x,y){lines.push({x,y});},lineTo(x,y){lines.push({x,y});},stroke(){}
+    closePath(){},fill(){faces.push(this.fillStyle);},beginPath(){},moveTo(x,y){lines.push({x,y});},lineTo(x,y){lines.push({x,y});},stroke(){}
   };
   return {style:{},context,getContext(type){assert.equal(type,'2d');return context;}};
 }
@@ -122,7 +122,9 @@ test('all persona particle buffers produce finite CPU projections and respond to
     const canvas=recordingCanvas(),projection=createParticleProjection(THREE,canvas),camera=new THREE.PerspectiveCamera(35,1.2,.1,60);
     projection.resize(600,500,1);camera.position.set(0,.5,7.7);camera.lookAt(0,.3,0);
     const beforeCount=projection.render(scene,camera,{persona:id}),before=pointMarks(canvas).map(p=>[p.x,p.y]);
-    assert.equal(beforeCount,model.stats().particles,'fallback directly draws every in-frame model particle');
+    assert.ok(beforeCount>0&&beforeCount<model.stats().particles,'solid mesh hides rear particles while visible surface particles remain');
+    assert.ok(canvas.context.faces.length>100,'fallback renders real solid mesh triangles');
+    assert.ok(new Set(canvas.context.faces).size>20,'surface normals create graded faceted illumination');
     assert.ok(canvas.context.lines.length>20,'modeled contours also project');
     assert.ok([...canvas.context.rectangles,...canvas.context.lines].every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)));
     camera.position.set(2.5,.5,7.3);camera.lookAt(0,.3,0);
@@ -130,4 +132,96 @@ test('all persona particle buffers produce finite CPU projections and respond to
     assert.notDeepEqual(pointMarks(canvas).map(p=>[p.x,p.y]),before,'orbit reveals real depth');
     projection.dispose();model.dispose();
   }
+});
+
+
+test('sculpture has opaque depth-writing materials, anatomy, and a restrained particle budget',()=>{
+  for(const id of ['thor','loki','odin']){
+    const model=createHologramPersona(THREE,new THREE.Scene(),id);
+    const meshes=[];model.root.traverse(o=>{if(o.isMesh)meshes.push(o);});
+    assert.ok(meshes.length>15);
+    assert.ok(meshes.every(o=>o.material.depthWrite&&!o.material.transparent),'all modeled planes occlude what is behind them');
+    assert.ok(meshes.some(o=>o.name==='faceted-face'&&o.material.isMeshStandardMaterial));
+    assert.ok(meshes.some(o=>o.name==='nose-bridge'));
+    assert.equal(meshes.filter(o=>o.name==='luminous-eye').length,id==='odin'?1:2);
+    assert.equal(meshes.filter(o=>o.name==='thor-helmet-wing').length,id==='thor'?6:0);
+    assert.equal(meshes.filter(o=>o.name==='odin-beard-mass').length,id==='odin'?1:0);
+    assert.ok(model.stats().maximumParticles<=3000,'surface volume carries identity instead of dense luminous noise');
+    model.dispose();
+  }
+});
+
+test('software depth buffer hides a rear point and preserves a point in front of solid geometry',()=>{
+  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(60,1,.1,30);
+  camera.position.z=5;camera.lookAt(0,0,0);
+  const mesh=new THREE.Mesh(new THREE.PlaneGeometry(2,2),new THREE.MeshStandardMaterial({color:0x527589}));scene.add(mesh);
+  const geometry=new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute([0,0,-.5,.2,0,.5],3));
+  const points=new THREE.Points(geometry,new THREE.PointsMaterial({color:0xffffff}));scene.add(points);
+  const canvas=recordingCanvas(),projection=createParticleProjection(THREE,canvas);projection.resize(200,200);
+  assert.equal(projection.render(scene,camera),1);
+  assert.equal(canvas.context.faces.length,2);
+  mesh.visible=false;assert.equal(projection.render(scene,camera),2);
+  projection.dispose();assert.equal(projection.render(scene,camera),0,'disposed projection does no more work');
+  geometry.dispose();points.material.dispose();mesh.geometry.dispose();mesh.material.dispose();
+});
+
+test('assembly completes once and never restarts when time is reset or motion resumes',()=>{
+  const model=createHologramPersona(THREE,new THREE.Scene(),'loki');
+  const attribute=model.points.geometry.attributes.position,rest=attribute.array.slice();
+  model.update(0,true);assert.notDeepEqual(attribute.array,rest);
+  model.update(.45,true);const middle=attribute.array.slice();model.update(.1,true);assert.deepEqual(attribute.array,middle,'assembly progress cannot move backward');
+  model.update(1,true);assert.deepEqual(attribute.array,rest);
+  const version=attribute.version;model.update(0,true);model.update(100,true);assert.equal(attribute.version,version,'settled buffers do no more per-particle work');
+  model.dispose();
+  const still=createHologramPersona(THREE,new THREE.Scene(),'thor'),positions=still.points.geometry.attributes.position.array.slice();
+  still.update(0,false);still.update(.1,true);assert.deepEqual(still.points.geometry.attributes.position.array,positions,'still mode completes assembly permanently');still.dispose();
+});
+
+test('scene owns one canvas and loop, pauses hidden rendering, and settles still mode',async()=>{
+  const saved=new Map(),queue=new Map(),documentListeners=new Map(),mediaListeners=new Map();let nextFrame=0;
+  const replace=(key,value)=>{saved.set(key,Object.getOwnPropertyDescriptor(globalThis,key));Object.defineProperty(globalThis,key,{configurable:true,writable:true,value});};
+  const canvases=[],host={dataset:{},append(c){canvases.push(c);},getBoundingClientRect(){return {width:900,height:650};}};
+  const media={matches:false,addEventListener(k,fn){mediaListeners.set(k,fn);},removeEventListener(k){mediaListeners.delete(k);}};
+  replace('matchMedia',()=>media);replace('devicePixelRatio',2);replace('location',{search:'?renderer=canvas'});
+  replace('requestAnimationFrame',fn=>{queue.set(++nextFrame,fn);return nextFrame;});replace('cancelAnimationFrame',id=>queue.delete(id));
+  replace('ResizeObserver',class{observe(){}disconnect(){}});
+  const doc={hidden:false,addEventListener(k,fn){documentListeners.set(k,fn);},removeEventListener(k){documentListeners.delete(k);},createElement(){const c=recordingCanvas();c.setAttribute=()=>{};c.addEventListener=()=>{};c.removeEventListener=()=>{};c.remove=()=>{const i=canvases.indexOf(c);if(i>=0)canvases.splice(i,1);};return c;}};replace('document',doc);
+  const flush=now=>{const callbacks=[...queue.values()];queue.clear();callbacks.forEach(fn=>fn(now));};
+  let presence;
+  try{
+    const {createPresence}=await import('../public/ui/scene.js');const labels=[];
+    presence=await createPresence(host,{still:true,onStatus:label=>labels.push(label)});
+    assert.equal(canvases.length,1);assert.equal(queue.size,1);flush(100);
+    assert.equal(queue.size,0,'still rendering sleeps after its requested frame');
+    assert.equal(presence.status().renderMode,'canvas');assert.ok(labels.includes('Software 3D projection'));
+    const initial=presence.status();
+    for(let i=0;i<12;i++)await presence.setPersona(['thor','loki','odin'][i%3]);
+    assert.equal(canvases.length,1);assert.equal(queue.size,1,'rapid selection cannot duplicate the frame owner');
+    await presence.setPersona('thor');assert.equal(presence.status().geometries,initial.geometries);
+    flush(200);presence.setStill(false);flush(240);assert.equal(queue.size,1);
+    doc.hidden=true;documentListeners.get('visibilitychange')();assert.equal(queue.size,0);const hiddenFrames=presence.status().frames;
+    doc.hidden=false;documentListeners.get('visibilitychange')();flush(5000);assert.equal(presence.status().frames,hiddenFrames+1);
+    media.matches=true;mediaListeners.get('change')();flush(5100);assert.equal(queue.size,0,'reduced motion also settles');
+    assert.equal(presence.status().animated,false);
+    presence.dispose();presence.dispose();assert.equal(canvases.length,0);assert.equal(queue.size,0);assert.equal(documentListeners.size,0);assert.equal(mediaListeners.size,0);
+  }finally{presence?.dispose();for(const [key,descriptor]of saved){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else delete globalThis[key];}}
+});
+
+test('r185 surface shader preserves standard depth/lighting and adds material-local bands',()=>{
+  const model=createHologramPersona(THREE,new THREE.Scene(),'thor');
+  const face=model.root.getObjectByName('faceted-face'),shader={uniforms:{},vertexShader:THREE.ShaderLib.standard.vertexShader,fragmentShader:THREE.ShaderLib.standard.fragmentShader};
+  assert.equal(THREE.REVISION,'185','shader contract is pinned to the locally vendored renderer');
+  face.material.onBeforeCompile(shader);
+  assert.ok(shader.vertexShader.includes('vBifrostPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;'));
+  assert.ok(shader.fragmentShader.includes('float bifrostRim ='));
+  assert.ok(shader.fragmentShader.includes('#include <lights_physical_fragment>'));
+  assert.ok(shader.fragmentShader.includes('#include <opaque_fragment>'));
+  assert.equal(shader.uniforms.bifrostStrength.value,1);
+  model.update(4,true,'thinking');assert.equal(shader.uniforms.bifrostStrength.value,1.15);
+  model.update(5,false,'idle');assert.equal(shader.uniforms.bifrostStrength.value,1);
+  assert.equal(face.material.transparent,false);assert.equal(face.material.depthWrite,true);
+  assert.ok(model.root.getObjectByName('raised-armour-collar'));
+  assert.ok(model.root.getObjectByName('shoulder-upper-plate'));
+  assert.ok(model.root.getObjectByName('layered-breastplate'));
+  model.dispose();
 });

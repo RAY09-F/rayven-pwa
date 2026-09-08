@@ -12,3 +12,7 @@ node_modules/
 .claude-flow/
 ruvector.db
 .playwright-mcp/
+
+# Local browser sessions and working captures
+.playwright-cli/
+output/

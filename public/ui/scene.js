@@ -1,5 +1,5 @@
-import {createHologramPersona} from './hologram-persona.js?v=hologram-realms-1';
-import {createParticleProjection} from './hologram-projection.js?v=hologram-realms-1';
+import {createHologramPersona} from './hologram-persona.js?v=bifrost-sculpture-1';
+import {createParticleProjection} from './hologram-projection.js?v=bifrost-sculpture-1';
 // One scene owner. Persona geometry and software projection share the same buffers.
 export async function createPresence(host,{persona='thor',still=false,quality='balanced',onStatus=()=>{},onSelect=()=>{}}={}){
  let THREE,scene,camera,renderer=null,projection=null,model=null,canvas=null;
@@ -15,7 +15,7 @@ export async function createPresence(host,{persona='thor',still=false,quality='b
  function schedule(){if(!disposed&&!raf&&!document.hidden&&ready)raf=requestAnimationFrame(frame);}
  function frame(now){raf=0;if(disposed||document.hidden||!ready)return;const interval=mode==='canvas'?50:quality==='high'?16:32;if(last&&now-last<interval&&!dirty){schedule();return;}const dt=last?Math.min((now-last)/1000,.05):0;last=now;
   try{if(animated())time+=dt;model.update(time,animated(),state);yaw=animated()?yaw+(targetYaw-yaw)*Math.min(1,dt*7):targetYaw;
-   const distance=Math.max(7.7,5.4/(width/height));camera.position.set(Math.sin(yaw)*distance,.5,Math.cos(yaw)*distance);camera.lookAt(0,.3,0);camera.updateMatrixWorld();
+   const aspect=width/height,centerY=persona==='loki'?.52:.36;const distance=Math.max(persona==='loki'?8.0:7.3,5.35/aspect);camera.position.set(Math.sin(yaw)*distance,centerY+.18,Math.cos(yaw)*distance);camera.lookAt(0,centerY,0);camera.updateMatrixWorld();
    if(renderer)renderer.render(scene,camera);else projection.render(scene,camera,{time,state,animated:animated(),persona});
    frames++;host.dataset.frames=String(frames);host.dataset.particles=String(model.stats().particles);host.dataset.animated=String(animated());host.dataset.state=state;dirty=false;
   }catch(e){if(mode==='webgl'){try{software(e);dirty=true;}catch(f){fail(f);return;}}else{fail(e);return;}}
@@ -28,13 +28,13 @@ export async function createPresence(host,{persona='thor',still=false,quality='b
  function move(e){if(!drag||e.pointerId!==drag.id)return;targetYaw=Math.max(-.5,Math.min(.5,drag.yaw+(e.clientX-drag.x)*.004));dirty=true;schedule();}
  function up(e){if(!drag||e.pointerId!==drag.id)return;drag=null;}
  function cancelDrag(){drag=null;}
- function visibility(){last=0;cancelDrag();if(document.hidden){cancelAnimationFrame(raf);raf=0;}else{dirty=true;schedule();}}
+ function visibility(){last=0;cancelDrag();if(model)model.update(time,false,state);if(document.hidden){cancelAnimationFrame(raf);raf=0;}else{dirty=true;schedule();}}
  function motionChange(){last=0;dirty=true;cancelAnimationFrame(raf);raf=0;schedule();}
  function lost(e){e.preventDefault();if(disposed)return;try{software(new Error('WebGL context lost'));dirty=true;schedule();}catch(f){fail(f);}}
  const observer=new ResizeObserver(resize);observer.observe(host);document.addEventListener('visibilitychange',visibility);reduced.addEventListener('change',motionChange);
- try{THREE=await import('./vendor/three.module.min.js');if(disposed)return;scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(35,1,.1,60);canvas=attachCanvas();const forced=new URLSearchParams(location.search).get('renderer');if(forced==='fallback')throw Error('Fallback requested');
-  try{if(forced==='svg'||forced==='canvas')throw Error('Software projection requested');renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'low-power'});renderer.setClearColor(0x03070e,0);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.35;}catch(e){software(e);}
+ try{THREE=await import('./vendor/three.module.min.js');if(disposed)return;scene=new THREE.Scene();scene.add(new THREE.HemisphereLight(0xc5e7ff,0x17202c,1.45));const key=new THREE.DirectionalLight(0xe9f6ff,3.1);key.position.set(-3,5,5);scene.add(key);const rim=new THREE.DirectionalLight(0x79bfff,2.0);rim.position.set(3,2,-3);scene.add(rim);const fill=new THREE.DirectionalLight(0xffdeb0,.65);fill.position.set(2,0,4);scene.add(fill);camera=new THREE.PerspectiveCamera(35,1,.1,60);canvas=attachCanvas();const forced=new URLSearchParams(location.search).get('renderer');if(forced==='fallback')throw Error('Fallback requested');
+  try{if(forced==='svg'||forced==='canvas')throw Error('Software projection requested');renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'low-power'});renderer.setClearColor(0x03070e,0);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;}catch(e){software(e);}
   await setPersona(persona);
  }catch(e){fail(e);}
- return {setPersona,select(id){host.dataset.advisor=id||'';},resetView(){targetYaw=.08;dirty=true;schedule();},setState(next){state=['thinking','listening','speaking','connecting','error'].includes(next)?next:'idle';dirty=true;schedule();},setStill(value){still=!!value;motionChange();},setQuality(value){quality=value==='high'?'high':'balanced';model?.setQuality(quality);resize();},status(){return {ready,renderMode:mode,persona,state,frames,animated:animated(),hidden:document.hidden,rafActive:!!raf,quality,width,height,error,...model?.stats()};},dispose(){if(disposed)return;disposed=true;generation++;cancelAnimationFrame(raf);raf=0;observer.disconnect();document.removeEventListener('visibilitychange',visibility);reduced.removeEventListener('change',motionChange);model?.dispose();renderer?.dispose();projection?.dispose();removeCanvas(canvas);}};
+ return {setPersona,select(id){host.dataset.advisor=id||'';},resetView(){targetYaw=.08;dirty=true;schedule();},setState(next){state=['thinking','listening','speaking','connecting','error'].includes(next)?next:'idle';dirty=true;schedule();},setStill(value){still=!!value;motionChange();},setQuality(value){quality=value==='high'?'high':'balanced';model?.setQuality(quality);resize();},status(){return {ready,renderMode:mode,persona,state,frames,animated:animated(),hidden:document.hidden,rafActive:!!raf,quality,width,height,error,threeRevision:THREE?.REVISION,rendererResources:renderer?{...renderer.info.memory}:null,...model?.stats()};},dispose(){if(disposed)return;disposed=true;generation++;cancelAnimationFrame(raf);raf=0;observer.disconnect();document.removeEventListener('visibilitychange',visibility);reduced.removeEventListener('change',motionChange);model?.dispose();renderer?.dispose();projection?.dispose();removeCanvas(canvas);}};
 }

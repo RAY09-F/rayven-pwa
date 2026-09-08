@@ -1,0 +1,1 @@
+{"results":["Real local execution produces a receipt","Local arithmetic result is correct","Receipt exports JSON with meaningful filename","Result handoff retains assumptions and computed output","Preparing result never sends it automatically","Long transcript provides Latest message control","Latest message returns to transcript end"]}

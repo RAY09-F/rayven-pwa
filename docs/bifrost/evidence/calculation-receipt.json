@@ -1,0 +1,13 @@
+{
+  "tool": "local_mrr",
+  "source": "ASGARD local workbench",
+  "completedAt": "2026-09-08T00:33:39.287Z",
+  "inputs": {
+    "accounts": 100,
+    "arpu": 25
+  },
+  "result": {
+    "mrr": 2500,
+    "annualized_run_rate": 30000
+  }
+}

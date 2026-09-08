@@ -1,20 +1,21 @@
-import {createArsenal} from './arsenal.js';
-import {initialPersona,editableTarget,readPreferences,assistantState} from './state.js';
-import {createPresence} from './scene.js?v=hologram-realms-1';
+import {createArsenal} from './arsenal.js?v=bifrost-aperture-1';
+import {initialPersona,editableTarget,readPreferences,assistantState,createRequestLedger,replyText,restoreDraft,nearTranscriptEnd,formatReply,parseReplyPayload} from './state.js?v=bifrost-aperture-1';
+import {createPresence} from './scene.js?v=bifrost-aperture-1';
 const halls=['thor','loki','odin'];
 let storage;try{storage=window.localStorage;}catch{}
 let arsenal=null;
 let preferences=readPreferences(storage),presence=null,speechPhase='idle',micState='off';
-const errors={},lastFailed={},workspace=document.querySelector('.workspace'),dialog=document.getElementById('settings-dialog');
+const requests=createRequestLedger(),cancelled={},scrollFollow={},controls={};
+const errors={},workspace=document.querySelector('.workspace'),dialog=document.getElementById('settings-dialog');
 const profile={thor:['Storm intelligence','A clear mind. A powerful ally.','Thor’s three-dimensional particle hologram with a winged helmet'],loki:['Beyond the obvious','A different perspective changes everything.','Loki’s yellow-gold particle hologram with swept horns'],odin:['The long view','Perspective for what comes next.','Odin’s crowned particle hologram with beard and a single luminous eye']};
 function persist(k,v){try{localStorage.setItem(k,v);}catch{}}
 function refreshState(){
   const hall=activeHall();
-  const next=assistantState({busy:busy?.[hall],error:errors[hall],speaking:speechPhase==='speaking',preparing:speechPhase==='preparing',mic:micState});
+  const next=assistantState({busy:busy?.[hall],error:errors[hall],cancelled:cancelled[hall],speaking:speechPhase==='speaking',preparing:speechPhase==='preparing',mic:micState});
   document.getElementById('assistant-status').textContent=next.label;document.getElementById('assistant-detail').textContent=next.detail;
-  workspace.dataset.state=next.id;presence?.setState(next.id);
-  document.querySelectorAll('.mic-btn').forEach(b=>{b.setAttribute('aria-pressed',voiceActive?'true':'false');b.querySelector('span').textContent=voiceActive?'Stop listening':'Start listening';});
-  document.querySelectorAll('.stop-speech').forEach(b=>b.hidden=speechPhase==='idle');
+  workspace.dataset.state=next.id;document.documentElement.dataset.assistantState=next.id;document.documentElement.dataset.micState=micState;document.documentElement.dataset.speechState=speechPhase;presence?.setState(next.id);
+  document.querySelectorAll('.mic-btn').forEach(b=>{b.setAttribute('aria-pressed',voiceActive?'true':'false');b.querySelector('span').textContent=!voiceActive?'Start listening':micState==='pending'?'Cancel microphone':micState==='off'?'Turn microphone off':'Stop listening';});
+  document.querySelectorAll('.stop-speech').forEach(b=>{b.hidden=speechPhase==='idle';b.textContent=speechPhase==='preparing'?'Cancel voice playback':'Stop speaking';});
 }
 function show(id){
   if(!halls.includes(id))return;
@@ -25,13 +26,7 @@ function show(id){
   document.getElementById('presence-name').innerHTML=id[0].toUpperCase()+id.slice(1)+'<span class="name-period">.</span>';
   document.getElementById('realm-name').textContent=profile[id][0].toUpperCase();document.getElementById('presence-role').textContent=profile[id][1];document.getElementById('presence-scene').setAttribute('aria-label',profile[id][2]);document.getElementById('conversation-name').textContent=id[0].toUpperCase()+id.slice(1);
   try{const url=new URL(location.href);url.searchParams.delete('persona');url.searchParams.delete('hall');url.hash=id;history.replaceState(null,'',url);}catch{}
-  if(presence?.status().persona!==id)presence?.setPersona(id);arsenal?.switchPersona();refreshState();
-}
-// Text-only construction: no assistant HTML is ever inserted into the document.
-function formatReply(container,text){
-  container.replaceChildren();
-  const inline=(parent,s)=>{const re=/(`[^`]+`|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*)/g;let at=0,m;while((m=re.exec(s))){parent.append(document.createTextNode(s.slice(at,m.index)));const e=document.createElement(m[0][0]==='`'?'code':m[4]?'strong':'a');if(e.tagName==='A'){e.textContent=m[2];e.href=m[3];e.target='_blank';e.rel='noopener noreferrer';}else e.textContent=m[4]||m[0].slice(1,-1);parent.append(e);at=re.lastIndex;}parent.append(document.createTextNode(s.slice(at)));};
-  const chunks=text.split(/```/);chunks.forEach((chunk,i)=>{if(i%2){const pre=document.createElement('pre'),code=document.createElement('code');code.textContent=chunk.replace(/^\w*\n/,'');pre.append(code);container.append(pre);}else{let list=null;for(const line of chunk.split('\n')){const m=line.match(/^\s*(?:[-*] |\d+\. )(.*)/);if(m){if(!list){list=document.createElement(/^\s*\d/.test(line)?'ol':'ul');container.append(list);}const li=document.createElement('li');inline(li,m[1]);list.append(li);}else{list=null;if(!line.trim())continue;const p=document.createElement('p');inline(p,line);container.append(p);}}}});
+  if(presence?.status().persona!==id)presence?.setPersona(id);arsenal?.switchPersona();refreshState();requestAnimationFrame(()=>updateTranscript(id));
 }
   /* ==================== LIVE BACKEND ==================== */
   /* If chat says "couldn't reach", the shape below is what needs correcting. */
@@ -39,11 +34,7 @@ function formatReply(container,text){
     base: 'https://asgrard-backend.rayanfahil2.workers.dev',
     chat: '/',
     body: function(hall, text){ return { assistant: hall, message: text }; },
-    reply: function(d){
-      if (typeof d === 'string') return d;
-      return d.reply || d.response || d.text || d.message || d.content ||
-             d.output || (d.data && (d.data.reply || d.data.text)) || null;
-    }
+    reply: replyText
   };
 
   var busy = {};
@@ -80,81 +71,87 @@ function formatReply(container,text){
       wrap.appendChild(b);
       row.appendChild(wrap);
     }
-    const nearBottom = tx.scrollHeight - tx.scrollTop - tx.clientHeight < 100;
+    const nearBottom = scrollFollow[hall]!==false;
     tx.querySelector('.empty-state')?.remove();
     tx.appendChild(row);
-    if(who==='user'||nearBottom)tx.scrollTop = tx.scrollHeight;
+    updateTranscript(hall,nearBottom);
     return row;
   }
 
-  function addErr(hall, msg){
-    var tx = document.getElementById('tx-' + hall);
-    const notice=el('div', 'errline', msg); notice.setAttribute('role','alert');
-    if(lastFailed[hall]){const retry=el('button','','Restore message to retry');retry.type='button';retry.onclick=()=>{const input=document.getElementById('in-'+hall);input.value=lastFailed[hall];input.focus();};notice.append(retry);}
-    tx.appendChild(notice); errors[hall]=true; refreshState();
-    tx.scrollTop = tx.scrollHeight;
+  function updateTranscript(hall,follow=scrollFollow[hall]!==false){
+    const tx=document.getElementById('tx-'+hall);
+    if(follow){tx.scrollTop=tx.scrollHeight;scrollFollow[hall]=true;}
+    if(controls[hall])controls[hall].latest.hidden=follow||nearTranscriptEnd(tx);
   }
-
+  function recoverMessage(hall,text){
+    const input=document.getElementById('in-'+hall);input.value=restoreDraft(input.value,text);input.focus();
+  }
+  function addErr(hall,msg,failedText){
+    const tx=document.getElementById('tx-'+hall),follow=scrollFollow[hall]!==false;
+    const notice=el('div','errline',msg);notice.setAttribute('role','alert');
+    if(failedText){const retry=el('button','','Restore / add message to draft');retry.type='button';retry.onclick=()=>{recoverMessage(hall,failedText);retry.disabled=true;retry.textContent='Added to draft';};notice.append(retry);}
+    tx.append(notice);errors[hall]=true;refreshState();updateTranscript(hall,follow);
+  }
+  function finishRequest(request,outcome){
+    if(!requests.finish(request))return;
+    const hall=request.hall;clearTimeout(request.timeout);busy[hall]=false;
+    const stage=document.getElementById('hall-'+hall);stage.classList.remove('thinking');stage.querySelectorAll('.sendbtn').forEach(b=>b.disabled=false);
+    controls[hall].cancel.hidden=true;arsenal?.finishRequest(request.activityId,outcome);refreshState();
+    if(hall===activeHall())resumeListeningAfterSpeech();
+  }
+  function cancelRequest(hall){
+    const request=requests.get(hall);if(!request)return;
+    request.controller.abort();request.pending.remove();cancelled[hall]=true;
+    const notice=el('div','request-notice','Stopped waiting in this browser. Server work may continue; check results before retrying an action.');notice.setAttribute('role','status');
+    const restore=el('button','','Restore / add message to draft');restore.type='button';restore.onclick=()=>{recoverMessage(hall,request.text);restore.disabled=true;restore.textContent='Added to draft';};notice.append(restore);
+    document.getElementById('tx-'+hall).append(notice);finishRequest(request,'cancelled');updateTranscript(hall);
+    if(hall===activeHall())document.getElementById('in-'+hall).focus({preventScroll:true});
+  }
+  function responseActions(row,reply,request){
+    const actions=el('div','response-actions'),copy=el('button','copy-response','Copy reply');copy.type='button';
+    const receipt=el('small','request-receipt',request.hall[0].toUpperCase()+request.hall.slice(1)+' · Reply received · '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}));
+    copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(reply);copy.textContent='Copied';}catch{copy.textContent='Copy unavailable';}});
+    actions.append(copy,receipt);row.lastElementChild.append(actions);
+  }
   async function send(hall){
-    if (busy[hall]) return;
-    var input = document.getElementById('in-' + hall);
-    var text = (input.value || '').trim();
-    if (!text) return;
-    if (vaultIntercept(text)) { input.value = ''; return; }   /* her vocabulary never leaves this device */
-
-    errors[hall]=false;lastFailed[hall]=text;busy[hall] = true;
-    const activityId=arsenal?.startRequest(hall);
-    listeningPaused=true;killRecognition();refreshState();
-    input.value = '';
-    var stage = document.getElementById('hall-' + hall);
-    stage.classList.add('thinking');
-    stage.querySelectorAll('.sendbtn').forEach(function(b){ b.disabled = true; });
-
-    stopSpeaking();   /* barge-in: a new message cuts off whatever is still being said */
-    var spoken = false;
-    const controller=new AbortController(); const timeout=setTimeout(()=>controller.abort(),60000);
-    addMsg(hall, 'user', text);
-    var pending = addMsg(hall, 'bot', null);
-
-    try {
-      var res = await fetch(API.base + API.chat, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(API.body(hall, text)),signal:controller.signal
-      });
-      var raw = await res.text();
-      var data; try { data = JSON.parse(raw); } catch(e){ data = raw; }
-
-      if (!res.ok) {
-        pending.remove();
-        addErr(hall, 'The assistant couldn’t reply (' + res.status + '). Restore your message and try again.');
-      } else {
-        var reply = API.reply(data);
-        if (reply) {
-          const bubble=pending.querySelector('.bubble');bubble.classList.remove('pending-label');formatReply(bubble,String(reply));lastFailed[hall]=null;
-          if(hall===activeHall()){const tx=document.getElementById('tx-'+hall);if(tx.scrollHeight-tx.scrollTop-tx.clientHeight<500)tx.scrollTop=tx.scrollHeight;}
-          if(hall===activeHall()){spoken = true;speak(hall, reply, resumeListeningAfterSpeech);}
-        } else {
-          pending.remove();
-          addErr(hall, 'The response could not be read. Restore your message and try again.');
-        }
-      }
-    } catch (err) {
-      pending.remove();
-      addErr(hall, err?.name==='AbortError'?'The reply took too long. Restore your message and try again.':'Couldn’t reach the assistant. Check your connection and try again.');
-    } finally {
-      clearTimeout(timeout);busy[hall] = false;arsenal?.finishRequest(activityId,!!errors[hall]);refreshState();
-      if (!spoken || speechPhase==='idle') resumeListeningAfterSpeech();   /* an error still hands the mic back */
-      stage.classList.remove('thinking');
-      stage.querySelectorAll('.sendbtn').forEach(function(b){ b.disabled = false; });
-      if(hall===activeHall()&&!document.getElementById('settings-dialog').open&&document.activeElement===input)input.focus();
-    }
+    if(busy[hall])return;
+    const input=document.getElementById('in-'+hall),text=(input.value||'').trim();if(!text)return;
+    if(vaultIntercept(text)){input.value='';return;}
+    const request=requests.begin(hall,text);if(!request)return;
+    errors[hall]=false;cancelled[hall]=false;busy[hall]=true;request.activityId=arsenal?.startRequest(hall);
+    listeningPaused=true;killRecognition();stopSpeaking();refreshState();input.value='';
+    const stage=document.getElementById('hall-'+hall);stage.classList.add('thinking');stage.querySelectorAll('.sendbtn').forEach(b=>b.disabled=true);controls[hall].cancel.hidden=false;
+    addMsg(hall,'user',text);request.pending=addMsg(hall,'bot',null);
+    // Keep keyboard continuity without stealing focus back when a late reply arrives.
+    if(hall===activeHall()&&!document.querySelector('dialog[open]'))input.focus({preventScroll:true});
+    request.timeout=setTimeout(()=>{request.timedOut=true;request.controller.abort();},60000);
+    let outcome='failed';
+    try{
+      const res=await fetch(API.base+API.chat,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(API.body(hall,text)),signal:request.controller.signal});
+      const raw=await res.text();if(!requests.current(request))return;
+      if(!res.ok)throw new Error('The assistant couldn’t reply ('+res.status+').');
+      const data=parseReplyPayload(raw,res.headers.get('content-type')||'');
+      const reply=API.reply(data);if(!reply)throw new Error('The response could not be read.');
+      const follow=scrollFollow[hall]!==false,bubble=request.pending.querySelector('.bubble');bubble.classList.remove('pending-label');formatReply(bubble,reply);responseActions(request.pending,reply,request);updateTranscript(hall,follow);outcome='received';
+      if(hall===activeHall())speak(hall,reply,resumeListeningAfterSpeech);
+    }catch(err){
+      if(!requests.current(request))return;
+      request.pending.remove();
+      const message=request.timedOut?'The reply timed out. Server work may continue; check results before retrying an action.':err instanceof TypeError?'Couldn’t reach the assistant. Check your connection. Server work is unconfirmed.':err.message||'The reply failed.';
+      addErr(hall,message+' Your message can be restored to the draft.',text);
+    }finally{finishRequest(request,outcome);}
   }
 
   ['thor','loki','odin'].forEach(function(hall){
     var input = document.getElementById('in-' + hall);
     var stage = document.getElementById('hall-' + hall);
     if (!input || !stage) return;
+    const bar=el('div','conversation-controls'),cancel=el('button','cancel-reply','Stop waiting'),latest=el('button','latest-reply','Latest message ↓');
+    cancel.type=latest.type='button';cancel.hidden=latest.hidden=true;cancel.title='Stops waiting in this browser; server work may continue.';
+    cancel.addEventListener('click',()=>cancelRequest(hall));latest.addEventListener('click',()=>{updateTranscript(hall,true);document.getElementById('tx-'+hall).focus({preventScroll:true});});
+    bar.append(cancel,latest);stage.querySelector('.composer').before(bar);controls[hall]={cancel,latest};scrollFollow[hall]=true;
+    const tx=document.getElementById('tx-'+hall);tx.addEventListener('scroll',()=>{if(hall!==activeHall()||document.querySelector('.conversation').hidden)return;scrollFollow[hall]=nearTranscriptEnd(tx);latest.hidden=scrollFollow[hall];},{passive:true});
+    input.addEventListener('input',()=>{if(cancelled[hall]||errors[hall]){cancelled[hall]=false;errors[hall]=false;refreshState();}});
     input.addEventListener('keydown', function(e){
       if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(hall); }
     });
@@ -196,10 +193,10 @@ function formatReply(container,text){
     if (ttsGuard) { clearTimeout(ttsGuard); ttsGuard = null; }
     if (ttsAudio) {
       var a = ttsAudio; ttsAudio = null;
-      try { a.onended = null; a.onerror = null; a.pause(); } catch(e){}
+      try { a.onended = null; a.onerror = null; a.onplaying = null; a.pause(); } catch(e){}
       try { if (a._url) URL.revokeObjectURL(a._url); } catch(e){}
     }
-    if (ttsUtter) { ttsUtter = null; try { speechSynthesis.cancel(); } catch(e){} }
+    if (ttsUtter) { ttsUtter.onstart=null;ttsUtter.onend=null;ttsUtter.onerror=null;ttsUtter = null; try { speechSynthesis.cancel(); } catch(e){} }
     ttsOnDone = null;
   }
 
@@ -242,7 +239,9 @@ function formatReply(container,text){
         var url = URL.createObjectURL(blob);
         var a = new Audio(url); a._url = url;
         a.onended = function(){ try { URL.revokeObjectURL(url); } catch(e){} finish(); };
-        a.onerror = function(){ try { URL.revokeObjectURL(url); } catch(e){} if(a._url)URL.revokeObjectURL(a._url);ttsAudio = null; browserVoice(); };
+        let fallbackStarted=false;
+        function fallback(){if(token!==ttsToken||fallbackStarted)return;fallbackStarted=true;a.onended=null;a.onerror=null;a.onplaying=null;try{a.pause();URL.revokeObjectURL(url);}catch{}if(ttsGuard){clearTimeout(ttsGuard);ttsGuard=null;}ttsAudio=null;speechPhase='preparing';refreshState();browserVoice();}
+        a.onerror = fallback;
         a.onplaying = function(){
           if(token===ttsToken){speechPhase='speaking';refreshState();}
           if (token !== ttsToken) return;
@@ -254,7 +253,7 @@ function formatReply(container,text){
         if (p && p.catch) p.catch(function(err){
           if (token !== ttsToken) return;
           console.warn('Audio playback refused, browser voice fallback:', err);
-          if(a._url)URL.revokeObjectURL(a._url);ttsAudio = null; browserVoice();
+          fallback();
         });
       })
       .catch(function(err){ if (token !== ttsToken) return; console.warn('TTS failed, browser voice fallback:', err); browserVoice(); });
@@ -278,7 +277,7 @@ function formatReply(container,text){
   function killRecognition(){
     var r = liveRec; liveRec = null;micState='off';refreshState();
     if (!r) return;
-    try { r.onend = null; r.onerror = null; r.onresult = null; } catch(e){}
+    try { r.onstart = null; r.onend = null; r.onerror = null; r.onresult = null; } catch(e){}
     try { r.abort ? r.abort() : r.stop(); } catch(e){}
   }
   function beginRecognition(rec){
@@ -315,6 +314,7 @@ function formatReply(container,text){
       handleSpokenLine(transcript);
     };
     var again = function(ev){
+      if(liveRec!==rec)return;micState='off';refreshState();
       if (micRefused(ev)) return;
       if (voiceActive && awake && !listeningPaused) setTimeout(function(){ if (voiceActive && awake && !listeningPaused) startConversationListening(); }, 120);
     };
@@ -338,6 +338,7 @@ function formatReply(container,text){
     if (matchesAny(transcript, SLEEP_PHRASES)) { speak(hall, SLEEP_LINE[hall], exitAwakeMode); return; }
     if (busy[hall]) { resumeListeningAfterSpeech(); return; }
     var input = document.getElementById('in-' + hall);
+    if(input?.value.trim()){input.value=restoreDraft(input.value,transcript);input.focus();resumeListeningAfterSpeech();return;}
     if (input) input.value = transcript;
     send(hall);
   }
@@ -419,6 +420,7 @@ function formatReply(container,text){
       }
     };
     var again = function(ev){
+      if(liveRec!==rec)return;micState='off';refreshState();
       if (micRefused(ev)) return;
       if (voiceActive && !awake) setTimeout(function(){ if (voiceActive && !awake) startWakeListening(); }, 120);
     };
@@ -480,12 +482,26 @@ function formatReply(container,text){
 
 document.querySelectorAll('.persona').forEach(b=>b.addEventListener('click',()=>{show(b.dataset.go);resumeListeningAfterSpeech();}));
 addEventListener('keydown',e=>{if(document.querySelector('dialog[open]')||e.ctrlKey||e.metaKey||e.altKey||editableTarget(e.target))return;if(['1','2','3'].includes(e.key)){show(halls[Number(e.key)-1]);resumeListeningAfterSpeech();}});
-document.querySelectorAll('.suggestion').forEach(b=>b.addEventListener('click',()=>{const input=document.getElementById('in-'+activeHall());input.value=b.dataset.prompt;input.focus();}));
+document.querySelectorAll('.suggestion').forEach(b=>b.addEventListener('click',()=>{const input=document.getElementById('in-'+activeHall());input.value=restoreDraft(input.value,b.dataset.prompt);input.focus();}));
 document.querySelectorAll('.stop-speech').forEach(b=>b.addEventListener('click',()=>{stopSpeaking();resumeListeningAfterSpeech();}));
 const settingsButton=document.querySelector('.settings-btn');
-settingsButton.addEventListener('click',()=>dialog.showModal());
+function diagnosticSummary(release,render={}){
+  const value=(v)=>typeof v==='string'||typeof v==='number'?String(v):'Unavailable';
+  const lines=release?['Release: '+value(release.id),'Fingerprint: '+value(release.fingerprint),'Base revision: '+value(release.sourceBase),'Assets: '+(release.assets&&typeof release.assets==='object'?Object.keys(release.assets).length:'Unavailable')]:['Release metadata unavailable from this host.'];
+  lines.push('','Renderer: '+value(render.renderMode)+' · Quality: '+value(render.quality),'Meshes: '+value(render.sculpturalMeshes)+' · Particles: '+value(render.particles),'Geometries: '+value(render.geometries)+' · Materials: '+value(render.materials)+' · Textures: '+value(render.textures));
+  return lines.join('\n');
+}
+async function releaseDiagnostics(){
+  const target=document.getElementById('release-diagnostics');if(!target)return;
+  target.textContent='Reading release metadata…';
+  let release=null;
+  try{const response=await fetch('/ui/release.json',{cache:'no-store',signal:AbortSignal.timeout(10000)});if(!response.ok)throw Error('HTTP '+response.status);release=await response.json();}catch{}
+  target.textContent=diagnosticSummary(release,presence?.status()||{})+'\n\n';
+  const link=el('a','','View full release manifest');link.href='/ui/release.json';link.target='_blank';link.rel='noopener noreferrer';target.append(link);
+}
+settingsButton.addEventListener('click',()=>{dialog.showModal();releaseDiagnostics();});
 document.querySelector('.close-settings').addEventListener('click',()=>dialog.close());
-dialog.addEventListener('close',()=>settingsButton.focus());
+dialog.addEventListener('close',()=>{if(!document.querySelector('dialog[open]'))settingsButton.focus({preventScroll:true});});
 const output=document.getElementById('output-setting');output.checked=preferences.output;
 output.addEventListener('change',()=>{preferences.output=output.checked;persist('asgard:voice-output',output.checked?'1':'0');if(!output.checked){stopSpeaking();resumeListeningAfterSpeech();}});
 const still=document.getElementById('still-setting');still.checked=preferences.still;
@@ -495,7 +511,34 @@ still.addEventListener('change',()=>{preferences.still=still.checked;persist('as
 const quality=document.getElementById('quality-setting');quality.value=preferences.quality;
 quality.addEventListener('change',()=>{preferences.quality=quality.value;persist('asgard:render-quality',quality.value);presence?.setQuality(quality.value);});
 const conversation=document.querySelector('.conversation'),toggle=document.querySelector('.conversation-toggle'),reopen=document.querySelector('.reopen-conversation');
-toggle.addEventListener('click',()=>{conversation.hidden=true;workspace.classList.add('chat-closed');reopen.hidden=false;toggle.setAttribute('aria-expanded','false');reopen.focus();});
+function bindConversationFocus(region){
+  const sync=target=>{document.documentElement.dataset.focus=!region.hidden&&!!target&&region.contains(target)?'composer':'none';};
+  region.addEventListener('focusin',event=>sync(event.target));
+  region.addEventListener('focusout',event=>{
+    if(event.relatedTarget)sync(event.relatedTarget);
+    else queueMicrotask(()=>sync(document.activeElement));
+  });
+}
+bindConversationFocus(conversation);
+function bindComposerViewport(region){
+  let frame=0;
+  function schedule(){
+    if(frame)return;
+    frame=requestAnimationFrame(()=>{
+      frame=0;
+      if(window.innerWidth>700||region.hidden||!region.contains(document.activeElement))return;
+      document.documentElement.style.setProperty('--visual-height',(window.visualViewport?.height||window.innerHeight)+'px');
+      // Reading the transcript must never invoke composer scrolling.
+      if(!document.activeElement?.closest?.('.composer,.composer-bottom,.conversation-controls'))return;
+      region.querySelector('.stage.active .composer-bottom')?.scrollIntoView({block:'nearest',inline:'nearest',behavior:'auto'});
+    });
+  }
+  region.addEventListener('focusin',schedule);
+  window.addEventListener('resize',schedule);
+  window.visualViewport?.addEventListener('resize',schedule);
+}
+bindComposerViewport(conversation);
+toggle.addEventListener('click',()=>{conversation.hidden=true;document.documentElement.dataset.focus='none';workspace.classList.add('chat-closed');reopen.hidden=false;toggle.setAttribute('aria-expanded','false');reopen.focus();});
 reopen.addEventListener('click',()=>{conversation.hidden=false;workspace.classList.remove('chat-closed');reopen.hidden=true;toggle.setAttribute('aria-expanded','true');document.getElementById('in-'+activeHall()).focus();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){killRecognition();stopSpeaking();}else resumeListeningAfterSpeech();});
 addEventListener('pagehide',e=>{voiceOff();stopSpeaking();if(!e.persisted)presence?.dispose();});
@@ -507,4 +550,4 @@ createPresence(document.getElementById('presence-scene'),{persona:activeHall(),s
 window.AsgardUI={status:()=>({persona:activeHall(),state:workspace.dataset.state,mic:micState,voiceOutput:preferences.output,arsenal:arsenal?.status(),render:presence?.status()||null})};
 
 // Bring the real composer into view without changing its draft.
-document.querySelector('[data-focus-chat]').addEventListener('click',()=>{if(conversation.hidden)reopen.click();const input=document.getElementById('in-'+activeHall());input.focus();input.scrollIntoView({block:'center',behavior:'auto'});});
+document.querySelector('[data-focus-chat]')?.addEventListener('click',()=>{if(conversation.hidden)reopen.click();const input=document.getElementById('in-'+activeHall());input.focus();input.scrollIntoView({block:'center',behavior:'auto'});});
