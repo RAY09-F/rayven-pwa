@@ -1,8 +1,8 @@
 {
   "name": "The Floating Realms",
-  "id": "floating-00e7625664f1",
-  "sourceBase": "5584e393b45f80cd63e7a55b13767c7b38da2a0c",
-  "fingerprint": "00e7625664f14d29795fd55a97e8299b5bd952bc8e23995c46fe6f97b9898034",
+  "id": "floating-bba551eb5f92",
+  "sourceBase": "dc835811952bbe310a69b96230abec2950197b91",
+  "fingerprint": "bba551eb5f92b3ba642ba5626f41eb9d0b9a599d4463531b2d42eed90cc728ad",
   "assets": {
     "/index.html": "2bd37f436b123702559f411532ad3292d9bfc01e2512111d809c724f2d6a6325",
     "/ui/app.js": "fa3f92b1794975e9a92cfc1b30a3b92b7be5f1a3ff6b7886bc2eda75f9e96fef",
@@ -24,12 +24,12 @@
     "/ui/realm-thor.js": "0c30226649433d2fc47ec6662f5bf1b252a4a599a01d57a20d84feffc47328aa",
     "/ui/scene.js": "4ff77c306aab43acdda067115a34d6f54d35fac9820d58ec2331c807dab44d1d",
     "/ui/state.js": "9974120739cbe01aeb3f944ac6765abc340511bd2110e227ff9936c71cd59d79",
-    "/ui/tool-catalog.json": "ac1551b541792edc79cad1c573b80f6f9ece22b91565a18be94dec48984330ba",
+    "/ui/tool-catalog.json": "4cd7de82f8888483868285758f1eb4e31dab7ac3c975b1a12a74714cf8411537",
     "/ui/vendor/Projector.js": "b0d5535a29f84ffb939339bc7ded5bc778aabcd31cda9c4a5621e44a7d7d0e43",
     "/ui/vendor/SVGRenderer.js": "36a473ceb5b0e96ce3ed0f7afa3c402bc95818f40a152f58a4916337b10be99c",
     "/ui/vendor/THREE-LICENSE.txt": "8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc",
     "/ui/vendor/three.core.min.js": "05b2609338c76cd65daf74f3ac515bc9a5045e1b3b33edc07d8c9bd55250fa90",
     "/ui/vendor/three.module.min.js": "86bcee248b64f44bcfc23c331ae74619061957d59cab040171dcb6fb5900beb6",
-    "/ui/voice-stream.js": "7ae50d79afbad810d3657f176f8ad537b063d07d04c13b2c2fafe0f6bb5fbf90"
+    "/ui/voice-stream.js": "75b017210ab86cc3ce22f2cbe58be4661206f2f36708ad3578f38734970cca9d"
   }
 }

@@ -1,0 +1,485 @@
+{
+  "status": "provisional authored set; real user-transcript validation pending",
+  "cases": [
+    {
+      "id": "tool-01",
+      "persona": "thor",
+      "utterance": "What is the weather in Bakersfield?",
+      "expected_tool": "weather",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "held-out"
+    },
+    {
+      "id": "tool-02",
+      "persona": "thor",
+      "utterance": "Please what is the weather in Bakersfield?",
+      "expected_tool": "weather",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "held-out"
+    },
+    {
+      "id": "tool-03",
+      "persona": "loki",
+      "utterance": "What is the official forecast for Bakersfield?",
+      "expected_tool": "nws_forecast",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-04",
+      "persona": "loki",
+      "utterance": "Please what is the official forecast for Bakersfield?",
+      "expected_tool": "nws_forecast",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-05",
+      "persona": "odin",
+      "utterance": "Are there active California weather alerts?",
+      "expected_tool": "nws_alerts",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-06",
+      "persona": "odin",
+      "utterance": "Please are there active California weather alerts?",
+      "expected_tool": "nws_alerts",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-07",
+      "persona": "thor",
+      "utterance": "Show the FDA label for ibuprofen.",
+      "expected_tool": "world_drug_lookup",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-08",
+      "persona": "thor",
+      "utterance": "Please show the FDA label for ibuprofen.",
+      "expected_tool": "world_drug_lookup",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-09",
+      "persona": "loki",
+      "utterance": "Find current food recalls involving milk.",
+      "expected_tool": "world_recalls",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-10",
+      "persona": "loki",
+      "utterance": "Please find current food recalls involving milk.",
+      "expected_tool": "world_recalls",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-11",
+      "persona": "odin",
+      "utterance": "Check recalls for a 2015 Honda Civic.",
+      "expected_tool": "recalls",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "held-out"
+    },
+    {
+      "id": "tool-12",
+      "persona": "odin",
+      "utterance": "Please check recalls for a 2015 Honda Civic.",
+      "expected_tool": "recalls",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "held-out"
+    },
+    {
+      "id": "tool-13",
+      "persona": "thor",
+      "utterance": "Show recent Apple SEC filings, CIK 320193.",
+      "expected_tool": "money_filings",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-14",
+      "persona": "thor",
+      "utterance": "Please show recent Apple SEC filings, CIK 320193.",
+      "expected_tool": "money_filings",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-15",
+      "persona": "loki",
+      "utterance": "Show Apple reported Revenues, CIK 320193.",
+      "expected_tool": "money_fundamentals",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-16",
+      "persona": "loki",
+      "utterance": "Please show Apple reported Revenues, CIK 320193.",
+      "expected_tool": "money_fundamentals",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-17",
+      "persona": "odin",
+      "utterance": "What is the latest US federal debt figure?",
+      "expected_tool": "money_treasury",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-18",
+      "persona": "odin",
+      "utterance": "Please what is the latest US federal debt figure?",
+      "expected_tool": "money_treasury",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-19",
+      "persona": "thor",
+      "utterance": "Show the latest FRED unemployment rate.",
+      "expected_tool": "money_macro",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-20",
+      "persona": "thor",
+      "utterance": "Please show the latest FRED unemployment rate.",
+      "expected_tool": "money_macro",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-21",
+      "persona": "loki",
+      "utterance": "Check the rayven-pwa repository status.",
+      "expected_tool": "dev_repo_status",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "held-out"
+    },
+    {
+      "id": "tool-22",
+      "persona": "loki",
+      "utterance": "Please check the rayven-pwa repository status.",
+      "expected_tool": "dev_repo_status",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "held-out"
+    },
+    {
+      "id": "tool-23",
+      "persona": "odin",
+      "utterance": "Did the latest GitHub workflow finish?",
+      "expected_tool": "dev_actions_status",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-24",
+      "persona": "odin",
+      "utterance": "Please did the latest GitHub workflow finish?",
+      "expected_tool": "dev_actions_status",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-25",
+      "persona": "thor",
+      "utterance": "Check the live release and browser connection.",
+      "expected_tool": "dev_self_check",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-26",
+      "persona": "thor",
+      "utterance": "Please check the live release and browser connection.",
+      "expected_tool": "dev_self_check",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-27",
+      "persona": "loki",
+      "utterance": "Find scholarly papers about urban heat islands.",
+      "expected_tool": "util_openalex",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-28",
+      "persona": "loki",
+      "utterance": "Please find scholarly papers about urban heat islands.",
+      "expected_tool": "util_openalex",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-29",
+      "persona": "odin",
+      "utterance": "Find PubMed research about sleep duration.",
+      "expected_tool": "util_pubmed",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-30",
+      "persona": "odin",
+      "utterance": "Please find PubMed research about sleep duration.",
+      "expected_tool": "util_pubmed",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-31",
+      "persona": "thor",
+      "utterance": "Find the movie Thor.",
+      "expected_tool": "media_movie_lookup",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "held-out"
+    },
+    {
+      "id": "tool-32",
+      "persona": "thor",
+      "utterance": "Please find the movie Thor.",
+      "expected_tool": "media_movie_lookup",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "held-out"
+    },
+    {
+      "id": "tool-33",
+      "persona": "loki",
+      "utterance": "Transcribe this public audio URL.",
+      "expected_tool": "media_transcribe",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-34",
+      "persona": "loki",
+      "utterance": "Please transcribe this public audio URL.",
+      "expected_tool": "media_transcribe",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-35",
+      "persona": "odin",
+      "utterance": "Use Firecrawl to find public library pages.",
+      "expected_tool": "web_firecrawl_search",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-36",
+      "persona": "odin",
+      "utterance": "Please use Firecrawl to find public library pages.",
+      "expected_tool": "web_firecrawl_search",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-37",
+      "persona": "thor",
+      "utterance": "Use Exa to find river restoration research.",
+      "expected_tool": "web_exa_search",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-38",
+      "persona": "thor",
+      "utterance": "Please use Exa to find river restoration research.",
+      "expected_tool": "web_exa_search",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-39",
+      "persona": "loki",
+      "utterance": "Convert this PDF into readable text.",
+      "expected_tool": "doc_to_markdown",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-40",
+      "persona": "loki",
+      "utterance": "Please convert this PDF into readable text.",
+      "expected_tool": "doc_to_markdown",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-41",
+      "persona": "odin",
+      "utterance": "Read the text from this image.",
+      "expected_tool": "doc_ocr",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "held-out"
+    },
+    {
+      "id": "tool-42",
+      "persona": "odin",
+      "utterance": "Please read the text from this image.",
+      "expected_tool": "doc_ocr",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "held-out"
+    },
+    {
+      "id": "tool-43",
+      "persona": "thor",
+      "utterance": "Read this public JavaScript page in the cloud browser.",
+      "expected_tool": "browser_cloud_read",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-44",
+      "persona": "thor",
+      "utterance": "Please read this public JavaScript page in the cloud browser.",
+      "expected_tool": "browser_cloud_read",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-45",
+      "persona": "loki",
+      "utterance": "Capture this public webpage in the cloud browser.",
+      "expected_tool": "browser_cloud_screenshot",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-46",
+      "persona": "loki",
+      "utterance": "Please capture this public webpage in the cloud browser.",
+      "expected_tool": "browser_cloud_screenshot",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-47",
+      "persona": "odin",
+      "utterance": "Show what is on my current Chrome tab.",
+      "expected_tool": "browser_screenshot",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-48",
+      "persona": "odin",
+      "utterance": "Please show what is on my current Chrome tab.",
+      "expected_tool": "browser_screenshot",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-49",
+      "persona": "thor",
+      "utterance": "Open example.com in my Chrome browser.",
+      "expected_tool": "browser_navigate",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-50",
+      "persona": "thor",
+      "utterance": "Please open example.com in my Chrome browser.",
+      "expected_tool": "browser_navigate",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-51",
+      "persona": "loki",
+      "utterance": "Play music on Spotify.",
+      "expected_tool": "spotify_play",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "held-out"
+    },
+    {
+      "id": "tool-52",
+      "persona": "loki",
+      "utterance": "Please play music on Spotify.",
+      "expected_tool": "spotify_play",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "held-out"
+    },
+    {
+      "id": "tool-53",
+      "persona": "odin",
+      "utterance": "What did I tell you about my project?",
+      "expected_tool": "search_memory",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-54",
+      "persona": "odin",
+      "utterance": "Please what did I tell you about my project?",
+      "expected_tool": "search_memory",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-55",
+      "persona": "thor",
+      "utterance": "Read my current to-do list.",
+      "expected_tool": "list_todos",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-56",
+      "persona": "thor",
+      "utterance": "Please read my current to-do list.",
+      "expected_tool": "list_todos",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-57",
+      "persona": "loki",
+      "utterance": "What does my day look like?",
+      "expected_tool": "plan_today",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-58",
+      "persona": "loki",
+      "utterance": "Please what does my day look like?",
+      "expected_tool": "plan_today",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-59",
+      "persona": "odin",
+      "utterance": "What context do you have right now?",
+      "expected_tool": "util_context",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    },
+    {
+      "id": "tool-60",
+      "persona": "odin",
+      "utterance": "Please what context do you have right now?",
+      "expected_tool": "util_context",
+      "origin": "authored acceptance prompt; not a recorded user utterance",
+      "split": "development"
+    }
+  ]
+}

@@ -101,7 +101,7 @@ function audioHarness(){
   class FakeAudio{constructor(){audios.push(this);}play(){return Promise.resolve();}pause(){}}
   class Utterance{constructor(text){this.text=text;utterances.push(this);}}
   const context=vm.createContext({
-    speechPhase:'idle',preferences:{output:true},document:{hidden:false},window:{speechSynthesis:{}},
+    liveVoice:null,speechPhase:'idle',preferences:{output:true},document:{hidden:false},window:{speechSynthesis:{}},
     refreshState(){},killRecognition(){},listeningPaused:false,API:{base:'https://example.test'},AbortSignal,
     fetch:async()=>({ok:true,blob:async()=>({})}),Audio:FakeAudio,SpeechSynthesisUtterance:Utterance,
     speechSynthesis:{speak(){fallbackCount++;},cancel(){}},setTimeout:()=>1,clearTimeout(){},

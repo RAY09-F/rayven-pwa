@@ -48,6 +48,6 @@ test('the doubled catalogue keeps proposals distinct and does not double-count w
  const queue=JSON.parse(readFileSync('public/ui/expansion-catalog.json')).tools;
  assert.equal(queue.length,186);assert.equal(new Set(queue.map(t=>t.id)).size,186);
  assert.ok(queue.every(t=>t.status==='proposed'&&t.requirements&&t.acceptance));
- assert.equal(backend.length+LOCAL_TOOLS.length+queue.length,445);
+ const ids=[...backend,...LOCAL_TOOLS,...queue].map(t=>t.id);assert.equal(new Set(ids).size,ids.length,'registered, local and proposed identifiers must stay distinct');
  assert.equal(AUTOMATIONS.length,24);assert.ok(AUTOMATIONS.every(t=>t.trigger&&t.action&&t.tools));
 });

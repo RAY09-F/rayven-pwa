@@ -114,3 +114,12 @@ Wave1: implement the shared Messages API streaming/parser/error handling and sta
 - Conversation mirror remains disabled; seven-day trial has not begun and cannot be compressed into this session. Real SQLite/edge trial and concurrency review remain required before activation. No KV deletion.
 - No second scheduler or parallel agent framework added. Existing queued research's five-item drain/recovery limitation still needs a durable retry implementation and real cron tests; no claim of crash-safe Workflows. Existing MCP remains; new OAuth federation and Agents SDK migration are phase2 only.
 - No Wave8 deployment. Wave8 explicitly blocked before Wave9 starts.
+
+## Wave 9 — offline regression complete; measured acceptance BLOCKED
+
+- Full serial suite:148tests passed,0failed. Five real Chrome checks passed for progressive text, final receipt, cancellation and the mounted WebGL realm; browser screenshot inspected. These use fixture replies, not live model answers.
+- Full-suite corrections: refreshed the public tool catalog to246 visible backend entries (300total including private/internal), repaired speech test harness for the gated client, replaced an obsolete software-renderer assertion with the actual honest WebGL-unavailable behavior, and removed stale hardcoded catalog counts. No halls/artwork/CSS changed.
+- Fixed screenshot content preservation, stopped previous voice playback before a new streamed turn, included new comms_push in councillor send refusals, and gated the new document-conversion entry until allowance verification. Existing converter retained.
+- Added60 authored selection prompts,45 persona prompts,30 actual historical failure observations across21tools, held-out labels and outcome/consistency graders. Read the recorded failure excerpts. Authored prompts are explicitly not real user utterances; no model-selection accuracy or persona pass rate invented.
+- Release test command fails closed without actual latency/search evidence. Both evidence gates returned BLOCKED as intended. No 400ms/800ms claim, cache hit, pass@k or pass^k score without real trials.
+- BLOCKED: funded/authorized model and voice runs, reviewed full live transcripts, final real-utterance golden set, physical Chromebook timing and provider compatibility. No Wave9 deployment. Wave9 explicitly blocked before Wave10 report begins.

@@ -38,7 +38,7 @@ export class VoiceClient {
   socket.onclose=()=>{if(this.socket!==socket)return;if(this.pending){this.pending.reject(new Error('Voice connection closed.'));this.interrupt();}};
  }
  async turn(persona,text,{signal,onText}){
-  await this.unlock();await this.connect(persona);signal.throwIfAborted();
+  this.interrupt();await this.unlock();await this.connect(persona);signal.throwIfAborted();
   return new Promise((resolve,reject)=>{const p={id:crypto.randomUUID(),playback:new VoicePlayback(this.context),text:'',onText,resolve,reject};this.pending=p;p.guard=setTimeout(()=>{if(this.pending===p)this.interrupt();},60000);this.onState('preparing');signal.addEventListener('abort',()=>{if(this.pending===p){this.interrupt();reject(new DOMException('Aborted','AbortError'));}},{once:true});this.socket.send(JSON.stringify({type:'turn',id:p.id,text}));});
  }
  interrupt(){const p=this.pending;if(!p)return;clearTimeout(p.finishTimer);clearTimeout(p.guard);const heardChars=p.playback.heard();if(this.socket?.readyState===1)this.socket.send(JSON.stringify({type:'interrupt',id:p.id,heardChars}));p.playback.stop();this.pending=null;p.reject(new DOMException('Voice interrupted','AbortError'));this.onState('idle');}

@@ -3,5 +3,5 @@ import {implementationToolName} from './tool-aliases.js';
 export function councilToolAllowed(scope,name) {
   if (!scope?.councillor) return true;
   const implementation=implementationToolName(name);
-  return scope.tools.includes(implementation) && !['send_text','make_call','ask_jarvis','ask_kevos','discord_webhook','ntfy_push','publish_note','share_file'].includes(implementation);
+  return scope.tools.includes(implementation) && !['send_text','make_call','ask_jarvis','ask_kevos','discord_webhook','ntfy_push','comms_push','publish_note','share_file'].includes(implementation);
 }

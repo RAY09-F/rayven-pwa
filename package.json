@@ -1,1 +1,11 @@
-{"name":"asgard-interface-checks","private":true,"type":"module","scripts":{"dev":"node scripts/ui-preview.mjs","test:ui":"node --test scripts/ui-state.test.mjs"}}
+{
+  "name": "asgard-interface-checks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/ui-preview.mjs",
+    "test:ui": "node --test scripts/ui-state.test.mjs",
+    "test": "node --test --test-concurrency=1 scripts/*.test.mjs",
+    "test:release": "npm test && node evals/latency.mjs \"$ASGARD_LATENCY_EVIDENCE\" && node evals/grade.mjs \"$ASGARD_SELECTION_EVIDENCE\""
+  }
+}

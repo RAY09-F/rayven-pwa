@@ -4,18 +4,17 @@ import {CATALOG} from '../src/tools/catalog.js';
 import {publicHostCheck,httpFetch} from '../src/lib/http.js';
 const families=['web','docs','money','world','dev','knowledge','media','browser'];
 const added=(await Promise.all(families.map(f=>import(`../src/tools/catalog-brain-${f}.js`)))).flatMap(m=>m.TOOLS);
-const env={BROWSER_CLOUD_ENABLED:'true',BROWSER_RUN_TOKEN:'fixture',CLOUDFLARE_ACCOUNT_ID:'a'.repeat(32),SEC_USER_AGENT:'Asgard team@example.com',FRED_API_KEY:'fixture',TMDB_READ_TOKEN:'fixture',ASSEMBLYAI_API_KEY:'fixture',ASSEMBLYAI_ENABLED:'true',FIRECRAWL_API_KEY:'fixture',FIRECRAWL_ENABLED:'true',EXA_API_KEY:'fixture',EXA_ENABLED:'true',OCR_SPACE_API_KEY:'fixture',OCR_SPACE_ENABLED:'true',RAYVEN_KV:{get:async()=>null}};
+const env={DOC_CONVERSION_ENABLED:'true',BROWSER_CLOUD_ENABLED:'true',BROWSER_RUN_TOKEN:'fixture',CLOUDFLARE_ACCOUNT_ID:'a'.repeat(32),SEC_USER_AGENT:'Asgard team@example.com',FRED_API_KEY:'fixture',TMDB_READ_TOKEN:'fixture',ASSEMBLYAI_API_KEY:'fixture',ASSEMBLYAI_ENABLED:'true',FIRECRAWL_API_KEY:'fixture',FIRECRAWL_ENABLED:'true',EXA_API_KEY:'fixture',EXA_ENABLED:'true',OCR_SPACE_API_KEY:'fixture',OCR_SPACE_ENABLED:'true',RAYVEN_KV:{get:async()=>null}};
 for(const tool of added){
  test(`${tool.name} has deferred example and reports a provider failure`,async()=>{
   assert.equal(tool.defer_loading,true);assert.ok(tool.input_examples.length);
-  if(tool.name==='doc_to_markdown')return; // Existing converter is covered separately; requires AI binding.
   const original=globalThis.fetch;globalThis.fetch=async()=>new Response('{"error":"fixture failure"}',{status:503});
   try{const result=await tool.run(env,tool.input_examples[0]);if(tool.name==='dev_self_check'){assert.equal(result.ok,false);assert.equal(result.releaseMatches,null);}else assert.match(result,/failed|unexpected/);}finally{globalThis.fetch=original;}
  });
 }
 test('gated providers and push refuse all network requests by default',async()=>{
  const original=globalThis.fetch;globalThis.fetch=()=>{throw Error('Must not call network');};
- try{for(const tool of added.filter(t=>/firecrawl|exa_|ocr|transcribe/.test(t.name)))assert.match(await tool.run({},tool.input_examples[0]),/not configured|disabled/);
+ try{for(const tool of added.filter(t=>/firecrawl|exa_|ocr|transcribe|to_markdown/.test(t.name)))assert.match(await tool.run({},tool.input_examples[0]),/not configured|disabled/);
  for(const name of ['ntfy_push','comms_push']){assert.match(await CATALOG[name].run({NTFY_TOPIC:'x'.repeat(40)},{message:'fixture'}),/disabled/);assert.match(await CATALOG[name].run({COMMS_PUSH_ENABLED:'true',NTFY_TOPIC:'short'},{message:'fixture'}),/32/);}}
  finally{globalThis.fetch=original;}
 });

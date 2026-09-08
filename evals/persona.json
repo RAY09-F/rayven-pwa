@@ -1,0 +1,238 @@
+{
+  "origin": "authored rubric prompts, not generated model outputs",
+  "dimensions": [
+    "speakable aloud",
+    "at most three sentences",
+    "no bullets",
+    "no canned happy-to phrase",
+    "correct persona voice"
+  ],
+  "unknown_policy": "Return Unknown when voice quality cannot be established; do not guess a score.",
+  "cases": [
+    {
+      "id": "thor-01",
+      "persona": "thor",
+      "prompt": "How should I start my day?"
+    },
+    {
+      "id": "thor-02",
+      "persona": "thor",
+      "prompt": "I am tired and behind."
+    },
+    {
+      "id": "thor-03",
+      "persona": "thor",
+      "prompt": "Explain an API in plain English."
+    },
+    {
+      "id": "thor-04",
+      "persona": "thor",
+      "prompt": "Give me one small next step."
+    },
+    {
+      "id": "thor-05",
+      "persona": "thor",
+      "prompt": "That answer felt too long."
+    },
+    {
+      "id": "thor-06",
+      "persona": "thor",
+      "prompt": "Tell me what you cannot do."
+    },
+    {
+      "id": "thor-07",
+      "persona": "thor",
+      "prompt": "Celebrate a small win with me."
+    },
+    {
+      "id": "thor-08",
+      "persona": "thor",
+      "prompt": "I need an honest opinion."
+    },
+    {
+      "id": "thor-09",
+      "persona": "thor",
+      "prompt": "What did I just ask you?"
+    },
+    {
+      "id": "thor-10",
+      "persona": "thor",
+      "prompt": "Help me make a realistic plan."
+    },
+    {
+      "id": "thor-11",
+      "persona": "thor",
+      "prompt": "I am worried about wasting money."
+    },
+    {
+      "id": "thor-12",
+      "persona": "thor",
+      "prompt": "Explain what you would verify first."
+    },
+    {
+      "id": "thor-13",
+      "persona": "thor",
+      "prompt": "Tell me when you are unsure."
+    },
+    {
+      "id": "thor-14",
+      "persona": "thor",
+      "prompt": "Give me a calm reset."
+    },
+    {
+      "id": "thor-15",
+      "persona": "thor",
+      "prompt": "Say goodnight."
+    },
+    {
+      "id": "loki-01",
+      "persona": "loki",
+      "prompt": "How should I start my day?"
+    },
+    {
+      "id": "loki-02",
+      "persona": "loki",
+      "prompt": "I am tired and behind."
+    },
+    {
+      "id": "loki-03",
+      "persona": "loki",
+      "prompt": "Explain an API in plain English."
+    },
+    {
+      "id": "loki-04",
+      "persona": "loki",
+      "prompt": "Give me one small next step."
+    },
+    {
+      "id": "loki-05",
+      "persona": "loki",
+      "prompt": "That answer felt too long."
+    },
+    {
+      "id": "loki-06",
+      "persona": "loki",
+      "prompt": "Tell me what you cannot do."
+    },
+    {
+      "id": "loki-07",
+      "persona": "loki",
+      "prompt": "Celebrate a small win with me."
+    },
+    {
+      "id": "loki-08",
+      "persona": "loki",
+      "prompt": "I need an honest opinion."
+    },
+    {
+      "id": "loki-09",
+      "persona": "loki",
+      "prompt": "What did I just ask you?"
+    },
+    {
+      "id": "loki-10",
+      "persona": "loki",
+      "prompt": "Help me make a realistic plan."
+    },
+    {
+      "id": "loki-11",
+      "persona": "loki",
+      "prompt": "I am worried about wasting money."
+    },
+    {
+      "id": "loki-12",
+      "persona": "loki",
+      "prompt": "Explain what you would verify first."
+    },
+    {
+      "id": "loki-13",
+      "persona": "loki",
+      "prompt": "Tell me when you are unsure."
+    },
+    {
+      "id": "loki-14",
+      "persona": "loki",
+      "prompt": "Give me a calm reset."
+    },
+    {
+      "id": "loki-15",
+      "persona": "loki",
+      "prompt": "Say goodnight."
+    },
+    {
+      "id": "odin-01",
+      "persona": "odin",
+      "prompt": "How should I start my day?"
+    },
+    {
+      "id": "odin-02",
+      "persona": "odin",
+      "prompt": "I am tired and behind."
+    },
+    {
+      "id": "odin-03",
+      "persona": "odin",
+      "prompt": "Explain an API in plain English."
+    },
+    {
+      "id": "odin-04",
+      "persona": "odin",
+      "prompt": "Give me one small next step."
+    },
+    {
+      "id": "odin-05",
+      "persona": "odin",
+      "prompt": "That answer felt too long."
+    },
+    {
+      "id": "odin-06",
+      "persona": "odin",
+      "prompt": "Tell me what you cannot do."
+    },
+    {
+      "id": "odin-07",
+      "persona": "odin",
+      "prompt": "Celebrate a small win with me."
+    },
+    {
+      "id": "odin-08",
+      "persona": "odin",
+      "prompt": "I need an honest opinion."
+    },
+    {
+      "id": "odin-09",
+      "persona": "odin",
+      "prompt": "What did I just ask you?"
+    },
+    {
+      "id": "odin-10",
+      "persona": "odin",
+      "prompt": "Help me make a realistic plan."
+    },
+    {
+      "id": "odin-11",
+      "persona": "odin",
+      "prompt": "I am worried about wasting money."
+    },
+    {
+      "id": "odin-12",
+      "persona": "odin",
+      "prompt": "Explain what you would verify first."
+    },
+    {
+      "id": "odin-13",
+      "persona": "odin",
+      "prompt": "Tell me when you are unsure."
+    },
+    {
+      "id": "odin-14",
+      "persona": "odin",
+      "prompt": "Give me a calm reset."
+    },
+    {
+      "id": "odin-15",
+      "persona": "odin",
+      "prompt": "Say goodnight."
+    }
+  ]
+}
