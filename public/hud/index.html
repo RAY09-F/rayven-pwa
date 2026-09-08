@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en" data-realm="odin" data-motion="on">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASGARD · Council HUD</title>
+<meta name="description" content="ASGARD three-realm council HUD — Thor, Loki and Odin.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Cormorant+Garamond:wght@300;400;600&family=IBM+Plex+Mono:wght@300;400;500&display=swap">
+<link rel="stylesheet" href="/ui/hud/hud.css">
+</head>
+<body>
+<div class="hud-host" id="hud"></div>
+<script type="module">
+import {createHUD} from '/ui/hud/hud.js';
+const q = new URLSearchParams(location.search);
+const flag = (k, d) => q.has(k) ? q.get(k) !== 'false' && q.get(k) !== '0' : d;
+window.AsgardHUD = createHUD(document.getElementById('hud'), {
+ scanlines: flag('scanlines', true),
+ telemetry: flag('telemetry', true),
+ motion: flag('motion', true)
+});
+</script>
+</body>
+</html>
