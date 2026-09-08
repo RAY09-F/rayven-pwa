@@ -1,0 +1,500 @@
+{
+  "verifiedAt": "2026-09-08T11:29:03.379Z",
+  "base": "https://asgrard-backend.rayanfahil2.workers.dev",
+  "release": "floating-fc6dd33eeea9",
+  "fingerprint": "fc6dd33eeea9579378d0a0dc7ca4d238c41cf2fb18cd330e5353da89fa2c3579",
+  "checks": [
+    {
+      "path": "/",
+      "bytes": 14389,
+      "type": "text/html",
+      "sha256": "3ff650494708405f7d7736d6d865c7e22adf5ad40d6159292f57bb93b4b03547"
+    },
+    {
+      "path": "/ui/app.js",
+      "bytes": 35813,
+      "type": "text/javascript",
+      "sha256": "505f676b48529576efcfb6ed71c3b782bb7339836cd3dbbe0337c816ba4f9b7d"
+    },
+    {
+      "path": "/ui/arsenal.js",
+      "bytes": 16890,
+      "type": "text/javascript",
+      "sha256": "35899d7e899188f5e43f3041417420a7833d500090dd97d54532a1226383c809"
+    },
+    {
+      "path": "/ui/astral-v1/app.js",
+      "bytes": 35963,
+      "type": "text/javascript",
+      "sha256": "eb011173dd4f0bcf15b35e88d8d6881b31e1614d4c17d8f99e12f6b72f37dc4c"
+    },
+    {
+      "path": "/ui/astral-v1/arsenal.js",
+      "bytes": 16890,
+      "type": "text/javascript",
+      "sha256": "35899d7e899188f5e43f3041417420a7833d500090dd97d54532a1226383c809"
+    },
+    {
+      "path": "/ui/astral-v1/astral-cartographer-model.js",
+      "bytes": 26073,
+      "type": "text/javascript",
+      "sha256": "f80d19a2c9fc101b4bed6cbc5d8084bdf5219fe6a4e292d685f261bcfd280df6"
+    },
+    {
+      "path": "/ui/astral-v1/astral-cartographer.js",
+      "bytes": 911,
+      "type": "text/javascript",
+      "sha256": "ca136e971ed4acd57adcd5c8477a9b463ac281bdfa0925b80f81542751c62342"
+    },
+    {
+      "path": "/ui/astral-v1/council-data.js",
+      "bytes": 17240,
+      "type": "text/javascript",
+      "sha256": "b86861df6e9cf144fd528aefb9a4911d0fc42c9e7359853708e8344b44b15b60"
+    },
+    {
+      "path": "/ui/astral-v1/council-scene.js",
+      "bytes": 12959,
+      "type": "text/javascript",
+      "sha256": "a1fd8249be3a35615dea95cadb7190714e34c189e1f564491d923888693b98c6"
+    },
+    {
+      "path": "/ui/astral-v1/expansion-catalog.json",
+      "bytes": 98376,
+      "type": "application/json",
+      "sha256": "077a75c7b26c568a39471558701f44b9f154bd9cefb17ec10dff62a990d0ee90"
+    },
+    {
+      "path": "/ui/astral-v1/expansion.js",
+      "bytes": 12701,
+      "type": "text/javascript",
+      "sha256": "93299da26d00c81aa57ea568f0f2da2ec93be93f782c32ac95a8de9105979d44"
+    },
+    {
+      "path": "/ui/astral-v1/hologram-persona.js",
+      "bytes": 21130,
+      "type": "text/javascript",
+      "sha256": "165ccb5045be00c3b4bfa72c51f0bc7dafe6354194825e6896bf00a352a20e2c"
+    },
+    {
+      "path": "/ui/astral-v1/hologram-projection.js",
+      "bytes": 6399,
+      "type": "text/javascript",
+      "sha256": "8e8140a74dda4eca0f91791898260870529b4452f430a44adc8c4a33d99e749f"
+    },
+    {
+      "path": "/ui/astral-v1/holographic-field.js",
+      "bytes": 2430,
+      "type": "text/javascript",
+      "sha256": "06ba92add1597a645f3410e0a5690ec3f018eb942fb392ba2d09d5987d81acf4"
+    },
+    {
+      "path": "/ui/astral-v1/interface.css",
+      "bytes": 39187,
+      "type": "text/css",
+      "sha256": "343114bbe1e5e4539884c54e6224d1d2c7c2ce95139bc9bcd2529d855f5471bf"
+    },
+    {
+      "path": "/ui/astral-v1/local-tools.js",
+      "bytes": 14713,
+      "type": "text/javascript",
+      "sha256": "2fb0bc78ad5618f1d48a5af44effe61bdc836bb18ba10fd8e83d9723c9167888"
+    },
+    {
+      "path": "/ui/astral-v1/nameplate-layout.js",
+      "bytes": 1256,
+      "type": "text/javascript",
+      "sha256": "524ebd0e6c6c7e7ad2ad7f6ce2e34e36c5f0e152440269dbd484682abb391f1f"
+    },
+    {
+      "path": "/ui/astral-v1/prism-foundry-model.js",
+      "bytes": 12556,
+      "type": "text/javascript",
+      "sha256": "4d629a645d48f36d8dd8167697a36f20532e3440b17ec96cf800653fc5f64906"
+    },
+    {
+      "path": "/ui/astral-v1/prism-foundry.js",
+      "bytes": 662,
+      "type": "text/javascript",
+      "sha256": "a68cf88cfde1ed3f0a79b2828cfaa1dc30d93b02e7658770ab793421368f7728"
+    },
+    {
+      "path": "/ui/astral-v1/realm-architecture.js",
+      "bytes": 4454,
+      "type": "text/javascript",
+      "sha256": "5f970f80cd9fd0fa1ab174f20d0dc31ffd4a8ceea7a50ae1fcabc6c975b47344"
+    },
+    {
+      "path": "/ui/astral-v1/realm-controls.js",
+      "bytes": 1131,
+      "type": "text/javascript",
+      "sha256": "0f19ace086ff2fd36666ece165944d6faf12bbc22577c05b7b54e86132b1451f"
+    },
+    {
+      "path": "/ui/astral-v1/realm-loki.js",
+      "bytes": 8856,
+      "type": "text/javascript",
+      "sha256": "cdb3381ac3e08f64a2e307c4a194a08ef74aa218e35f579531ff3dad415e74cd"
+    },
+    {
+      "path": "/ui/astral-v1/realm-odin.js",
+      "bytes": 14336,
+      "type": "text/javascript",
+      "sha256": "06da6f5166311d8f3e63f5ee4cb01ea5127704c0037eb9f780f47fbfa2ce25aa"
+    },
+    {
+      "path": "/ui/astral-v1/realm-thor.js",
+      "bytes": 11594,
+      "type": "text/javascript",
+      "sha256": "0c30226649433d2fc47ec6662f5bf1b252a4a599a01d57a20d84feffc47328aa"
+    },
+    {
+      "path": "/ui/astral-v1/scene.js",
+      "bytes": 17988,
+      "type": "text/javascript",
+      "sha256": "0ae0acb2093bf28ae9487d931015878afa5c6ba5309abeae680bb02ed5f1be92"
+    },
+    {
+      "path": "/ui/astral-v1/state.js",
+      "bytes": 6329,
+      "type": "text/javascript",
+      "sha256": "9974120739cbe01aeb3f944ac6765abc340511bd2110e227ff9936c71cd59d79"
+    },
+    {
+      "path": "/ui/astral-v1/tool-catalog.json",
+      "bytes": 127253,
+      "type": "application/json",
+      "sha256": "ac1551b541792edc79cad1c573b80f6f9ece22b91565a18be94dec48984330ba"
+    },
+    {
+      "path": "/ui/astral-v1/vendor/OrbitControls.js",
+      "bytes": 40520,
+      "type": "text/javascript",
+      "sha256": "845c827054bda45b84ae0e9e0db4e707f75d2182af9cd88787b2cac86aeef8ef"
+    },
+    {
+      "path": "/ui/astral-v1/vendor/Projector.js",
+      "bytes": 26725,
+      "type": "text/javascript",
+      "sha256": "b0d5535a29f84ffb939339bc7ded5bc778aabcd31cda9c4a5621e44a7d7d0e43"
+    },
+    {
+      "path": "/ui/astral-v1/vendor/SVGRenderer.js",
+      "bytes": 17811,
+      "type": "text/javascript",
+      "sha256": "36a473ceb5b0e96ce3ed0f7afa3c402bc95818f40a152f58a4916337b10be99c"
+    },
+    {
+      "path": "/ui/astral-v1/vendor/THREE-LICENSE.txt",
+      "bytes": 1081,
+      "type": "text/plain",
+      "sha256": "8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc"
+    },
+    {
+      "path": "/ui/astral-v1/vendor/three.core.min.js",
+      "bytes": 384222,
+      "type": "text/javascript",
+      "sha256": "6486aa0d719cfa87ec88dc47223b59b1fb8417a1a407fc0e52467c943e2f8cc9"
+    },
+    {
+      "path": "/ui/astral-v1/vendor/three.module.min.js",
+      "bytes": 364998,
+      "type": "text/javascript",
+      "sha256": "36a60b0120335f89a80a0dab70292292b0ec414b3d05e83cd09a3ea428c6712a"
+    },
+    {
+      "path": "/ui/council-data.js",
+      "bytes": 17240,
+      "type": "text/javascript",
+      "sha256": "b86861df6e9cf144fd528aefb9a4911d0fc42c9e7359853708e8344b44b15b60"
+    },
+    {
+      "path": "/ui/expansion-catalog.json",
+      "bytes": 98376,
+      "type": "application/json",
+      "sha256": "077a75c7b26c568a39471558701f44b9f154bd9cefb17ec10dff62a990d0ee90"
+    },
+    {
+      "path": "/ui/expansion.js",
+      "bytes": 12701,
+      "type": "text/javascript",
+      "sha256": "93299da26d00c81aa57ea568f0f2da2ec93be93f782c32ac95a8de9105979d44"
+    },
+    {
+      "path": "/ui/hologram-persona.js",
+      "bytes": 21130,
+      "type": "text/javascript",
+      "sha256": "165ccb5045be00c3b4bfa72c51f0bc7dafe6354194825e6896bf00a352a20e2c"
+    },
+    {
+      "path": "/ui/hologram-projection.js",
+      "bytes": 6399,
+      "type": "text/javascript",
+      "sha256": "8e8140a74dda4eca0f91791898260870529b4452f430a44adc8c4a33d99e749f"
+    },
+    {
+      "path": "/ui/holographic-field.js",
+      "bytes": 2430,
+      "type": "text/javascript",
+      "sha256": "06ba92add1597a645f3410e0a5690ec3f018eb942fb392ba2d09d5987d81acf4"
+    },
+    {
+      "path": "/ui/interface.css",
+      "bytes": 36030,
+      "type": "text/css",
+      "sha256": "1abf31333b2ed2a1d8585ae5f04dc0b05689a4840651e476aa1de5665cd93b54"
+    },
+    {
+      "path": "/ui/local-tools.js",
+      "bytes": 14713,
+      "type": "text/javascript",
+      "sha256": "2fb0bc78ad5618f1d48a5af44effe61bdc836bb18ba10fd8e83d9723c9167888"
+    },
+    {
+      "path": "/ui/nameplate-layout.js",
+      "bytes": 1256,
+      "type": "text/javascript",
+      "sha256": "524ebd0e6c6c7e7ad2ad7f6ce2e34e36c5f0e152440269dbd484682abb391f1f"
+    },
+    {
+      "path": "/ui/prism-v1/app.js",
+      "bytes": 35946,
+      "type": "text/javascript",
+      "sha256": "ab2108576e65ae280dd4fe9f7be508d6425b21d374ac7e7760d3e8ef1b18d72a"
+    },
+    {
+      "path": "/ui/prism-v1/arsenal.js",
+      "bytes": 16890,
+      "type": "text/javascript",
+      "sha256": "35899d7e899188f5e43f3041417420a7833d500090dd97d54532a1226383c809"
+    },
+    {
+      "path": "/ui/prism-v1/council-data.js",
+      "bytes": 17240,
+      "type": "text/javascript",
+      "sha256": "b86861df6e9cf144fd528aefb9a4911d0fc42c9e7359853708e8344b44b15b60"
+    },
+    {
+      "path": "/ui/prism-v1/expansion-catalog.json",
+      "bytes": 98376,
+      "type": "application/json",
+      "sha256": "077a75c7b26c568a39471558701f44b9f154bd9cefb17ec10dff62a990d0ee90"
+    },
+    {
+      "path": "/ui/prism-v1/expansion.js",
+      "bytes": 12701,
+      "type": "text/javascript",
+      "sha256": "93299da26d00c81aa57ea568f0f2da2ec93be93f782c32ac95a8de9105979d44"
+    },
+    {
+      "path": "/ui/prism-v1/hologram-persona.js",
+      "bytes": 21130,
+      "type": "text/javascript",
+      "sha256": "165ccb5045be00c3b4bfa72c51f0bc7dafe6354194825e6896bf00a352a20e2c"
+    },
+    {
+      "path": "/ui/prism-v1/hologram-projection.js",
+      "bytes": 6399,
+      "type": "text/javascript",
+      "sha256": "8e8140a74dda4eca0f91791898260870529b4452f430a44adc8c4a33d99e749f"
+    },
+    {
+      "path": "/ui/prism-v1/holographic-field.js",
+      "bytes": 2430,
+      "type": "text/javascript",
+      "sha256": "06ba92add1597a645f3410e0a5690ec3f018eb942fb392ba2d09d5987d81acf4"
+    },
+    {
+      "path": "/ui/prism-v1/interface.css",
+      "bytes": 38175,
+      "type": "text/css",
+      "sha256": "603611d4b097a69c218e5826e7e98254d96be1029c2a2d797ee3e42d601ad28d"
+    },
+    {
+      "path": "/ui/prism-v1/local-tools.js",
+      "bytes": 14713,
+      "type": "text/javascript",
+      "sha256": "2fb0bc78ad5618f1d48a5af44effe61bdc836bb18ba10fd8e83d9723c9167888"
+    },
+    {
+      "path": "/ui/prism-v1/nameplate-layout.js",
+      "bytes": 1256,
+      "type": "text/javascript",
+      "sha256": "524ebd0e6c6c7e7ad2ad7f6ce2e34e36c5f0e152440269dbd484682abb391f1f"
+    },
+    {
+      "path": "/ui/prism-v1/prism-foundry-model.js",
+      "bytes": 12556,
+      "type": "text/javascript",
+      "sha256": "4d629a645d48f36d8dd8167697a36f20532e3440b17ec96cf800653fc5f64906"
+    },
+    {
+      "path": "/ui/prism-v1/prism-foundry.js",
+      "bytes": 12194,
+      "type": "text/javascript",
+      "sha256": "5aad284a9e3771854feb88ea5d25f57c432a16f1bc61a62e57f2bc7d5f745041"
+    },
+    {
+      "path": "/ui/prism-v1/realm-architecture.js",
+      "bytes": 4454,
+      "type": "text/javascript",
+      "sha256": "5f970f80cd9fd0fa1ab174f20d0dc31ffd4a8ceea7a50ae1fcabc6c975b47344"
+    },
+    {
+      "path": "/ui/prism-v1/realm-controls.js",
+      "bytes": 1131,
+      "type": "text/javascript",
+      "sha256": "0f19ace086ff2fd36666ece165944d6faf12bbc22577c05b7b54e86132b1451f"
+    },
+    {
+      "path": "/ui/prism-v1/realm-loki.js",
+      "bytes": 8856,
+      "type": "text/javascript",
+      "sha256": "cdb3381ac3e08f64a2e307c4a194a08ef74aa218e35f579531ff3dad415e74cd"
+    },
+    {
+      "path": "/ui/prism-v1/realm-odin.js",
+      "bytes": 14336,
+      "type": "text/javascript",
+      "sha256": "06da6f5166311d8f3e63f5ee4cb01ea5127704c0037eb9f780f47fbfa2ce25aa"
+    },
+    {
+      "path": "/ui/prism-v1/realm-thor.js",
+      "bytes": 11594,
+      "type": "text/javascript",
+      "sha256": "0c30226649433d2fc47ec6662f5bf1b252a4a599a01d57a20d84feffc47328aa"
+    },
+    {
+      "path": "/ui/prism-v1/scene.js",
+      "bytes": 17575,
+      "type": "text/javascript",
+      "sha256": "56fc061fa73959988579b241273cae892995e75bade7a9f3bcb1cc4e85b9663a"
+    },
+    {
+      "path": "/ui/prism-v1/state.js",
+      "bytes": 6329,
+      "type": "text/javascript",
+      "sha256": "9974120739cbe01aeb3f944ac6765abc340511bd2110e227ff9936c71cd59d79"
+    },
+    {
+      "path": "/ui/prism-v1/tool-catalog.json",
+      "bytes": 127253,
+      "type": "application/json",
+      "sha256": "ac1551b541792edc79cad1c573b80f6f9ece22b91565a18be94dec48984330ba"
+    },
+    {
+      "path": "/ui/prism-v1/vendor/OrbitControls.js",
+      "bytes": 40520,
+      "type": "text/javascript",
+      "sha256": "845c827054bda45b84ae0e9e0db4e707f75d2182af9cd88787b2cac86aeef8ef"
+    },
+    {
+      "path": "/ui/prism-v1/vendor/Projector.js",
+      "bytes": 26725,
+      "type": "text/javascript",
+      "sha256": "b0d5535a29f84ffb939339bc7ded5bc778aabcd31cda9c4a5621e44a7d7d0e43"
+    },
+    {
+      "path": "/ui/prism-v1/vendor/SVGRenderer.js",
+      "bytes": 17811,
+      "type": "text/javascript",
+      "sha256": "36a473ceb5b0e96ce3ed0f7afa3c402bc95818f40a152f58a4916337b10be99c"
+    },
+    {
+      "path": "/ui/prism-v1/vendor/THREE-LICENSE.txt",
+      "bytes": 1081,
+      "type": "text/plain",
+      "sha256": "8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc"
+    },
+    {
+      "path": "/ui/prism-v1/vendor/three.core.min.js",
+      "bytes": 384222,
+      "type": "text/javascript",
+      "sha256": "6486aa0d719cfa87ec88dc47223b59b1fb8417a1a407fc0e52467c943e2f8cc9"
+    },
+    {
+      "path": "/ui/prism-v1/vendor/three.module.min.js",
+      "bytes": 364998,
+      "type": "text/javascript",
+      "sha256": "36a60b0120335f89a80a0dab70292292b0ec414b3d05e83cd09a3ea428c6712a"
+    },
+    {
+      "path": "/ui/realm-architecture.js",
+      "bytes": 4454,
+      "type": "text/javascript",
+      "sha256": "5f970f80cd9fd0fa1ab174f20d0dc31ffd4a8ceea7a50ae1fcabc6c975b47344"
+    },
+    {
+      "path": "/ui/realm-controls.js",
+      "bytes": 1131,
+      "type": "text/javascript",
+      "sha256": "0f19ace086ff2fd36666ece165944d6faf12bbc22577c05b7b54e86132b1451f"
+    },
+    {
+      "path": "/ui/realm-loki.js",
+      "bytes": 8856,
+      "type": "text/javascript",
+      "sha256": "cdb3381ac3e08f64a2e307c4a194a08ef74aa218e35f579531ff3dad415e74cd"
+    },
+    {
+      "path": "/ui/realm-odin.js",
+      "bytes": 14336,
+      "type": "text/javascript",
+      "sha256": "06da6f5166311d8f3e63f5ee4cb01ea5127704c0037eb9f780f47fbfa2ce25aa"
+    },
+    {
+      "path": "/ui/realm-thor.js",
+      "bytes": 11594,
+      "type": "text/javascript",
+      "sha256": "0c30226649433d2fc47ec6662f5bf1b252a4a599a01d57a20d84feffc47328aa"
+    },
+    {
+      "path": "/ui/scene.js",
+      "bytes": 15747,
+      "type": "text/javascript",
+      "sha256": "4ff77c306aab43acdda067115a34d6f54d35fac9820d58ec2331c807dab44d1d"
+    },
+    {
+      "path": "/ui/state.js",
+      "bytes": 6329,
+      "type": "text/javascript",
+      "sha256": "9974120739cbe01aeb3f944ac6765abc340511bd2110e227ff9936c71cd59d79"
+    },
+    {
+      "path": "/ui/tool-catalog.json",
+      "bytes": 127253,
+      "type": "application/json",
+      "sha256": "ac1551b541792edc79cad1c573b80f6f9ece22b91565a18be94dec48984330ba"
+    },
+    {
+      "path": "/ui/vendor/Projector.js",
+      "bytes": 26725,
+      "type": "text/javascript",
+      "sha256": "b0d5535a29f84ffb939339bc7ded5bc778aabcd31cda9c4a5621e44a7d7d0e43"
+    },
+    {
+      "path": "/ui/vendor/SVGRenderer.js",
+      "bytes": 17811,
+      "type": "text/javascript",
+      "sha256": "36a473ceb5b0e96ce3ed0f7afa3c402bc95818f40a152f58a4916337b10be99c"
+    },
+    {
+      "path": "/ui/vendor/THREE-LICENSE.txt",
+      "bytes": 1081,
+      "type": "text/plain",
+      "sha256": "8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc"
+    },
+    {
+      "path": "/ui/vendor/three.core.min.js",
+      "bytes": 385386,
+      "type": "text/javascript",
+      "sha256": "05b2609338c76cd65daf74f3ac515bc9a5045e1b3b33edc07d8c9bd55250fa90"
+    },
+    {
+      "path": "/ui/vendor/three.module.min.js",
+      "bytes": 365552,
+      "type": "text/javascript",
+      "sha256": "86bcee248b64f44bcfc23c331ae74619061957d59cab040171dcb6fb5900beb6"
+    }
+  ]
+}

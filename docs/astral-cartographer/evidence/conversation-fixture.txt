@@ -1,0 +1,25 @@
+### Result
+{"fixtureOnly":true,"assistant":"thor","replyRendered":true}
+### Ran Playwright code
+```js
+await (async page => {
+ let sent=null;
+ await page.route('https://asgrard-backend.rayanfahil2.workers.dev/**',async route=>{
+  if(route.request().method()==='POST'){
+   const body=JSON.parse(route.request().postData());if(!body.message){await route.fulfill({status:503,contentType:'application/json',body:'{"error":"Test audio disabled"}'});return;}sent=body;await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({reply:'Astral conversation verified with Thor.'})});
+  }else await route.fallback();
+ });
+ await page.locator('#hall-thor textarea').fill('Check the new council view.');
+ await page.locator('#hall-thor .sendbtn').click();
+ await page.waitForFunction(()=>document.querySelector('#hall-thor').textContent.includes('Astral conversation verified with Thor.'),{},{timeout:90000});
+ if(!sent||sent.assistant!=='thor')throw Error('Wrong conversation target');
+ return {fixtureOnly:true,assistant:sent.assistant,replyRendered:true};
+}
+)(page);
+```
+### Page
+- Page URL: https://asgrard-backend.rayanfahil2.workers.dev/#thor
+- Page Title: ASGARD — The Floating Realms
+- Console: 1 errors, 2 warnings
+### Events
+- New console entries: .playwright-cli/console-2026-09-08T11-18-05-073Z.log#L13-L16

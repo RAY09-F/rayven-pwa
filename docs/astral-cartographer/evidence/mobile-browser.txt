@@ -1,0 +1,13 @@
+### Result
+{"overflow":false,"labels":[{"text":"THOR","occluded":"false","contained":true},{"text":"JANE FOSTER","occluded":"false","contained":true},{"text":"VALKYRIE","occluded":"false","contained":true},{"text":"HULK","occluded":"false","contained":true},{"text":"KORG","occluded":"true","contained":true},{"text":"DARCY","occluded":"false","contained":true}],"render":{"ready":true,"renderMode":"webgl","persona":"thor","scene":"astral-cartographer","state":"idle","frames":67,"animationTime":75.93029999999999,"animated":false,"hidden":false,"rafActive":false,"width":368,"height":322,"threeRevision":"184","renderScale":1,"rendererResources":{"geometries":246,"textures":6},"advisors":["jane_foster","valkyrie","hulk","korg","darcy"],"hover":null,"selected":null,"autoRotate":false,"hasDragged":true,"cameraPosition":[4.273615411209966,5.2351049192817865,7.770209838563573],"quality":"balanced","shadowMapSize":1024,"objects":[{"id":"core","x":184,"y":136.4635809773969},{"id":"ruby","x":137.2830915810556,"y":214.87264222690183},{"id":"sapphire","x":248.13111225314347,"y":208.34243685957946},{"id":"rose","x":251.80945698565128,"y":160.92813912698531},{"id":"gold","x":175.47562125523825,"y":145.5157330392198},{"id":"amethyst","x":107.5851482742261,"y":173.20885661946917}]}}
+### Ran Playwright code
+```js
+await (async page => {
+ await page.setViewportSize({width:390,height:844});
+ await page.waitForFunction(()=>AsgardUI.status().render.width<400,{},{timeout:90000});
+ await page.screenshot({path:'output/astral/mobile.png',timeout:90000});
+ const result=await page.evaluate(()=>{const host=document.querySelector('#presence-scene').getBoundingClientRect();return {overflow:document.documentElement.scrollWidth>innerWidth,labels:[...document.querySelectorAll('.prism-label')].map(el=>{const r=el.getBoundingClientRect();return {text:el.querySelector('b').textContent,occluded:el.dataset.occluded,contained:r.left>=host.left&&r.right<=host.right&&r.top>=host.top&&r.bottom<=host.bottom};}),render:AsgardUI.status().render};});
+ if(result.overflow||result.labels.some(l=>!l.contained))throw Error('Mobile label overflow');return result;
+}
+)(page);
+```

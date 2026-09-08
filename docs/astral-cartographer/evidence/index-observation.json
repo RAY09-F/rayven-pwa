@@ -1,0 +1,61 @@
+{
+  "version": "46f1a08b-a239-4a8a-a688-3fafceef488f",
+  "started": "2026-09-08T11:36:39.885Z",
+  "samples": [
+    {
+      "at": "2026-09-08T11:36:39.885Z",
+      "elapsedSeconds": 0,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T11:37:11.189Z",
+      "elapsedSeconds": 31,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T11:37:43.807Z",
+      "elapsedSeconds": 64,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T11:38:15.568Z",
+      "elapsedSeconds": 96,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T11:38:47.616Z",
+      "elapsedSeconds": 128,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T11:39:19.628Z",
+      "elapsedSeconds": 160,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T11:39:51.305Z",
+      "elapsedSeconds": 191,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T11:40:23.309Z",
+      "elapsedSeconds": 223,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T11:40:55.868Z",
+      "elapsedSeconds": 256,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T11:41:26.998Z",
+      "elapsedSeconds": 287,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T11:41:58.086Z",
+      "elapsedSeconds": 318,
+      "ok": true
+    }
+  ]
+}
