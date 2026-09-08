@@ -1,0 +1,17 @@
+
+ ⛅️ wrangler 4.122.0 (update available 4.129.1)
+───────────────────────────────────────────────
+✨ Read 47 files from the assets directory /home/rayanfahil2/asgard-bifrost/public
+Total Upload: 870.04 KiB / gzip: 238.88 KiB
+Your Worker has access to the following bindings:
+Binding                                                                     Resource
+env.LEDGER (AsgardLedger)                                                   Durable Object
+env.RAYVEN_KV (ee3cce96335249a9a4cc990cdfd8a2a5)                            KV Namespace
+env.VECTORIZE (rayven-memory)                                               Vectorize Index
+env.CLIPS (asgardclips)                                                     R2 Bucket
+env.AI                                                                      AI
+env.ASSETS                                                                  Assets
+env.TELEGRAM_WEBHOOK_HOST ("https://asgrard-backend.rayanfahil2.w...")      Environment Variable
+env.LEDGER_BACKEND ("do")                                                   Environment Variable
+
+--dry-run: exiting now.

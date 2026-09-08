@@ -1,6 +1,6 @@
 // Tool discovery uses the checked-in backend schemas. Requests still pass through existing chat and approval gates.
 import {CAST} from './council-data.js';
-import {createExpansion} from './expansion.js?v=bifrost-aperture-2';
+import {createExpansion} from './expansion.js?v=reference-realms-1';
 export const MISSIONS=[
   ['research','Evidence brief','Compare sources, separate facts from assumptions.','Use find_tools to locate research and web-search tools. Research my subject, cross-check important claims against independent sources, and give me a concise sourced brief. Subject: '],
   ['calendar','Plan my day','Calendar, priorities and room to breathe.','Read my existing calendar and to-dos using the available tools. Propose a realistic day with breaks and conflicts called out. Do not change any events without my confirmation. My priority: '],
@@ -97,7 +97,7 @@ export function createArsenal({getPersona,getDraft,setDraft,onSelect=()=>{},rese
     if(p.hall==='odin')body.append(node('p','tool-truth','Paper simulation only. '+p.market+(p.backendId?' · paper-agent id: '+p.backendId:'')));
     body.append(node('p','tool-truth','Council activity: unknown. These are assigned responsibilities; no live activity data is available in this panel.'),button('Prepare delegation',()=>prepare(`Use delegate to ask ${p.id==='hunter_b15'?'hunter_b15':p.id} (${p.name}) for help with: `),'primary-action'),button('Ask for current status',()=>prepare(`Tell me what ${p.name} is currently working on. Read actual council status where available; do not infer activity from the visual model.`)));
   }
-  function renderCouncil(){const bar=document.getElementById('council-dock');bar.replaceChildren();for(const id of CAST[getPersona()].councillors){const p=CAST[id],b=button('',()=>openAgent(id),'council-member');b.style.setProperty('--member',p.color);b.append(node('span','council-diamond','◇'),node('span','',p.name));b.setAttribute('aria-label',p.name+' — council dossier');bar.append(b);}}
+  function renderCouncil(){const bar=document.getElementById('council-dock');bar.replaceChildren();for(const id of CAST[getPersona()].councillors){const p=CAST[id],b=button('',()=>openAgent(id),'council-member');b.dataset.advisor=id;b.style.setProperty('--member',p.color);b.append(node('span','council-diamond','◇'),node('span','',p.name));b.setAttribute('aria-label',p.name+' — council dossier');bar.append(b);}}
   function openActivity(){const body=shell('Session activity','Actual chat requests in this page. This is not a live backend tool trace.');
     if(!journal.length)body.append(node('p','tool-truth','No chat requests yet. A prepared draft does not count as a completed action.'));
     for(const item of [...journal].reverse()){const row=node('div','activity-row');row.append(node('span','tool-category',item.hall),node('strong','',item.state),node('small','',new Date(item.at).toLocaleTimeString()+(item.ms!=null?' · '+(item.ms/1000).toFixed(1)+' s':'')));body.append(row);}

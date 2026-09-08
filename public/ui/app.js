@@ -1,13 +1,13 @@
-import {createArsenal} from './arsenal.js?v=bifrost-aperture-2';
-import {initialPersona,editableTarget,readPreferences,assistantState,createRequestLedger,replyText,restoreDraft,nearTranscriptEnd,formatReply,parseReplyPayload,requestErrorMessage} from './state.js?v=bifrost-aperture-2';
-import {createPresence} from './scene.js?v=bifrost-aperture-2';
+import {createArsenal} from './arsenal.js?v=reference-realms-1';
+import {initialPersona,editableTarget,readPreferences,assistantState,createRequestLedger,replyText,restoreDraft,nearTranscriptEnd,formatReply,parseReplyPayload,requestErrorMessage} from './state.js?v=reference-realms-1';
+import {createPresence} from './scene.js?v=reference-realms-1';
 const halls=['thor','loki','odin'];
 let storage;try{storage=window.localStorage;}catch{}
 let arsenal=null;
 let preferences=readPreferences(storage),presence=null,speechPhase='idle',micState='off';
 const requests=createRequestLedger(),cancelled={},scrollFollow={},controls={};
 const errors={},workspace=document.querySelector('.workspace'),dialog=document.getElementById('settings-dialog');
-const profile={thor:['Storm intelligence','A clear mind. A powerful ally.','Thor’s three-dimensional particle hologram with a winged helmet'],loki:['Beyond the obvious','A different perspective changes everything.','Loki’s yellow-gold particle hologram with swept horns'],odin:['The long view','Perspective for what comes next.','Odin’s crowned particle hologram with beard and a single luminous eye']};
+const profile={thor:['The Astral Cartographer','Map the next step.','Thor’s modeled hammer, bronze armillary and five advisor gems'],loki:['The Bifrost Prism Foundry','Give possibility a shape.','Loki’s gold faceted crystal, emerald foundry and five advisor gems'],odin:['The Basalt Command Monument','A clearer view of what comes next.','Odin’s gold tower, basalt terraces and five advisor platforms']};
 function persist(k,v){try{localStorage.setItem(k,v);}catch{}}
 function refreshState(){
   const hall=activeHall();
@@ -488,7 +488,7 @@ const settingsButton=document.querySelector('.settings-btn');
 function diagnosticSummary(release,render={}){
   const value=(v)=>typeof v==='string'||typeof v==='number'?String(v):'Unavailable';
   const lines=release?['Release: '+value(release.id),'Fingerprint: '+value(release.fingerprint),'Base revision: '+value(release.sourceBase),'Assets: '+(release.assets&&typeof release.assets==='object'?Object.keys(release.assets).length:'Unavailable')]:['Release metadata unavailable from this host.'];
-  lines.push('','Renderer: '+value(render.renderMode)+' · Quality: '+value(render.quality),'Meshes: '+value(render.sculpturalMeshes)+' · Particles: '+value(render.particles),'Geometries: '+value(render.geometries)+' · Materials: '+value(render.materials)+' · Textures: '+value(render.textures));
+  lines.push('','Renderer: '+value(render.renderMode)+' · Quality: '+value(render.quality),'Meshes: '+value(render.meshes)+' · Triangles: '+value(render.triangles),'GPU geometries: '+value(render.rendererResources?.geometries)+' · Textures: '+value(render.rendererResources?.textures),'Driver: '+value(render.driver),'Render scale: '+value(render.renderScale)+' · Lighting: '+value(render.lighting),'Error: '+value(render.error||'None'));
   return lines.join('\n');
 }
 async function releaseDiagnostics(){
@@ -520,6 +520,8 @@ function bindConversationFocus(region){
   });
 }
 bindConversationFocus(conversation);
+conversation.addEventListener('focusin',()=>presence?.setFocus(true));
+conversation.addEventListener('focusout',event=>presence?.setFocus(conversation.contains(event.relatedTarget)));
 function bindComposerViewport(region){
   let frame=0;
   function schedule(){

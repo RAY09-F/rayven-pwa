@@ -1,3 +1,5 @@
+> Superseded visual direction: see [the reference realm handoff](../reference-realms/HANDOFF.md). This file retains the previous release history.
+
 # Bifrost Aperture — current execution
 
 Lead implementation started from remote main `9d2fb784f629f82463037a0aaf219e063299329a`, in isolated worktree `/home/rayanfahil2/asgard-bifrost`, branch `codex/bifrost-aperture`. The original `asgard-three-personas` checkout and user-supplied master file are preserved. See `MASTER-REFERENCE.md` for the complete retained backlog; retrieve by ID, not full-context repetition.

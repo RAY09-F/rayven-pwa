@@ -1,0 +1,32 @@
+PASS  /fx/asgard-fx.js has the cores layer
+PASS  /fx/asgard-fx.js is version 2+
+PASS  /fx/asgard-fx.js still exposes init/setState/setPersona
+PASS  /fx-lab.html loads the engine
+PASS  /fx-lab.html opts in to cores
+PASS  /fx-lab.html has the four state buttons
+FILES ONLY: checks local source assets, not HTTP delivery.
+PASS  core thor registers as itself
+PASS  core loki registers as itself
+PASS  core odin registers as itself
+PASS  no fourth core file  (correct)
+PASS  /fx/thor.js registers a realm
+PASS  /fx/loki.js registers a realm
+PASS  /fx/odin.js registers a realm
+PASS  council registers
+PASS  /halls-preview.html three halls
+PASS  /fx/team.js is the council overlay
+PASS  /team.html loads exactly one team overlay tag
+PASS  /team.html keeps its CONFIG
+PASS  homepage identity
+PASS  homepage loads focused interface
+PASS  homepage has one scene owner
+PASS  voice contract retained
+PASS  /ui/scene.js real renderer
+PASS  /ui/scene.js conversation-preserving fallback
+PASS  /ui/realm-thor.js local geometry factory
+PASS  /ui/realm-loki.js local geometry factory
+PASS  /ui/realm-odin.js local geometry factory
+PASS  GET /ui/vendor/three.module.min.js  357 KB
+PASS  GET /ui/interface.css  34 KB
+
+ALL PASS

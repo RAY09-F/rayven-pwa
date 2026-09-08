@@ -165,9 +165,9 @@ test('viewport resize keeps mobile composer controls visible without scrolling d
 
 test('release diagnostics expose identity and real counts without dumping every asset hash',()=>{
   const summary=productionFunction('diagnosticSummary','async function releaseDiagnostics(',{});
-  const text=summary({id:'bifrost-test',fingerprint:'release-fingerprint',sourceBase:'base-revision',assets:{'/one.js':'asset-hash-one','/two.js':'asset-hash-two'}},{renderMode:'webgl',quality:'balanced',sculpturalMeshes:8,particles:500,geometries:9,materials:10,textures:1});
+  const text=summary({id:'bifrost-test',fingerprint:'release-fingerprint',sourceBase:'base-revision',assets:{'/one.js':'asset-hash-one','/two.js':'asset-hash-two'}},{renderMode:'webgl',quality:'balanced',meshes:8,triangles:500,rendererResources:{geometries:9,textures:1},driver:'test driver',renderScale:.65,lighting:'Direct lights'});
   assert.match(text,/Release: bifrost-test/);assert.match(text,/Base revision: base-revision/);assert.match(text,/Assets: 2/);assert.match(text,/Meshes: 8/);assert.match(text,/Renderer: webgl/);assert.doesNotMatch(text,/asset-hash-one/);
-  assert.match(summary(null),/Release metadata unavailable/);assert.match(summary(null),/Materials: Unavailable/);
+  assert.match(summary(null),/Release metadata unavailable/);assert.match(summary(null),/Driver: Unavailable/);
 });
 
 
