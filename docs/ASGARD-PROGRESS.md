@@ -1,6 +1,6 @@
 # ASGARD brain and arsenal progress
 
-Current wave: 4, council execution and permissions. Wave3 live acceptance is explicitly BLOCKED. Wave2 activation is explicitly BLOCKED. Wave1 live acceptance is explicitly BLOCKED. Wave 0 completed its available read-only measurements; successful paid inference/audio measurements are explicitly BLOCKED.
+Current wave: 5, structured memory and post-response extraction. Wave4 live acceptance is explicitly BLOCKED. Wave3 live acceptance is explicitly BLOCKED. Wave2 activation is explicitly BLOCKED. Wave1 live acceptance is explicitly BLOCKED. Wave 0 completed its available read-only measurements; successful paid inference/audio measurements are explicitly BLOCKED.
 
 ## Rules carried forward
 
@@ -48,3 +48,12 @@ Wave1: implement the shared Messages API streaming/parser/error handling and sta
 - Increased public reply headroom to 4,096 tokens; the prompt governs length rather than cutting answers mid-thought. No halls, artwork or CSS changed.
 - Eight offline prompt/alias checks passed. These verify structure and boundary preservation, not whether generated replies sound good.
 - BLOCKED: fifteen actual outputs per persona and the 80% speaking-quality score need funded model access and spending authorization. No invented pass rate. No release uploaded/deployed; production remains the recorded floating release. Wave3 explicitly blocked before Wave4 starts.
+
+## Wave 4 — inline council boundary and queued hall delivery implemented; live acceptance BLOCKED
+
+- Reused the existing council registry, keys, schedules and paper-trading wrappers. Added profile metadata without changing roster order or trader IDs. Inline delegation now selects a narrow server-owned execution scope instead of starting a nested model. Subsequent tools in the same batch and later rounds are checked against it. Background toolsOverride is enforced too. Communication sends are refused by councillor scope.
+- Queued tasks carry objective, output format, allowed tools and stopping boundaries. Reports use the existing pendingSpeech hall inbox, not Telegram. Existing unrelated standing duties were preserved; no new outgoing-notification schedule was enabled.
+- Twenty-two combined offline checks passed. Integration fixtures prove no nested model call for inline delegation, a logged server refusal for Kang attempting an aliased SMS, a queued research report reaching the hall inbox, and all five historical paper IDs.
+- Brief correction §7.3/7.6 (around lines 874–875 and 925–926): fetching a client-side tool result and answering from it necessarily needs another Messages API round trip. Removing a separate councillor model does not make fresh research literally one API request or zero latency. The fixture performs the ordinary two requests (tool selection, final answer), without a nested agent.
+- Brief family exception: Sylvie's standing FX duty requires the existing money_convert tool although her listed families say world/util. Kept that narrow existing capability. Corrected the Wave3 description that had mistakenly called Sylvie a communications profile; she handles the outside world.
+- BLOCKED: actual sourced research, actual cron delivery and live latency comparisons need funded API access; no real-person test sent. Standing-duty expansion is not activated without those checks. The existing five-delegation-per-tick drain also needs overload/recovery verification before claiming reliable bulk queuing. No Wave4 deployment. Wave4 explicitly blocked before Wave5 starts.

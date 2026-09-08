@@ -1,3 +1,4 @@
+import { councilToolAllowed } from './council-scope.js';
 import { discoveryTools, cacheToolPrefix, capToolResult } from './tool-discovery.js';
 import { CONTEXT_DEFINITIONS, contextTool } from './context-tools.js';
 import { implementationToolName, aliasSchemas } from './tool-aliases.js';
@@ -60,6 +61,7 @@ const TASK_LOG_CAP = 500;
 // memory write can carry honest provenance and a tool can see the session.
 export async function executeTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {}) {
   name = implementationToolName(name);
+  if (!councilToolAllowed(ctx.scope, name)) return `Tool blocked: ${name} is outside the active councillor's permissions. Nothing was executed.`;
   const startedAt = Date.now();
   let success = true;
   let error = null;
@@ -108,7 +110,7 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {
     case 'routine_delete': return await routineDelete(env, personaId, input && input.match);
     case 'routine_run_now': return await routineRunNow(env, personaId, input && input.match, (e, t, i, p) => executeTool(e, t, i, p));
     case 'routine_history': return await routineHistory(env, personaId, input && input.match);
-    case 'delegate': { const { delegate } = await import('./council.js'); return await delegate(env, personaId, input || {}, { meta: ctx && ctx.meta, channel: ctx && ctx.channel }); }
+    case 'delegate': { const { delegate } = await import('./council.js'); return await delegate(env, personaId, input || {}, { meta: ctx && ctx.meta, channel: ctx && ctx.channel, scope: ctx && ctx.scope }); }
     case 'approve': return (await resolveApproval(env, input && input.id, 'approve', (e, t, i, p) => executeTool(e, t, i, p))).text;
     case 'reject': return (await resolveApproval(env, input && input.id, 'reject', (e, t, i, p) => executeTool(e, t, i, p))).text;
     case 'search_memory': return await searchMemory(env, input, personaId);
@@ -822,7 +824,7 @@ TOOL_DEFINITIONS.push(...ROUTINE_TOOL_DEFINITIONS);
 TOOL_DEFINITIONS.push({ name: 'flag_capability', description: 'Mark one of your saved capabilities as broken, with the error it gave. A flag only -- it stays saved until you forget it yourself.', input_schema: { type: 'object', properties: { name: { type: 'string' }, error: { type: 'string' } }, required: ['name'] } });
 TOOL_DEFINITIONS.push({
   name: 'delegate',
-  description: 'Hand a task to one of YOUR OWN five councillors by name or id. wait true (default) runs it now and returns the report into this turn; wait false queues it for the next five-minute tick and the report arrives on your Telegram bot. A councillor uses only its own narrow tools and can never send a text, call, or post -- it hands those back for confirmation.',
+  description: 'Hand a task to one of YOUR OWN five councillors by name or id. wait true (default) selects a narrow profile for this same turn without a separate model call; wait false queues it for the next five-minute tick and the report is saved for your next hall visit; no outgoing message is sent. A councillor uses only its own narrow tools and can never send a text, call, or post -- it hands those back for confirmation.',
   input_schema: { type: 'object', properties: { councillor: { type: 'string', description: 'councillor name or id, e.g. "jane_foster"' }, task: { type: 'string', description: 'the task, plainly, with everything the councillor needs' }, wait: { type: 'boolean', description: 'default true' } }, required: ['councillor', 'task'] }
 });
 
@@ -910,6 +912,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   trace.councillor = opts.councillor || null;
   trace.triggeringEventId = opts.triggeringEventId || null;
   const actions = [];
+  const scope = opts.scope || { councillor: null, tools: [] };
   let taintCause = 0;
   const systemBlocks = [
     { type: 'text', text: personaAndBaseline, cache_control: { type: 'ephemeral', ttl: '1h' } }
@@ -988,7 +991,10 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
         const blk = { ...requestedBlock, name: implementationToolName(requestedBlock.name) };
         opts.signal?.throwIfAborted();
         let toolResult;
-        if (allowTools === false) {
+        if (!councilToolAllowed(scope, blk.name) || (opts.toolsOverride && !opts.toolsOverride.some(tool => implementationToolName(tool.name) === blk.name))) {
+          toolResult = `Tool blocked: ${blk.name} is outside the active councillor's permissions. Nothing was executed.`;
+          record(trace, 'policy', blk.name, {note: 'councillor allow-list refusal', ok: false});
+        } else if (allowTools === false) {
           toolResult = 'Tools are disabled for this request. Nothing was executed.';
         } else if (!personaAllowsTool(personaId, blk.name) && !isCatalogTool(blk.name)) {
           toolResult = `Tool blocked: ${blk.name} is outside your lane. That belongs to ${toolOwnerName(blk.name)} — tell Rayan to switch personas instead of answering as if you ran it.`;
@@ -1029,7 +1035,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
             // which is both survivable and something the model can react to.
             opts.signal?.throwIfAborted();
             try {
-              toolResult = await executeTool(env, blk.name, blk.input, personaId, { tainted, meta, channel });
+              toolResult = await executeTool(env, blk.name, blk.input, personaId, { tainted, meta, channel, scope });
               actions.push(blk.name);
               if (convo) noteToolUse(meta, blk.name);   // Phase 7.0: keeps its group open
               if (blk.name === 'browser_navigate') noteDomain(meta, blk.input && blk.input.url);

@@ -34,7 +34,7 @@ ${categories}
 
 ${permissions}
 
-Your council is Miss Minutes for time and reminders, Hunter B-15 for research, Mobius for plans and memory, Sylvie for communications drafts, and Kang for monitors. A narrow assignment uses that profile's permissions and a truthful receipt.
+Your council is Miss Minutes for time and reminders, Hunter B-15 for research, Mobius for plans and memory, Sylvie for weather and the outside world, and Kang for monitors. A narrow assignment uses that profile's permissions and a truthful receipt.
 
 ${operations}
 
