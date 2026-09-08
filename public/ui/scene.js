@@ -1,3 +1,5 @@
+import {createAstralCartographer} from './astral-cartographer.js';
+import {ASTRAL_AGENT_IDS} from './astral-cartographer-model.js';
 import {createPrismFoundry} from './prism-foundry.js';
 import {PRISM_AGENT_IDS,buildPrismFoundry} from './prism-foundry-model.js';
 import {placeNameplate} from './nameplate-layout.js?v=floating-realms-3';
@@ -109,14 +111,14 @@ async function createLegacyPresence(host,{persona='thor',still=false,quality='ba
 // Serialize hall changes: at most one live WebGL canvas, including rapid switches.
 export async function createPresence(host,options={}) {
  let current=null,persona=options.persona||'thor',generation=0,disposed=false,queue=Promise.resolve();
- const settings={...options};let state='idle',focus=false;
+ const settings={...options};let state='idle',focus=false,failed=false;
  function setPersona(id){if(!factories[id]||disposed)return queue;persona=id;const ticket=++generation;
-  queue=queue.then(async()=>{if(disposed||ticket!==generation)return;current?.dispose();current=null;
-   try{const next=id==='loki'?createPrismFoundry(host,{...settings,onHover:key=>settings.onHover?.(key?PRISM_AGENT_IDS[key]:null),onSelect:key=>settings.onSelect?.(PRISM_AGENT_IDS[key])}):await createLegacyPresence(host,{...settings,persona:id});
+  queue=queue.then(async()=>{if(disposed||ticket!==generation)return;current?.dispose();current=null;failed=false;
+   try{const ids=id==='thor'?ASTRAL_AGENT_IDS:PRISM_AGENT_IDS;const create=id==='thor'?createAstralCartographer:createPrismFoundry;const custom=(id==='loki'||id==='thor')&&!['fallback','canvas','svg'].includes(new URLSearchParams(location.search).get('renderer'));const next=custom?create(host,{...settings,onHover:key=>settings.onHover?.(key?ids[key]:null),onSelect:key=>settings.onSelect?.(ids[key])}):await createLegacyPresence(host,{...settings,persona:id});
     if(disposed||ticket!==generation){next?.dispose();return;}current=next;current?.setStill(settings.still);current?.setQuality(settings.quality);current?.setState(state);current?.setFocus(focus);
-   }catch(error){host.dataset.render='fallback';settings.onStatus?.('3D unavailable — conversation and council controls still work.');console.error('Scene initialization failed',error);}
+   }catch(error){failed=true;host.dataset.render='fallback';settings.onStatus?.('3D unavailable — conversation and council controls still work.');console.error('Scene initialization failed',error);}
   });return queue;
  }
  await setPersona(persona);
- return {setPersona,select:id=>current?.select(id),resetView:()=>current?.resetView(),setState(value){state=value;current?.setState(value);},setFocus(value){focus=value;current?.setFocus(value);},setStill(value){settings.still=value;current?.setStill(value);},setQuality(value){settings.quality=value;current?.setQuality(value);},status:()=>{const actual=current?.status();return actual?.persona===persona?actual:{ready:false,persona,renderMode:'loading'};},dispose(){disposed=true;generation++;current?.dispose();current=null;}};
+ return {setPersona,select:id=>current?.select(id),resetView:()=>current?.resetView(),setState(value){state=value;current?.setState(value);},setFocus(value){focus=value;current?.setFocus(value);},setStill(value){settings.still=value;current?.setStill(value);},setQuality(value){settings.quality=value;current?.setQuality(value);},status:()=>{const actual=current?.status();return actual?.persona===persona?actual:{ready:false,persona,renderMode:failed?'fallback':'loading',frames:0};},dispose(){disposed=true;generation++;current?.dispose();current=null;}};
 }

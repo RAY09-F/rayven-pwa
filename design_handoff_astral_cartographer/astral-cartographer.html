@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Astral Cartographer</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.184.0/build/three.module.js",
+    "three/addons/controls/OrbitControls.js": "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js",
+    "three/addons/exporters/OBJExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js",
+    "three/addons/exporters/GLTFExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js"
+  },
+  "integrity": {
+    "https://unpkg.com/three@0.184.0/build/three.module.js": "sha384-8FCZ1eVO6it4+pbec2aDtnTrwjWXZLJRC+MAGCIPDgsYnUrl/E0A2YlF8ioMKI/J",
+    "https://unpkg.com/three@0.184.0/build/three.core.js": "sha384-dw2ooPewaEIrAgl6oFDBmmBWCE9oW9LxRGcfwZ0hLvEprzo202wXl7vCYHRlSnOT",
+    "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js": "sha384-4rziNxOBZKQ69i+w+f89KJ55TCYquwchVbByQwmaOeIOXdOU2PLDn3kOfXHwIJC9",
+    "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js": "sha384-nbwtoZENJD3Vq+ACK0CuGQdPMuDWHkamC2KJD70EV5nfg6jQjfppKOea07YJN+N3",
+    "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js": "sha384-VofkvpG6HERhFCYbsUOHeNXBCqID2nfqkQqnVzE1jc/oPcz+qJ13ADdXH08hE+cQ"
+  }
+}
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Cormorant+Garamond:wght@500&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;height:100%;background:#040914;overflow:hidden}
+three-d-stage:not(:defined){visibility:hidden}
+three-d-stage{display:block;width:100vw;height:100vh;position:relative}
+#labels{position:fixed;inset:0;pointer-events:none;font-family:'Cinzel',serif}
+.lbl{position:absolute;transform:translate(-50%,0);transform-origin:50% 0;text-align:center;color:#fff;white-space:nowrap;
+  transition:opacity .25s;letter-spacing:.14em;will-change:transform;text-shadow:0 0 6px var(--c),0 1px 2px rgba(0,0,0,.95)}
+.lbl b{display:block;font-weight:700;font-size:15px;color:var(--c);filter:brightness(1.35)}
+.lbl small{display:block;font-family:'Cormorant Garamond',serif;font-size:12px;letter-spacing:.32em;color:rgba(255,255,255,.78);margin-top:3px}
+.lbl.core{display:flex;flex-direction:column;transform-origin:50% 100%}
+.lbl.core b{font-size:26px}
+.lbl.core small{font-size:13px}
+.lbl.hot b{filter:brightness(1.8)}
+.lbl .dot{display:block;width:1px;height:14px;margin:0 auto 4px;background:linear-gradient(to bottom,var(--c),transparent)}
+.lbl.core .dot{order:3;margin:6px auto 0;background:linear-gradient(to top,var(--c),transparent)}
+#flash{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,rgba(140,190,255,.55),rgba(20,60,140,0) 60%);opacity:0;mix-blend-mode:screen}
+</style>
+</head>
+<body>
+<three-d-stage name="astral-cartographer" background="radial-gradient(ellipse at 50% 40%,#0c1a34 0%,#040914 70%)"></three-d-stage>
+<div id="flash"></div>
+<div id="labels"></div>
+<script src="./three-d-stage.js"></script>
+<script type="module">
+const stage = document.querySelector('three-d-stage');
+const { THREE } = await stage.ready;
+const renderer = stage._renderer, camera = stage._camera, scene = stage._scene, controls = stage._controls;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.35;
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
+stage._key.shadow.mapSize.set(1024, 1024); stage._key.shadow.radius = 4;
+controls.dampingFactor = 0.05;
+scene.fog = new THREE.FogExp2(0x040914, 0.04);
+scene.children.forEach(l => { if (l.isHemisphereLight) { l.intensity = 0.55; l.color.set(0x6a9ae0); l.groundColor.set(0x0a1630); } else if (l.isDirectionalLight) l.intensity *= 0.6; });
+stage._ground.material.opacity = 0.45;
+{
+  const env = new THREE.Scene(); env.background = new THREE.Color(0x050c1a);
+  const panel = (c, i, pos, size) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(...size), new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide })); m.material.color.multiplyScalar(i); m.position.set(...pos); m.lookAt(0,0,0); env.add(m); };
+  panel(0xdfe9ff, 6, [4, 6, 3], [5, 3]); panel(0x6aa8ff, 3.5, [-6, 3, -4], [6, 4]); panel(0xffe9c8, 1.5, [0, -3, 6], [8, 2]); panel(0x1a4a9a, 1.2, [0, 8, 0], [12, 12]);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(env, 0.04).texture; scene.environmentIntensity = 0.9; pmrem.dispose();
+}
+
+const mat = (name, color, o={}) => Object.assign(new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.2, ...o }), { name });
+const gem = (name, color, em, i=0.9) => Object.assign(new THREE.MeshPhysicalMaterial({ color, roughness: 0, metalness: 0, transmission: 1, thickness: 0.8, ior: 2.42, dispersion: 0.35, attenuationColor: new THREE.Color(color), attenuationDistance: 1.2, clearcoat: 1, clearcoatRoughness: 0, emissive: em, emissiveIntensity: i, flatShading: true }), { name });
+const M = {
+  stone:   mat('dark_marble', 0x0c1424, { roughness: 0.35, metalness: 0.25 }),
+  slate:   mat('navy_inlay', 0x152848, { roughness: 0.3, metalness: 0.3 }),
+  brass:   mat('brass', 0xd9a54a, { roughness: 0.25, metalness: 0.85, emissive: 0x2a1a00, emissiveIntensity: 0.25 }),
+  steel:   mat('hammer_steel', 0xd0dcea, { roughness: 0.22, metalness: 0.9 }),
+  steelDk: mat('hammer_steel_dark', 0x4a5666, { roughness: 0.4, metalness: 0.85 }),
+  leather: mat('leather_wrap', 0x3a2418, { roughness: 0.85, metalness: 0.05 }),
+  holo:    Object.assign(new THREE.MeshBasicMaterial({ color: 0x3f8cff, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }), { name: 'hologram' }),
+  holoLine:Object.assign(new THREE.MeshBasicMaterial({ color: 0x7fb8ff, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }), { name: 'hologram_line' }),
+  ice:     mat('ice_rock', 0x27405e, { roughness: 0.4, metalness: 0.3, emissive: 0x0a2a5a, emissiveIntensity: 0.4, flatShading: true }),
+};
+const agents = [
+  { key: 'ruby',     name: 'JANE FOSTER', role: 'THE SEEKER', hex: 0xff3a3a, em: 0xff0a0a, css: '#ff6a6a', bolt: 0xff7a7a, angle: 90 },
+  { key: 'sapphire', name: 'VALKYRIE',    role: 'THE ROAD',   hex: 0x3a8aff, em: 0x0a4aff, css: '#6aa8ff', bolt: 0x8ac0ff, angle: 18 },
+  { key: 'rose',     name: 'HULK',        role: 'THE HANDS',  hex: 0xff4ab8, em: 0xff0a8a, css: '#ff7ad0', bolt: 0xffa0e0, angle: 306 },
+  { key: 'gold',     name: 'KORG',        role: 'THE WORLD',  hex: 0xffc21a, em: 0xff8c00, css: '#ffd84a', bolt: 0xffe08a, angle: 234 },
+  { key: 'amethyst', name: 'DARCY',       role: 'THE KEEPER', hex: 0xa040ff, em: 0x5a00ff, css: '#c088ff', bolt: 0xd0a0ff, angle: 162 },
+];
+
+const add = (parent, name, geo, m, pos=[0,0,0], rot=[0,0,0]) => {
+  const mesh = new THREE.Mesh(geo, m); mesh.name = name;
+  mesh.position.set(...pos); mesh.rotation.set(...rot);
+  mesh.castShadow = mesh.receiveShadow = true; parent.add(mesh); return mesh;
+};
+// Agent sigil: storm bolt — a chamfered crystal lightning bolt in the agent color with a white-hot core, live arcs crawling its edges, orbiting sparks
+const BOLT_PTS = [[0.14,0.55],[-0.20,0.06],[-0.04,0.06],[-0.16,-0.55],[0.20,0.0],[0.03,0.0]];
+const boltShape = new THREE.Shape(); BOLT_PTS.forEach(([x,y],i) => i ? boltShape.lineTo(x,y) : boltShape.moveTo(x,y)); boltShape.closePath();
+const sigilGeo = new THREE.ExtrudeGeometry(boltShape, { depth: 0.10, bevelEnabled: true, bevelThickness: 0.035, bevelSize: 0.03, bevelSegments: 1 }); sigilGeo.center();
+const boltCoreGeo = new THREE.ExtrudeGeometry(boltShape, { depth: 0.14, bevelEnabled: false }); boltCoreGeo.center(); boltCoreGeo.scale(0.42, 0.8, 1);
+const sigil = (name, color, em) => gem(name, color, em, 0.9);
+const ORB_R = 0.3;
+const buildSigil = (parent, key, m, coreM) => {
+  add(parent, `${key}_bolt`, sigilGeo, m);
+  add(parent, `${key}_bolt_core`, boltCoreGeo, coreM);
+  add(parent, `${key}_bolt_ring`, new THREE.TorusGeometry(0.42, 0.006, 8, 64), M.brass, [0,0,0], [0.35, 0, 0.2]);
+};
+// Edge sample points on the bolt outline (local space, both faces) for arc anchors
+const BOLT_EDGE = []; BOLT_PTS.forEach((p, i) => { const q = BOLT_PTS[(i+1)%BOLT_PTS.length]; for (let k = 0; k < 4; k++) { const t = k/4; BOLT_EDGE.push([p[0] + (q[0]-p[0])*t, p[1] + (q[1]-p[1])*t, 0.075]); BOLT_EDGE.push([p[0] + (q[0]-p[0])*t, p[1] + (q[1]-p[1])*t, -0.075]); } });
+
+const model = new THREE.Group(); model.name = 'astral_cartographer';
+// Dais: star chart floor with brass meridians
+add(model, 'dais_base', new THREE.CylinderGeometry(3.0, 3.2, 0.12, 96), M.stone, [0, 0.06, 0]);
+add(model, 'dais_step', new THREE.CylinderGeometry(2.4, 2.5, 0.10, 96), M.slate, [0, 0.17, 0]);
+[2.75, 2.9].forEach((r,i) => add(model, `dais_ring_${i+1}`, new THREE.TorusGeometry(r, i ? 0.012 : 0.02, 10, 160), M.brass, [0, 0.125, 0], [Math.PI/2, 0, 0]));
+[1.35, 1.7, 2.1].forEach((r,i) => add(model, `dais_groove_${i+1}`, new THREE.TorusGeometry(r, 0.012, 8, 160), M.brass, [0, 0.225, 0], [Math.PI/2, 0, 0]));
+for (let i = 0; i < 24; i++) { const a = i/24*Math.PI*2; add(model, `dais_stud_${i+1}`, new THREE.SphereGeometry(0.035, 12, 8), M.brass, [Math.cos(a)*2.62, 0.13, Math.sin(a)*2.62]); }
+// Ice peaks at the rim
+[[2.55,0.9,0.5],[2.35,-1.5,0.7],[-2.2,1.6,0.6],[-2.6,-0.7,0.45],[0.4,2.75,0.55],[-1.2,-2.5,0.5],[1.9,2.1,0.4]].forEach(([x,z,h],i) => {
+  add(model, `peak_${i+1}`, new THREE.ConeGeometry(0.18 + h*0.15, h, 5, 1), M.ice, [x, 0.12 + h/2, z], [0, i*1.3, 0]);
+  add(model, `peak_${i+1}_b`, new THREE.ConeGeometry(0.14, h*0.6, 4, 1), M.ice, [x + 0.22, 0.12 + h*0.3, z - 0.15], [0, i*0.7, 0]);
+});
+// Pedestal: three stacked drums with brass bands
+add(model, 'pedestal_drum_1', new THREE.CylinderGeometry(1.15, 1.2, 0.22, 64), M.stone, [0, 0.33, 0]);
+add(model, 'pedestal_band_1', new THREE.TorusGeometry(1.17, 0.02, 10, 96), M.brass, [0, 0.45, 0], [Math.PI/2, 0, 0]);
+add(model, 'pedestal_drum_2', new THREE.CylinderGeometry(0.95, 1.0, 0.24, 64), M.slate, [0, 0.56, 0]);
+add(model, 'pedestal_band_2', new THREE.TorusGeometry(0.97, 0.02, 10, 96), M.brass, [0, 0.69, 0], [Math.PI/2, 0, 0]);
+add(model, 'pedestal_drum_3', new THREE.CylinderGeometry(0.78, 0.82, 0.22, 64), M.stone, [0, 0.79, 0]);
+add(model, 'pedestal_cap', new THREE.CylinderGeometry(0.7, 0.78, 0.06, 64), M.brass, [0, 0.93, 0]);
+for (let i = 0; i < 12; i++) { const a = i/12*Math.PI*2; add(model, `pedestal_rib_${i+1}`, new THREE.BoxGeometry(0.05, 0.6, 0.05), M.brass, [Math.cos(a)*1.0, 0.6, Math.sin(a)*1.0], [0, -a, 0]); }
+
+// Armillary + hammer (floats)
+const core = new THREE.Group(); core.name = 'core'; core.position.y = 2.0; model.add(core);
+const armillary = new THREE.Group(); armillary.name = 'armillary'; core.add(armillary);
+const ringDefs = [[1.2, 0.04, [Math.PI/2 + 0.45, 0, 0.3]], [1.05, 0.035, [Math.PI/2 - 0.3, 0, -0.9]], [0.9, 0.03, [0.2, 0.6, 0]], [1.3, 0.025, [Math.PI/2, 0, 0]]];
+const rings = ringDefs.map(([r, t, rot], i) => {
+  const g = new THREE.Group(); g.rotation.set(...rot); g.name = `ring_${i+1}`;
+  add(g, `armillary_ring_${i+1}`, new THREE.TorusGeometry(r, t, 12, 128), M.brass);
+  for (let k = 0; k < 4; k++) { const a = k/4*Math.PI*2; add(g, `ring_${i+1}_star_${k+1}`, new THREE.ConeGeometry(0.05, 0.16, 4, 1), M.brass, [Math.cos(a)*r, Math.sin(a)*r, 0], [0, 0, a - Math.PI/2]); }
+  armillary.add(g); return g;
+});
+// (no central axis rod — the hammer floats free inside the sphere)
+// Mjolnir-style hammer: chamfered squat head, engraved bands, raised strike faces, short wrapped haft with loop
+const hammer = new THREE.Group(); hammer.name = 'hammer'; hammer.rotation.set(0.15, 0.6, -0.65); hammer.scale.setScalar(1.45); core.add(hammer);
+const headShape = new THREE.Shape(); const HW = 0.30, HH = 0.17, HB = 0.03;
+headShape.moveTo(-HW+HB, -HH); headShape.lineTo(HW-HB, -HH); headShape.lineTo(HW, -HH+HB); headShape.lineTo(HW, HH-HB); headShape.lineTo(HW-HB, HH); headShape.lineTo(-HW+HB, HH); headShape.lineTo(-HW, HH-HB); headShape.lineTo(-HW, -HH+HB); headShape.closePath();
+const headGeo = new THREE.ExtrudeGeometry(headShape, { depth: 0.36, bevelEnabled: true, bevelThickness: 0.025, bevelSize: 0.025, bevelSegments: 3, curveSegments: 4 }); headGeo.center();
+add(hammer, 'hammer_head', headGeo, M.steel);
+[0.19, -0.19].forEach((x, i) => add(hammer, `hammer_band_${i+1}`, new THREE.BoxGeometry(0.035, 0.365, 0.415), M.steelDk, [x, 0, 0]));
+add(hammer, 'hammer_band_top', new THREE.BoxGeometry(0.64, 0.02, 0.06), M.steelDk, [0, 0.18, 0]);
+[0.335, -0.335].forEach((x, i) => { add(hammer, `hammer_face_${i+1}`, new THREE.BoxGeometry(0.03, 0.30, 0.34), M.steel, [x, 0, 0]); add(hammer, `hammer_face_rim_${i+1}`, new THREE.BoxGeometry(0.012, 0.33, 0.37), M.steelDk, [x - Math.sign(x)*0.02, 0, 0]); });
+const runeMat = mat('rune_glow', 0xbfe0ff, { emissive: 0x4a9aff, emissiveIntensity: 1.5, roughness: 0.3 });
+const rune = add(hammer, 'hammer_rune', new THREE.TorusGeometry(0.075, 0.008, 8, 48), runeMat, [0, 0, 0.21], [0, 0, 0]);
+for (let i = 0; i < 3; i++) { const a = i/3*Math.PI*2 + Math.PI/2; add(hammer, `hammer_rune_knot_${i+1}`, new THREE.TorusGeometry(0.045, 0.006, 8, 32), runeMat, [Math.cos(a)*0.035, Math.sin(a)*0.035, 0.212], [0, 0, 0]); }
+add(hammer, 'hammer_rune_back', new THREE.TorusGeometry(0.075, 0.008, 8, 48), runeMat, [0, 0, -0.21]);
+add(hammer, 'hammer_collar', new THREE.CylinderGeometry(0.08, 0.095, 0.07, 24), M.brass, [0, -0.215, 0]);
+add(hammer, 'hammer_collar_ring', new THREE.TorusGeometry(0.092, 0.008, 8, 32), M.steelDk, [0, -0.25, 0], [Math.PI/2, 0, 0]);
+add(hammer, 'hammer_handle', new THREE.CylinderGeometry(0.048, 0.052, 0.8, 24), M.leather, [0, -0.66, 0]);
+for (let i = 0; i < 12; i++) add(hammer, `handle_wrap_${i+1}`, new THREE.TorusGeometry(0.053, 0.007, 8, 32), M.leather, [0, -0.32 - i*0.058, 0], [Math.PI/2 + 0.18*(i%2 ? 1 : -1), 0, 0]);
+add(hammer, 'hammer_pommel', new THREE.CylinderGeometry(0.068, 0.058, 0.09, 24), M.brass, [0, -1.1, 0]);
+add(hammer, 'hammer_pommel_cap', new THREE.SphereGeometry(0.058, 24, 12, 0, Math.PI*2, Math.PI/2, Math.PI/2), M.brass, [0, -1.145, 0]);
+add(hammer, 'hammer_strap', new THREE.TorusGeometry(0.075, 0.011, 8, 40), M.leather, [0, -1.25, 0], [0, 0, 0]);
+// Hologram star map: disc + rising rings
+const holo = new THREE.Group(); holo.name = 'hologram'; holo.position.y = 1.0; model.add(holo);
+const holoDisc = add(holo, 'holo_disc', new THREE.CircleGeometry(1.35, 64), M.holo, [0, 0.02, 0], [-Math.PI/2, 0, 0]);
+const holoRings = [0.5, 0.85, 1.2, 1.5].map((r, i) => add(holo, `holo_ring_${i+1}`, new THREE.TorusGeometry(r, 0.006, 6, 96), M.holoLine, [0, 0.05 + i*0.12, 0], [Math.PI/2, 0, 0]));
+const holoBeam = add(holo, 'holo_beam', new THREE.CylinderGeometry(0.06, 0.25, 1.1, 24, 1, true), M.holo, [0, 0.55, 0]);
+[holoDisc, holoBeam, ...holoRings].forEach(m => m.castShadow = m.receiveShadow = false);
+const coreLight = new THREE.PointLight(0x4a9aff, 50, 9, 2); coreLight.position.set(0, 2.0, 0); model.add(coreLight);
+
+// Satellites
+const stations = agents.map(a => {
+  const ang = THREE.MathUtils.degToRad(a.angle), R = 2.05;
+  const grp = new THREE.Group(); grp.name = `${a.key}_station`;
+  grp.position.set(Math.cos(ang)*R, 0, Math.sin(ang)*R);
+  const m = sigil(`${a.key}_bolt`, a.hex, a.em);
+  const chan = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.012, R - 1.25), M.brass); chan.name = `${a.key}_channel`;
+  chan.position.set(Math.cos(ang)*(R+1.25)/2, 0.227, Math.sin(ang)*(R+1.25)/2); chan.rotation.y = -ang + Math.PI/2; model.add(chan);
+  add(grp, `${a.key}_plinth_step`, new THREE.CylinderGeometry(0.44, 0.5, 0.05, 48), M.slate, [0, 0.245, 0]);
+  add(grp, `${a.key}_plinth`, new THREE.CylinderGeometry(0.34, 0.4, 0.08, 48), M.stone, [0, 0.31, 0]);
+  add(grp, `${a.key}_plinth_ring`, new THREE.TorusGeometry(0.3, 0.015, 10, 64), M.brass, [0, 0.355, 0], [Math.PI/2, 0, 0]);
+  const glowRing = add(grp, `${a.key}_glow_ring`, new THREE.TorusGeometry(0.24, 0.01, 8, 48), mat(`${a.key}_glow`, a.hex, { emissive: a.hex, emissiveIntensity: 2, roughness: 1, metalness: 0 }), [0, 0.36, 0], [Math.PI/2, 0, 0]);
+  const gemGrp = new THREE.Group(); gemGrp.position.y = 0.9; grp.add(gemGrp);
+  const sig = new THREE.Group(); sig.name = `${a.key}_sigil`; gemGrp.add(sig);
+  const coreM = mat(`${a.key}_bolt_core`, 0xffffff, { emissive: 0xffffff, emissiveIntensity: 2.2, roughness: 0.4 });
+  buildSigil(sig, a.key, m, coreM);
+  const gm = add(gemGrp, `${a.key}_pick`, new THREE.CylinderGeometry(0.26, 0.26, 1.2, 8), new THREE.MeshBasicMaterial({ visible: false })); gm.castShadow = gm.receiveShadow = false;
+  const halo = add(gemGrp, `${a.key}_halo`, new THREE.TorusGeometry(0.4, 0.008, 8, 64), M.brass, [0,0,0], [Math.PI/2 + 0.5, 0.3, 0]);
+  const gmCore = sig;
+  const light = new THREE.PointLight(a.hex, 8, 4, 2); light.position.y = 0.95; grp.add(light);
+  const from = new THREE.Vector3(Math.cos(ang)*R, 0.9, Math.sin(ang)*R), to = new THREE.Vector3(0, 1.9, 0);
+  const len = from.distanceTo(to);
+  const beamMat = mat(`${a.key}_beam`, a.hex, { emissive: a.hex, emissiveIntensity: 2.5, transparent: true, opacity: 0.12, roughness: 1, metalness: 0 });
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.05, len, 8), beamMat); beam.name = `${a.key}_beam`;
+  beam.position.copy(from).lerp(to, 0.5);
+  beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), to.clone().sub(from).normalize());
+  beam.castShadow = false; model.add(beam);
+  model.add(grp);
+  return { a, grp, gemGrp, gm, sig, coreM, m, halo, glowRing, light, beam, beamMat, ang, phase: Math.random()*6.28, hot: 0 };
+});
+stage.setObject(model);
+// Shadows only from the big forms — small parts cost more than they show
+model.traverse(o => { if (o.isMesh && /wrap|stud|groove|ring_\d_star|halo|glow|beam|channel|holo|rune|bolt/.test(o.name)) o.castShadow = false; });
+
+// Per-station living lightning (viewer only): fractal midpoint-displaced main channel + glow sleeve + white core + 3 tapering branches, stroboscopic re-strikes
+const SEG = 32;
+const mkBolt = (color, op, w=1) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(SEG*6), 3)); const m = new THREE.LineBasicMaterial({ color, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false }); const l = new THREE.LineSegments(g, m); l.frustumCulled = false; scene.add(l); return l; };
+const _A = new THREE.Vector3(), _B = new THREE.Vector3(), _M = new THREE.Vector3(), _O = new THREE.Vector3(), _D = new THREE.Vector3(), _U = new THREE.Vector3(), _V = new THREE.Vector3();
+const path = new Array(SEG + 1).fill(0).map(() => new THREE.Vector3());
+// Midpoint displacement: displace perpendicular to the chord so the channel wanders sideways like a real leader, not a zigzag
+const buildPath = (a, b, amp, n) => {
+  path[0].copy(a); path[n].copy(b);
+  _D.subVectors(b, a).normalize(); _U.set(0, 1, 0); if (Math.abs(_D.y) > 0.9) _U.set(1, 0, 0); _U.cross(_D).normalize(); _V.crossVectors(_D, _U);
+  const rec = (i, j, a2) => {
+    if (j - i < 2) return; const m = (i + j) >> 1;
+    path[m].lerpVectors(path[i], path[j], 0.5 + (Math.random() - 0.5) * 0.15);
+    path[m].addScaledVector(_U, (Math.random() - 0.5) * a2).addScaledVector(_V, (Math.random() - 0.5) * a2);
+    rec(i, m, a2 * 0.55); rec(m, j, a2 * 0.55);
+  };
+  rec(0, n, amp);
+};
+const writePath = (line, n, from=0) => {
+  const p = line.geometry.attributes.position.array;
+  for (let i = 0; i < SEG; i++) { const s = Math.min(from + i, n - 1), e = Math.min(s + 1, n); const P = path[s], N = i + from < n ? path[e] : path[n]; p[i*6]=P.x; p[i*6+1]=P.y; p[i*6+2]=P.z; p[i*6+3]=N.x; p[i*6+4]=N.y; p[i*6+5]=N.z; }
+  line.geometry.attributes.position.needsUpdate = true;
+};
+const copyPath = (dst) => { for (let i = 0; i <= SEG; i++) dst[i].copy(path[i]); };
+const hammerAnchor = new THREE.Object3D(); hammer.add(hammerAnchor);
+stations.forEach(s => {
+  s.bolt = mkBolt(s.a.bolt, 0.9); s.sleeve = mkBolt(s.a.hex, 0.35); s.boltCore = mkBolt(0xffffff, 0.6);
+  s.branches = [0, 1, 2].map(() => mkBolt(s.a.bolt, 0.4));
+  // Orb interior: 5 arcs from the core to random points on the shell; 3 surface crawlers between shell points
+  s.inner = [0,1,2,3,4].map(() => mkBolt(0xffffff, 0.8)); s.crawl = [0,1,2].map(() => mkBolt(s.a.bolt, 0.9));
+  s.nextOrb = 0;
+  const sparkN = 40, sp = new Float32Array(sparkN*3); s.sparkSeed = Array.from({ length: sparkN }, () => [Math.random()*6.28, (Math.random()-0.5)*2, 0.5 + Math.random()*1.5]);
+  const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+  s.sparks = new THREE.Points(sg, new THREE.PointsMaterial({ color: s.a.bolt, size: 0.022, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })); s.sparks.frustumCulled = false; scene.add(s.sparks);
+  s.main = new Array(SEG + 1).fill(0).map(() => new THREE.Vector3());
+  s.nextJit = 0; s.strike = 0; s.nextStrike = Math.random() * 2;
+});
+
+// Viewer-only: constellation field on the dais + star dust
+const starN = 160, starPos = new Float32Array(starN*3);
+for (let i = 0; i < starN; i++) { const a = Math.random()*6.283, r = 1.3 + Math.random()*1.6; starPos.set([Math.cos(a)*r, 0.235, Math.sin(a)*r], i*3); }
+const starGeo = new THREE.BufferGeometry(); starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0x9fd0ff, size: 0.03, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })); scene.add(stars);
+const linePos = [];
+for (let i = 0; i < starN; i++) { let best = -1, bd = 0.55; for (let j = i+1; j < starN; j++) { const d = Math.hypot(starPos[i*3]-starPos[j*3], starPos[i*3+2]-starPos[j*3+2]); if (d < bd) { bd = d; best = j; } } if (best >= 0) linePos.push(starPos[i*3], 0.235, starPos[i*3+2], starPos[best*3], 0.235, starPos[best*3+2]); }
+const lineGeo = new THREE.BufferGeometry(); lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePos, 3));
+const constel = new THREE.LineSegments(lineGeo, new THREE.LineBasicMaterial({ color: 0x4a8adf, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false })); scene.add(constel);
+const dustN = 260, dustPos = new Float32Array(dustN*3), dustSeed = new Float32Array(dustN);
+for (let i = 0; i < dustN; i++) { const a = Math.random()*6.283, r = 0.6 + Math.random()*2.6; dustPos.set([Math.cos(a)*r, 0.3 + Math.random()*3.4, Math.sin(a)*r], i*3); dustSeed[i] = Math.random()*6.283; }
+const dustGeo = new THREE.BufferGeometry(); dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0x8fc4ff, size: 0.03, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false })); scene.add(dust);
+// Lightning bolt (regenerated on click)
+const boltGeo = new THREE.BufferGeometry(); boltGeo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(3*2*14), 3));
+const boltMat = new THREE.LineBasicMaterial({ color: 0xbfe0ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+const bolt = new THREE.LineSegments(boltGeo, boltMat); scene.add(bolt);
+let boltLife = 0;
+const strike = (target) => {
+  const a = new THREE.Vector3(); hammer.getWorldPosition(a);
+  const b = new THREE.Vector3(); target.getWorldPosition(b);
+  const p = boltGeo.attributes.position.array; let prev = a.clone();
+  for (let i = 0; i < 14; i++) {
+    const t = (i+1)/14, next = a.clone().lerp(b, t);
+    if (i < 13) next.add(new THREE.Vector3((Math.random()-0.5)*0.35, (Math.random()-0.5)*0.35, (Math.random()-0.5)*0.35));
+    p.set([prev.x, prev.y, prev.z, next.x, next.y, next.z], i*6); prev = next;
+  }
+  boltGeo.attributes.position.needsUpdate = true; boltLife = 1;
+};
+
+const frame = () => {
+  const w = renderer.domElement.clientWidth || 1, h = renderer.domElement.clientHeight || 1;
+  camera.aspect = w / h;
+  const r = 3.9, vfov = camera.fov * Math.PI / 360, hfov = Math.atan(Math.tan(vfov) * camera.aspect);
+  const d = r / Math.sin(Math.min(vfov, hfov)) * 0.95;
+  controls.target.set(0, 1.35, 0);
+  camera.position.copy(controls.target).add(new THREE.Vector3(0.55, 0.5, 1).normalize().multiplyScalar(d));
+  camera.near = 0.05; camera.far = 200; camera.updateProjectionMatrix(); controls.update();
+};
+frame(); window.addEventListener('resize', frame);
+controls.autoRotate = true; controls.autoRotateSpeed = 0.9;
+
+// Labels
+const labelsEl = document.getElementById('labels'), flash = document.getElementById('flash');
+const mkLabel = (name, role, css, extra='') => {
+  const d = document.createElement('div'); d.className = 'lbl ' + extra; d.style.setProperty('--c', css);
+  d.innerHTML = `<span class="dot"></span><b>${name}</b><small>${role}</small>`; labelsEl.appendChild(d); return d;
+};
+const coreLabel = mkLabel('THOR', 'PRINCE OF ASGARD · THE NORTH VOICE', '#7fb8ff', 'core');
+stations.forEach(s => s.label = mkLabel(s.a.name, s.a.role, s.a.css));
+const v = new THREE.Vector3(), occRay = new THREE.Raycaster();
+const occluders = [...model.children.filter(o => o.isMesh && /pedestal|dais_base/.test(o.name)), ...rings.map(g => g.children[0]), ...hammer.children.filter(o => o.isMesh)];
+const place = (el, obj, dy, up=false, occ=null) => {
+  obj.getWorldPosition(v);
+  let visible = true;
+  if (occ) { const dir = v.clone().sub(camera.position), dist = dir.length(); occRay.set(camera.position, dir.normalize()); occRay.far = dist - 0.3; visible = occRay.intersectObjects(occ, false).length === 0; }
+  v.y += dy; v.project(camera);
+  const w = renderer.domElement.clientWidth, h = renderer.domElement.clientHeight;
+  const s = THREE.MathUtils.clamp(7 / camera.position.distanceTo(controls.target), 0.7, 1.4);
+  const px = (v.x*0.5+0.5)*w, py = THREE.MathUtils.clamp((-v.y*0.5+0.5)*h + (up ? -34 : 26)*s, up ? 96 : 8, h - (up ? 8 : 96));
+  el.style.transform = `translate(-50%,${up ? '-100%' : '0'}) translate(${px}px,${py}px) scale(${s})`;
+  el.style.opacity = visible && v.z < 1 ? 1 : 0;
+};
+
+// Pointer reactivity
+const ray = new THREE.Raycaster(), ptr = new THREE.Vector2(-9, -9), ptrLerp = new THREE.Vector2();
+renderer.domElement.addEventListener('pointermove', e => { const r = renderer.domElement.getBoundingClientRect(); ptr.set(((e.clientX - r.left)/r.width)*2 - 1, -((e.clientY - r.top)/r.height)*2 + 1); });
+renderer.domElement.addEventListener('pointerleave', () => ptr.set(-9, -9));
+let pulse = 0, hit = null, frameNo = 0;
+renderer.domElement.addEventListener('pointerdown', () => {
+  pulse = 1;
+  const target = (hit && stations.find(s => s.gm === hit.object)) || stations[Math.floor(Math.random()*stations.length)];
+  stations.forEach(s => { s.strike = 1; s.nextJit = 0; s.restrikes = 3; }); target.hot = Math.max(target.hot, 1.2);
+});
+
+const hammerPickables = hammer.children.filter(o => o.isMesh);
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const t = clock.getElapsedTime(), dt = Math.min(clock.getDelta() || 0.016, 0.05), k = 1 - Math.exp(-dt * 6);
+  ptrLerp.lerp(ptr.x < -5 ? new THREE.Vector2() : ptr, k);
+  pulse *= Math.exp(-dt * 4); boltLife *= Math.exp(-dt * 7);
+  const beat = 0.5 + 0.5*Math.sin(t*2.0);
+
+  core.position.y = 2.0 + Math.sin(t*1.2)*0.07;
+  core.rotation.z = ptrLerp.x*0.14; core.rotation.x = -ptrLerp.y*0.1;
+  hammer.rotation.y = 0.6 + t*0.25; hammer.position.y = Math.sin(t*1.9)*0.04;
+  rings[0].rotation.z += 0.9*dt; rings[1].rotation.x += 0.7*dt; rings[2].rotation.y += 1.2*dt; rings[3].rotation.z -= 0.6*dt;
+  armillary.rotation.y = t*0.25;
+  rune.material.emissiveIntensity = 1.2 + beat*1.2 + pulse*4;
+  M.steel.emissive.setHex(0x0f2a55); M.steel.emissiveIntensity = 0.1 + beat*0.15 + pulse*1.2;
+  coreLight.intensity = 40 + beat*25 + pulse*160; coreLight.color.setHSL(0.6 - pulse*0.05, 0.9, 0.55 + pulse*0.3);
+  holo.rotation.y = -t*0.25; M.holo.opacity = 0.16 + beat*0.1 + pulse*0.3; M.holoLine.opacity = 0.45 + beat*0.3 + pulse*0.5;
+  holoRings.forEach((r, i) => { r.position.y = 0.05 + ((i*0.12 + t*0.15) % 0.5); r.scale.setScalar(1 + Math.sin(t*1.5 + i)*0.04); });
+  constel.material.opacity = 0.18 + beat*0.15 + pulse*0.5; stars.material.opacity = 0.5 + beat*0.3;
+  { const p = dustGeo.attributes.position.array; for (let i = 0; i < dustN; i++) { p[i*3+1] += dt*(0.06 + 0.05*Math.sin(dustSeed[i])); p[i*3] += Math.sin(t*0.6 + dustSeed[i])*dt*0.05; if (p[i*3+1] > 3.9) p[i*3+1] = 0.3; } dustGeo.attributes.position.needsUpdate = true; dust.material.opacity = 0.45 + beat*0.3; }
+  boltMat.opacity = boltLife * (0.6 + Math.random()*0.4); flash.style.opacity = Math.max(boltLife*0.9, pulse*0.35, ...stations.map(s => s.strike*0.18));
+
+  if (!(frameNo++ % 3)) { ray.setFromCamera(ptr, camera); hit = ray.intersectObjects(stations.map(s => s.gm).concat(hammerPickables))[0]; }
+  const hammerHot = hit && hammerPickables.includes(hit.object);
+  coreLabel.classList.toggle('hot', !!hammerHot);
+  if (hammerHot) coreLight.intensity += 30;
+
+  stations.forEach((s, i) => {
+    const target = hit && hit.object === s.gm ? 1 : 0;
+    s.hot += (target - s.hot)*k;
+    const bob = Math.sin(t*1.7 + s.phase)*0.07;
+    s.gemGrp.position.y = 0.9 + bob + s.hot*0.15;
+    s.gemGrp.rotation.y = t*(0.9 + i*0.1) + s.hot*0.3;
+    s.gemGrp.rotation.z = Math.sin(t*1.1 + s.phase)*0.12;
+    s.halo.rotation.z += (1.2 + s.hot*3)*dt;
+    s.sig.scale.setScalar(0.95 + s.hot*0.3 + pulse*0.2 + s.strike*0.08);
+    s.sig.rotation.set(Math.sin(t*0.9 + s.phase)*0.15, 0, Math.sin(t*1.3 + s.phase)*0.08);
+    const flicker = 0.5 + 0.5*Math.sin(t*3 + s.phase*2);
+    s.m.emissiveIntensity = 0.9 + flicker*0.4 + s.hot*1.2 + pulse*1.0 + s.strike*1.8;
+    s.coreM.emissiveIntensity = 2.0 + s.strike*3 + s.hot*1.5 + Math.random()*0.6;
+    // Bolt plasma: arcs leap between random edge points of the bolt and off its tips; re-jitter every ~50ms
+    const orbGlow = 0.55 + s.hot*0.4 + s.strike*0.5 + pulse*0.4;
+    if (t > s.nextOrb) {
+      s.nextOrb = t + 0.04 + Math.random()*0.04;
+      const edge = (v) => { const e = BOLT_EDGE[Math.floor(Math.random()*BOLT_EDGE.length)]; v.set(e[0], e[1], e[2]); s.sig.localToWorld(v); };
+      s.inner.forEach((l, li) => { edge(_A); edge(_B); const n = 8; buildPath(_A, _B, 0.08, n); writePath(l, n); l.material.opacity = (li < 2 || Math.random() > 0.5) ? orbGlow*(0.5 + Math.random()*0.5) : 0; });
+      s.crawl.forEach((l, ci) => { const tip = ci === 0 ? [0.14, 0.55, 0] : ci === 1 ? [-0.16, -0.55, 0] : BOLT_EDGE[Math.floor(Math.random()*BOLT_EDGE.length)]; _A.set(tip[0], tip[1], tip[2]); s.sig.localToWorld(_A); _B.set(_A.x + (Math.random()-0.5)*0.5, _A.y + (ci === 1 ? -0.1 : 0.1) + (Math.random()-0.5)*0.4, _A.z + (Math.random()-0.5)*0.5); const n = 10; buildPath(_A, _B, 0.12, n); writePath(l, n); l.material.opacity = Math.random() > 0.3 ? orbGlow*(0.6 + Math.random()*0.4) : 0; });
+    }
+    { const p = s.sparks.geometry.attributes.position.array; s.sig.getWorldPosition(_M); s.sparkSeed.forEach(([a0, tilt, spd], i) => { const a = a0 + t*spd*(1 + s.hot), r = ORB_R*(1.3 + 0.25*Math.sin(t*1.3 + a0)); p[i*3] = _M.x + Math.cos(a)*r; p[i*3+1] = _M.y + Math.sin(a)*r*tilt*0.6 + Math.sin(t*2 + a0)*0.03; p[i*3+2] = _M.z + Math.sin(a)*r; }); s.sparks.geometry.attributes.position.needsUpdate = true; s.sparks.material.opacity = 0.5 + s.hot*0.5 + s.strike*0.4; s.sparks.material.size = 0.02 + s.hot*0.015 + s.strike*0.01; }
+    s.glowRing.material.emissiveIntensity = 1.5 + flicker + s.hot*3;
+    s.light.intensity = 7 + flicker*4 + s.hot*18 + pulse*16;
+    s.beamMat.opacity = 0.06 + flicker*0.06 + s.hot*0.2 + pulse*0.2;
+    s.beam.scale.x = s.beam.scale.z = 1 + s.hot*2 + pulse*1.5;
+    // Lightning: a return stroke re-forms the channel; between strokes it fades with a flickering afterglow
+    if (t > s.nextStrike) { s.nextStrike = t + 0.35 + Math.random()*1.4 - s.hot*0.8; s.strike = 1; s.nextJit = 0; s.restrikes = 1 + Math.floor(Math.random()*3); }
+    if (t > s.nextJit && (s.strike > 0.15 || s.hot > 0.3 || pulse > 0.2)) {
+      s.nextJit = t + 0.04 + Math.random()*0.05;
+      s.gemGrp.getWorldPosition(_A); hammerAnchor.getWorldPosition(_B);
+      const amp = 0.45 + s.hot*0.35 + pulse*0.5;
+      buildPath(_A, _B, amp, SEG); copyPath(s.main); writePath(s.bolt, SEG); writePath(s.sleeve, SEG); writePath(s.boltCore, SEG);
+      s.branches.forEach((br, bi) => {
+        const start = 4 + Math.floor(Math.random() * (SEG - 10)); _M.copy(s.main[start]);
+        _O.copy(s.main[Math.min(SEG, start + 6)]).sub(_M).multiplyScalar(0.6 + Math.random()*0.5);
+        _O.x += (Math.random()-0.5)*0.7; _O.y += (Math.random()-0.6)*0.6; _O.z += (Math.random()-0.5)*0.7; _O.add(_M);
+        const bn = 12; buildPath(_M, _O, amp*0.5, bn); writePath(br, bn);
+        br.material.opacity = Math.random() > 0.3 ? 0.25 + Math.random()*0.35 : 0;
+      });
+    }
+    s.strike *= Math.exp(-dt * (s.hot > 0.3 ? 3 : 7));
+    if (s.strike < 0.35 && s.restrikes > 0 && Math.random() < dt*6) { s.strike = 0.85; s.restrikes--; }
+    const glow = Math.max(s.strike, s.hot*0.7, pulse*0.9), jit = 0.85 + Math.random()*0.3;
+    s.bolt.material.opacity = glow * 1.0 * jit; s.sleeve.material.opacity = glow * 0.35 * jit; s.boltCore.material.opacity = glow * glow * 0.9 * jit;
+    s.branches.forEach(br => { if (br.material.opacity > 0) br.material.opacity *= (glow > 0.3 ? 1 : 0.85); });
+    s.light.intensity = 7 + flicker*4 + s.hot*18 + pulse*16 + s.strike*30;
+    s.label.classList.toggle('hot', s.hot > 0.5);
+    if (!(frameNo % 3)) place(s.label, s.gemGrp, -0.3, false, occluders);
+  });
+  if (!(frameNo % 3)) place(coreLabel, core, 1.3, true);
+
+  controls.update();
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>
