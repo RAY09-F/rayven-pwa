@@ -1,6 +1,6 @@
 # ASGARD brain and arsenal progress
 
-Current wave: 3, persona prompt implementation. Wave2 activation is explicitly BLOCKED. Wave1 live acceptance is explicitly BLOCKED. Wave 0 completed its available read-only measurements; successful paid inference/audio measurements are explicitly BLOCKED.
+Current wave: 4, council execution and permissions. Wave3 live acceptance is explicitly BLOCKED. Wave2 activation is explicitly BLOCKED. Wave1 live acceptance is explicitly BLOCKED. Wave 0 completed its available read-only measurements; successful paid inference/audio measurements are explicitly BLOCKED.
 
 ## Rules carried forward
 
@@ -41,3 +41,10 @@ Wave1: implement the shared Messages API streaming/parser/error handling and sta
 - BLOCKED: model schema-token count and 70% comparison, cache hits, 60-utterance live selection score, extension/email/screenshot and Spotify end-to-end checks. Real misuse evidence has not established a defensible “15 most misused” ranking; examples will not be falsely described as measured. Family renames cannot proceed through their required deploy-and-verify gates. No Wave2 release uploaded or deployed, and no combined Wave1+Wave2 deployment attempted.
 - Deferred explicitly: programmatic tool execution sandbox (brief §5.7). This remains phase2.
 - Next Wave3: persona prose and examples. Wave2 is explicitly blocked before that work begins.
+
+## Wave 3 — spoken prompts implemented; measured persona acceptance BLOCKED
+
+- Replaced the three public prompts with stable prose: role, spoken-output guidance, concise default, individual relationship, tool categories, permissions, four diverse examples and the requested formatting block. Kept sender privacy, Chrome/internal-calendar limits, simulated trading and the existing retired-clipping business state. Removed hardcoded market statistics from the public prompt in favor of current verification; no user data or hidden-persona prompt was rewritten.
+- Increased public reply headroom to 4,096 tokens; the prompt governs length rather than cutting answers mid-thought. No halls, artwork or CSS changed.
+- Eight offline prompt/alias checks passed. These verify structure and boundary preservation, not whether generated replies sound good.
+- BLOCKED: fifteen actual outputs per persona and the 80% speaking-quality score need funded model access and spending authorization. No invented pass rate. No release uploaded/deployed; production remains the recorded floating release. Wave3 explicitly blocked before Wave4 starts.
