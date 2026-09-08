@@ -4,7 +4,9 @@ import {TOOL_DEFINITIONS,toolDefinitionsForPersona} from '../src/lib/tools.js';
 import {personaAllowsTool} from '../src/lib/personas.js';
 import {checkPermission,setToolPermission} from '../src/lib/permissions.js';
 test('every implementation has a unique reversible final name',()=>{
- assert.equal(Object.keys(TOOL_RENAME_MAP).length + 3,TOOL_DEFINITIONS.length);
+ assert.equal(Object.keys(TOOL_RENAME_MAP).length,277);
+ const names=new Set(TOOL_DEFINITIONS.map(t=>t.name));assert.equal(names.size,TOOL_DEFINITIONS.length);
+ for(const name of Object.keys(TOOL_RENAME_MAP))assert.ok(names.has(name),`Legacy implementation missing: ${name}`);
  for(const t of TOOL_DEFINITIONS)assert.equal(implementationToolName(canonicalToolName(t.name)),t.name);
 });
 test('legacy and canonical names keep identical persona and permission boundaries',async()=>{
