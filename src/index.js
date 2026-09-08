@@ -1,3 +1,4 @@
+import { logSelfCheck } from './tools/catalog-brain-dev.js';
 import { voiceWebSocket } from './lib/voice-websocket.js';
 // ASGARD backend — Cloudflare Worker entrypoint. HTTP router plus the main
 // chat-handling logic; all integrations live in ./lib/*.js. Three personas
@@ -1599,6 +1600,7 @@ How to speak on a phone call:
     // (asgard-upgrade Phase 1.4, Rule 5b) -- only if there is anything to write.
     const job = (fn) => fn(env).catch(err => console.error('cron job failed:', err && err.message));
     const jobs = [
+      job(logSelfCheck),
       job(runProactiveCheckInIfDue),
       job(runMorningBriefingIfDue),
       job(runCodeCheckIfDue),
