@@ -6,7 +6,8 @@ import {buildPrismFoundry} from './prism-foundry-model.js';
 
 // Owns the renderer, scheduling and DOM. The portable model owns its geometry.
 export function createCouncilScene(host,config,{still=false,quality='balanced',onHover=()=>{},onSelect=()=>{},onStatus=()=>{}}={}) {
- const {id,persona,build,agentIds,coreLabel,coreOffset=1.45,pixelRatio=1.5,exposure=1.1,fogColor=0x050b12,fogDensity=.045,hemisphere=[0x4a7a9a,0x0a1a2a,.25],keyIntensity=.77,fillIntensity=.175,studioColor=0x06101a,panels,frameStride=2}=config;
+ const {id,persona,build,agentIds,coreLabel,coreOffset=1.45,agentOffset=-.3,pixelRatio=1.5,exposure=1.1,fogColor=0x050b12,fogDensity=.045,hemisphere=[0x4a7a9a,0x0a1a2a,.25],keyIntensity=.77,fillIntensity=.175,studioColor=0x06101a,panels,frameStride=2,
+  environmentIntensity=.9,groundOpacity=.45,shadowExtent=0,fitRadius=3.9,viewTarget=[0,1.35,0],viewDirection=[.55,.5,1],autoRotateSpeed=.9,plate=false}=config;
  const canvas=document.createElement('canvas');canvas.setAttribute('aria-label',config.description);
  host.prepend(canvas);host.classList.add('council-scene',id);
  let renderer;
@@ -16,22 +17,24 @@ export function createCouncilScene(host,config,{still=false,quality='balanced',o
  renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFShadowMap;
  const scene=new T.Scene();scene.fog=new T.FogExp2(fogColor,fogDensity);
  const camera=new T.PerspectiveCamera(45,1,.05,200),controls=new OrbitControls(camera,canvas);
- controls.target.set(0,1.35,0);controls.enableDamping=true;controls.dampingFactor=.05;controls.autoRotateSpeed=.9;controls.enablePan=false;controls.minDistance=5;controls.maxDistance=30;
+ controls.target.set(...viewTarget);controls.enableDamping=true;controls.dampingFactor=.05;controls.autoRotateSpeed=autoRotateSpeed;controls.enablePan=false;controls.minDistance=5;controls.maxDistance=30;
  const model=build(T);scene.add(model.root);model.update(0);
  scene.add(new T.HemisphereLight(...hemisphere));
- const key=new T.DirectionalLight(0xffffff,keyIntensity);key.position.set(4,7,5);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.radius=4;key.shadow.bias=-.0002;scene.add(key);
+ const key=new T.DirectionalLight(0xffffff,keyIntensity);key.position.set(4,7,5);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.radius=4;key.shadow.bias=-.0002;if(shadowExtent){key.shadow.camera.left=-shadowExtent;key.shadow.camera.right=shadowExtent;key.shadow.camera.top=shadowExtent;key.shadow.camera.bottom=-shadowExtent;key.shadow.camera.updateProjectionMatrix();}scene.add(key);
  const fill=new T.DirectionalLight(0xfff4e6,fillIntensity);fill.position.set(-5,3,-4);scene.add(fill);
- const ground=new T.Mesh(new T.PlaneGeometry(200,200),new T.ShadowMaterial({opacity:.45}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+ const ground=new T.Mesh(new T.PlaneGeometry(200,200),new T.ShadowMaterial({opacity:groundOpacity}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
  const studio=new T.Scene();studio.background=new T.Color(studioColor);
  for(const [color,intensity,pos,w,h] of panels){
   const panel=new T.Mesh(new T.PlaneGeometry(w,h),new T.MeshBasicMaterial({color:new T.Color(color).multiplyScalar(intensity),side:T.DoubleSide}));panel.position.set(...pos);panel.lookAt(0,0,0);studio.add(panel);
  }
- const pmrem=new T.PMREMGenerator(renderer),environment=pmrem.fromScene(studio,.04);scene.environment=environment.texture;scene.environmentIntensity=.9;pmrem.dispose();studio.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});studio.clear();
+ const pmrem=new T.PMREMGenerator(renderer),environment=pmrem.fromScene(studio,.04);scene.environment=environment.texture;scene.environmentIntensity=environmentIntensity;pmrem.dispose();studio.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});studio.clear();
  const overlay=document.createElement('div');overlay.className='prism-labels';overlay.setAttribute('aria-hidden','true');host.append(overlay);
  const flash=config.flash?document.createElement('div'):null;if(flash){flash.className='council-flash';host.append(flash);}
  const labels=[{key:'core',...coreLabel,object:model.core},...model.stations.map(s=>({...s.a,object:s.gemGrp}))].map(info=>{
   const el=document.createElement('div');el.className='prism-label'+(info.key==='core'?' prism-core':'');el.dataset.agentKey=info.key;el.style.setProperty('--prism-color',info.css);
-  const name=document.createElement('b'),role=document.createElement('small'),tick=document.createElement('span');name.textContent=info.name;role.textContent=info.role;tick.className='prism-tick';el.append(tick,name,role);overlay.append(el);return {...info,el};
+  const name=document.createElement('b'),role=document.createElement('small'),tick=document.createElement('span');name.textContent=info.name;role.textContent=info.role;tick.className='prism-tick';
+  if(plate){const box=document.createElement('span');box.className='prism-plate';box.append(name,role);el.append(tick,box);}else el.append(tick,name,role);
+  overlay.append(el);return {...info,el};
  });
  const coreOccluders=model.coreOccluders||model.occluders.filter(o=>o!==model.coreCrystal);
  const pickHits=[],occlusionHits=[],neutralPointer=new T.Vector2();
@@ -40,12 +43,12 @@ export function createCouncilScene(host,config,{still=false,quality='balanced',o
  const animated=()=>!still&&!reduced.matches;
  const listen=(el,type,fn,options)=>{el?.addEventListener(type,fn,options);listeners.push(()=>el?.removeEventListener(type,fn,options));};
  const schedule=()=>{if(!disposed&&!contextLost&&!document.hidden&&!raf)raf=requestAnimationFrame(frame);};
- function resize(){if(disposed)return;const box=host.getBoundingClientRect();width=Math.max(1,box.width);height=Math.max(1,box.height);renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();const half=T.MathUtils.degToRad(45)/2,horizontal=Math.atan(Math.tan(half)*camera.aspect),distance=3.9/Math.sin(Math.min(half,horizontal))*.95;controls.maxDistance=Math.max(30,distance*2);camera.position.copy(direction.set(.55,.5,1).normalize().multiplyScalar(distance).add(controls.target));controls.update(0);last=0;schedule();}
+ function resize(){if(disposed)return;const box=host.getBoundingClientRect();width=Math.max(1,box.width);height=Math.max(1,box.height);renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();const half=T.MathUtils.degToRad(45)/2,horizontal=Math.atan(Math.tan(half)*camera.aspect),distance=fitRadius/Math.sin(Math.min(half,horizontal))*.95;controls.maxDistance=Math.max(30,distance*2);camera.position.copy(direction.set(...viewDirection).normalize().multiplyScalar(distance).add(controls.target));controls.update(0);last=0;schedule();}
  function hoverChanged(next){if(next===hover)return;hover=next;canvas.style.cursor=next?'pointer':'grab';onHover(next);}
  function pick(){ray.setFromCamera(ptr,camera);pickHits.length=0;ray.intersectObjects(model.pickables,false,pickHits);return pickHits[0]?.object.userData.agentKey||null;}
  function positionLabels(){const scale=T.MathUtils.clamp(7/camera.position.distanceTo(controls.target),.7,1.4);
   for(const label of labels){label.object.getWorldPosition(world);direction.copy(world).sub(camera.position);const distance=direction.length();occRay.set(camera.position,direction.normalize());occRay.far=Math.max(0,distance-.3);occlusionHits.length=0;occRay.intersectObjects(label.key==='core'?coreOccluders:model.occluders,false,occlusionHits);const visible=!occlusionHits.length;
-   projected.copy(world);projected.y+=label.key==='core'?coreOffset:-.3;projected.project(camera);
+   projected.copy(world);projected.y+=label.key==='core'?coreOffset:agentOffset;projected.project(camera);
    const w=label.el.offsetWidth*scale,h=label.el.offsetHeight*scale,core=label.key==='core';let x=(projected.x*.5+.5)*width-w/2,y=(-projected.y*.5+.5)*height+(core?-34:26)*scale-(core?h:0);
    x=T.MathUtils.clamp(x,8,Math.max(8,width-w-8));y=T.MathUtils.clamp(y,8,Math.max(8,height-h-8));
    label.el.style.transform=`translate(${x}px,${y}px) scale(${scale})`;label.el.style.opacity=visible&&projected.z>=-1&&projected.z<=1?'1':'0';label.el.classList.toggle('hot',hover===label.key);label.el.dataset.occluded=String(!visible);
@@ -63,7 +66,7 @@ export function createCouncilScene(host,config,{still=false,quality='balanced',o
   }
   renderer.setScissorTest(false);renderer.setViewport(0,0,width,height);renderer.shadowMap.enabled=true;
  }
- const updateState={pointer:neutralPointer,hover:null,animated:true};
+ const updateState={pointer:neutralPointer,hover:null,animated:true,camera};
  function frame(now){raf=0;if(disposed||contextLost||document.hidden)return;const dt=last?(now-last)/1000:0;last=now;controls.autoRotate=animated()&&!hasDragged;controls.enableDamping=animated();controls.update(dt);updateState.pointer=pointerInside?ptr:neutralPointer;updateState.hover=hover;updateState.animated=animated();model.update(dt,updateState);if(flash)flash.style.opacity=animated()?String(model.flash||0):'0';scene.updateMatrixWorld(true);
   if(frames%frameStride===0||!animated()){if(pointerInside&&!drag)hoverChanged(pick());positionLabels();}drawPreviews();renderer.render(scene,camera);frames++;host.dataset.frames=String(frames);host.dataset.animated=String(animated());if(animated()||drag||settle-->0)schedule();
  }

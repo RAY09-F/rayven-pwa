@@ -10,7 +10,7 @@ fetch('https://asgrard-backend.rayanfahil2.workers.dev/voice/config').then(r=>r.
 let preferences=readPreferences(storage),presence=null,speechPhase='idle',micState='off';
 const requests=createRequestLedger(),cancelled={},scrollFollow={},controls={};
 const errors={},workspace=document.querySelector('.workspace'),dialog=document.getElementById('settings-dialog');
-const profile={thor:['The Astral Cartographer','Map the next step.','Thor’s modeled hammer, bronze armillary and five advisor gems'],loki:['The Bifrost Prism Foundry','Give possibility a shape.','Loki’s gold faceted crystal, emerald foundry and five advisor gems'],odin:['The Basalt Command Monument','A clearer view of what comes next.','Odin’s gold tower, basalt terraces and five advisor platforms']};
+const profile={thor:['The Astral Cartographer','Map the next step.','Thor’s modeled hammer, bronze armillary and five advisor gems'],loki:['The Bifrost Prism Foundry','Give possibility a shape.','Loki’s gold faceted crystal, emerald foundry and five advisor gems'],odin:['The Solar Throne','A clearer view of what comes next.','Odin’s gold solar disc, marble pedestal and five advisor eyes']};
 function persist(k,v){try{localStorage.setItem(k,v);}catch{}}
 function refreshState(){
   const hall=activeHall();
@@ -524,7 +524,7 @@ const output=document.getElementById('output-setting');output.checked=preference
 output.addEventListener('change',()=>{preferences.output=output.checked;persist('asgard:voice-output',output.checked?'1':'0');if(!output.checked){stopSpeaking();resumeListeningAfterSpeech();}});
 const still=document.getElementById('still-setting');still.checked=preferences.still;
 const motionQuery=matchMedia('(prefers-reduced-motion: reduce)');
-function motionNote(){const button=document.querySelector('[data-motion-toggle]');if(button){button.textContent=motionQuery.matches?'Reduced motion':preferences.still?'Resume motion':'Pause motion';button.disabled=motionQuery.matches;button.setAttribute('aria-pressed',String(preferences.still||motionQuery.matches));}document.getElementById('motion-note').textContent=preferences.still||motionQuery.matches?'Motion paused · Settings':presence?.status().ready?['thor','loki'].includes(activeHall())?'Floating · drag to orbit':'Floating · drag an object':'3D unavailable';}
+function motionNote(){const button=document.querySelector('[data-motion-toggle]');if(button){button.textContent=motionQuery.matches?'Reduced motion':preferences.still?'Resume motion':'Pause motion';button.disabled=motionQuery.matches;button.setAttribute('aria-pressed',String(preferences.still||motionQuery.matches));}document.getElementById('motion-note').textContent=preferences.still||motionQuery.matches?'Motion paused · Settings':presence?.status().ready?['thor','loki','odin'].includes(activeHall())?'Floating · drag to orbit':'Floating · drag an object':'3D unavailable';}
 document.querySelector('[data-motion-toggle]')?.addEventListener('click',()=>{still.checked=!still.checked;still.dispatchEvent(new Event('change'));});
 still.addEventListener('change',()=>{preferences.still=still.checked;persist('asgardfx:still',still.checked?'1':'0');presence?.setStill(still.checked);motionNote();});motionQuery.addEventListener('change',motionNote);motionNote();
 const quality=document.getElementById('quality-setting');quality.value=preferences.quality;

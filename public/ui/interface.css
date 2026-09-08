@@ -112,3 +112,17 @@ html[data-persona=thor] .presence {background:radial-gradient(ellipse at 50% 40%
 .astral-cartographer .prism-tick {margin:0 auto 4px;background:linear-gradient(to bottom,var(--prism-color),transparent);box-shadow:none}
 .astral-cartographer .prism-core .prism-tick {margin:6px auto 0;background:linear-gradient(to top,var(--prism-color),transparent)}
 .council-flash {position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,rgba(140,190,255,.55),rgba(20,60,140,0) 60%);opacity:0;mix-blend-mode:screen}
+
+/* Solar Throne shares the canvas and label mount; its labels are compact engraved plates. */
+html[data-persona=odin] .presence {background:radial-gradient(ellipse at 50% 40%,#1a1710 0%,#07070a 70%)}
+.solar-throne canvas {touch-action:none}
+.solar-throne .prism-label {filter:none;letter-spacing:.14em;text-shadow:0 0 10px var(--prism-color),0 0 22px rgba(0,0,0,.95),0 2px 3px #000}
+.prism-plate {display:block;padding:4px 9px 5px;background:linear-gradient(180deg,rgba(6,7,10,.86),rgba(6,7,10,.66));border:1px solid rgba(224,176,80,.5);border-radius:2px;box-shadow:0 0 14px rgba(0,0,0,.7),inset 0 0 12px rgba(224,176,80,.1)}
+.solar-throne .prism-label b {font-size:12.5px;filter:brightness(1.5) saturate(1.15)}
+.solar-throne .prism-label.hot b {filter:brightness(1.8) saturate(1.15)}
+.solar-throne .prism-label small {font-size:8.5px;letter-spacing:.22em;color:rgba(255,240,215,.9);margin-top:2px}
+.solar-throne .prism-core b {font-size:19px}
+.solar-throne .prism-core small {font-size:9.5px}
+.solar-throne .prism-tick {margin:0 auto 4px;background:linear-gradient(to bottom,var(--prism-color),transparent);box-shadow:none}
+.solar-throne .prism-core .prism-tick {margin:6px auto 0;background:linear-gradient(to top,var(--prism-color),transparent)}
+.solar-throne .council-flash {background:radial-gradient(ellipse at 50% 50%,rgba(255,210,130,.65),rgba(120,70,10,0) 60%)}
