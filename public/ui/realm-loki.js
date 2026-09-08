@@ -51,7 +51,7 @@ export function createLoki(THREE, {quality = 'balanced', preview = false} = {}) 
   const crystal = new THREE.Group(); crystal.name='loki-floating-gold-crystal'; crystal.position.y=2.24; crystal.scale.setScalar(1.18); hero.add(crystal);
   // Hand-built octagonal tiers, alternating belt diagonals, and flat face normals.
   // The entire diamond is 2.4 units tall. Opaque facets avoid transmission sorting artifacts.
-  const facetMaterials=[0xa65302,0xffcf18,0x643007,0xd99103,0xffe44c,0x814403].map(color=>mat({color,emissive:color,emissiveIntensity:.09,metalness:.57,roughness:.16,flatShading:true}));
+  const facetMaterials=[0xa65302,0xffcf18,0x643007,0xd99103,0xffe44c,0x814403].map(color=>mat({color,emissive:color,emissiveIntensity:.32,metalness:.57,roughness:.16,flatShading:true}));
   const tiers=[[-1.20,0],[-.38,.59],[-.04,.78],[.22,.65],[1.20,0]], verts=[], groups=[];
   const point=(tier,i)=>{const [y,r]=tiers[tier],a=(i%8)*Math.PI/4+Math.PI/8;return [Math.sin(a)*r,y,Math.cos(a)*r];};
   function face(a,b,c,material){const start=verts.length/3;verts.push(...a,...b,...c);groups.push([start,3,material]);}
@@ -99,9 +99,9 @@ export function createLoki(THREE, {quality = 'balanced', preview = false} = {}) 
     const now=Number.isFinite(time)?time:0;
     const delta=lastTime===null?0:Math.max(0,Math.min(.1,now-lastTime)); lastTime=now;
     if(animated)clock+=delta;
-    crystal.position.y=2.24+Math.sin(clock*.67)*.035;
-    crystal.rotation.y=Math.sin(clock*.19)*.105;
-    for(let i=0;i<bands.length;i++)bands[i].rotation.y=clock*[.045,-.032,.025][i];
+    crystal.position.y=2.24+Math.sin(clock*1.1)*.16;
+    crystal.rotation.y=Math.sin(clock*.42)*.30;
+    for(let i=0;i<bands.length;i++)bands[i].rotation.y=clock*[.22,-.16,.12][i];
     const id=typeof state==='string'?state:state?.id;
     const active=id==='thinking'||id==='speaking'||id==='listening';
     coreMat.emissiveIntensity=active?.68+.07*Math.sin(clock*1.5):.55;

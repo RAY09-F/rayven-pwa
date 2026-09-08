@@ -82,9 +82,9 @@ test('state, layout and camera inputs normalize malformed data and enforce bound
  for(const value of [null,undefined,{},[],42,'busy','<script>'])assert.equal(normalizedSceneState(value),'idle');
  for(const value of [null,undefined,{},[],42,'bad',{x:NaN,y:Infinity,z:'3'}])assert.deepEqual(clampLayout(value),{x:0,y:0,z:0});
  assert.deepEqual(clampLayout({x:99,y:-1,z:-99}),{x:.45,y:0,z:-.35});assert.deepEqual(clampLayout({x:-99,y:99,z:99}),{x:-.45,y:.35,z:.35});
- for(const value of [null,undefined,{},[],42,'bad',{yaw:NaN,elevation:Infinity,zoom:'3'}])assert.deepEqual(clampView(value),{yaw:0,elevation:.68,zoom:1});
- assert.deepEqual(clampView({yaw:99,elevation:-99,zoom:99}),{yaw:.42,elevation:.42,zoom:1.2});assert.deepEqual(clampView({yaw:-99,elevation:99,zoom:-99}),{yaw:-.42,elevation:.78,zoom:.82});
- const layout={x:.2,y:.1,z:-.1},view={yaw:.1,elevation:.7,zoom:1.1};assert.deepEqual(clampLayout(layout),layout);assert.deepEqual(clampView(view),view);
+ for(const value of [null,undefined,{},[],42,'bad',{yaw:NaN,elevation:Infinity,zoom:'3'}])assert.deepEqual(clampView(value),{yaw:0,elevation:.10,zoom:1});
+ assert.deepEqual(clampView({yaw:99,elevation:-99,zoom:99}),{yaw:.42,elevation:.06,zoom:1.2});assert.deepEqual(clampView({yaw:-99,elevation:99,zoom:-99}),{yaw:-.42,elevation:.24,zoom:.82});
+ const layout={x:.2,y:.1,z:-.1},view={yaw:.1,elevation:.17,zoom:1.1};assert.deepEqual(clampLayout(layout),layout);assert.deepEqual(clampView(view),view);
 });
 test('production scene and factories do not import or load reference photographs',async()=>{
  for(const file of ['scene.js','realm-thor.js','realm-loki.js','realm-odin.js','realm-architecture.js']){

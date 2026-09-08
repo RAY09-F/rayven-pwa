@@ -63,3 +63,11 @@ html[data-persona=odin] .conversation .bubble pre{color:#e0e8ed}
 html[data-persona=odin] .conversation .bubble a{color:#79531b}
 html[data-persona=odin] .conversation .request-receipt{background:#d7d1c4;color:#36434b}
 html[data-persona=odin] .conversation .request-receipt summary{color:#36434b}
+/* FLOATING REALMS 2 — frontal objects, readable colored nameplates, direct manipulation. */
+.presence-heading h1{color:var(--accent);text-shadow:0 0 22px color-mix(in srgb,var(--accent) 45%,transparent)}
+#presence-scene canvas{cursor:grab;touch-action:none}
+#council-dock .council-member{color:var(--member);border-color:color-mix(in srgb,var(--member) 28%,transparent);background:linear-gradient(180deg,#09121ce8,#061018ba);text-shadow:0 0 12px color-mix(in srgb,var(--member) 60%,transparent);letter-spacing:.04em;min-height:44px}
+.hero-nameplate{position:absolute;pointer-events:none;transform:translate(-50%,-50%);color:var(--accent);font:600 22px Georgia,serif;letter-spacing:.22em;text-shadow:0 0 12px var(--accent),0 0 30px var(--accent);z-index:2}
+.motion-readout{display:block;font-size:10px;color:var(--accent);letter-spacing:0;line-height:1.6}
+#presence-scene[data-render=fallback] .hero-nameplate{display:none}
+@media(max-width:700px){.hero-nameplate{font-size:17px}#council-dock .council-member{font-size:9px;letter-spacing:0;min-height:44px}}

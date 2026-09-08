@@ -1,6 +1,6 @@
-import {createArsenal} from './arsenal.js?v=reference-realms-1';
-import {initialPersona,editableTarget,readPreferences,assistantState,createRequestLedger,replyText,restoreDraft,nearTranscriptEnd,formatReply,parseReplyPayload,requestErrorMessage} from './state.js?v=reference-realms-1';
-import {createPresence} from './scene.js?v=reference-realms-1';
+import {createArsenal} from './arsenal.js?v=floating-realms-2';
+import {initialPersona,editableTarget,readPreferences,assistantState,createRequestLedger,replyText,restoreDraft,nearTranscriptEnd,formatReply,parseReplyPayload,requestErrorMessage} from './state.js?v=floating-realms-2';
+import {createPresence} from './scene.js?v=floating-realms-2';
 const halls=['thor','loki','odin'];
 let storage;try{storage=window.localStorage;}catch{}
 let arsenal=null;
@@ -506,7 +506,8 @@ const output=document.getElementById('output-setting');output.checked=preference
 output.addEventListener('change',()=>{preferences.output=output.checked;persist('asgard:voice-output',output.checked?'1':'0');if(!output.checked){stopSpeaking();resumeListeningAfterSpeech();}});
 const still=document.getElementById('still-setting');still.checked=preferences.still;
 const motionQuery=matchMedia('(prefers-reduced-motion: reduce)');
-function motionNote(){document.getElementById('motion-note').textContent=preferences.still||motionQuery.matches?'Motion is still':'Hologram motion';}
+function motionNote(){const button=document.querySelector('[data-motion-toggle]');if(button){button.textContent=motionQuery.matches?'Reduced motion':preferences.still?'Resume motion':'Pause motion';button.disabled=motionQuery.matches;button.setAttribute('aria-pressed',String(preferences.still||motionQuery.matches));}document.getElementById('motion-note').textContent=preferences.still||motionQuery.matches?'Motion paused · Settings':presence?.status().ready?'Floating · drag an object':'3D unavailable';}
+document.querySelector('[data-motion-toggle]')?.addEventListener('click',()=>{still.checked=!still.checked;still.dispatchEvent(new Event('change'));});
 still.addEventListener('change',()=>{preferences.still=still.checked;persist('asgardfx:still',still.checked?'1':'0');presence?.setStill(still.checked);motionNote();});motionQuery.addEventListener('change',motionNote);motionNote();
 const quality=document.getElementById('quality-setting');quality.value=preferences.quality;
 quality.addEventListener('change',()=>{preferences.quality=quality.value;persist('asgard:render-quality',quality.value);presence?.setQuality(quality.value);});

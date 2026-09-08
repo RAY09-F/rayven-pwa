@@ -119,9 +119,9 @@ export function createThor(THREE, {quality = 'balanced', preview = false} = {}) 
     const working=['thinking','working','executing','streaming','speaking'].includes(mode);
     blue.emissiveIntensity=working?.95:.48;arc.visible=working;arcMaterial.opacity=working?.65:0;
     if(!animated)return;
-    const t=motionTime;hammer.position.y=1.64+Math.sin(t*.46)*.025;hammer.rotation.y=-.12+Math.sin(t*.23)*.035;
-    bands.forEach((b,i)=>{b.group.rotation.y=b.ry+Math.sin(t*(.055+i*.013)+i)*.12;b.group.rotation.z=b.rz+Math.sin(t*.045+i)*.035;});
-    chart.rotation.y=t*.013;arcMaterial.opacity=working?.60+Math.sin(t*6)*.14:0;
+    const t=motionTime;hammer.position.y=1.64+Math.sin(t*1.05)*.14;hammer.rotation.y=-.12+Math.sin(t*.52)*.18;
+    bands.forEach((b,i)=>{b.group.rotation.y=b.ry+Math.sin(t*(.32+i*.08)+i)*.32;b.group.rotation.z=b.rz+Math.sin(t*.045+i)*.035;});
+    chart.rotation.y=t*.10;arcMaterial.opacity=working?.60+Math.sin(t*6)*.14:0;
   }
   let disposed=false;
   return {root,hero,update,stats:{design:'beveled Mjolnir and three solid annular armillary bands',preview,geometries:geometries.size,materials:materials.size},dispose(){if(disposed)return;disposed=true;instanceBatches.forEach(o=>o.dispose());geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());root.removeFromParent();}};
