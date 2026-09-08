@@ -1,0 +1,36 @@
+
+ ⛅️ wrangler 4.122.0
+────────────────────
+🌀 Building list of assets...
+✨ Read 43 files from the assets directory /home/rayanfahil2/asgard-bifrost/public
+🌀 Starting asset upload...
+🌀 Found 6 new or modified static assets to upload. Proceeding with upload...
++ /ui/release.json
++ /index.html
++ /ui/state.js
++ /ui/arsenal.js
++ /ui/scene.js
++ /ui/app.js
+Uploaded 2 of 6 assets
+Uploaded 4 of 6 assets
+Uploaded 6 of 6 assets
+✨ Success! Uploaded 6 files (31 already uploaded) (1.25 sec)
+
+Total Upload: 870.04 KiB / gzip: 238.88 KiB
+Worker Startup Time: 14 ms
+Your Worker has access to the following bindings:
+Binding                                                                     Resource
+env.LEDGER (AsgardLedger)                                                   Durable Object
+env.RAYVEN_KV (ee3cce96335249a9a4cc990cdfd8a2a5)                            KV Namespace
+env.VECTORIZE (rayven-memory)                                               Vectorize Index
+env.CLIPS (asgardclips)                                                     R2 Bucket
+env.AI                                                                      AI
+env.ASSETS                                                                  Assets
+env.TELEGRAM_WEBHOOK_HOST ("https://asgrard-backend.rayanfahil2.w...")      Environment Variable
+env.LEDGER_BACKEND ("do")                                                   Environment Variable
+
+Uploaded asgrard-backend (7.37 sec)
+Deployed asgrard-backend triggers (1.86 sec)
+  https://asgrard-backend.rayanfahil2.workers.dev
+  schedule: */5 * * * *
+Current Version ID: 6d6c87d5-bf48-4914-9b98-d38fb94b07d1

@@ -30,3 +30,7 @@ The environment has about 2.7 GiB RAM and swap. A 10-second balanced rendering s
 Local replies are explicitly labeled fixtures. They do not prove a live provider connection. Physical microphone/speaker behavior, a real phone's software keyboard, assistive technology and every external provider remain unverified. The keyboard test shrinks the visible viewport to 390×460 and checks actual Send bounds. Known provider credit, authentication, rate-limit and unavailable responses have bounded safe-message tests; hostile/oversized provider payloads are not exposed. Expected fixture 503 responses exercise errors; no uncaught application JavaScript errors pass the final interaction sweep.
 
 CLI 0.153.4, Playwright CLI 0.1.19 and one reused headless Chrome browser were used. Three specialist agents had bounded disjoint assignments; heavy checks were serialized. No optimizer extension or global configuration change was made. Codex subscription/cache-token metrics were unavailable, so no token savings percentage is claimed.
+
+## Final public release
+
+Release `bifrost-9a1c6b9c4db0` matches all 19 public asset hashes/MIME, including root HTML. Query-versioned/no-cache fetches, legacy forwarder fingerprint and Thor redirect also pass. Six live browser UI assertions pass. The actual provider turn fails with insufficient credits, and the delivered UI displays the safe explanation and draft restoration. See [DEPLOYMENT.md](DEPLOYMENT.md), [live browser log](evidence/live-browser.json) and [live recording](evidence/live-bifrost.webm).

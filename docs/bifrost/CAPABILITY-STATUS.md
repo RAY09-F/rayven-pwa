@@ -1,6 +1,6 @@
 # Capability status — deterministic inventory audit
 
-Evidence date: 2026-09-08. Source revision: `9d2fb784f629f82463037a0aaf219e063299329a`; locally observed origin/main: `9d2fb784f629f82463037a0aaf219e063299329a`. Full per-entry matrix: [CAPABILITY-STATUS.json](CAPABILITY-STATUS.json). Source ranges refer to [MASTER-REFERENCE.md](MASTER-REFERENCE.md).
+Evidence date: 2026-09-08. Source revision: `6bd0737d716ed9ff24db025a83a25aa1c1316956`; locally observed origin/main: `6bd0737d716ed9ff24db025a83a25aa1c1316956`. Full per-entry matrix: [CAPABILITY-STATUS.json](CAPABILITY-STATUS.json). Source ranges refer to [MASTER-REFERENCE.md](MASTER-REFERENCE.md).
 
 **All 485 entries are retained:** 223 public backend definitions + 36 local utilities + 186 proposals = 445 catalogue entries; the additional 24 automation briefs and 16 missions are workflow/request records, not installed tools. Backend registry has 277 total registrations; 54 non-public registrations are counted only; their identities and private hints are intentionally omitted. 16 historically dropped catalogue IDs remain recorded as excluded, without implying a fresh live failure test.
 
@@ -12,7 +12,7 @@ Evidence date: 2026-09-08. Source revision: `9d2fb784f629f82463037a0aaf219e06329
 | A | 24 | partial | untested | unknown |
 | M | 16 | partial | untested | unknown |
 
-Every entry has independent source, repository delivery, deployment, connection, verification and conservative user-availability dimensions; exact schema, persona policy, handler/source references and blockers are preserved. **Deployment is not checked for every entry**, pending lead release verification. No capability is marked ready. Source “implemented” means a registered source handler exists, not that credentials, provider behavior, tenant scope or output validation are complete. Local-only changes are detected against HEAD per referenced file. Unchanged files use pushed only when HEAD equals the locally observed origin/main; no fresh remote fetch is implied.
+Every entry has independent source, repository delivery, deployment, connection, verification and conservative user-availability dimensions; exact schema, persona policy, handler/source references and blockers are preserved. **Released source is present:** Worker version 6d6c87d5-bf48-4914-9b98-d38fb94b07d1, release bifrost-9a1c6b9c4db0, pushed source 6bd0737d716ed9ff24db025a83a25aa1c1316956. 19 frontend asset hashes match that source. B/L source presence is recorded; P adapters remain absent and A/M surfaces remain preparation only. See [release-proof.json](evidence/release-proof.json). Backend connection and execution stay unknown/untested. 0 local browser calculation case(s) have specific live evidence; other local tools retain fixture status. Source “implemented” means a registered source handler exists, not that credentials, provider behavior, tenant scope or output validation are complete. Local-only changes are detected against HEAD per referenced file. Unchanged files use pushed only when HEAD equals the locally observed origin/main; no fresh remote fetch is implied.
 
 ## Verification
 
@@ -20,7 +20,7 @@ Every entry has independent source, repository delivery, deployment, connection,
 
 `node --test scripts/local-tools.test.mjs`: 5 tests, 5 passed, 0 failed. The first test exercises all 36 local implementations with representative inputs; remaining tests cover selected numerical boundaries, content escaping and inventory counts. These are fixture tests, not browser or provider tests.
 
-`node scripts/index-backlog.mjs --check` verifies report bytes after regenerating in memory. Only the script and these two reports are owned by CATALOG-D. No app/backend/config change, network provider invocation, schedule activation, secret value inspection or deployment is performed.
+`node scripts/index-backlog.mjs --check` verifies report bytes after regenerating in memory. Only the script and these two reports are owned by CATALOG-D. This generator makes no app/backend/config change, provider invocation, schedule activation, secret inspection or deployment. When present, it consumes the lead’s checked-in release evidence and verifies asset hashes against the released Git revision.
 
 ## Correspondences and limitations
 
@@ -30,7 +30,7 @@ Handler/provider mapping is static: case dispatch plus imported implementation s
 
 ## Missing foundations for the next integrated slice
 
-1. Keep the index release gate first. Verify delivered frontend entry/module hashes and renderer; only then record production capability presence against that exact release.
+1. The index release is evidenced. Keep deployment presence separate from provider health and tool execution; next verify the chosen capability end to end against this release.
 2. Complete one research path using existing web_search/tavily_research and source-reading tools: validate input, preflight provider/permission context, retain source URL/retrieval time, and return a structured receipt with partial/failure state. Arsenal currently prepares chat text; that is not direct execution proof.
 3. Establish authoritative per-user/tenant auth context before customer offers or a generic execution endpoint. Reuse current persona, permissions, containment and approval checks; do not bypass them by calling executeTool directly from a new unauthenticated route.
 4. Add bounded timeout/cancellation semantics, normalized provider errors, output validation and idempotency/reconciliation where consequential tools need them. Cover invalid schema, wrong persona, unavailable credential, provider timeout, cross-user request and duplicate submission using fixtures before live writes.

@@ -1,2 +1,20 @@
-{"result":"PASS","mode":"write","counts":{"B":223,"L":36,"P":186,"A":24,"M":16},"total":485,"public_schema_matches":223,"backend_handlers_mapped":223,"duplicates":0,"local_fixture_tests":{"command":"node --test scripts/local-tools.test.mjs","exit_code":0,"tests":5,"passed":5,"failed":0},"exact_references":35,"conceptual_overlaps":31}
-{"result":"PASS","mode":"check","counts":{"B":223,"L":36,"P":186,"A":24,"M":16},"total":485,"public_schema_matches":223,"backend_handlers_mapped":223,"duplicates":0,"local_fixture_tests":{"command":"node --test scripts/local-tools.test.mjs","exit_code":0,"tests":5,"passed":5,"failed":0},"exact_references":35,"conceptual_overlaps":31}
+Command: node scripts/index-backlog.mjs --check
+Result: PASS
+Source/push: 6bd0737d716ed9ff24db025a83a25aa1c1316956
+Worker version: 6d6c87d5-bf48-4914-9b98-d38fb94b07d1
+Release: bifrost-9a1c6b9c4db0
+Released assets matched against source SHA-256 and MIME: 19
+Inventory: B223 / L36 / P186 / A24 / M16 = 485 entries (445 capabilities + 40 preparation records)
+Public schema/persona matches: 223
+Public backend handlers mapped: 223
+Duplicate runtime IDs: 0
+Exact brief references: 35
+Conceptual overlaps: 31
+Local fixtures: node --test scripts/local-tools.test.mjs — 5 tests, 5 passed, 0 failed; all 36 utilities exercised.
+Syntax: node --check scripts/index-backlog.mjs — PASS
+Whitespace: git diff --check -- scripts/index-backlog.mjs docs/bifrost/CAPABILITY-STATUS.md docs/bifrost/CAPABILITY-STATUS.json — PASS
+B: deployed handler source; connection unknown; execution untested.
+L: deployed implementation asset; no provider required; fixture pass.
+P: deployed proposal catalogue; adapter absent.
+A/M: deployed preparation UI only; workflow/mission execution untested.
+No individual provider invocation, browser run, deployment or commit performed by this generator task.

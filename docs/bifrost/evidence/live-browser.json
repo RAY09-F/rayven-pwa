@@ -1,0 +1,61 @@
+{
+  "verifiedAt": "2026-09-08T00:53:28.031Z",
+  "url": "https://asgrard-backend.rayanfahil2.workers.dev",
+  "release": "bifrost-9a1c6b9c4db0",
+  "fingerprint": "9a1c6b9c4db08f25f2b1e90c198f06bf6933e984c9308c6dc7b8d580ed9b05c0",
+  "checks": [
+    "Live index serves Bifrost aperture",
+    "Live metadata identifies delivered build",
+    "Live Thor uses one renderer canvas",
+    "Live Loki uses one renderer canvas",
+    "Live Odin uses one renderer canvas",
+    "Live phone has no horizontal overflow"
+  ],
+  "chat": {
+    "verified": false,
+    "status": 500,
+    "error": "Claude API error \u2014 Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+    "elapsedMs": 4744,
+    "smokeHeader": true
+  },
+  "renderer": {
+    "ready": true,
+    "renderMode": "webgl",
+    "persona": "thor",
+    "state": "error",
+    "frames": 12,
+    "animated": false,
+    "hidden": false,
+    "rafActive": false,
+    "quality": "balanced",
+    "width": 856.8125,
+    "height": 508,
+    "error": null,
+    "threeRevision": "185",
+    "rendererResources": {
+      "geometries": 51,
+      "textures": 2
+    },
+    "sculpturalMeshes": 33,
+    "geometries": 52,
+    "materials": 10,
+    "textures": 1,
+    "particles": 1800,
+    "maximumParticles": 3000,
+    "surfaceTriangles": 2081,
+    "featurePaths": 18,
+    "bounds": {
+      "isBox3": true,
+      "min": {
+        "x": -1.5282230377197266,
+        "y": -1.4299999475479126,
+        "z": -0.45808449387550354
+      },
+      "max": {
+        "x": 1.5227763652801514,
+        "y": 1.9094080924987793,
+        "z": 0.46234822273254395
+      }
+    }
+  }
+}

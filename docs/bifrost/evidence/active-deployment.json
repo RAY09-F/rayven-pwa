@@ -1,0 +1,6 @@
+{
+  "command": "wrangler deployments list --config wrangler.toml",
+  "activeVersion": "6d6c87d5-bf48-4914-9b98-d38fb94b07d1",
+  "trafficPercent": 100,
+  "deploymentCreatedAt": "2026-09-08T00:52:01.683Z"
+}
