@@ -906,17 +906,21 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   const actions = [];
   let taintCause = 0;
   const systemBlocks = [
-    { type: 'text', text: personaAndBaseline, cache_control: { type: 'ephemeral' } },
-    { type: 'text', text: channelAndSender },
-    { type: 'text', text: longTermMemoryBlock }
+    { type: 'text', text: personaAndBaseline, cache_control: { type: 'ephemeral', ttl: '1h' } }
   ];
-  if (extraContext) systemBlocks.push({ type: 'text', text: extraContext });
+  // Per-turn facts belong after the stable system prefix. Never persist this envelope.
+  const contextualMessages = initialMessages.map(message => ({ ...message }));
+  const firstUser = contextualMessages.find(message => message.role === 'user');
+  if (firstUser) {
+    const context = { type: 'text', text: [channelAndSender, longTermMemoryBlock, extraContext].filter(Boolean).join('\n\n') };
+    firstUser.content = [context, ...(typeof firstUser.content === 'string' ? [{ type: 'text', text: firstUser.content }] : firstUser.content)];
+  }
 
   // A second cache breakpoint, on the last message going in. Without it every one
   // of the up-to-14 tool-loop iterations re-processed the whole conversation and
   // every accumulated tool result from scratch — the deeper the tool chain, the
   // more it cost. With it, each iteration only pays for what is genuinely new.
-  let messages = withMessageCacheBreakpoint([...initialMessages]);
+  let messages = withMessageCacheBreakpoint(contextualMessages);
   let lastResult = null;
 
   // Phase 7.0 -- the toolbox. Once per turn: age the open groups (20 idle turns
@@ -941,13 +945,18 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   const _p = getPersona(personaId);
   const maxIter = opts.maxIter || _p.toolIterations || 14;
   const maxTok = opts.maxTokens || _p.maxTokens || undefined;
+  try {
   for (let iteration = 0; iteration < maxIter; iteration++) {
     if (iteration > 0) toolsForThisCall = toolsForCall();   // find_tools may have opened groups since the last call
-    const result = await callAnthropic(env, systemBlocks, toolsForThisCall, messages, maxTok, opts.model);
+    opts.signal?.throwIfAborted();
+    if (iteration > 0) opts.onReset?.();
+    const cachedTools = toolsForThisCall.map((tool, index) => index === toolsForThisCall.length - 1 ? { ...tool, cache_control: { type: 'ephemeral', ttl: '1h' } } : tool);
+    const result = await callAnthropic(env, systemBlocks, cachedTools, messages, maxTok, opts.model, opts);
     lastResult = result;
     // Phase 6.6: every call's usage becomes a cost line -- in the conversation's spool on the
     // reply path, in the tick buffer for cron -- rolled up by the tick, never a write here.
     if (result && result.ok && result.data && result.data.usage) {
+      console.log('ANTHROPIC_USAGE', { model: opts.model || MODELS.sonnet, usage: result.data.usage });
       const line = costLine({ persona: personaId, councillor: opts.councillor || null, model: opts.model || _p.model || MODELS.sonnet, usage: result.data.usage, source: convo ? channel : 'cron' });
       if (convo) spoolPush(meta, 'cost', line); else tickLog('cost', line);
     }
@@ -969,11 +978,15 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
       const toolResults = [];
       let anyUntrusted = false;
       for (const blk of toolUseBlocks) {
+        opts.signal?.throwIfAborted();
         let toolResult;
-        if (!personaAllowsTool(personaId, blk.name) && !isCatalogTool(blk.name)) {
+        if (allowTools === false) {
+          toolResult = 'Tools are disabled for this request. Nothing was executed.';
+        } else if (!personaAllowsTool(personaId, blk.name) && !isCatalogTool(blk.name)) {
           toolResult = `Tool blocked: ${blk.name} is outside your lane. That belongs to ${toolOwnerName(blk.name)} — tell Rayan to switch personas instead of answering as if you ran it.`;
         } else {
           let permLevel = await checkPermission(env, blk.name);
+          opts.signal?.throwIfAborted();
           // The gate. Once untrusted content is in the room, anything that could
           // carry data out of it, spend money, publish, or change what the system
           // does later gets escalated to needing Rayan — no matter what his
@@ -1006,6 +1019,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
             // A throwing tool used to take the whole request down with it and
             // leave its tool_use unanswered. Now the failure becomes the result,
             // which is both survivable and something the model can react to.
+            opts.signal?.throwIfAborted();
             try {
               toolResult = await executeTool(env, blk.name, blk.input, personaId, { tainted, meta, channel });
               actions.push(blk.name);
@@ -1051,4 +1065,9 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   }
   await commitTrace(env, trace, convo ? meta : null);
   return lastResult;
+  } catch (error) {
+    record(trace, 'error', 'turn', { note: opts.signal?.aborted ? 'Reply cancelled; earlier actions may have completed' : 'Turn interrupted', ok: false });
+    await commitTrace(env, trace, convo ? meta : null);
+    throw error;
+  }
 }

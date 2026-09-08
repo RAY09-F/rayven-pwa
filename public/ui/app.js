@@ -1,3 +1,4 @@
+import {readChatReply} from './event-stream.js?v=brain-wave1';
 import {createArsenal} from './arsenal.js?v=floating-realms-3';
 import {initialPersona,editableTarget,readPreferences,assistantState,createRequestLedger,replyText,restoreDraft,nearTranscriptEnd,formatReply,parseReplyPayload,requestErrorMessage} from './state.js?v=floating-realms-3';
 import {createPresence} from './scene.js?v=floating-realms-3';
@@ -127,10 +128,18 @@ function show(id){
     request.timeout=setTimeout(()=>{request.timedOut=true;request.controller.abort();},60000);
     let outcome='failed';
     try{
-      const res=await fetch(API.base+API.chat,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(API.body(hall,text)),signal:request.controller.signal});
-      const raw=await res.text();if(!requests.current(request))return;
-      if(!res.ok)throw new Error(requestErrorMessage(res.status,raw));
-      const data=parseReplyPayload(raw,res.headers.get('content-type')||'');
+      const res=await fetch(API.base+API.chat,{method:'POST',headers:{'Content-Type':'application/json','Accept':'text/event-stream'},body:JSON.stringify(API.body(hall,text)),signal:request.controller.signal});
+      if(!res.ok)throw new Error(requestErrorMessage(res.status,await res.text()));
+      let partial='';
+      const data=(res.headers.get('content-type')||'').includes('text/event-stream')
+        ? await readChatReply(res,(text,reset)=>{
+          if(!requests.current(request))return;
+          partial=reset?'':partial+text;
+          const bubble=request.pending.querySelector('.bubble');bubble.classList.remove('pending-label');bubble.textContent=partial;
+          updateTranscript(hall,scrollFollow[hall]!==false);
+        })
+        : parseReplyPayload(await res.text(),res.headers.get('content-type')||'');
+      if(!requests.current(request))return;
       const reply=API.reply(data);if(!reply)throw new Error('The response could not be read.');
       const follow=scrollFollow[hall]!==false,bubble=request.pending.querySelector('.bubble');bubble.classList.remove('pending-label');formatReply(bubble,reply);responseActions(request.pending,reply,request);updateTranscript(hall,follow);outcome='received';
       if(hall===activeHall())speak(hall,reply,resumeListeningAfterSpeech);

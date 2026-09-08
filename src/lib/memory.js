@@ -205,13 +205,13 @@ export async function addLongTermMemory(env, fact, personaId = DEFAULT_PERSONA_I
 // fired via ctx.waitUntil from index.js so it never adds latency to the reply.
 const EXTRACTION_PROMPT = `Read the message below and pull out anything genuinely worth remembering long-term about the sender: stated preferences, plans, decisions, facts about people/projects/businesses, numbers, deadlines — anything he'd expect not to have to repeat. Ignore small talk, one-off questions with no durable content, and anything obviously transient (e.g. "what's the weather").
 
-Reply with ONLY a JSON array of short, atomic, third-person fact strings ("Rayan ..."), one per fact — no other text. If nothing is worth keeping, reply with exactly: []`;
+Reply with a JSON object containing a facts array of short, atomic, third-person fact strings ("Rayan ..."), one per fact. If nothing is worth keeping, return an empty facts array.`;
 
 export async function extractAndSaveFacts(env, text, personaId = DEFAULT_PERSONA_ID) {
   const message = String(text || '').trim();
   if (!message) return { saved: 0 };
 
-  const res = await callAnthropicSimple(env, EXTRACTION_PROMPT, message, 300);
+  const res = await callAnthropicSimple(env, EXTRACTION_PROMPT, message, 300, MODELS.haiku, { type: 'object', properties: { facts: { type: 'array', items: { type: 'string' } } }, required: ['facts'], additionalProperties: false });
   if (!res.ok) {
     console.error('Auto-memory extraction call failed:', res.error);
     return { saved: 0 };
@@ -219,10 +219,9 @@ export async function extractAndSaveFacts(env, text, personaId = DEFAULT_PERSONA
 
   let facts;
   try {
-    const jsonMatch = res.text.match(/\[[\s\S]*\]/);
-    facts = JSON.parse(jsonMatch ? jsonMatch[0] : res.text);
+    facts = JSON.parse(res.text).facts;
   } catch (err) {
-    console.error('Auto-memory extraction returned non-JSON:', res.text.slice(0, 200));
+    console.error('Auto-memory extraction returned invalid structured data.');
     return { saved: 0 };
   }
   if (!Array.isArray(facts) || !facts.length) return { saved: 0 };

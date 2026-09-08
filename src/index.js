@@ -107,7 +107,7 @@ async function handleChatTurn(env, ctx, opts) {
   // for real (Claude, tools) but nothing it says is saved: no history write, no
   // auto-memory capture, no status stamps. A smoke run must never pollute a
   // conversation or spend a KV write.
-  const { personaId, isTelegram, body, botToken, smoke = false } = opts;
+  const { personaId, isTelegram, body, botToken, smoke = false, onText, onReset, signal } = opts;
   const persona = getPersona(personaId);
 
   let userMessage;
@@ -228,8 +228,8 @@ async function handleChatTurn(env, ctx, opts) {
   // history/memory read on the rare pending-confirmation turn, which is free
   // because it happens in parallel anyway.
   const [pendingRaw, prefetchedConvo, prefetchedMemoryBlock] = await Promise.all([
-    env.RAYVEN_KV.get(pendingKey),
-    loadConversation(env, memoryKey),
+    smoke ? null : env.RAYVEN_KV.get(pendingKey),
+    smoke ? { turns: [], meta: {} } : loadConversation(env, memoryKey),
     getRecentMemoryBlock(env, personaId)
   ]);
   // The conversation object (Phase 1): turns plus meta -- the taint bit, the
@@ -242,7 +242,7 @@ async function handleChatTurn(env, ctx, opts) {
   // APPROVE 1234 / REJECT 1234 (Phase 1.5) -- honoured only from Rayan on his
   // private surfaces, resolved without a model call, never saved to history.
   const approvalReply = matchApprovalReply(userMessage);
-  if (approvalReply && rayanPrivate) {
+  if (approvalReply && rayanPrivate && !smoke) {
     const r = await resolveApproval(env, approvalReply.id, approvalReply.decision, (e, t, i, p) => executeTool(e, t, i, p));
     if (!smoke) ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
     return { reply: await sendReply(r.text) };
@@ -333,7 +333,7 @@ async function handleChatTurn(env, ctx, opts) {
   }
   if (!smoke) meta.lastTurnAt = Date.now();
 
-  if (isWakeTrigger && personaId === DEFAULT_PERSONA_ID) {
+  if (!smoke && isWakeTrigger && personaId === DEFAULT_PERSONA_ID) {
     // ---- one cheap KV read only — no new fetches/tool calls on the wake-greeting path ----
     const codeCheckRaw = await env.RAYVEN_KV.get('codecheck:result');
     if (codeCheckRaw) {
@@ -375,9 +375,18 @@ async function handleChatTurn(env, ctx, opts) {
   // with anyone who is not Rayan (Rule 15). The bit persists in meta.
   tickTaint(meta);   // one turn older: a taint clears once its turns have rolled out of the window
   const convo = { meta, channel: isTelegram ? (isGroupChat ? 'telegram-group' : 'telegram') : 'web', sender: senderTag };
-  const result = await callClaudeWithTools(env, persona.systemPrompt, channelContext, longTermMemoryBlock, claudeMessages, !isWakeTrigger, wakeCodeCheckContext, personaId, channelStartsTainted(isTelegram, telegramChatType, senderTag === 'Rayan'), convo);
-
-  if (!smoke) ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
+  let result;
+  try {
+    result = await callClaudeWithTools(env, persona.systemPrompt, channelContext, longTermMemoryBlock, claudeMessages, !isWakeTrigger && !smoke, wakeCodeCheckContext, personaId, channelStartsTainted(isTelegram, telegramChatType, senderTag === 'Rayan'), convo, { onText, onReset, signal, effort: /\b(research|compare|strategy|plan)\b/i.test(userMessage) ? 'high' : 'low' });
+    signal?.throwIfAborted();
+  } catch (error) {
+    // Retain receipts, usage and taint from tools that completed before cancellation.
+    // No partial assistant sentence is saved as a successful answer.
+    if (!smoke) await saveConversation(env, memoryKey, history, meta);
+    throw error;
+  } finally {
+    if (!smoke) ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
+  }
 
   if (!result.ok) {
     // Say WHAT went wrong. "Claude API error" on its own sent Rayan looking in
@@ -393,8 +402,8 @@ async function handleChatTurn(env, ctx, opts) {
     return { error: `Claude API error — ${why}`, details: result.data };
   }
 
-  const textBlock = result.data.content.find(b => b.type === 'text');
-  const reply = textBlock ? textBlock.text : "Done, sir.";
+  signal?.throwIfAborted();
+  const reply = result.data.content.filter(b => b.type === 'text').map(b => b.text).join('\n') || 'Done, sir.';
 
   history.push({ role: 'assistant', content: reply });
   if (history.length > _hl2) history = history.slice(-_hl2);
@@ -1520,6 +1529,32 @@ How to speak on a phone call:
       // falls back to THOR so an old cached PWA still works.
       const personaId = resolvePersonaId(body.persona || body.assistant);
       const smoke = request.headers.get('X-Asgard-Smoke') === '1';
+      if ((request.headers.get('Accept') || '').includes('text/event-stream')) {
+        const abort = new AbortController(), encoder = new TextEncoder();
+        const disconnect = () => abort.abort();
+        request.signal.addEventListener('abort', disconnect, { once: true });
+        const stream = new ReadableStream({
+          start(controller) {
+            const emit = (event, data) => { if (!abort.signal.aborted) controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)); };
+            const work = (async () => {
+              try {
+                const result = await handleChatTurn(env, ctx, { personaId, isTelegram: false, body, botToken: null, smoke,
+                  signal: abort.signal, onText: text => emit('text', { text }), onReset: () => emit('reset', {}) });
+                if (result?.error) emit('error', { message: result.error });
+                else emit('done', { reply: result?.reply || '', persona: personaId });
+              } catch (error) {
+                if (!abort.signal.aborted) emit('error', { message: 'The reply was interrupted. Please try again.' });
+              } finally {
+                request.signal.removeEventListener('abort', disconnect);
+                if (!abort.signal.aborted) controller.close();
+              }
+            })();
+            ctx.waitUntil(work);
+          },
+          cancel() { abort.abort(); }
+        });
+        return new Response(stream, { headers: { ...corsHeaders, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform' } });
+      }
       const result = await handleChatTurn(env, ctx, { personaId, isTelegram: false, body, botToken: null, smoke });
       if (!result) return new Response('OK', { headers: corsHeaders });
       if (result.error) {
