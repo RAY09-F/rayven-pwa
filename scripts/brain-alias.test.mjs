@@ -4,7 +4,7 @@ import {TOOL_DEFINITIONS,toolDefinitionsForPersona} from '../src/lib/tools.js';
 import {personaAllowsTool} from '../src/lib/personas.js';
 import {checkPermission,setToolPermission} from '../src/lib/permissions.js';
 test('every implementation has a unique reversible final name',()=>{
- assert.equal(Object.keys(TOOL_RENAME_MAP).length,TOOL_DEFINITIONS.length);
+ assert.equal(Object.keys(TOOL_RENAME_MAP).length + 3,TOOL_DEFINITIONS.length);
  for(const t of TOOL_DEFINITIONS)assert.equal(implementationToolName(canonicalToolName(t.name)),t.name);
 });
 test('legacy and canonical names keep identical persona and permission boundaries',async()=>{
@@ -22,4 +22,13 @@ test('no family activates before its release; enabling one retains deferred lega
 });
 test('concealed tools remain absent from public schema even through aliases',()=>{
  for(const p of ['thor','loki','odin']){assert.equal(personaAllowsTool(p,'util_lock_in'),false);assert.ok(!toolDefinitionsForPersona(p).some(t=>['util_lock_in','lock_in'].includes(t.name)));}
+});
+test('discovery keeps every allowed schema, only core eager, caches last eager definition',async()=>{
+ const {discoveryTools,cacheToolPrefix,capToolResult}=await import('../src/lib/tool-discovery.js');
+ const defs=toolDefinitionsForPersona('thor'), result=cacheToolPrefix(discoveryTools(defs));
+ assert.equal(result.length,defs.length+1);assert.equal(result[0].type,'tool_search_tool_bm25_20251119');
+ assert.equal(result.filter(t=>t.cache_control).length,1);assert.ok(!result.find(t=>t.cache_control).defer_loading);
+ assert.ok(result.filter(t=>!t.defer_loading).length<=5);
+ assert.deepEqual(result,cacheToolPrefix(discoveryTools(defs)));
+ assert.ok(new TextEncoder().encode(capToolResult('⚡'.repeat(30000),'full')).length<25000);
 });

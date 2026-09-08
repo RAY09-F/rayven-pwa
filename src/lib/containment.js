@@ -87,7 +87,7 @@ export const CONSEQUENTIAL = new Set([
   'allow_host'
 ]);
 
-export function marksTainted(toolName) { return UNTRUSTED_SOURCES.has(toolName); }
+export function marksTainted(toolName) { return ['util_context','plan_today','world_here'].includes(toolName) || UNTRUSTED_SOURCES.has(toolName); }
 export function isConsequential(toolName) { return CONSEQUENTIAL.has(toolName); }
 
 // A Telegram group is untrusted from the first word, regardless of who is in

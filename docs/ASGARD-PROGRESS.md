@@ -1,6 +1,6 @@
 # ASGARD brain and arsenal progress
 
-Current wave: 2, alias inventory and compatibility layer. Wave1 live acceptance is explicitly BLOCKED. Wave 0 completed its available read-only measurements; successful paid inference/audio measurements are explicitly BLOCKED.
+Current wave: 3, persona prompt implementation. Wave2 activation is explicitly BLOCKED. Wave1 live acceptance is explicitly BLOCKED. Wave 0 completed its available read-only measurements; successful paid inference/audio measurements are explicitly BLOCKED.
 
 ## Rules carried forward
 
@@ -31,3 +31,13 @@ Wave1: implement the shared Messages API streaming/parser/error handling and sta
 - Deployment BLOCKED: no successful baseline or current provider inference is available; live cache-hit, speed and five-tool model acceptance cannot pass while Anthropic rejects the account balance. Spending approval is still pending. No candidate uploaded, no traffic changed, no 10% timer claimed. Authenticated Wrangler access confirmed. Current production remains e0f22382-5553-4069-94bd-8b1e5acb2523.
 - Correction to brief §5.4 (lines 624–628): extension source is in this repository and dispatches action verbs, not literal browser tool names; actual loaded extension is nevertheless disconnected, so browser renames remain blocked.
 - Next: Wave2 alias layer and tool-name inventory first. Wave1 is explicitly blocked before Wave2 starts. Later commits must not be bundled into a multi-wave deployment; each blocked release will need its own acceptance/canary when prerequisites return.
+
+## Wave 2 — compatibility foundation implemented; activation/renames BLOCKED
+
+- Before runtime changes, recorded all 277 existing names and intended final names in TOOL-NAMES.md and TOOL-RENAME-MAP.md. Commit f8b896e adds reversible alias resolution to dispatch, persona boundaries and stored permission lookup. No stored key changes. No family has been activated/renamed. Legacy schema retention has no automatic expiry; its minimum 30 days starts only at each actual family deployment.
+- Added provider BM25 request construction, complete deferred schema array and last-non-deferred cache marker. It remains behind TOOL_SEARCH_ENABLED, unset in production, because the current official compatibility table surprisingly omits Sonnet5 and the account cannot run a compatibility check. Do not claim an unsupported request is verified. Existing discovery remains the fallback until that acceptance succeeds.
+- Added util_context, plan_today and world_here composition using existing readers, with partial failures labeled. Outside-content results taint subsequent actions. Tool results now have conservative UTF-8 byte caps below 25,000 tokens; byte counts are not presented as measured token counts.
+- Offline tests pass for all name round trips, every public persona's alias permission parity, hidden-persona isolation, retained legacy schemas, stable deferred arrays and cache placement. Five core names are eager under provider discovery; legacy spellings remain until their individual family releases.
+- BLOCKED: model schema-token count and 70% comparison, cache hits, 60-utterance live selection score, extension/email/screenshot and Spotify end-to-end checks. Real misuse evidence has not established a defensible “15 most misused” ranking; examples will not be falsely described as measured. Family renames cannot proceed through their required deploy-and-verify gates. No Wave2 release uploaded or deployed, and no combined Wave1+Wave2 deployment attempted.
+- Deferred explicitly: programmatic tool execution sandbox (brief §5.7). This remains phase2.
+- Next Wave3: persona prose and examples. Wave2 is explicitly blocked before that work begins.

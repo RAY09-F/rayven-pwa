@@ -1,3 +1,5 @@
+import { discoveryTools, cacheToolPrefix, capToolResult } from './tool-discovery.js';
+import { CONTEXT_DEFINITIONS, contextTool } from './context-tools.js';
 import { implementationToolName, aliasSchemas } from './tool-aliases.js';
 // The tool schema array Claude sees, the executeTool dispatcher, and the
 // tool-use loop (callClaudeWithTools). This is the most-imported module — it wires
@@ -90,6 +92,7 @@ export async function getTaskLog(env) {
 
 async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {}) {
   switch (name) {
+    case 'util_context': case 'plan_today': case 'world_here': return contextTool(env, name);
     case 'web_search': return await runWebSearch(env, input.query);
     case 'tavily_research': return await tavilySearch(env, input.query);
     case 'tavily_extract': return await tavilyExtract(env, input.url);
@@ -281,6 +284,7 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {
 }
 
 export const TOOL_DEFINITIONS = [
+  ...CONTEXT_DEFINITIONS,
   {
     name: 'web_search',
     description: "Quick Google search via SerpAPI for current, real-time, or factual info.",
@@ -857,7 +861,7 @@ export function toolDefinitionsForPersona(personaId) {
   // itself a disclosure, so the three upstairs must never be handed them.
   const allowed = TOOL_DEFINITIONS.filter(t => personaAllowsTool(personaId, t.name) || isCatalogTool(t.name));   // Phase 7: the catalogue is open to every persona
   if (persona.toolNames === null) return aliasSchemas(allowed);
-  return aliasSchemas(allowed.filter(t => persona.toolNames.includes(t.name) || isCatalogTool(t.name)));   // Phase 7: the catalogue rides along for every god
+  return aliasSchemas(allowed.filter(t => persona.toolNames.includes(t.name) || isCatalogTool(t.name) || CONTEXT_DEFINITIONS.some(c => c.name === t.name)));   // Phase 7: the catalogue rides along for every god
 }
 
 // Put an ephemeral cache breakpoint on the final content block of the last
@@ -930,14 +934,14 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   // "play some music" / "open youtube.com" / "text Jay" work in one turn. The
   // model then sees CORE plus the open groups; everything else is reachable
   // through find_tools. State rides in the conversation object (Rule 5a).
-  if (convo && !opts.toolsOverride) {
+  if (convo && !opts.toolsOverride && env.TOOL_SEARCH_ENABLED !== 'true') {
     tickToolbox(meta);
     const lastUser = [...initialMessages].reverse().find(m => m && m.role === 'user');
     const lastText = lastUser ? (typeof lastUser.content === 'string' ? lastUser.content : (Array.isArray(lastUser.content) ? lastUser.content.filter(b => b && b.type === 'text').map(b => b.text).join(' ') : '')) : '';
     const kw = groupsByKeywords(lastText.replace(/^\[[^\]]+\]:\s*/, ''));
     if (kw.length) openGroups(meta, kw, 'keyword');
   }
-  const toolsForCall = () => allowTools === false ? [] : (opts.toolsOverride || (convo ? toolsForConversation(personaId, toolDefinitionsForPersona(personaId), meta) : toolDefinitionsForPersona(personaId)));
+  const toolsForCall = () => allowTools === false ? [] : (opts.toolsOverride || (env.TOOL_SEARCH_ENABLED === 'true' ? discoveryTools(toolDefinitionsForPersona(personaId)) : convo ? toolsForConversation(personaId, toolDefinitionsForPersona(personaId), meta) : toolDefinitionsForPersona(personaId)));
   let toolsForThisCall = toolsForCall();
 
   // 14 iterations, not 6 — the sibling system hit "I looped too many times"
@@ -952,7 +956,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
     if (iteration > 0) toolsForThisCall = toolsForCall();   // find_tools may have opened groups since the last call
     opts.signal?.throwIfAborted();
     if (iteration > 0) opts.onReset?.();
-    const cachedTools = toolsForThisCall.map((tool, index) => index === toolsForThisCall.length - 1 ? { ...tool, cache_control: { type: 'ephemeral', ttl: '1h' } } : tool);
+    const cachedTools = cacheToolPrefix(toolsForThisCall);
     const result = await callAnthropic(env, systemBlocks, cachedTools, messages, maxTok, opts.model, opts);
     lastResult = result;
     // Phase 6.6: every call's usage becomes a cost line -- in the conversation's spool on the
@@ -966,6 +970,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
     if (!result.ok) { record(trace, 'error', 'anthropic', { note: `HTTP ${result.status || '?'}`, ok: false }); await commitTrace(env, trace, convo ? meta : null); return result; }
 
     const data = result.data;
+    if (data.stop_reason === 'pause_turn') { messages.push({role:'assistant',content:data.content}); continue; }
     if (data.stop_reason === 'tool_use') {
       // EVERY tool_use block, not just the first. Claude can ask for several
       // tools in one turn, and the old code found only content.find(...) — it
@@ -1053,7 +1058,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
             }
           }
         }
-        toolResults.push({ type: 'tool_result', tool_use_id: blk.id, content: String(toolResult == null ? '' : toolResult) });
+        toolResults.push({ type: 'tool_result', tool_use_id: blk.id, content: capToolResult(toolResult, blk.input?.response_format) });
       }
 
       messages.push({ role: 'assistant', content: data.content });
