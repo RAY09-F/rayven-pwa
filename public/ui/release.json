@@ -1,12 +1,12 @@
 {
   "name": "The Floating Realms",
-  "id": "floating-3898f422b62b",
-  "sourceBase": "c5cbee3328cbd695e133c094089fc54017982703",
-  "fingerprint": "3898f422b62bb11986eb5e09577a7e75e3a8b53e244eaceeb538233495dc8666",
+  "id": "floating-dde08d30be0d",
+  "sourceBase": "be16987bf04f4bd36e5e6de7ec406cae07079453",
+  "fingerprint": "dde08d30be0dd2db64466b03726e4fb7219964b88ba881f4f0cb657eedfa880d",
   "assets": {
     "/hall/index.html": "0bed9983ca3719b4f5886ae9fae11e197810a5a4711b7a56fde0a5514fc66439",
-    "/hud/index.html": "3cd59a30cbf18058ee86e2438019e4eb9c685baed3cd40efb4d1a4a51787e2a3",
-    "/index.html": "3cd59a30cbf18058ee86e2438019e4eb9c685baed3cd40efb4d1a4a51787e2a3",
+    "/hud/index.html": "b6ec8717dc305be55fae00ae2cfa1d293a20f366018cc6e678f6693161b131bc",
+    "/index.html": "b6ec8717dc305be55fae00ae2cfa1d293a20f366018cc6e678f6693161b131bc",
     "/ui/app.js": "047d531bf9016569dc7f37235d6b90a2f7952dea3b5de04551243c359af01d9a",
     "/ui/arsenal.js": "35899d7e899188f5e43f3041417420a7833d500090dd97d54532a1226383c809",
     "/ui/astral-cartographer-model.js": "f80d19a2c9fc101b4bed6cbc5d8084bdf5219fe6a4e292d685f261bcfd280df6",

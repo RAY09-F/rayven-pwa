@@ -8,6 +8,12 @@
 
 <link rel="stylesheet" href="/ui/hud/fonts.css">
 <link rel="stylesheet" href="/ui/hud/hud.css">
+<style>
+/* Recorded conversations can be much longer than the reference examples. */
+.hud-art .msgs{min-height:0;overflow:auto;overscroll-behavior:contain}
+.hud-art .bubble{overflow-wrap:anywhere;white-space:pre-wrap}
+.hud-art .msg-bot,.hud-art .msg-user{flex-shrink:0}
+</style>
 </head>
 <body>
 <div class="hud-host" id="hud"></div>

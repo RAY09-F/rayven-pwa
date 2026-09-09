@@ -1,0 +1,130 @@
+TAP version 13
+# Subtest: theme tokens match the handoff table exactly, in config and in CSS
+ok 1 - theme tokens match the handoff table exactly, in config and in CSS
+  ---
+  duration_ms: 24.516669
+  type: 'test'
+  ...
+# Subtest: every keyframe from the motion inventory exists with the handoff timing
+ok 2 - every keyframe from the motion inventory exists with the handoff timing
+  ---
+  duration_ms: 4.621251
+  type: 'test'
+  ...
+# Subtest: each realm config carries the full shape the HUD reads
+ok 3 - each realm config carries the full shape the HUD reads
+  ---
+  duration_ms: 1.351842
+  type: 'test'
+  ...
+# Subtest: bar timings are deterministic and inside their band
+ok 4 - bar timings are deterministic and inside their band
+  ---
+  duration_ms: 1.3409
+  type: 'test'
+  ...
+# Subtest: live values replace desk numbers but never the labels, and missing feeds stay unavailable
+ok 5 - live values replace desk numbers but never the labels, and missing feeds stay unavailable
+  ---
+  duration_ms: 1.698254
+  type: 'test'
+  ...
+# Subtest: the ticker uses real events when there are any and an honest empty state when quiet
+ok 6 - the ticker uses real events when there are any and an honest empty state when quiet
+  ---
+  duration_ms: 0.812761
+  type: 'test'
+  ...
+# Subtest: calendar, timers and paper snapshots use their actual sources
+ok 7 - calendar, timers and paper snapshots use their actual sources
+  ---
+  duration_ms: 17.924028
+  type: 'test'
+  ...
+# Subtest: a failing subsystem is unavailable instead of showing examples
+ok 8 - a failing subsystem is unavailable instead of showing examples
+  ---
+  duration_ms: 1.462421
+  type: 'test'
+  ...
+# Subtest: all realms suppress example conversations, advice and unmeasured telemetry
+ok 9 - all realms suppress example conversations, advice and unmeasured telemetry
+  ---
+  duration_ms: 1.331468
+  type: 'test'
+  ...
+# Subtest: empty and failed data are distinct, with no invented market marks
+ok 10 - empty and failed data are distinct, with no invented market marks
+  ---
+  duration_ms: 1.659926
+  type: 'test'
+  ...
+# Subtest: valid explicit persona wins over hall and hash
+ok 11 - valid explicit persona wins over hall and hash
+  ---
+  duration_ms: 3.406578
+  type: 'test'
+  ...
+# Subtest: invalid routing falls through to valid public persona or Thor
+ok 12 - invalid routing falls through to valid public persona or Thor
+  ---
+  duration_ms: 3.560898
+  type: 'test'
+  ...
+# Subtest: preferences retain recognized values
+ok 13 - preferences retain recognized values
+  ---
+  duration_ms: 2.207748
+  type: 'test'
+  ...
+# Subtest: invalid preferences and unavailable storage have safe defaults
+ok 14 - invalid preferences and unavailable storage have safe defaults
+  ---
+  duration_ms: 4.069382
+  type: 'test'
+  ...
+# Subtest: editable target detection protects composed input targets
+ok 15 - editable target detection protects composed input targets
+  ---
+  duration_ms: 1.464416
+  type: 'test'
+  ...
+# Subtest: status priority keeps pending work and errors truthful
+ok 16 - status priority keeps pending work and errors truthful
+  ---
+  duration_ms: 0.819766
+  type: 'test'
+  ...
+# Subtest: pending microphone is never reported as confirmed listening
+ok 17 - pending microphone is never reported as confirmed listening
+  ---
+  duration_ms: 1.78601
+  type: 'test'
+  ...
+# Subtest: thor: real geometry survives states, quality changes, disposal and reinitialization
+ok 18 - thor: real geometry survives states, quality changes, disposal and reinitialization
+  ---
+  duration_ms: 537.131549
+  type: 'test'
+  ...
+# Subtest: loki: real geometry survives states, quality changes, disposal and reinitialization
+ok 19 - loki: real geometry survives states, quality changes, disposal and reinitialization
+  ---
+  duration_ms: 456.685932
+  type: 'test'
+  ...
+# Subtest: odin: real geometry survives states, quality changes, disposal and reinitialization
+ok 20 - odin: real geometry survives states, quality changes, disposal and reinitialization
+  ---
+  duration_ms: 562.059123
+  type: 'test'
+  ...
+1..20
+# tests 20
+# suites 0
+# pass 20
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1880.397397
