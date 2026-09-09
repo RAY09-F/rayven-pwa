@@ -2,6 +2,8 @@
 
 ## Active direction: EVERYTHING Waves 0–14 — 2026-09-09
 
+Latest checkpoint: Wave 0 evidence pushed as bc86c6b; Wave 1 correction pushed as9b70f1f (180 tests passed, no deployment). Wave 2 read-only Bridge projection now written with eight focused tests passing; router, page, actions and running-plan instrumentation remain unfinished. See docs/everything/WAVE-2.md for exact next steps. No claims of live Bridge or successful AI acceptance.
+
 The attachment brief supersedes the earlier wave numbering below. Read all three source briefs; EVERYTHING determines direction, BRAIN AND ARSENAL supplies mechanics, BROWSER SETUP separates browser integrations. The Bridge must become the homepage, preserving the existing halls as rooms. No fake activity or reference measurements.
 
 Wave 0: fresh read-only baseline saved in docs/PERF-BASELINE.md and docs/everything/wave-0/. Live inference/voice acceptance explicitly BLOCKED by insufficient provider credits and missing physical-device measurements. Extension source read fully; live connection remains false. No Wave 0 runtime deployment.
