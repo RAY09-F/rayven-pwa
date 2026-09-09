@@ -19,6 +19,8 @@ import { handleSpotifyLogin, handleSpotifyCallback, spotifyNowPlayingData, spoti
 import { runLokiBriefIfDue, runLokiBrief, runOdinReportIfDue, runOdinReport, getOdinReports } from './lib/reports.js';
 import { runPaperTradingCycleIfDue, runPaperTradingDailyReportIfDue, sendPaperTradingReportNow, getPaperStatus, getPaperChartData, forceDemoTrade, INSTRUMENTS, runPaperCloseTasksIfDue, collectTraderReviews } from './lib/paperTrading.js';
 import { getHudSummary } from './lib/hud.js';
+import { getBridgeSnapshot } from './lib/bridge.js';
+import { bridgeReview, bridgeAction } from './lib/bridge-actions.js';
 import { fetchKrakenCandles, fetchTwelveDataCandles } from './lib/marketData.js';
 import { handleAgentQuery } from './lib/sibling-agents.js';
 import { runProactiveCheckIn, runProactiveCheckInIfDue, runCodeCheckIfDue, runCodeCheck, runMorningBriefing, runMorningBriefingIfDue } from './lib/checkin.js';
@@ -779,6 +781,27 @@ export default {
     // Feeds the three-realm council HUD's left data module and ticker in one
     // round trip. Same unauthenticated, read-only posture as /activity and
     // /paper-trading/status -- it is an aggregate of those same sources.
+    if (url.pathname === '/bridge/state' && request.method === 'GET') {
+      const since=Number(url.searchParams.get('since')||0);
+      const dismissed=(url.searchParams.get('dismissed')||'').split(',').filter(id=>/^notice:[a-f0-9]{24}$/.test(id)).slice(-200);
+      return json(await getBridgeSnapshot(env,{since,dismissed}), {...corsHeaders,'Cache-Control':'no-store'});
+    }
+
+    if (url.pathname === '/bridge/review' && request.method === 'GET') {
+      const result=await bridgeReview(env,{id:url.searchParams.get('id'),persona:url.searchParams.get('persona')},TOOL_DEFINITIONS);
+      return json(result,{...corsHeaders,'Cache-Control':'no-store'},result.ok?200:409);
+    }
+    if (url.pathname === '/bridge/action' && request.method === 'POST') {
+      // Same private web surface as the existing approval conversation, with
+      // an additional cross-origin guard. The execution gate remains shared.
+      const admin=!!env.ADMIN_TOKEN&&await timingSafeEqual(request.headers.get('x-asgard-admin')||'',env.ADMIN_TOKEN);
+      const origins=new Set([url.origin,'https://asgrard-backend.rayanfahil2.workers.dev','https://rayven-backend.rayanfahil2.workers.dev']);
+      if(!origins.has(request.headers.get('origin'))&&!admin)return json({ok:false,message:'Open ASGARD to review this action.'},corsHeaders,403);
+      const body=await request.json().catch(()=>null);
+      const result=await bridgeAction(env,body,TOOL_DEFINITIONS,(e,t,i,p)=>executeTool(e,t,i,p));
+      return json(result,{...corsHeaders,'Cache-Control':'no-store'},result.ok?200:409);
+    }
+
     if (url.pathname === '/hud/summary') {
       return json(await getHudSummary(env), corsHeaders);
     }

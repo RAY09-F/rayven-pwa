@@ -574,3 +574,14 @@ window.AsgardUI={status:()=>({persona:activeHall(),state:workspace.dataset.state
 document.querySelector('[data-focus-chat]')?.addEventListener('click',()=>{if(conversation.hidden)reopen.click();const input=document.getElementById('in-'+activeHall());input.focus();input.scrollIntoView({block:'center',behavior:'auto'});});
 
 if(new URLSearchParams(location.search).get("settings")==="1"){dialog.showModal();releaseDiagnostics();}
+
+// The Bridge hands a draft to the existing composer without sending it.
+try {
+  const draft=JSON.parse(sessionStorage.getItem('asgard:bridge:draft')||'null');
+  if(draft&&halls.includes(draft.persona)&&typeof draft.text==='string'&&Date.now()-draft.at<86400000){
+    show(draft.persona);
+    const input=document.getElementById('in-'+draft.persona);
+    if(input){input.value=restoreDraft(input.value,draft.text);sessionStorage.removeItem('asgard:bridge:draft');if(conversation.hidden)reopen.click();input.focus();}
+  }
+}catch{}
+if(new URLSearchParams(location.search).get('tools')==='1')arsenal.openTools();

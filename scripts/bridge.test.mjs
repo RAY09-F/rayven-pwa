@@ -76,3 +76,11 @@ test('recorded usage cost is explicitly an estimate with excluded costs',async()
   assert.equal(s.glance.modelSpend.usd,.125);assert.equal(s.glance.modelSpend.estimated,true);
   assert.match(s.glance.modelSpend.basis,/excludes speech, search and hosting/);
 });
+
+test('real notifications have stable dismissal IDs and private sources remain hidden',async()=>{
+ const rows=[{time:new Date(now-1000).toISOString(),source:'thor',title:'A real reminder',body:'Recorded text',status:'sent'},
+   {time:new Date(now-2000).toISOString(),source:'hela',title:'Private',body:'Must stay private',status:'sent'}];
+ const env=fixture({'notif:log':rows});const first=await getBridgeSnapshot(env,{now});
+ assert.equal(first.needs.length,1);assert.equal(first.needs[0].type,'NOTIFY');assert.match(first.needs[0].id,/^notice:[a-f0-9]{24}$/);
+ const next=await getBridgeSnapshot(env,{now:now+1000,dismissed:[first.needs[0].id]});assert.equal(next.needs.length,0);assert.equal(next.needsTotal,0);
+});

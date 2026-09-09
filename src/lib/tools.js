@@ -1,3 +1,4 @@
+import {trackExecution} from './bridge-runs.js';
 import { councilToolAllowed } from './council-scope.js';
 import { discoveryTools, discoveryPrompt, cacheToolPrefix, capToolResult } from './tool-discovery.js';
 import { CONTEXT_DEFINITIONS, contextTool } from './context-tools.js';
@@ -961,12 +962,16 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   const _p = getPersona(personaId);
   const maxIter = opts.maxIter || _p.toolIterations || 14;
   const maxTok = opts.maxTokens || _p.maxTokens || undefined;
+  const execution = await trackExecution(env,{persona:personaId,councillor:opts.councillor,
+    enabled:allowTools !== false && (!convo || channel === 'web')});
+  let executionOutcome = 'failed';
   try {
   for (let iteration = 0; iteration < maxIter; iteration++) {
     if (iteration > 0) toolsForThisCall = compatibleTools();   // find_tools may have opened groups since the last call
     opts.signal?.throwIfAborted();
     if (iteration > 0) opts.onReset?.();
     const cachedTools = cacheToolPrefix(toolsForThisCall);
+    await execution.step(`Process reply · round ${iteration+1}`);
     const result = await callAnthropic(env, systemBlocks, cachedTools, messages, maxTok, opts.model, opts);
     // Phase 6.6: every call's usage becomes a cost line -- in the conversation's spool on the
     // reply path, in the tick buffer for cron -- rolled up by the tick, never a write here.
@@ -996,6 +1001,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
       for (const requestedBlock of toolUseBlocks) {
         const blk = { ...requestedBlock, name: implementationToolName(requestedBlock.name) };
         opts.signal?.throwIfAborted();
+        await execution.step(`Handle request: ${blk.name}`);
         let toolResult;
         if (!councilToolAllowed(scope, blk.name) || (opts.toolsOverride && !opts.toolsOverride.some(tool => implementationToolName(tool.name) === blk.name))) {
           toolResult = `Tool blocked: ${blk.name} is outside the active councillor's permissions. Nothing was executed.`;
@@ -1081,6 +1087,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
       continue;
     }
     await commitTrace(env, trace, convo ? meta : null);
+    executionOutcome = 'done';
     return result;
   }
   // pause_turn means the server work is incomplete, not a final answer. The
@@ -1092,8 +1099,11 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
     message: 'The assistant reached its work limit before finishing this reply. Earlier actions may have completed; check their records before retrying.'
   } } };
   } catch (error) {
+    executionOutcome = opts.signal?.aborted ? 'cancelled' : 'failed';
     record(trace, 'error', 'turn', { note: opts.signal?.aborted ? 'Reply cancelled; earlier actions may have completed' : 'Turn interrupted', ok: false });
     await commitTrace(env, trace, convo ? meta : null);
     throw error;
+  } finally {
+    await execution.finish(executionOutcome);
   }
 }

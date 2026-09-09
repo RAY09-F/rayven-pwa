@@ -19,6 +19,8 @@ async function call(env, body) {
   return j.result;
 }
 export const ledger = {
+  execution: (env,action,fields={}) => call(env,{op:'execution',action,...fields}),
+  approvalClaim: (env,action,fields) => call(env,{op:'approvalClaim',action,...fields}),
   conversationMirror: (env,key,raw) => call(env,{op:'conversationMirror',key,...(raw===undefined?{}:{raw})}),
   ping: env => call(env, { op: 'ping' }),
   counts: env => call(env, { op: 'counts' }),

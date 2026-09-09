@@ -5,7 +5,7 @@ import {OrbitControls} from './vendor/OrbitControls.js';
 import {buildPrismFoundry} from './prism-foundry-model.js';
 
 // Owns the renderer, scheduling and DOM. The portable model owns its geometry.
-export function createCouncilScene(host,config,{still=false,quality='balanced',onHover=()=>{},onSelect=()=>{},onStatus=()=>{}}={}) {
+export function createCouncilScene(host,config,{still=false,quality='balanced',onHover=()=>{},onSelect=()=>{},onStatus=()=>{},onFrame=()=>{}}={}) {
  const {id,persona,build,agentIds,coreLabel,coreOffset=1.45,agentOffset=-.3,pixelRatio=1.5,exposure=1.1,fogColor=0x050b12,fogDensity=.045,hemisphere=[0x4a7a9a,0x0a1a2a,.25],keyIntensity=.77,fillIntensity=.175,studioColor=0x06101a,panels,frameStride=2,
   environmentIntensity=.9,groundOpacity=.45,shadowExtent=0,fitRadius=3.9,viewTarget=[0,1.35,0],viewDirection=[.55,.5,1],autoRotateSpeed=.9,plate=false}=config;
  const canvas=document.createElement('canvas');canvas.setAttribute('aria-label',config.description);
@@ -68,7 +68,7 @@ export function createCouncilScene(host,config,{still=false,quality='balanced',o
  }
  const updateState={pointer:neutralPointer,hover:null,animated:true,camera};
  function frame(now){raf=0;if(disposed||contextLost||document.hidden)return;const dt=last?(now-last)/1000:0;last=now;controls.autoRotate=animated()&&!hasDragged;controls.enableDamping=animated();controls.update(dt);updateState.pointer=pointerInside?ptr:neutralPointer;updateState.hover=hover;updateState.animated=animated();model.update(dt,updateState);if(flash)flash.style.opacity=animated()?String(model.flash||0):'0';scene.updateMatrixWorld(true);
-  if(frames%frameStride===0||!animated()){if(pointerInside&&!drag)hoverChanged(pick());positionLabels();}drawPreviews();renderer.render(scene,camera);frames++;host.dataset.frames=String(frames);host.dataset.animated=String(animated());if(animated()||drag||settle-->0)schedule();
+  if(frames%frameStride===0||!animated()){if(pointerInside&&!drag)hoverChanged(pick());positionLabels();}drawPreviews();renderer.render(scene,camera);frames++;host.dataset.frames=String(frames);host.dataset.animated=String(animated());onFrame(canvas);if(animated()||drag||settle-->0)schedule();
  }
  const pointer=e=>{const r=canvas.getBoundingClientRect();ptr.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);pointerInside=true;};
  listen(canvas,'pointermove',e=>{pointer(e);if(drag&&Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>5){drag.moved=true;hasDragged=true;controls.autoRotate=false;}settle=animated()?12:1;schedule();});

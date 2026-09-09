@@ -1,31 +1,25 @@
 <!DOCTYPE html>
 <html lang="en" data-realm="odin" data-motion="on">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ASGARD · Council HUD</title>
-<meta name="description" content="ASGARD three-realm council HUD — Thor, Loki and Odin.">
-
-<link rel="stylesheet" href="/ui/hud/fonts.css">
-<link rel="stylesheet" href="/ui/hud/hud.css">
-<style>
-/* Recorded conversations can be much longer than the reference examples. */
-.hud-art .msgs{min-height:0;overflow:auto;overscroll-behavior:contain}
-.hud-art .bubble{overflow-wrap:anywhere;white-space:pre-wrap}
-.hud-art .msg-bot,.hud-art .msg-user{flex-shrink:0}
-</style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07060a"><meta name="description" content="ASGARD Bridge — what needs you, what is running, and what happened while you were away.">
+<title>ASGARD · The Bridge</title>
+<link rel="stylesheet" href="/ui/hud/fonts.css"><link rel="stylesheet" href="/ui/hud/hud.css"><link rel="stylesheet" href="/ui/bridge/bridge.css">
 </head>
-<body>
-<div class="hud-host" id="hud"></div>
-<script type="module">
-import {createHUD} from '/ui/hud/hud.js';
-const q = new URLSearchParams(location.search);
-const flag = (k, d) => q.has(k) ? q.get(k) !== 'false' && q.get(k) !== '0' : d;
-window.AsgardHUD = createHUD(document.getElementById('hud'), {
- scanlines: flag('scanlines', true),
- telemetry: flag('telemetry', true),
- motion: flag('motion', true)
-});
-</script>
+<body class="bridge-body">
+<a class="bridge-skip" href="#needs">Skip to what needs you</a>
+<header class="bridge-header"><a href="/" class="bridge-brand">ASGARD</a><span class="bridge-location">THE BRIDGE</span><div class="bridge-header-actions"><span id="bridge-freshness" role="status">Reading your records…</span><button id="bridge-refresh" type="button">Refresh</button><a href="/hall/?settings=1">Settings</a></div></header>
+<main id="bridge-main">
+<div class="bridge-heading"><div><p class="bridge-eyebrow">YOUR HOUSE, AT A GLANCE</p><h1>What needs you.</h1></div><p>Pick up where you left off.</p></div>
+<p id="bridge-error" role="alert" hidden></p>
+<section id="needs" aria-labelledby="needs-title" tabindex="-1"><div class="bridge-section-head"><h2 id="needs-title">Needs you</h2><span id="needs-count"></span></div><div id="bridge-inbox" aria-busy="true"><p class="bridge-empty">Checking for things that need your attention…</p></div></section>
+<section id="bridge-running" aria-labelledby="running-title" hidden><div class="bridge-section-head"><h2 id="running-title">Running now</h2></div><div id="bridge-plans"></div></section>
+<section aria-labelledby="activity-title"><div class="bridge-section-head"><h2 id="activity-title">Since you left</h2><span id="activity-period"></span></div><div id="bridge-activity"><p class="bridge-empty">Reading council activity…</p></div></section>
+<section aria-labelledby="halls-title"><div class="bridge-section-head"><h2 id="halls-title">The three halls</h2><span>One conversation at a time. Your whole council in view.</span></div><div id="bridge-halls" class="bridge-halls"></div></section>
+<section aria-labelledby="glance-title"><div class="bridge-section-head"><h2 id="glance-title">Glance</h2></div><dl id="bridge-glance" class="bridge-glance"></dl></section>
+<p class="bridge-paper">PAPER / SIM · Odin’s trading records are simulated. No real money.</p>
+</main>
+<footer class="bridge-command" aria-label="Conversation controls"><label for="bridge-persona">Speak with</label><select id="bridge-persona"><option value="thor">Thor</option><option value="loki">Loki</option><option value="odin">Odin</option></select><button id="bridge-talk" type="button" aria-pressed="false">Talk</button><button id="bridge-type" type="button">Type</button><button id="bridge-commands" type="button" aria-label="Open commands">/ <kbd>⌘K</kbd></button><span id="bridge-command-state" role="status">Microphone off</span></footer>
+<script type="module" src="/ui/bridge/bridge.js"></script>
 </body>
 </html>
