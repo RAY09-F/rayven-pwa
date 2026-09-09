@@ -1,5 +1,5 @@
 import { councilToolAllowed } from './council-scope.js';
-import { discoveryTools, cacheToolPrefix, capToolResult } from './tool-discovery.js';
+import { discoveryTools, discoveryPrompt, cacheToolPrefix, capToolResult } from './tool-discovery.js';
 import { CONTEXT_DEFINITIONS, contextTool } from './context-tools.js';
 import { implementationToolName, aliasSchemas } from './tool-aliases.js';
 // The tool schema array Claude sees, the executeTool dispatcher, and the
@@ -915,7 +915,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   const scope = opts.scope || { councillor: null, tools: [] };
   let taintCause = 0;
   const systemBlocks = [
-    { type: 'text', text: personaAndBaseline, cache_control: { type: 'ephemeral', ttl: '1h' } }
+    { type: 'text', text: env.TOOL_SEARCH_ENABLED === 'true' && allowTools !== false ? discoveryPrompt(personaAndBaseline) : personaAndBaseline, cache_control: { type: 'ephemeral', ttl: '1h' } }
   ];
   const stableProfile = env.MEMORY_FACTS_ENABLED === 'true' && !getPersona(personaId).hidden;
   if (stableProfile) systemBlocks.push({type:'text',text:longTermMemoryBlock,cache_control:{type:'ephemeral',ttl:'1h'}});
@@ -932,7 +932,6 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   // every accumulated tool result from scratch — the deeper the tool chain, the
   // more it cost. With it, each iteration only pays for what is genuinely new.
   let messages = withMessageCacheBreakpoint(contextualMessages);
-  let lastResult = null;
 
   // Phase 7.0 -- the toolbox. Once per turn: age the open groups (20 idle turns
   // closes one), then open whatever the latest message's keywords ask for, so
@@ -946,7 +945,12 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
     const kw = groupsByKeywords(lastText.replace(/^\[[^\]]+\]:\s*/, ''));
     if (kw.length) openGroups(meta, kw, 'keyword');
   }
-  const toolsForCall = () => allowTools === false ? [] : (opts.toolsOverride || (env.TOOL_SEARCH_ENABLED === 'true' ? discoveryTools(toolDefinitionsForPersona(personaId)) : convo ? toolsForConversation(personaId, toolDefinitionsForPersona(personaId), meta) : toolDefinitionsForPersona(personaId)));
+  // Discovery searches one fixed permitted catalogue for this whole turn. Even
+  // a restricted councillor override needs the server search entry when its
+  // definitions are deferred; otherwise none of those tools can be discovered.
+  const discoveryCatalogue = env.TOOL_SEARCH_ENABLED === 'true' && allowTools !== false
+    ? discoveryTools(opts.toolsOverride || toolDefinitionsForPersona(personaId)) : null;
+  const toolsForCall = () => allowTools === false ? [] : (discoveryCatalogue || opts.toolsOverride || (convo ? toolsForConversation(personaId, toolDefinitionsForPersona(personaId), meta) : toolDefinitionsForPersona(personaId)));
   const compatibleTools = () => toolsForCall().map(tool => { if(env.TOOL_SEARCH_ENABLED==='true')return tool; const {defer_loading,...legacy}=tool;return legacy; });
   let toolsForThisCall = compatibleTools();
 
@@ -964,7 +968,6 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
     if (iteration > 0) opts.onReset?.();
     const cachedTools = cacheToolPrefix(toolsForThisCall);
     const result = await callAnthropic(env, systemBlocks, cachedTools, messages, maxTok, opts.model, opts);
-    lastResult = result;
     // Phase 6.6: every call's usage becomes a cost line -- in the conversation's spool on the
     // reply path, in the tick buffer for cron -- rolled up by the tick, never a write here.
     if (result && result.ok && result.data && result.data.usage) {
@@ -1080,8 +1083,14 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
     await commitTrace(env, trace, convo ? meta : null);
     return result;
   }
+  // pause_turn means the server work is incomplete, not a final answer. The
+  // same is true when the tool loop runs out of rounds after executing tools.
+  // Returning the last successful HTTP envelope made the chat route say Done.
+  record(trace, 'error', 'turn_limit', { note: 'No completed answer within the tool-loop limit', ok: false });
   await commitTrace(env, trace, convo ? meta : null);
-  return lastResult;
+  return { ok: false, status: 502, actions, data: { error: {
+    message: 'The assistant reached its work limit before finishing this reply. Earlier actions may have completed; check their records before retrying.'
+  } } };
   } catch (error) {
     record(trace, 'error', 'turn', { note: opts.signal?.aborted ? 'Reply cancelled; earlier actions may have completed' : 'Turn interrupted', ok: false });
     await commitTrace(env, trace, convo ? meta : null);

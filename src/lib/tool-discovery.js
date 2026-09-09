@@ -1,8 +1,14 @@
 // Provider-managed discovery keeps the HTTP schema array byte-stable per persona.
 // Activation is gated until the live model compatibility/cache acceptance passes.
 const CORE = new Set(['memory_search','search_memory','web_search','plan_todos','list_todos','util_context']);
+export function discoveryPrompt(prompt) {
+  const instruction = 'THE TOOLBOX: Search the permitted catalogue with tool_search_tool_bm25 when the task needs a tool that is not loaded. Use the discovered tool only within its permissions. Search results describe capabilities; they are not proof that an action ran.';
+  return /^THE TOOLBOX:.*$/m.test(prompt)
+    ? prompt.replace(/^THE TOOLBOX:.*$/m, instruction)
+    : prompt + '\n\n' + instruction;
+}
 export function discoveryTools(definitions) {
-  return [{type:'tool_search_tool_bm25_20251119',name:'tool_search'}, ...definitions.map(({cache_control,...definition})=>({ ...definition, defer_loading: definition.defer_loading === true || !CORE.has(definition.name) }))];
+  return [{type:'tool_search_tool_bm25_20251119',name:'tool_search_tool_bm25'}, ...definitions.map(({cache_control,...definition})=>({ ...definition, defer_loading: definition.defer_loading === true || !CORE.has(definition.name) }))];
 }
 export function cacheToolPrefix(definitions) {
   let last = -1;

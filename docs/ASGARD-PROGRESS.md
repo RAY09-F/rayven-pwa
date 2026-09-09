@@ -6,7 +6,7 @@ The attachment brief supersedes the earlier wave numbering below. Read all three
 
 Wave 0: fresh read-only baseline saved in docs/PERF-BASELINE.md and docs/everything/wave-0/. Live inference/voice acceptance explicitly BLOCKED by insufficient provider credits and missing physical-device measurements. Extension source read fully; live connection remains false. No Wave 0 runtime deployment.
 
-Wave 1: auditing existing, inactive tool-discovery implementation against current provider documentation. Do not activate until live provider acceptance succeeds. Alias layer already exists with no renamed family active; preserve it before renames. Main contains unrelated undeployed brain waves, so deploy only isolated production-lineage changes.
+Wave 1: corrected provider tool name, stable restricted catalogues, discovery prompt, and false completion on loop exhaustion. 180 tests pass, including nine new actual-loop/stream protocol checks. Full details and limits: docs/everything/WAVE-1.md. Live acceptance/deployment explicitly BLOCKED by the provider-credit failure; do not activate until it succeeds. Alias layer already exists with no renamed family active. Main contains unrelated undeployed brain waves, so deploy only isolated production-lineage changes. Proceeding to Wave 2 independent Bridge implementation.
 
 Remaining waves in required order: 2 Bridge; 3 command palette; 4 six answer cards; 5 browser references; 6 self-watch; 7 autonomy/receipts; 8 temporal memory; 9 ElevenLabs Custom LLM; 10 ACE/GEPA; 11 Code Mode; 12 WebMCP; 13 one business workflow; 14 read-only mesh. None is claimed complete under this new brief. A blocked live gate must remain explicit while independent implementation proceeds.
 
