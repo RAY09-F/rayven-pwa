@@ -8,7 +8,8 @@ export async function executionState(store, action, fields = {}, now = Date.now(
   const saved = await store.get(KEY);
   if (saved !== null && !Array.isArray(saved)) throw Error('Invalid execution records');
   const rows = saved || [];
-  if (action === 'read') return rows.map(({checkpoint,...row})=>row);
+  if (action === 'read') return rows.map(({checkpoint,token,...row})=>({...row,
+    state:row.state==='running'&&row.leaseUntil<=now || row.state==='waiting'&&row.question?.expiresAt<=now ? 'unknown' : row.state}));
   if (!['begin','step','heartbeat','finish','pause','claim'].includes(action)) throw Error('Invalid execution action');
   if (typeof fields.id !== 'string' || !fields.id) throw Error('Execution id required');
   let run = rows.find(r => r.id === fields.id);
@@ -41,6 +42,7 @@ export async function executionState(store, action, fields = {}, now = Date.now(
     const revision=crypto.randomUUID();
     const key='bridge:checkpoint:'+run.id+':'+revision;
     await store.put(key,fields.checkpoint);
+    run.councillor=fields.checkpoint.options?.councillor || run.councillor;
     run.checkpoint=key;run.question={text:fields.question.trim(),revision,expiresAt:now+7*86400000};
     run.state='waiting';
   }

@@ -93,7 +93,7 @@ async function answerQuestion(item,answer){
     const response=await fetch('/bridge/answer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:item.sourceId,persona:item.persona,revision:item.revision,answer}),signal:AbortSignal.timeout(180000)});
     const data=await response.json();if(!response.ok||!data.ok)throw Error(data.message||'The resumed work could not be confirmed. Refresh before retrying.');
     drafts.delete(item.id);resolved.add(item.id);
-    const body=openDialog('Reply from '+item.persona.toUpperCase(),'answer');body.append(node('p','bridge-detail',data.message),node('p','',data.reply),link('Open conversation','/hall/#'+item.persona),button('Close',closeDialog));
+    const body=openDialog('Reply from '+(data.councillorName||item.persona).toUpperCase(),'answer');body.append(node('p','bridge-detail',data.message),node('p','',data.reply),link('Open conversation','/hall/#'+item.persona),button('Close',closeDialog));
   }catch(e){$('bridge-error').hidden=false;$('bridge-error').textContent=e.message;}
   finally{busy.delete(item.id);await refresh();renderInbox();}
 }

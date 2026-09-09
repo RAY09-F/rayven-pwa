@@ -207,13 +207,13 @@ export async function runCouncillor(env, id, task, ctx = {}) {
   const model = tier === 'owner' ? TIERS.owner : TIERS.cheap;
   const result = await callClaudeWithTools(env, system, `Task from ${getPersona(c.owner).name}${ctx.triggeringEventId ? ` (event ${ctx.triggeringEventId})` : ''}.`, 'You have no long-term memory of your own; use search_memory if you have it.',
     [{ role: 'user', content: objective }], true, null, c.owner, false, ctx.convo || null,
-    { toolsOverride: toolsFor(id), maxIter: MAX_ROUND_TRIPS, model, councillor: id, triggeringEventId: ctx.triggeringEventId || null, maxTokens: 2200, scope: { councillor: id, tools: [...c.tools] } });
+    { allowBridgePause:ctx.allowBridgePause!==false, toolsOverride: toolsFor(id), maxIter: MAX_ROUND_TRIPS, model, councillor: id, triggeringEventId: ctx.triggeringEventId || null, maxTokens: 2200, scope: { councillor: id, tools: [...c.tools] } });
   if (!result.ok) {
     const why = String((result.data && result.data.error && (result.data.error.message || result.data.error)) || `HTTP ${result.status || '?'}`).slice(0, 200);
     return { ok: false, summary: `${c.name} failed: ${why}`, actions: result.actions || [], data: null, ms: Date.now() - t0 };
   }
   const textBlock = (result.data.content || []).find(b => b.type === 'text');
-  return { ok: true, summary: textBlock ? textBlock.text.trim() : '(no report)', actions: result.actions || [], data: null, ms: Date.now() - t0 };
+  return { ok: true, paused:!!result.paused, summary: textBlock ? textBlock.text.trim() : '(no report)', actions: result.actions || [], data: null, ms: Date.now() - t0 };
 }
 
 // ---- 2.4 delegation ----------------------------------------------------------
@@ -245,7 +245,11 @@ export async function runQueuedDelegations(env, drained) {
   for (const d of items.slice(0, 5)) {
     const c = COUNCIL[d.councillor]; if (!c || c.owner !== d.persona) continue;
     const r = await runCouncillor(env, d.councillor, d.brief || d.task, {});
-    await recordCouncilRun(env, d.councillor, { summary: `Queued task from ${getPersona(d.persona).name}: ${String(d.task).slice(0, 80)}`, detail: r.summary, didSomething: true, patch: { lastDelegatedAt: new Date().toISOString() } });
+    if(r.paused){
+      await recordCouncilRun(env,d.councillor,{summary:'Waiting for your answer in the Bridge',detail:r.summary,didSomething:false});
+      ran++;continue;
+    }
+    await recordCouncilRun(env, d.councillor, { summary: `Queued task ${r.ok ? 'returned a reply' : 'failed'} from ${getPersona(d.persona).name}: ${String(d.task).slice(0, 80)}`, detail: r.summary, didSomething: r.ok, patch: { lastDelegatedAt: new Date().toISOString() } });
     // Queued reports use the existing hall speech inbox. Never send a real message here.
     const key = historyKeyFor(c.owner, 'web');
     const conversation = await loadConversation(env, key);

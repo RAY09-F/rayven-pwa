@@ -915,7 +915,16 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   trace.councillor = opts.councillor || null;
   trace.triggeringEventId = opts.triggeringEventId || null;
   const actions = [];
-  const scope = opts.scope || { councillor: null, tools: [] };
+  const scope = opts.executionResume && opts.scope ? structuredClone(opts.scope) : opts.scope || { councillor: null, tools: [] };
+  if(opts.executionResume && scope.councillor){
+    const {COUNCIL}=await import('./council.js');
+    const current=COUNCIL[scope.councillor];
+    if(!current || current.hidden || current.owner!==personaId)throw Error('The saved councillor is no longer available in this hall');
+    scope.tools=scope.tools.filter(name=>current.tools.includes(implementationToolName(name)));
+    if(opts.toolsOverride)opts={...opts,toolsOverride:opts.toolsOverride
+      .filter(t=>scope.tools.includes(implementationToolName(t.name)))
+      .map(t=>TOOL_DEFINITIONS.find(now=>now.name===implementationToolName(t.name))).filter(Boolean)};
+  }
   let taintCause = 0;
   const systemBlocks = [
     { type: 'text', text: env.TOOL_SEARCH_ENABLED === 'true' && allowTools !== false ? discoveryPrompt(personaAndBaseline) : personaAndBaseline, cache_control: { type: 'ephemeral', ttl: '1h' } }
@@ -951,9 +960,14 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   // Discovery searches one fixed permitted catalogue for this whole turn. Even
   // a restricted councillor override needs the server search entry when its
   // definitions are deferred; otherwise none of those tools can be discovered.
+  const canPause = allowTools!==false && !_pp.hidden && opts.allowBridgePause!==false
+    && (channel==='web' || !convo || !!opts.executionResume);
+  // Workflow control adds no external capability to a councillor's allow-list.
+  const restrictedTools=opts.toolsOverride && canPause && env.LEDGER
+    ? [...opts.toolsOverride.filter(t=>t.name!==QUESTION_TOOL.name),QUESTION_TOOL] : opts.toolsOverride;
   const discoveryCatalogue = env.TOOL_SEARCH_ENABLED === 'true' && allowTools !== false
-    ? discoveryTools(opts.toolsOverride || toolDefinitionsForPersona(personaId)) : null;
-  const toolsForCall = () => allowTools === false ? [] : (discoveryCatalogue || opts.toolsOverride || (convo ? toolsForConversation(personaId, toolDefinitionsForPersona(personaId), meta) : toolDefinitionsForPersona(personaId)));
+    ? discoveryTools(restrictedTools || toolDefinitionsForPersona(personaId)) : null;
+  const toolsForCall = () => allowTools === false ? [] : (discoveryCatalogue || restrictedTools || (convo ? toolsForConversation(personaId, toolDefinitionsForPersona(personaId), meta) : toolDefinitionsForPersona(personaId)));
   const compatibleTools = () => toolsForCall().map(tool => { if(env.TOOL_SEARCH_ENABLED==='true')return tool; const {defer_loading,...legacy}=tool;return legacy; });
   let toolsForThisCall = compatibleTools();
 
@@ -965,7 +979,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   const maxIter = opts.maxIter || _p.toolIterations || 14;
   const maxTok = opts.maxTokens || _p.maxTokens || undefined;
   const execution = await trackExecution(env,{persona:personaId,councillor:opts.councillor,
-    enabled:allowTools !== false && (!convo || channel === 'web'),resume:opts.executionResume});
+    enabled:allowTools !== false && (!convo || channel === 'web' || !!opts.executionResume),resume:opts.executionResume});
   let executionOutcome = 'failed';
   try {
   for (let iteration = 0; iteration < maxIter; iteration++) {
@@ -999,11 +1013,11 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
       if (!toolUseBlocks.length) break;
 
       if(toolUseBlocks.length===1 && toolUseBlocks[0].name===QUESTION_TOOL.name && validQuestion(toolUseBlocks[0].input)
-        && allowTools!==false && channel==='web' && !opts.toolsOverride && !scope.councillor) {
+        && canPause) {
         const block=toolUseBlocks[0];
         const checkpoint={personaAndBaseline,channelAndSender,longTermMemoryBlock,personaId,allowTools,extraContext,
-          startTainted:tainted,convo:{...convo,meta},messages:[...messages,{role:'assistant',content:data.content}],
-          toolUseId:block.id,question:block.input.question,options:{maxIter:Math.max(1,maxIter-iteration-1),maxTokens:maxTok,model:opts.model,effort:opts.effort}};
+          startTainted:tainted,convo:{...convo,channel:convo?.channel || 'background',meta},messages:[...messages,{role:'assistant',content:data.content}],
+          toolUseId:block.id,question:block.input.question,options:{maxIter:Math.max(1,maxIter-iteration-1),maxTokens:maxTok,model:opts.model,effort:opts.effort,toolsOverride:opts.toolsOverride,scope:structuredClone(scope),councillor:scope.councillor || opts.councillor || null,allowBridgePause:opts.allowBridgePause}};
         await commitTrace(env,trace,meta);
         if(await execution.pause(block.input.question,checkpoint)) {
           return {ok:true,paused:true,actions,data:{content:[{type:'text',text:block.input.question}],stop_reason:'end_turn'}};
@@ -1018,7 +1032,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
         await execution.step(`Handle request: ${blk.name}`);
         let toolResult;
         if(blk.name===QUESTION_TOOL.name) {
-          toolResult='Work could not be paused. Ask alone, with one question, from the private web conversation. Do not claim a saved question or waiting job exists.';
+          toolResult='Work could not be paused. Ask alone, with one question, from an eligible private conversation or background task. Do not claim a saved question or waiting job exists.';
         } else if (!councilToolAllowed(scope, blk.name) || (opts.toolsOverride && !opts.toolsOverride.some(tool => implementationToolName(tool.name) === blk.name))) {
           toolResult = `Tool blocked: ${blk.name} is outside the active councillor's permissions. Nothing was executed.`;
           record(trace, 'policy', blk.name, {note: 'councillor allow-list refusal', ok: false});

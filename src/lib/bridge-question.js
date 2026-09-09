@@ -29,18 +29,24 @@ export async function answerBridgeQuestion(env,body,runner,{signal}={}) {
     if(!result.ok)return {ok:false,message:result.data?.error?.message || 'The resumed work could not finish. Earlier actions may have completed; check their records.'};
     const reply=result.data.content.filter(b=>b.type==='text').map(b=>b.text).join('\n');
     if(!reply.trim())return {ok:false,message:'The resumed work returned no answer. Earlier actions may have completed; check their records.'};
+    let councillorName=null;
+    if(c.options?.councillor){
+      const {recordCouncilRun,COUNCIL}=await import('./council.js');
+      councillorName=COUNCIL[c.options.councillor]?.name || null;
+      await recordCouncilRun(env,c.options.councillor,{summary:result.paused?'Waiting for another answer in the Bridge':'Resumed task returned a reply',detail:reply,didSomething:!result.paused,meta:c.convo.meta});
+    }
     const key=historyKeyFor(persona,'web');let current;
     try {current=await loadConversation(env,key,{strict:true});}
-    catch {return {ok:true,reply,paused:!!result.paused,message:'The reply is ready, but the saved conversation could not be read. It was not overwritten. Keep this reply.'};}
+    catch {return {ok:true,reply,councillor:c.options?.councillor || null,councillorName,paused:!!result.paused,message:'The reply is ready, but the saved conversation could not be read. It was not overwritten. Keep this reply.'};}
     // Keep the current hall's metadata rather than replacing newer conversation
     // state with the older checkpoint. Taint from either context is preserved.
     if(isTainted(c.convo?.meta))for(const source of c.convo.meta.tainted.sources||[])markTainted(current.meta,source.source,PERSONAS[persona].historyTurns||30);
     const known=new Set((current.meta._spool||[]).map(e=>JSON.stringify(e)));
     const additions=(c.convo?.meta?._spool||[]).filter(e=>!known.has(JSON.stringify(e)));
     current.meta._spool=[...(current.meta._spool||[]),...additions].slice(-50);
-    const turns=[...current.turns,{role:'user',content:`Answer to “${c.question}”: ${answer.trim()}`},{role:'assistant',content:reply}].slice(-(PERSONAS[persona].historyTurns||30));
+    const turns=[...current.turns,{role:'user',content:`Answer to “${c.question}”: ${answer.trim()}`},{role:'assistant',content:reply,...(c.options?.councillor?{councillor:c.options.councillor}:{})}].slice(-(PERSONAS[persona].historyTurns||30));
     const saved=await saveConversation(env,key,turns,current.meta);
-    return {ok:true,reply,paused:!!result.paused,message:saved===false?'The reply is ready, but saving it to the hall failed. Keep this reply.':result.paused?'Your answer was used. Another question is waiting.':'The work resumed and returned this reply.'};
+    return {ok:true,reply,councillor:c.options?.councillor || null,councillorName,paused:!!result.paused,message:saved===false?'The reply is ready, but saving it to the hall failed. Keep this reply.':result.paused?'Your answer was used. Another question is waiting.':'The work resumed and returned this reply.'};
   } catch {
     // Never release a claimed question for automatic retry: a tool might have
     // completed before the exception or lost acknowledgement.

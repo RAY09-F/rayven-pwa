@@ -33,11 +33,12 @@ async page => {
  const question={id:'question:job:first',sourceId:'job',persona:'thor',type:'QUESTION',revision:'first',title:'Which destination?',at};
  fixture.needs.unshift(question);fixture.needsTotal++;
  const answers=[];
- await page.route('**/bridge/answer',async route=>{answers.push(route.request().postDataJSON());fixture.needs[0]={...question,id:'question:job:second',revision:'second',title:'Which day?'};await route.fulfill({json:{ok:true,paused:true,message:'Fixture resumed',reply:'Which day?'}});});
+ await page.route('**/bridge/answer',async route=>{answers.push(route.request().postDataJSON());fixture.needs[0]={...question,id:'question:job:second',revision:'second',title:'Which day?'};await route.fulfill({json:{ok:true,paused:true,councillor:'jane_foster',councillorName:'Jane Foster',message:'Fixture resumed',reply:'Which day?'}});});
  await page.evaluate(()=>AsgardBridge.refresh());
  await page.getByLabel('Your answer',{exact:true}).fill('Bakersfield');
  await page.getByRole('button',{name:'Answer',exact:true}).click();
  await page.getByRole('dialog').waitFor();
+ if(!await page.getByRole('heading',{name:'Reply from JANE FOSTER',exact:true}).isVisible())throw Error('Reply lost its actual councillor name');
  if(answers.length!==1||answers[0].answer!=='Bakersfield'||answers[0].revision!=='first')throw Error('Question did not submit its answer and revision');
  await page.getByRole('button',{name:'Close',exact:true}).click();
  await page.getByRole('heading',{name:'Which day?',exact:true}).waitFor();

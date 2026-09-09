@@ -127,7 +127,11 @@ export async function getBridgeSnapshot(env,{now=Date.now(),since=0,dismissed=[]
       historyAvailable:sources['history:'+id],statusAvailable:sources['status:'+id]};
   });
   const boundedSince=Number.isFinite(since)?Math.max(0,Math.min(since,now)):0;
-  const activity=activityItems(values.activity||[],values.ticks?.ticks||[],boundedSince,now);
+  const outcomes={done:'Reply processing returned a result.',failed:'Reply processing failed; earlier actions may have completed.',cancelled:'Reply processing was cancelled; earlier actions may have completed.',unknown:'Execution updates stopped or the question expired. The outcome is unknown.'};
+  const executionActivity=(values.executions||[]).filter(hasOwner).filter(r=>outcomes[r.state]).map(r=>({
+    persona:r.persona,councillor:r.councillor,time:r.at,summary:outcomes[r.state],
+    detail:'Recorded execution '+r.id+'. Check the hall and action records before starting the work again.'}));
+  const activity=activityItems([...(values.activity||[]),...executionActivity],values.ticks?.ticks||[],boundedSince,now);
   const localParts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Los_Angeles',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(now);
   const parts=Object.fromEntries(localParts.map(p=>[p.type,p.value]));
   const localNow=`${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;

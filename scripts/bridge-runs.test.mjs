@@ -12,7 +12,7 @@ function fixture() {
     if(body.op!=='execution')throw Error('Unexpected ledger operation');
     return Response.json({ok:true,result:await executionState(store,body.action,body)});
   }})}};
-  return {store,env,writes,read:()=>executionState(store,'read')};
+  return {store,env,writes,read:now=>executionState(store,'read',{},now)};
 }
 
 test('concurrent runs retain independent real steps and terminal outcomes',async()=>{
@@ -23,7 +23,7 @@ test('concurrent runs retain independent real steps and terminal outcomes',async
   await executionState(store,'step',{id:'b',title:'Process reply'},103);
   await executionState(store,'step',{id:'a',title:'Handle request: calculate'},104);
   await executionState(store,'finish',{id:'a',state:'failed'},105);
-  const rows=await read();assert.equal(rows.length,2);
+  const rows=await read(106);assert.equal(rows.length,2);
   const a=rows.find(r=>r.id==='a'),b=rows.find(r=>r.id==='b');
   assert.equal(a.state,'failed');assert.equal(b.state,'running');
   assert.deepEqual(a.steps.map(s=>s.status),['done','in_progress','pending']);
@@ -86,4 +86,16 @@ test('tracking disabled or unavailable cannot break replies or start background 
   const off=await trackExecution(env,{persona:'thor',enabled:false});await off.step('Ignored');await off.finish('done');
   assert.deepEqual(await read(),[]);
   const missing=await trackExecution({}, {persona:'thor'});await missing.step('Ignored');await missing.finish('done');
+});
+
+test('lost execution heartbeat becomes unknown, not a fabricated completion',async()=>{
+  const {store,env}=fixture();
+  await executionState(store,'begin',{id:'lost',persona:'thor',token:'private-fence'},100);
+  await executionState(store,'step',{id:'lost',token:'private-fence',title:'Process reply'},101);
+  const rows=await executionState(store,'read',{},90102);
+  assert.equal(rows[0].state,'unknown');assert.equal(rows[0].token,undefined);
+  assert.equal(rows[0].steps[0].status,'in_progress');
+  const snapshot=await getBridgeSnapshot(env);
+  assert.deepEqual(snapshot.running,[]);assert.match(snapshot.activity[0].summary,/unknown/);
+  assert.doesNotMatch(JSON.stringify(snapshot),/private-fence/);
 });

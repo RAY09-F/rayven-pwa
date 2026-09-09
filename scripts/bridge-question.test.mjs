@@ -125,3 +125,46 @@ test('unreadable existing history is never overwritten by a resumed reply',async
     assert.equal(result.ok,true);assert.match(result.message,/not overwritten/);assert.ok(result.reply);assert.equal(kv.get('web:main'),'unreadable original');
   });
 });
+
+import {runCouncillor,runQueuedDelegations,COUNCIL} from '../src/lib/council.js';
+
+test('queued councillor waits without publishing a finished report and resumes in the owner hall',async()=>{
+  const {env,kv}=fixture();
+  const denied={stop_reason:'tool_use',content:[{type:'tool_use',id:'send',name:'send_text',input:{to:'fixture',message:'Never send'}}]};
+  await mocked([ask,denied,final],async requests=>{
+    assert.equal(await runQueuedDelegations(env,[{kind:'delegation',status:'queued',persona:'thor',councillor:'jane_foster',task:'Find a route'}]),1);
+    const q=(await getBridgeSnapshot(env)).needs[0];assert.equal(q.councillor,'jane_foster');
+    assert.equal(kv.has('web:main'),false,'A waiting question is not a delivered report');
+    assert.equal(kv.has('council:thor:jane_foster'),false,'Waiting does not increment completed runs');
+    const result=await answerBridgeQuestion(env,{id:q.sourceId,persona:'thor',revision:q.revision,answer:'Bakersfield'},callClaudeWithTools);
+    assert.equal(result.ok,true);assert.equal(result.councillor,'jane_foster');
+    assert.match(requests.at(-1).messages.at(-1).content[0].content,/outside.*permissions/);
+    assert.ok(requests[0].tools.some(t=>t.name==='util_ask_user'));
+    assert.equal(JSON.parse(kv.get('web:main')).turns.at(-1).councillor,'jane_foster');
+    assert.equal(kv.has('web:loki'),false);assert.equal(kv.has('pending:thor'),false);
+  });
+});
+
+test('a councillor permission removed while waiting remains removed on resume',async()=>{
+  const {env}=fixture(),c=COUNCIL.jane_foster,original=[...c.tools];
+  const denied={stop_reason:'tool_use',content:[{type:'tool_use',id:'removed',name:original[0],input:{}}]};
+  try {
+    await mocked([ask,denied,final],async requests=>{
+      assert.equal((await runCouncillor(env,'jane_foster','Fixture task')).paused,true);
+      const q=(await getBridgeSnapshot(env)).needs[0];c.tools=c.tools.filter(n=>n!==original[0]);
+      const result=await answerBridgeQuestion(env,{id:q.sourceId,persona:'thor',revision:q.revision,answer:'Here'},callClaudeWithTools);
+      assert.equal(result.ok,true);assert.match(requests.at(-1).messages.at(-1).content[0].content,/outside.*permissions/);
+      assert.ok(!requests[1].tools.some(t=>t.name===original[0]));
+    });
+  } finally {c.tools=original;}
+});
+
+test('failed queued councillor does not create a successful council-run stamp',async()=>{
+  const {env,kv}=fixture(),original=globalThis.fetch;
+  globalThis.fetch=async url=>{assert.equal(url,'https://api.anthropic.com/v1/messages');return Response.json({error:{message:'Fixture provider unavailable'}},{status:400});};
+  try {
+    assert.equal(await runQueuedDelegations(env,[{kind:'delegation',status:'queued',persona:'thor',councillor:'jane_foster',task:'Fixture task'}]),1);
+    assert.equal(kv.has('council:thor:jane_foster'),false);
+    assert.match(JSON.parse(kv.get('web:main')).meta.pendingSpeech[0].text,/JANE FOSTER failed:.*could not complete/);
+  } finally {globalThis.fetch=original;}
+});

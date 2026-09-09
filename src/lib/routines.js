@@ -211,7 +211,7 @@ export async function runRoutine(env, routine, event, execute, resume = null) {
         }
       } else if (s.delegate) {
         const cid = String(s.delegate.councillor).toLowerCase().replace(/[\s-]+/g, '_');
-        const r = await runCouncillor(env, cid, s.delegate.task, {});
+        const r = await runCouncillor(env, cid, s.delegate.task, {allowBridgePause:false});
         await recordCouncilRun(env, cid, { summary: `Routine "${routine.name}": ${String(s.delegate.task).slice(0, 60)}`, detail: r.summary, didSomething: (r.actions || []).length > 0, patch: { lastRoutine: routine.id } });
         if ((r.actions || []).length) writes += 1;
         res = { text: r.summary, summary: `${COUNCIL[cid].name}: ${r.summary.slice(0, 60)}`, ok: r.ok };
