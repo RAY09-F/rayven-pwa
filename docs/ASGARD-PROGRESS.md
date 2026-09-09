@@ -1,5 +1,19 @@
 # ASGARD brain and arsenal progress
 
+## Active direction: EVERYTHING Waves 0–14 — 2026-09-09
+
+The attachment brief supersedes the earlier wave numbering below. Read all three source briefs; EVERYTHING determines direction, BRAIN AND ARSENAL supplies mechanics, BROWSER SETUP separates browser integrations. The Bridge must become the homepage, preserving the existing halls as rooms. No fake activity or reference measurements.
+
+Wave 0: fresh read-only baseline saved in docs/PERF-BASELINE.md and docs/everything/wave-0/. Live inference/voice acceptance explicitly BLOCKED by insufficient provider credits and missing physical-device measurements. Extension source read fully; live connection remains false. No Wave 0 runtime deployment.
+
+Wave 1: auditing existing, inactive tool-discovery implementation against current provider documentation. Do not activate until live provider acceptance succeeds. Alias layer already exists with no renamed family active; preserve it before renames. Main contains unrelated undeployed brain waves, so deploy only isolated production-lineage changes.
+
+Remaining waves in required order: 2 Bridge; 3 command palette; 4 six answer cards; 5 browser references; 6 self-watch; 7 autonomy/receipts; 8 temporal memory; 9 ElevenLabs Custom LLM; 10 ACE/GEPA; 11 Code Mode; 12 WebMCP; 13 one business workflow; 14 read-only mesh. None is claimed complete under this new brief. A blocked live gate must remain explicit while independent implementation proceeds.
+
+Production checkpoint: version bf8ac0d6-5ae6-49f6-8041-fb95e1a6276f at 100%, release floating-5129bddde7ea, deploy/solar-hud source71abd14/receiptb973617. Before every deploy record current version, 10% for five actual minutes, then 100% and verify unpinned. Rollback: `npx wrangler rollback bf8ac0d6-5ae6-49f6-8041-fb95e1a6276f --name asgrard-backend`. No spending, KV deletion or human sends authorized by this checkpoint.
+
+## Historical brain-brief checkpoints
+
 Current wave: 7, tool-family coverage and adapters. Wave6 activation is explicitly BLOCKED. Wave5 activation is explicitly BLOCKED. Wave4 live acceptance is explicitly BLOCKED. Wave3 live acceptance is explicitly BLOCKED. Wave2 activation is explicitly BLOCKED. Wave1 live acceptance is explicitly BLOCKED. Wave 0 completed its available read-only measurements; successful paid inference/audio measurements are explicitly BLOCKED.
 
 ## Rules carried forward

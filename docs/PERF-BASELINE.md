@@ -1,5 +1,30 @@
 # Wave 0: measured baseline and ground truth
 
+## EVERYTHING baseline refresh — 2026-09-09 UTC
+
+The active direction is now ASGARD-EVERYTHING Part 16, Waves 0–14: the Bridge becomes the homepage; existing halls remain rooms. The historical brain baseline below does not describe a new deployment. Main contains undeployed brain changes and must not be deployed wholesale.
+
+Production version `bf8ac0d6-5ae6-49f6-8041-fb95e1a6276f` has 100% traffic; release `floating-5129bddde7ea`. Production lineage is `deploy/solar-hud` (source `71abd14`, receipt `b973617`); main before this refresh is `1908591`. Evidence: [live readings](everything/wave-0/live-readings.json), [deployment record](everything/wave-0/deployment.json).
+
+| Read-only request | HTTP | Headers ms | Complete ms | Observation |
+|---|---:|---:|---:|---|
+| `/` | 200 | 618.03 | 641.02 | 1,312-byte deployed HUD |
+| `/ui/release.json` | 200 | 66.31 | 76.84 | Expected release |
+| `/browser/status` | 200 | 160.35 | 164.26 | Disconnected |
+| Authenticated `/admin/core-tokens` | 200 | 439.90 | 446.86 | All three provider requests rejected for insufficient credits |
+
+These are single network-inclusive endpoint samples, not distributions, model first-token latency or physical voice latency. The token-count route reports 39/38/28 core tools for Thor/Loki/Odin but null token counts. HTTP 200 does not mean those provider calls succeeded. No paid inference, voice generation, browser commands, cron triggers or human messages were initiated for these readings.
+
+Wave 0 live acceptance is **BLOCKED**: successful POST timings, usage/cache observations, ordinary-turn round trips and physical speech-to-sound measurements are missing. No before/after speedup is claimed. The existing smoke route touches live conversation and pending approvals; isolate it before repeated acceptance runs.
+
+The repository extension (`manifest.json`, `background.js`) was read end to end before browser-tool work. It dispatches action strings, without a verified stable-reference protocol. Source inspection does not prove the installed extension was reloaded. Production request construction, tool loop, persona budgets, bindings, data sources and frontend buffering are described in the retained source audit below.
+
+EVERYTHING corrections: lines 979/982 use 218 deferred and 223 total as fixed counts; derive them from the actual permitted registry. Line 1023's no-swap premise is outdated: this environment has 2,747 MiB RAM and 2,047 MiB swap. Tool-search compatibility with the configured model still requires live evidence.
+
+Wave 0 has no runtime change or deployment. Current rollback command: `npx wrangler rollback bf8ac0d6-5ae6-49f6-8041-fb95e1a6276f --name asgrard-backend`. Re-record the current version immediately before every subsequent deployment.
+
+## Historical brain-brief baseline
+
 Measured 2026-09-08 before any application source changes. Baseline source d349c75. Live version e0f22382-5553-4069-94bd-8b1e5acb2523, 100% traffic. Primary host https://asgrard-backend.rayanfahil2.workers.dev. Release floating-761d8ca5ef4f. Git remote is RAY09-F/rayven-pwa. Original branch asgard-three-personas is older than main and remains untouched; work uses an isolated checkout.
 
 ## Real requests, not estimates
