@@ -1,0 +1,201 @@
+{
+  "id": "bf8ac0d6-5ae6-49f6-8041-fb95e1a6276f",
+  "number": 292,
+  "metadata": {
+    "created_on": "2026-09-09T01:39:05.183551Z",
+    "source": "wrangler",
+    "author_id": "fb14b545d22baf6e6a079c1a9e5f65e2",
+    "author_email": "rayanfahil2@gmail.com",
+    "has_preview": false
+  },
+  "annotations": {
+    "workers/message": "Real-data council HUD root; preserved chat at /hall/; no fabricated readings",
+    "workers/tag": "hud-real-index",
+    "workers/triggered_by": "version_upload"
+  },
+  "resources": {
+    "script": {
+      "etag": "1781663653256a1f223bdf2646019c4f22c09956b47021e31be3c3d5f8c41763",
+      "handlers": [
+        "fetch",
+        "scheduled"
+      ],
+      "named_handlers": [
+        {
+          "name": "AsgardLedger",
+          "handlers": [
+            "class"
+          ]
+        }
+      ],
+      "last_deployed_from": "wrangler"
+    },
+    "script_runtime": {
+      "migration_tag": "v1-ledger",
+      "assets": {
+        "serve_directly": false,
+        "raw_run_worker_first": true
+      },
+      "compatibility_date": "2026-08-13",
+      "usage_model": "standard"
+    },
+    "bindings": [
+      {
+        "name": "ADMIN_TOKEN",
+        "type": "secret_text"
+      },
+      {
+        "name": "AGENT_KEY_JARVIS_RAYVEN",
+        "type": "secret_text"
+      },
+      {
+        "name": "AGENT_KEY_RAYVEN_KEVOS",
+        "type": "secret_text"
+      },
+      {
+        "name": "AI",
+        "project": "<catalog>",
+        "type": "ai"
+      },
+      {
+        "name": "ANTHROPIC_API_KEY",
+        "type": "secret_text"
+      },
+      {
+        "name": "ASSETS",
+        "type": "assets"
+      },
+      {
+        "name": "AYRSHARE_API_KEY",
+        "type": "secret_text"
+      },
+      {
+        "bucket_name": "asgardclips",
+        "name": "CLIPS",
+        "type": "r2_bucket"
+      },
+      {
+        "name": "DEBUG_SECRET",
+        "type": "secret_text"
+      },
+      {
+        "name": "ELEVENLABS_API_KEY",
+        "type": "secret_text"
+      },
+      {
+        "name": "ELEVENLABS_VOICE_ID_HELA",
+        "type": "secret_text"
+      },
+      {
+        "name": "ELEVENLABS_VOICE_ID_LOKI",
+        "type": "secret_text"
+      },
+      {
+        "name": "ELEVENLABS_VOICE_ID_ODIN",
+        "type": "secret_text"
+      },
+      {
+        "name": "ELEVENLABS_VOICE_ID_THOR",
+        "type": "secret_text"
+      },
+      {
+        "name": "GOOGLE_MAPS_API_KEY",
+        "type": "secret_text"
+      },
+      {
+        "class_name": "AsgardLedger",
+        "name": "LEDGER",
+        "namespace_id": "01fc3c293be1454a8566b96de9b4c015",
+        "type": "durable_object_namespace"
+      },
+      {
+        "name": "LEDGER_BACKEND",
+        "text": "do",
+        "type": "plain_text"
+      },
+      {
+        "name": "OPENROUTER_API_KEY",
+        "type": "secret_text"
+      },
+      {
+        "name": "RAYVEN_KV",
+        "namespace_id": "ee3cce96335249a9a4cc990cdfd8a2a5",
+        "type": "kv_namespace"
+      },
+      {
+        "name": "SERPAPI_KEY",
+        "type": "secret_text"
+      },
+      {
+        "name": "SPOTIFY_CLIENT_ID",
+        "type": "secret_text"
+      },
+      {
+        "name": "SPOTIFY_CLIENT_SECRET",
+        "type": "secret_text"
+      },
+      {
+        "name": "TAVILY_API_KEY",
+        "type": "secret_text"
+      },
+      {
+        "name": "TELEGRAM_BOT_TOKEN",
+        "type": "secret_text"
+      },
+      {
+        "name": "TELEGRAM_BOT_TOKEN_HELA",
+        "type": "secret_text"
+      },
+      {
+        "name": "TELEGRAM_BOT_TOKEN_LOKI",
+        "type": "secret_text"
+      },
+      {
+        "name": "TELEGRAM_BOT_TOKEN_ODIN",
+        "type": "secret_text"
+      },
+      {
+        "name": "TELEGRAM_WEBHOOK_HOST",
+        "text": "https://asgrard-backend.rayanfahil2.workers.dev",
+        "type": "plain_text"
+      },
+      {
+        "name": "TELEGRAM_WEBHOOK_SECRET",
+        "type": "secret_text"
+      },
+      {
+        "name": "TWELVE_DATA_API_KEY",
+        "type": "secret_text"
+      },
+      {
+        "name": "TWILIO_ACCOUNT_SID",
+        "type": "secret_text"
+      },
+      {
+        "name": "TWILIO_AUTH_TOKEN",
+        "type": "secret_text"
+      },
+      {
+        "name": "TWILIO_PHONE_NUMBER",
+        "type": "secret_text"
+      },
+      {
+        "name": "TWITCH_CLIENT_ID",
+        "type": "secret_text"
+      },
+      {
+        "name": "TWITCH_CLIENT_SECRET",
+        "type": "secret_text"
+      },
+      {
+        "index_name": "rayven-memory",
+        "name": "VECTORIZE",
+        "type": "vectorize"
+      },
+      {
+        "name": "VIZARD_API_KEY",
+        "type": "secret_text"
+      }
+    ]
+  }
+}
