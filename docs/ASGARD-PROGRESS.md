@@ -2,7 +2,7 @@
 
 ## Active direction: EVERYTHING Waves 0–14 — 2026-09-09
 
-Latest checkpoint: Wave 0 evidence pushed as bc86c6b; Wave 1 corrections pushed as 9b70f1f; initial Bridge projection pushed as 0f90f53. Wave 2 now has a local homepage, read routes, revision-checked review actions, notification dismissal, preserved hall entry, and actual tool-loop execution tracking. All 206 repository tests and a fresh Wrangler dry-run pass. Earlier Bridge browser fixtures passed; execution tracking is covered by six additional tests, including the real tool loop with mocked provider responses. QUESTION pause/resume and task-specific plans remain unfinished. See docs/everything/WAVE-2.md. No Bridge deployment or successful live AI acceptance is claimed.
+Latest checkpoint: Bridge page/controls and execution tracking pushed as 2a8e2e4 (206 tests). Private-web QUESTION pause/resume is now implemented locally, including duplicate/stale-answer protection, saved-context continuation, permission rechecks and history preservation. Eight new question tests and the updated browser fixture cover this path. All 214 repository tests and a fresh Wrangler dry-run pass after the final correction; browser question/desktop/phone checks also pass. Background councillor/routine question continuations, task-specific plans and production rollout remain unfinished. See docs/everything/WAVE-2.md. No live Bridge or successful paid-AI acceptance is claimed.
 
 The attachment brief supersedes the earlier wave numbering below. Read all three source briefs; EVERYTHING determines direction, BRAIN AND ARSENAL supplies mechanics, BROWSER SETUP separates browser integrations. The Bridge must become the homepage, preserving the existing halls as rooms. No fake activity or reference measurements.
 

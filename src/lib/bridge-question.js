@@ -1,0 +1,49 @@
+// A question suspends an existing tool loop. It is not an approval and cannot
+// grant tools or bypass permission checks when the loop resumes.
+export const QUESTION_TOOL = {
+  name:'util_ask_user',
+  description:'Pause this work and ask Rayan one necessary question in the Bridge. Use alone in a tool-use turn. Only use when missing information prevents continuing; do not ask for approval through this tool. The same work resumes after an answer.',
+  input_schema:{type:'object',properties:{question:{type:'string',minLength:1,maxLength:1200}},required:['question'],additionalProperties:false}
+};
+export const validQuestion = input => input && typeof input.question==='string' && !!input.question.trim() && input.question.length<=1200;
+
+import {ledger} from './ledger.js';
+import {PERSONAS,historyKeyFor} from './personas.js';
+import {loadConversation,saveConversation,markTainted,isTainted} from './conversation.js';
+
+export async function answerBridgeQuestion(env,body,runner,{signal}={}) {
+  const {id,persona,revision,answer}=body||{};
+  if(!Object.hasOwn(PERSONAS,persona)||PERSONAS[persona].hidden||typeof id!=='string'||id.length>80
+    ||typeof revision!=='string'||revision.length>80||typeof answer!=='string'||!answer.trim()||answer.length>8000)
+    return {ok:false,message:'Enter an answer for the current question.'};
+  if(!env.LEDGER)return {ok:false,message:'Saved work is unavailable. Nothing was resumed.'};
+  let claimed;
+  try {claimed=await ledger.execution(env,'claim',{id,persona,revision,answer,token:crypto.randomUUID()});}
+  catch {return {ok:false,message:'The resume request could not be confirmed. Refresh before doing anything else.'};}
+  if(!claimed)return {ok:false,message:'This question was already answered, expired, or changed. Refresh to see its current state.'};
+  const c=claimed.checkpoint;
+  try {
+    const messages=[...c.messages,{role:'user',content:[{type:'tool_result',tool_use_id:c.toolUseId,content:answer.trim()}]}];
+    const result=await runner(env,c.personaAndBaseline,c.channelAndSender,c.longTermMemoryBlock,[],c.allowTools,
+      c.extraContext,c.personaId,c.startTainted,c.convo,{...c.options,signal,resumeMessages:messages,executionResume:{id:claimed.id,token:claimed.token}});
+    if(!result.ok)return {ok:false,message:result.data?.error?.message || 'The resumed work could not finish. Earlier actions may have completed; check their records.'};
+    const reply=result.data.content.filter(b=>b.type==='text').map(b=>b.text).join('\n');
+    if(!reply.trim())return {ok:false,message:'The resumed work returned no answer. Earlier actions may have completed; check their records.'};
+    const key=historyKeyFor(persona,'web');let current;
+    try {current=await loadConversation(env,key,{strict:true});}
+    catch {return {ok:true,reply,paused:!!result.paused,message:'The reply is ready, but the saved conversation could not be read. It was not overwritten. Keep this reply.'};}
+    // Keep the current hall's metadata rather than replacing newer conversation
+    // state with the older checkpoint. Taint from either context is preserved.
+    if(isTainted(c.convo?.meta))for(const source of c.convo.meta.tainted.sources||[])markTainted(current.meta,source.source,PERSONAS[persona].historyTurns||30);
+    const known=new Set((current.meta._spool||[]).map(e=>JSON.stringify(e)));
+    const additions=(c.convo?.meta?._spool||[]).filter(e=>!known.has(JSON.stringify(e)));
+    current.meta._spool=[...(current.meta._spool||[]),...additions].slice(-50);
+    const turns=[...current.turns,{role:'user',content:`Answer to “${c.question}”: ${answer.trim()}`},{role:'assistant',content:reply}].slice(-(PERSONAS[persona].historyTurns||30));
+    const saved=await saveConversation(env,key,turns,current.meta);
+    return {ok:true,reply,paused:!!result.paused,message:saved===false?'The reply is ready, but saving it to the hall failed. Keep this reply.':result.paused?'Your answer was used. Another question is waiting.':'The work resumed and returned this reply.'};
+  } catch {
+    // Never release a claimed question for automatic retry: a tool might have
+    // completed before the exception or lost acknowledgement.
+    return {ok:false,message:'The resumed work was interrupted. Earlier actions may have completed. Refresh and inspect the records before starting new work.'};
+  }
+}

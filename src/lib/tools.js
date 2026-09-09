@@ -1,3 +1,4 @@
+import {QUESTION_TOOL,validQuestion} from './bridge-question.js';
 import {trackExecution} from './bridge-runs.js';
 import { councilToolAllowed } from './council-scope.js';
 import { discoveryTools, discoveryPrompt, cacheToolPrefix, capToolResult } from './tool-discovery.js';
@@ -288,6 +289,7 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {
 
 export const TOOL_DEFINITIONS = [
   ...CONTEXT_DEFINITIONS,
+  QUESTION_TOOL,
   {
     name: 'web_search',
     description: "Quick Google search via SerpAPI for current, real-time, or factual info.",
@@ -864,7 +866,7 @@ export function toolDefinitionsForPersona(personaId) {
   // itself a disclosure, so the three upstairs must never be handed them.
   const allowed = TOOL_DEFINITIONS.filter(t => personaAllowsTool(personaId, t.name) || isCatalogTool(t.name));   // Phase 7: the catalogue is open to every persona
   if (persona.toolNames === null) return aliasSchemas(allowed);
-  return aliasSchemas(allowed.filter(t => persona.toolNames.includes(t.name) || isCatalogTool(t.name) || CONTEXT_DEFINITIONS.some(c => c.name === t.name)));   // Phase 7: the catalogue rides along for every god
+  return aliasSchemas(allowed.filter(t => persona.toolNames.includes(t.name) || isCatalogTool(t.name) || t.name === QUESTION_TOOL.name || CONTEXT_DEFINITIONS.some(c => c.name === t.name)));   // Phase 7: the catalogue rides along for every god
 }
 
 // Put an ephemeral cache breakpoint on the final content block of the last
@@ -932,7 +934,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   // of the up-to-14 tool-loop iterations re-processed the whole conversation and
   // every accumulated tool result from scratch — the deeper the tool chain, the
   // more it cost. With it, each iteration only pays for what is genuinely new.
-  let messages = withMessageCacheBreakpoint(contextualMessages);
+  let messages = opts.resumeMessages || withMessageCacheBreakpoint(contextualMessages);
 
   // Phase 7.0 -- the toolbox. Once per turn: age the open groups (20 idle turns
   // closes one), then open whatever the latest message's keywords ask for, so
@@ -963,7 +965,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   const maxIter = opts.maxIter || _p.toolIterations || 14;
   const maxTok = opts.maxTokens || _p.maxTokens || undefined;
   const execution = await trackExecution(env,{persona:personaId,councillor:opts.councillor,
-    enabled:allowTools !== false && (!convo || channel === 'web')});
+    enabled:allowTools !== false && (!convo || channel === 'web'),resume:opts.executionResume});
   let executionOutcome = 'failed';
   try {
   for (let iteration = 0; iteration < maxIter; iteration++) {
@@ -996,6 +998,18 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
       const toolUseBlocks = data.content.filter(b => b.type === 'tool_use');
       if (!toolUseBlocks.length) break;
 
+      if(toolUseBlocks.length===1 && toolUseBlocks[0].name===QUESTION_TOOL.name && validQuestion(toolUseBlocks[0].input)
+        && allowTools!==false && channel==='web' && !opts.toolsOverride && !scope.councillor) {
+        const block=toolUseBlocks[0];
+        const checkpoint={personaAndBaseline,channelAndSender,longTermMemoryBlock,personaId,allowTools,extraContext,
+          startTainted:tainted,convo:{...convo,meta},messages:[...messages,{role:'assistant',content:data.content}],
+          toolUseId:block.id,question:block.input.question,options:{maxIter:Math.max(1,maxIter-iteration-1),maxTokens:maxTok,model:opts.model,effort:opts.effort}};
+        await commitTrace(env,trace,meta);
+        if(await execution.pause(block.input.question,checkpoint)) {
+          return {ok:true,paused:true,actions,data:{content:[{type:'text',text:block.input.question}],stop_reason:'end_turn'}};
+        }
+      }
+
       const toolResults = [];
       let anyUntrusted = false;
       for (const requestedBlock of toolUseBlocks) {
@@ -1003,7 +1017,9 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
         opts.signal?.throwIfAborted();
         await execution.step(`Handle request: ${blk.name}`);
         let toolResult;
-        if (!councilToolAllowed(scope, blk.name) || (opts.toolsOverride && !opts.toolsOverride.some(tool => implementationToolName(tool.name) === blk.name))) {
+        if(blk.name===QUESTION_TOOL.name) {
+          toolResult='Work could not be paused. Ask alone, with one question, from the private web conversation. Do not claim a saved question or waiting job exists.';
+        } else if (!councilToolAllowed(scope, blk.name) || (opts.toolsOverride && !opts.toolsOverride.some(tool => implementationToolName(tool.name) === blk.name))) {
           toolResult = `Tool blocked: ${blk.name} is outside the active councillor's permissions. Nothing was executed.`;
           record(trace, 'policy', blk.name, {note: 'councillor allow-list refusal', ok: false});
         } else if (allowTools === false) {

@@ -29,6 +29,19 @@ async page => {
  await page.getByRole('dialog').getByRole('button',{name:'Approve',exact:true}).click();
  await page.waitForFunction(()=>document.querySelectorAll('#bridge-inbox article').length===1);
  if(actions.length!==2)throw Error('Approval submitted more than once');
+ // A second question for the same job must remain visible after the first answer.
+ const question={id:'question:job:first',sourceId:'job',persona:'thor',type:'QUESTION',revision:'first',title:'Which destination?',at};
+ fixture.needs.unshift(question);fixture.needsTotal++;
+ const answers=[];
+ await page.route('**/bridge/answer',async route=>{answers.push(route.request().postDataJSON());fixture.needs[0]={...question,id:'question:job:second',revision:'second',title:'Which day?'};await route.fulfill({json:{ok:true,paused:true,message:'Fixture resumed',reply:'Which day?'}});});
+ await page.evaluate(()=>AsgardBridge.refresh());
+ await page.getByLabel('Your answer',{exact:true}).fill('Bakersfield');
+ await page.getByRole('button',{name:'Answer',exact:true}).click();
+ await page.getByRole('dialog').waitFor();
+ if(answers.length!==1||answers[0].answer!=='Bakersfield'||answers[0].revision!=='first')throw Error('Question did not submit its answer and revision');
+ await page.getByRole('button',{name:'Close',exact:true}).click();
+ await page.getByRole('heading',{name:'Which day?',exact:true}).waitFor();
+ if(await page.getByLabel('Your answer',{exact:true}).inputValue())throw Error('Previous answer leaked into the next question');
  await page.getByRole('button',{name:'Type',exact:true}).click();
  await page.getByLabel('Your message',{exact:true}).fill('Keep my fixture draft');
  await page.getByRole('button',{name:'Cancel',exact:true}).click();
@@ -58,5 +71,5 @@ async page => {
  fail=false;await page.evaluate(()=>AsgardBridge.refresh());
  if(await page.locator('#bridge-error').isVisible())throw Error('Recovered fetch left old error visible');
  if(errors.length)throw Error(JSON.stringify(errors));
- return {desktop:true,phone:true,edit:true,approve:true,draftPreserved:true,commands:true,failureRecovery:true,actions:actions.length,applicationErrors:errors};
+ return {desktop:true,phone:true,edit:true,approve:true,draftPreserved:true,commands:true,questionResume:true,failureRecovery:true,actions:actions.length,applicationErrors:errors};
 }

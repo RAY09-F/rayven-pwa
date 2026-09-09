@@ -1,3 +1,4 @@
+import {answerBridgeQuestion} from './lib/bridge-question.js';
 import { anthropicFetch } from './lib/anthropic-gateway.js';
 import { logSelfCheck } from './tools/catalog-brain-dev.js';
 import { voiceWebSocket } from './lib/voice-websocket.js';
@@ -791,14 +792,16 @@ export default {
       const result=await bridgeReview(env,{id:url.searchParams.get('id'),persona:url.searchParams.get('persona')},TOOL_DEFINITIONS);
       return json(result,{...corsHeaders,'Cache-Control':'no-store'},result.ok?200:409);
     }
-    if (url.pathname === '/bridge/action' && request.method === 'POST') {
+    if (['/bridge/action','/bridge/answer'].includes(url.pathname) && request.method === 'POST') {
       // Same private web surface as the existing approval conversation, with
       // an additional cross-origin guard. The execution gate remains shared.
       const admin=!!env.ADMIN_TOKEN&&await timingSafeEqual(request.headers.get('x-asgard-admin')||'',env.ADMIN_TOKEN);
       const origins=new Set([url.origin,'https://asgrard-backend.rayanfahil2.workers.dev','https://rayven-backend.rayanfahil2.workers.dev']);
       if(!origins.has(request.headers.get('origin'))&&!admin)return json({ok:false,message:'Open ASGARD to review this action.'},corsHeaders,403);
       const body=await request.json().catch(()=>null);
-      const result=await bridgeAction(env,body,TOOL_DEFINITIONS,(e,t,i,p)=>executeTool(e,t,i,p));
+      const result=url.pathname==='/bridge/answer'
+        ? await answerBridgeQuestion(env,body,callClaudeWithTools,{signal:request.signal})
+        : await bridgeAction(env,body,TOOL_DEFINITIONS,(e,t,i,p)=>executeTool(e,t,i,p));
       return json(result,{...corsHeaders,'Cache-Control':'no-store'},result.ok?200:409);
     }
 

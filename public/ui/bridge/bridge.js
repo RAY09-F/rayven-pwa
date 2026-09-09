@@ -86,6 +86,17 @@ async function act(item,decision,values){
   }catch(e){$('bridge-error').hidden=false;$('bridge-error').textContent=e.message;return false;}
   finally{busy.delete(item.id);renderInbox();}
 }
+async function answerQuestion(item,answer){
+  if(!answer.trim()||busy.has(item.id))return;
+  busy.add(item.id);renderInbox();
+  try {
+    const response=await fetch('/bridge/answer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:item.sourceId,persona:item.persona,revision:item.revision,answer}),signal:AbortSignal.timeout(180000)});
+    const data=await response.json();if(!response.ok||!data.ok)throw Error(data.message||'The resumed work could not be confirmed. Refresh before retrying.');
+    drafts.delete(item.id);resolved.add(item.id);
+    const body=openDialog('Reply from '+item.persona.toUpperCase(),'answer');body.append(node('p','bridge-detail',data.message),node('p','',data.reply),link('Open conversation','/hall/#'+item.persona),button('Close',closeDialog));
+  }catch(e){$('bridge-error').hidden=false;$('bridge-error').textContent=e.message;}
+  finally{busy.delete(item.id);await refresh();renderInbox();}
+}
 function review(item){
   const body=openDialog('Review this exact action','review');body.append(node('p','',item.description||item.title));
   if(item.provenance)body.append(node('p','bridge-detail',item.provenance));
@@ -131,7 +142,7 @@ function renderInbox(){
     if(item.type==='REVIEW')actions.append(button('Approve',()=>review(item),'bridge-primary'),button('Edit',()=>edit(item)),button('Reject',()=>act(item,'reject')));
     else if(item.type==='QUESTION') {
       const label=node('label','','Your answer');const input=node('input');input.id='answer-'+item.id;label.htmlFor=input.id;input.value=drafts.get(item.id)||'';input.addEventListener('input',()=>drafts.set(item.id,input.value));
-      actions.append(label,input,button('Answer',()=>{if(input.value.trim())composer(input.value,item.persona);}));
+      actions.append(label,input,button(busy.has(item.id)?'Resuming…':'Answer',()=>answerQuestion(item,input.value)));
     } else actions.append(button('Dismiss',()=>dismiss(item)),link('Open',item.persona?'/hall/#'+item.persona:'/hud/#'+persona));
     if(busy.has(item.id))for(const b of actions.querySelectorAll('button'))b.disabled=true;
     card.append(actions);host.append(card);

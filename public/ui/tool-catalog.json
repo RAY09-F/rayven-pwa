@@ -51,6 +51,31 @@
       }
     },
     {
+      "id": "util_ask_user",
+      "title": "util ask user",
+      "description": "Pause this work and ask Rayan one necessary question in the Bridge. Use alone in a tool-use turn. Only use when missing information prevents continuing; do not ask for approval through this tool. The same work resumes after an answer.",
+      "group": "misc",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1200
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "id": "web_search",
       "title": "web search",
       "description": "Quick Google search via SerpAPI for current, real-time, or factual info.",

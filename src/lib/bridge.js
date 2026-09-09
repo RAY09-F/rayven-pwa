@@ -112,8 +112,11 @@ export async function getBridgeSnapshot(env,{now=Date.now(),since=0,dismissed=[]
         councillor:COUNCIL[n.source]?n.source:null,title:n.title,description:text(n.body),at:iso(n.time)};
     }));
   const dismissedSet=new Set(Array.isArray(dismissed)?dismissed.filter(id=>typeof id==='string').slice(-200):[]);
-  const needs=[...reviews,...notices.filter(n=>!dismissedSet.has(n.id))].sort((a,b)=>
-    (a.type==='REVIEW'?0:1)-(b.type==='REVIEW'?0:1)||timestamp(b.at)-timestamp(a.at));
+  const questions=(values.executions||[]).filter(hasOwner).filter(r=>r.state==='waiting'&&r.question?.expiresAt>now).map(r=>({
+    id:'question:'+r.id+':'+r.question.revision,sourceId:r.id,type:'QUESTION',persona:r.persona,councillor:r.councillor,
+    title:r.question.text,revision:r.question.revision,at:iso(r.at),expiresAt:iso(r.question.expiresAt)}));
+  const needs=[...reviews,...questions,...notices.filter(n=>!dismissedSet.has(n.id))].sort((a,b)=>
+    (a.type==='NOTIFY'?1:0)-(b.type==='NOTIFY'?1:0)||timestamp(b.at)-timestamp(a.at));
   const running=(values.executions||[]).filter(hasOwner).filter(r=>r.state==='running').map(r=>
     bridgePlan({at:r.at,plan:r},r.persona,now)).filter(Boolean);
   const halls=VISIBLE.map(id=>{
@@ -135,7 +138,7 @@ export async function getBridgeSnapshot(env,{now=Date.now(),since=0,dismissed=[]
   const cost=lastTick?.day===new Date(now).toISOString().slice(0,10)&&Number.isFinite(lastTick.costToday?.usd)?lastTick.costToday:null;
   const weather=values['history:thor']?.meta?.council?.valkyrie?.weather;
   return {generatedAt:new Date(now).toISOString(),since:new Date(boundedSince).toISOString(),sources,
-    needs:needs.slice(0,5),needsTotal:sources.approvals&&sources.notifications?needs.length:null,
+    needs:needs.slice(0,5),needsTotal:sources.approvals&&sources.notifications&&sources.executions?needs.length:null,
     running,halls,activity,
     glance:{nextEvent:sources.calendar?(calendar?{title:calendar.title,date:calendar.date,time:calendar.time||null,timeZone:'America/Los_Angeles'}:null):null,
       openTodos:sources.todos?values.todos.filter(t=>isObject(t)&&!t.done).length:null,

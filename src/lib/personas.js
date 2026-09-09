@@ -342,7 +342,7 @@ const HELA_ONLY_TOOLS = ['lock_in', 'stand_down', 'vigil_status', 'my_briefs', '
 // Phase 7: catalogue tools (src/tools/catalog*.js) are open to every persona --
 // they reach a god through find_tools or a keyword-opened group, never by name
 // in his allow-list. Registered by the catalogue at load.
-const OPEN_TOOLS = new Set(['util_context', 'plan_today', 'world_here']);
+const OPEN_TOOLS = new Set(['util_ask_user', 'util_context', 'plan_today', 'world_here']);
 export function registerOpenTools(names) { for (const n of names || []) OPEN_TOOLS.add(n); }
 export function personaAllowsTool(personaId, toolName) {
   toolName = implementationToolName(toolName);

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {getBridgeSnapshot,bridgePlan} from '../src/lib/bridge.js';
 const now=Date.parse('2026-09-09T01:00:00Z');
-const fixture=(records={})=>({RAYVEN_KV:{
+const fixture=(records={})=>({LEDGER:{idFromName:()=>1,get:()=>({fetch:async()=>Response.json({ok:true,result:[]})})},RAYVEN_KV:{
   get:async key=>key in records?JSON.stringify(records[key]):null,
   put:async()=>{throw Error('Bridge reads must not write');},delete:async()=>{throw Error('Bridge reads must not delete');}
 }});
@@ -68,7 +68,7 @@ test('ledger failure does not resurrect stale KV spending as current data',async
   const env=fixture({'tick:last':{day:'2026-09-09',costToday:{usd:123}}});
   env.LEDGER_BACKEND='do';env.LEDGER={idFromName:()=>1,get:()=>({fetch:async()=>{throw Error('ledger down');}})};
   const s=await getBridgeSnapshot(env,{now});
-  assert.equal(s.sources.ticks,false);assert.equal(s.glance.modelSpend,null);
+  assert.equal(s.sources.ticks,false);assert.equal(s.needsTotal,null);assert.equal(s.glance.modelSpend,null);
 });
 
 test('recorded usage cost is explicitly an estimate with excluded costs',async()=>{
