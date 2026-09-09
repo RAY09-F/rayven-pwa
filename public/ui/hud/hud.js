@@ -20,6 +20,8 @@ export function createHUD(host, {base = '', scanlines = true, telemetry = true, 
  let realm = readHash() || readStore() || DEFAULT_REALM;
  let summary = null, scene = null, sceneRealm = null, sceneToken = 0, disposed = false, art = null;
  const listeners = [];
+ const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+ const still = () => !motion || reduced.matches;
  const listen = (el, type, fn) => { el.addEventListener(type, fn); listeners.push(() => el.removeEventListener(type, fn)); };
 
  root.dataset.motion = motion ? 'on' : 'off';
@@ -35,7 +37,9 @@ export function createHUD(host, {base = '', scanlines = true, telemetry = true, 
  function paint() {
   if (disposed) return;
   root.dataset.realm = realm;
+  const previousSlot = scene && sceneRealm === realm ? art?.querySelector('[data-stage="council"]') : null;
   art = renderHUD(host, view(), {scanlines, telemetry, ticker: tickerText(summary), onPick: select});
+  if (previousSlot) art.querySelector('[data-stage="council"]').replaceWith(previousSlot);
   fit();
   mountScene();
  }
@@ -45,15 +49,15 @@ export function createHUD(host, {base = '', scanlines = true, telemetry = true, 
  async function mountScene() {
   const slot = art?.querySelector('[data-stage="council"]');
   if (!slot) return;
-  if (scene && sceneRealm === realm) { slot.dataset.live = '1'; slot.prepend(scene.canvas); scene.instance.resetView?.(); return; }
+  if (scene && sceneRealm === realm) { scene.instance.setStill(still()); return; }
   scene?.instance.dispose(); scene = null; sceneRealm = null;
-  const token = ++sceneToken;
+  const token = ++sceneToken, mountingRealm = realm;
   try {
-   const create = await SCENES[realm]();
+   const create = await SCENES[mountingRealm]();
    if (disposed || token !== sceneToken) return;
-   const instance = create(slot, {onHover: () => {}, onSelect: () => {}, onStatus: () => {}});
+   const instance = create(slot, {still: still(), onHover: () => {}, onSelect: key => {host.dispatchEvent(new CustomEvent('council-select', {detail:{realm:mountingRealm,agentKey:key}}));}, onStatus: () => {}});
    const canvas = slot.querySelector('canvas');
-   scene = {instance, canvas}; sceneRealm = realm; slot.dataset.live = '1';
+   scene = {instance, canvas}; sceneRealm = mountingRealm; slot.dataset.live = '1';
   } catch (error) {
    if (token === sceneToken) { slot.dataset.live = ''; console.warn('Council scene unavailable', error); }
   }
@@ -76,22 +80,31 @@ export function createHUD(host, {base = '', scanlines = true, telemetry = true, 
 
  const observer = new ResizeObserver(fit); observer.observe(host);
  listen(window, 'resize', fit);
+ listen(reduced, 'change', () => scene?.instance.setStill(still()));
  listen(window, 'hashchange', () => { const h = readHash(); if (h) select(h); });
 
  if (!readHash()) location.hash = realm; else writeStore(realm);
  paint();
- fetchSummary(base).then(s => { if (disposed || s?.error) return; summary = s; paint(); });
+ let refreshing = false;
+ async function refresh() {
+  if (disposed || refreshing) return; refreshing = true;
+  try { const s = await fetchSummary(base); if (!disposed && !s?.error) { summary = s; paint(); } }
+  finally { refreshing = false; }
+ }
+ refresh();
+ const refreshTimer = setInterval(() => { if (!document.hidden) refresh(); }, 60000);
+ listen(document, 'visibilitychange', () => { if (!document.hidden) refresh(); });
 
  return {
   select, get realm() { return realm; },
-  setMotion(on) { root.dataset.motion = on ? 'on' : 'off'; },
+  setMotion(on) { motion = !!on; root.dataset.motion = motion ? 'on' : 'off'; scene?.instance.setStill(still()); },
   setScanlines(on) { scanlines = !!on; paint(); },
   setTelemetry(on) { telemetry = !!on; paint(); },
-  refresh: () => fetchSummary(base).then(s => { if (!disposed && !s?.error) { summary = s; paint(); } }),
-  status: () => ({realm, scene: sceneRealm, live: !!scene, summary: !!summary,
+  refresh,
+  status: () => ({render:scene?.instance.status(),realm, scene: sceneRealm, live: !!scene, summary: !!summary,
    ticker: tickerText(summary) !== TICKER_DEFAULT ? 'live' : 'default',
    scale: art ? Number((art.style.transform.match(/[\d.]+/) || [1])[0]) : null,
    hues: Object.keys(HUES).length}),
-  dispose() { if (disposed) return; disposed = true; sceneToken++; observer.disconnect(); listeners.forEach(off => off()); scene?.instance.dispose(); host.replaceChildren(); }
+  dispose() { if (disposed) return; disposed = true; clearInterval(refreshTimer); sceneToken++; observer.disconnect(); listeners.forEach(off => off()); scene?.instance.dispose(); host.replaceChildren(); }
  };
 }

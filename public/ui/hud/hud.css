@@ -236,7 +236,7 @@ body{margin:0;background:#000;color:var(--ink);font-family:'IBM Plex Mono',ui-mo
 .composer .hint{flex:1;font-size:11.5px;letter-spacing:.06em;color:var(--dim)}
 .mic{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
 .mic:hover{border-color:var(--acc)}
-.mic i{width:8px;height:12px;border-radius:4px;background:var(--dim)}
+.mic i{width:8px;height:12px;border-radius:0;background:var(--dim)}
 .send{width:32px;height:32px;border-radius:50%;background:var(--acc);display:flex;align-items:center;justify-content:center;color:#0b0803;font-size:13px;box-shadow:0 0 22px var(--glow)}
 .send-row{display:flex;justify-content:space-between;font-size:9.5px;letter-spacing:.2em;color:var(--dim);white-space:nowrap}
 
@@ -282,3 +282,8 @@ body{margin:0;background:#000;color:var(--ink);font-family:'IBM Plex Mono',ui-mo
    would silently opt its element out of the freeze. This is the one toggle
    that stops the whole HUD, so nothing may override it. */
 .hud-art,.hud-art *{animation-play-state:var(--anim)!important}
+
+/* Micro-labels stay on one line on the fixed artboard. */
+.member .domain,.member .name,.member .n,.voice-top,.heading{white-space:nowrap}
+.member .domain{overflow:hidden;text-overflow:ellipsis}
+.plate .sub{font-size:9.5px}

@@ -7,7 +7,7 @@ const add = (parent, tag, cls, text) => { const n = el(tag, cls, text); parent.a
 const bars = (host, list, cls) => { for (const b of list) { const i = add(host, 'i', cls); i.style.animationDuration = b.dur; i.style.animationDelay = b.delay; i.classList.add('an'); } };
 
 const STARS = [[14,18,'acc','4s',''],[22,64,'acc2','6.5s',''],[41,12,'acc','5.2s','.8s'],[58,74,'acc','3.6s','.4s'],[69,26,'acc2','7s',''],[80,58,'acc','4.8s','1.2s']];
-const RULER = [9,5,5,12,12,5,5,9];
+const RULER = [9,5,5,12,5,5,9];
 
 function overlays(art, scanlines) {
  add(art, 'div', 'ov ov-vignette'); add(art, 'div', 'ov ov-grid');
@@ -42,7 +42,7 @@ function topRail(art, t, live) {
  }
  add(rail, 'div', 'vdiv');
  const nav = add(rail, 'nav', 'nav');
- add(nav, 'a', 'on', 'COUNCIL'); add(nav, 'a', null, 'CHANNEL'); add(nav, 'a', null, 'SYSTEM');
+ add(nav, 'a', 'on', 'COUNCIL').href = '/#' + t.id; add(nav, 'a', null, 'CHANNEL').href = '/hall/#' + t.id; add(nav, 'a', null, 'SYSTEM').href = '/hall/?settings=1#' + t.id;
  add(rail, 'div', 'vdiv');
  const v = add(rail, 'div', 'voice-top');
  const m = add(v, 'div', 'm');
@@ -66,7 +66,7 @@ function leftColumn(art, t) {
   const gem = add(row, 'div', 'gem'); gem.style.cssText = `background:${hue};box-shadow:0 0 14px ${hue}`;
   const box = add(row, 'div'); box.style.minWidth = '0';
   add(box, 'div', 'name', m.name).style.color = hue;
-  add(box, 'div', 'domain', m.domain);
+  add(box, 'div', 'domain', m.domain).title = m.domain;
  });
  add(col, 'div', 'spacer');
  const desk = add(col, 'section', 'desk');
@@ -202,7 +202,7 @@ function rightColumn(art, t) {
 function ticker(art, text) {
  const rail = add(art, 'div', 'rail-ticker');
  const track = add(rail, 'div', 'ticker-track an');
- const run = `${text} ${text}`;
+ const run = text;
  add(track, 'div', null, run); add(track, 'div', null, run);
 }
 
