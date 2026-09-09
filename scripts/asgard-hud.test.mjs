@@ -85,7 +85,7 @@ test('bar timings are deterministic and inside their band', () => {
   }
 });
 
-test('live values replace desk numbers but never the labels, and missing feeds fall back', () => {
+test('live values replace desk numbers but never the labels, and missing feeds stay unavailable', () => {
   const base = {...THEMES.odin, id: 'odin'};
   const merged = applySummary(base, {realms: {odin: {
     stats: [{v: '3'}, {v: '9'}, {v: '5 / 4', t: 'up'}, {v: '-$120', t: 'down'}],
@@ -96,69 +96,85 @@ test('live values replace desk numbers but never the labels, and missing feeds f
   assert.deepEqual(merged.desk.stats.map(s => s.v), ['3', '9', '5 / 4', '-$120']);
   assert.equal(merged.desk.stats[3].t, 'down');
   assert.equal(merged.desk.rows[0].v, '+$12');
-  // A row the feed did not supply keeps the design's row rather than blanking.
-  assert.deepEqual(merged.desk.rows[1], base.desk.rows[1]);
-  assert.equal(merged.signal, 'WIN RATE 55%');
-  // No feed at all is a no-op.
-  assert.equal(applySummary(base, null), base);
-  assert.equal(applySummary(base, {realms: {}}), base);
-  // A stat the feed leaves null keeps the design value.
+  // Missing rows are never padded with example trades.
+  assert.equal(merged.desk.rows.length, 1);
+  assert.equal(merged.signal, 'Unavailable');
+  // Missing sources are explicit.
+  assert.equal(applySummary(base, null).desk.stats[0].v, 'Unavailable');
+  assert.equal(applySummary(base, {realms: {}}).desk.stats[0].v, 'Unavailable');
+  // Null is unavailable, not the example value.
   const partial = applySummary(base, {realms: {odin: {stats: [null, {v: '2'}, null, null]}}});
-  assert.equal(partial.desk.stats[0].v, base.desk.stats[0].v);
+  assert.equal(partial.desk.stats[0].v, 'Unavailable');
   assert.equal(partial.desk.stats[1].v, '2');
 });
 
-test('the ticker uses real events when there are any and the design line when quiet', () => {
-  assert.equal(tickerText(null), TICKER_DEFAULT);
-  assert.equal(tickerText({ticker: []}), TICKER_DEFAULT);
+test('the ticker uses real events when there are any and an honest empty state when quiet', () => {
+  assert.equal(tickerText(null), 'Events unavailable');
+  assert.equal(tickerText({ticker: []}), 'No recent events');
   assert.equal(tickerText({ticker: ['monitoring  swept 4 watches', 'memory written']}),
-    'MONITORING SWEPT 4 WATCHES · MEMORY WRITTEN ·');
+    'monitoring swept 4 watches · memory written ·');
 });
 
-test('the backend summary reports only what the subsystems actually hold', async () => {
-  const store = {
-    'paper:portfolio': JSON.stringify({startingBalance: 10000, cash: 9000, positions: {
-      frigga: {symbol: 'eth', side: 'long', unrealizedPnl: 612, name: 'Frigga'},
-      fandral: {symbol: 'btc', side: 'short', unrealizedPnl: -188, name: 'Fandral'}
-    }}),
-    'paper:trades': JSON.stringify([
-      {market: 'Ethereum \u2014 FRIGGA', agentName: 'FRIGGA', side: 'long', pnl: 612, exitTime: Date.now()},
-      {market: 'Bitcoin \u2014 FANDRAL', agentName: 'FANDRAL', side: 'short', pnl: -188, exitTime: Date.now()}
-    ]),
-    'todos': JSON.stringify([{id: '1', text: 'call back kari', done: false, created: '2026-09-08T18:00:00.000Z'},
-                             {id: '2', text: 'ship hud', done: true, created: '2026-09-08T09:00:00.000Z'}]),
-    'activity:log': JSON.stringify([{subsystem: 'monitoring', action: 'swept 4 watches'}]),
-    'routines:index': JSON.stringify([{id: 'r1', name: 'Morning brief', enabled: true}, {id: 'r2', name: 'Old one', enabled: false, deleted: true}])
-  };
-  const env = {RAYVEN_KV: {get: async k => store[k] ?? null, put: async () => {}, list: async () => ({keys: []})}};
-  const s = await getHudSummary(env);
-  assert.ok(s.generated);
-  assert.equal(s.realms.odin.stats[0].v, '2', 'two open positions');
-  // Rows read closed trades, which carry realised P/L; open positions carry none.
-  assert.ok(s.realms.odin.rows.some(r => r.k === 'ETHEREUM LONG \u00b7 FRIGGA' && r.v === '+$612' && r.t === 'up'), JSON.stringify(s.realms.odin.rows));
-  assert.ok(s.realms.odin.rows.some(r => r.k === 'BITCOIN SHORT \u00b7 FANDRAL' && r.v === '-$188' && r.t === 'down'));
-  // An open position must never be printed with a fabricated zero.
-  assert.ok(!s.realms.odin.rows.some(r => r.v === '+$0'));
-  assert.equal(s.realms.loki.stats[1].v, '2', 'two todos');
-  assert.equal(s.realms.loki.stats[2].v, '1', 'one still open');
-  assert.equal(s.realms.loki.signal, '1 DUE TODAY');
-  assert.ok(s.realms.loki.rows[0].k.includes('CALL BACK KARI'));
-  assert.equal(s.realms.thor.stats[1].v, '1/2');
-  assert.equal(s.realms.thor.signal, 'ON TRACK 50%');
-  assert.equal(s.realms.thor.stats[0].v, '1', 'one enabled routine');
-  assert.deepEqual(s.ticker, ['monitoring swept 4 watches']);
-  // A completely empty backend must not invent anything.
-  const bare = await getHudSummary({RAYVEN_KV: {get: async () => null, put: async () => {}, list: async () => ({keys: []})}});
-  assert.deepEqual(bare.ticker, []);
-  assert.equal(bare.realms.odin.rows.length, 0);
+test('calendar, timers and paper snapshots use their actual sources', async () => {
+ const now=Date.parse('2026-09-08T18:00:00Z');
+ const store={
+  'paper:portfolio':JSON.stringify({startingBalance:10000,cash:9000,positions:{freya:{entryPrice:100,qty:2}}}),
+  'paper:candles:freya':JSON.stringify([{time:now,close:112}]),
+  'paper:trades':JSON.stringify([{pnl:50,exitTime:now}]),
+  'calendar:events':JSON.stringify([{title:'Review',date:'2026-09-08',time:'14:00'},{title:'Tomorrow',date:'2026-09-09',time:'09:00'}]),
+  'kit:timers':JSON.stringify([{label:'Call back',dueAt:now+3600000},{label:'Tomorrow',dueAt:now+86400000}]),
+  'todos':JSON.stringify([{done:true},{done:false}]),
+  'routines:index':JSON.stringify([{enabled:true}]),
+  'activity:log':JSON.stringify([{time:new Date(now).toISOString(),subsystem:'monitoring',action:'swept watches'}])
+ };
+ const env={RAYVEN_KV:{get:async k=>store[k]??null}};
+ const result=await getHudSummary(env,{now});
+ assert.equal(result.realms.loki.stats[0].v,'1');
+ assert.equal(result.realms.loki.stats[1].v,'2');
+ assert.equal(result.realms.loki.stats[2].v,'1');
+ assert.equal(result.realms.loki.stats[3],null);
+ assert.equal(result.realms.loki.rows[0].v,null,'No invented meeting duration');
+ assert.equal(result.realms.thor,undefined,'Routines and todos are not plan milestones');
+ assert.equal(result.sources.plans,false);
+ assert.equal(result.realms.odin.rows[0].v,'+$24');
+ assert.equal(result.realms.odin.rows[0].asOf,now);
+ assert.deepEqual(result.ticker,[new Date(now).toISOString()+' · monitoring swept watches']);
+ delete store['paper:candles:freya'];
+ const missing=await getHudSummary(env,{now});
+ assert.equal(missing.realms.odin.rows[0].v,null,'No fabricated zero P&L');
 });
 
-test('a failing subsystem degrades to the design values instead of throwing', async () => {
+test('a failing subsystem is unavailable instead of showing examples', async () => {
   const env = {RAYVEN_KV: {get: async () => { throw Error('KV down'); }, put: async () => {}, list: async () => { throw Error('KV down'); }}};
   const s = await getHudSummary(env);
   assert.ok(s.generated);
   assert.deepEqual(s.ticker, []);
-  // Nothing sourced means nothing overridden, so applySummary is a no-op.
+  // Missing sources never become reference metrics.
   const base = {...THEMES.thor, id: 'thor'};
-  assert.equal(applySummary(base, s).desk.stats[0].v, base.desk.stats[0].v);
+  assert.equal(applySummary(base, s).desk.stats[0].v, 'Unavailable');
+  assert.equal(tickerText(s), 'Events unavailable');
+});
+
+
+test('all realms suppress example conversations, advice and unmeasured telemetry', () => {
+ for (const id of REALMS) {
+  const view=applySummary({...THEMES[id],id},null);
+  assert.deepEqual(view.msgs,[]);
+  assert.equal(view.counsel.name,'');
+  assert.ok(view.telemetry.every(x=>x.v==='Unavailable'));
+  assert.equal(view.tagA,'');
+  assert.equal(view.tagB,'');
+  assert.ok(view.desk.stats.every(x=>x.v==='Unavailable' && x.t==='flat'));
+ }
+});
+
+test('empty and failed data are distinct, with no invented market marks', async () => {
+ const env={RAYVEN_KV:{get:async()=>null}};
+ const summary=await getHudSummary(env);
+ assert.equal(summary.realms.odin,undefined,'Uninitialized paper account is not a measured zero balance');
+ const view=applySummary({...THEMES.loki,id:'loki'},summary);
+ assert.equal(view.desk.stats[0].v,'0');
+ assert.deepEqual(view.desk.rows,[]);
+ const broken=applySummary({...THEMES.loki,id:'loki'},{...summary,error:'offline'});
+ assert.equal(broken.desk.stats[0].v,'Unavailable');
 });

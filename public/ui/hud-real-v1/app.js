@@ -572,5 +572,3 @@ window.AsgardUI={status:()=>({persona:activeHall(),state:workspace.dataset.state
 
 // Bring the real composer into view without changing its draft.
 document.querySelector('[data-focus-chat]')?.addEventListener('click',()=>{if(conversation.hidden)reopen.click();const input=document.getElementById('in-'+activeHall());input.focus();input.scrollIntoView({block:'center',behavior:'auto'});});
-
-if(new URLSearchParams(location.search).get("settings")==="1"){dialog.showModal();releaseDiagnostics();}

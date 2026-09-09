@@ -1,0 +1,43 @@
+
+ ⛅️ wrangler 4.122.0 (update available 4.130.0)
+───────────────────────────────────────────────
+╭ Deploy Worker Versions by splitting traffic between multiple versions
+│
+├ Fetching latest deployment
+│
+├ Your current deployment has 1 version(s):
+│
+│ (100%) ca4425cf-7e0a-40c6-a754-8f4c5f5ba8e7
+│       Created:  2026-09-08T21:50:24.789185Z
+│           Tag:  -
+│       Message:  -
+│
+├ Fetching versions
+│
+├ Which version(s) do you want to deploy?
+├ 2 Worker Version(s) selected
+│
+├     Worker Version 1:  ca4425cf-7e0a-40c6-a754-8f4c5f5ba8e7
+│              Created:  2026-09-08T21:50:24.789185Z
+│                  Tag:  -
+│              Message:  -
+│
+├     Worker Version 2:  9572fac7-3a3f-4203-b5fa-a7ea47513299
+│              Created:  2026-09-09T01:29:50.593642Z
+│                  Tag:  hud-real-assets
+│              Message:  Source-backed HUD data and compatible immutable assets; root remains on current hall
+│
+├ What percentage of traffic should Worker Version 1 receive?
+├ 90% of traffic
+├
+├ What percentage of traffic should Worker Version 2 receive?
+├ 10% of traffic
+├
+├ Add a deployment message
+│ Deployment message Real data HUD: 10% compatibility preload canary
+│
+├ Deploying 2 version(s)
+│
+│ No non-versioned settings to sync. Skipping...
+│
+╰  SUCCESS  Deployed asgrard-backend version ca4425cf-7e0a-40c6-a754-8f4c5f5ba8e7 at 90% and version 9572fac7-3a3f-4203-b5fa-a7ea47513299 at 10% (1.01 sec)

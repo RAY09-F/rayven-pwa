@@ -1,121 +1,58 @@
-// Assembles the three-realm HUD's live panels from the subsystems that already
-// hold the data: the paper-trading desk (Odin), todos and routines (Loki's day
-// board and Thor's campaign), and the activity log (the ticker).
-//
-// Every field is optional. A realm only reports values it can genuinely source;
-// anything missing is omitted so the frontend keeps the design's own copy
-// rather than showing a blank or an invented number.
-
-import { getPaperStatus } from './paperTrading.js';
-import { getActivityLog } from './activity.js';
-
-
-const money = n => (n < 0 ? '-' : '+') + '$' + Math.abs(Math.round(n)).toLocaleString('en-US');
-const tone = n => (n > 0 ? 'up' : n < 0 ? 'down' : undefined);
-const safe = async (fn, fallback) => { try { return await fn(); } catch (e) { return fallback; } };
-// Deliberately not kv-store's getTodos: that one swallows read errors and hands
-// back an empty array, which the HUD cannot tell apart from "you have no todos".
-// A read failure has to reach `safe` so the realm reports nothing and the design
-// values stay on screen instead of a fabricated zero.
-// Both of these read KV directly rather than through kv-store's getTodos or
-// routines' readRoutinesIndex. Those two swallow read errors and hand back an
-// empty array, which the HUD cannot tell apart from "you genuinely have none".
-// A failure has to reach `safe` so the realm reports nothing for that stat and
-// the design's own value stays on screen instead of a fabricated zero.
-const readTodos = async env => { const raw = await env.RAYVEN_KV.get('todos'); return raw ? JSON.parse(raw) : []; };
-const readRoutines = async env => {
-  const raw = await env.RAYVEN_KV.get('routines:index');
-  const index = raw ? JSON.parse(raw) : [];
-  return Array.isArray(index) ? index.filter(r => !r.deleted) : [];
-};
-
-// ---- Odin: paper desk ----------------------------------------------------
-function odinDesk(paper) {
-  if (!paper) return null;
-  const open = Object.values(paper.openPositions || {});
-  const today = paper.today || {}, all = paper.allTime || {};
-  const winRate = today.winRatePct ?? all.winRatePct;
-  const stats = [
-    { v: String(open.length) },
-    { v: String(today.trades ?? 0) },
-    today.wins != null && today.losses != null
-      ? { v: `${today.wins} / ${today.losses}`, t: tone(today.wins - today.losses) } : null,
-    all.pnl != null ? { v: money(all.pnl), t: tone(all.pnl) } : null
-  ];
-  // Rows come from closed trades, not open positions. An open position carries
-  // no P/L field -- there is no mark price in the payload -- so reading one
-  // would print a confident $0 against every line.
-  const rows = (paper.recentTrades || []).slice(0, 3).map(t => {
-    const pnl = Number(t.pnl ?? 0);
-    const [instrument] = String(t.market || t.label || '').split(' \u2014 ');
-    const who = String(t.agentName || '').toUpperCase();
-    const side = String(t.side || '').toUpperCase();
-    return { k: `${instrument.toUpperCase()}${side ? ' ' + side : ''}${who ? ' \u00b7 ' + who : ''}`.trim(), v: money(pnl), t: tone(pnl) };
-  });
-  return { stats, rows, signal: winRate != null ? `WIN RATE ${Math.round(winRate)}%` : undefined };
+// Read-only HUD snapshots. Missing sources are explicit, never substituted with
+// an unrelated metric (routines are not meetings; todos are not plan milestones).
+import {getPaperStatus} from './paperTrading.js';
+import {readRecentTicks} from './tick.js';
+const safe=async fn=>{try{return await fn();}catch{return null;}};
+const readArray=async(env,key)=>{const raw=await env.RAYVEN_KV.get(key);const rows=raw?JSON.parse(raw):[];if(!Array.isArray(rows))throw Error('Invalid '+key);return rows;};
+const money=n=>(n<0?'-':'+')+'$'+Math.abs(Math.round(n)).toLocaleString('en-US');
+const tone=n=>n>0?'up':n<0?'down':'flat';
+const dateFormat=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Los_Angeles',year:'numeric',month:'2-digit',day:'2-digit'});
+const timeFormat=new Intl.DateTimeFormat('en-GB',{timeZone:'America/Los_Angeles',hour:'2-digit',minute:'2-digit',hour12:false});
+const localDate=n=>dateFormat.format(new Date(n));
+async function odinDesk(env,paper){
+ if(!paper)return null;
+ const open=Object.entries(paper.openPositions||{}),today=paper.today||{},all=paper.allTime||{};
+ const rate=today.winRatePct??all.winRatePct;
+ const rows=await Promise.all(open.slice(0,3).map(async([id,p])=>{
+  const candles=await safe(()=>readArray(env,'paper:candles:'+id));
+  const last=candles?.at(-1),mark=last?.close == null ? NaN : Number(last.close),entry=p.entryPrice == null ? NaN : Number(p.entryPrice),qty=p.qty == null ? NaN : Number(p.qty);
+  const explicit=p.unrealizedPnl;
+  const pnl=Number.isFinite(explicit)?explicit:Number.isFinite(mark)&&Number.isFinite(entry)&&Number.isFinite(qty)?(mark-entry)*qty*(String(p.side).toLowerCase()==='short'?-1:1):null;
+  const instrument=String(p.symbol||p.label||id).split(' — ')[0].toUpperCase(),name=p.name?` · ${p.name.toUpperCase()}`:'';
+  return {k:`${instrument} ${String(p.side||'LONG').toUpperCase()}${name}`,v:pnl==null?null:money(pnl),t:pnl==null?'flat':tone(pnl),asOf:last?.time??null};
+ }));
+ return {stats:[{v:String(open.length)},{v:String(today.trades??0)},today.wins!=null&&today.losses!=null?{v:`${today.wins} / ${today.losses}`,t:'flat'}:null,Number.isFinite(all.pnl)?{v:money(all.pnl),t:tone(all.pnl)}:null],rows,signal:rate==null?null:`WIN RATE ${Math.round(rate)}%`,source:'paper-trading'};
 }
-
-// ---- Loki: day board -----------------------------------------------------
-function lokiDesk(todos, routines) {
-  if (!todos && !routines) return null;
-  const openTodos = todos ? todos.filter(t => !t.done) : null;
-  const stats = [
-    routines ? { v: String(routines.filter(r => r.enabled).length) } : null,
-    todos ? { v: String(todos.length) } : null,
-    openTodos ? { v: String(openTodos.length), t: openTodos.length ? 'down' : 'up' } : null,
-    null   // no free-block source yet; the design's value stands
-  ];
-  const rows = (openTodos || []).slice(0, 3).map(t => ({
-    k: `REMIND · ${String(t.text || '').toUpperCase()}`,
-    v: t.created ? String(t.created).slice(11, 16) : '—'
-  }));
-  return { stats, rows, signal: openTodos ? `${openTodos.length} DUE TODAY` : undefined };
+function lokiDesk(events,timers,now){
+ if(!events&&!timers)return null;
+ const today=localDate(now),meetings=events?.filter(e=>e.date===today),due=timers?.filter(t=>Number.isFinite(Number(t.dueAt))&&localDate(Number(t.dueAt))===today);
+ const rows=[];
+ for(const e of (meetings||[]).slice().sort((a,b)=>String(a.time||'').localeCompare(String(b.time||''))))rows.push({k:`${e.time||''}${e.time?' · ':''}${String(e.title||'').toUpperCase()}`,v:Number.isFinite(e.durationMinutes)?`${e.durationMinutes}M`:null,t:'flat'});
+ for(const t of (timers||[]).slice().sort((a,b)=>a.dueAt-b.dueAt))rows.push({k:`REMIND · ${String(t.label||'').toUpperCase()}`,v:Number.isFinite(Number(t.dueAt))?timeFormat.format(new Date(Number(t.dueAt))):null,t:Number(t.dueAt)<=now?'down':'flat'});
+ return {stats:[meetings?{v:String(meetings.length)}:null,timers?{v:String(timers.length)}:null,due?{v:String(due.length),t:due.length?'down':'up'}:null,null],rows:rows.slice(0,3),signal:due?`${due.length} DUE TODAY`:null,source:'calendar-and-timers'};
 }
-
-// ---- Thor: campaign ------------------------------------------------------
-function thorDesk(todos, routines) {
-  if (!todos && !routines) return null;
-  const done = todos ? todos.filter(t => t.done).length : null;
-  const plans = routines ? routines.filter(r => r.enabled) : null;
-  const pct = todos && todos.length ? Math.round((done / todos.length) * 100) : null;
-  const stats = [
-    plans ? { v: String(plans.length) } : null,
-    todos && todos.length ? { v: `${done}/${todos.length}` } : null,
-    pct != null ? { v: `${pct}%`, t: pct >= 50 ? 'up' : 'down' } : null,
-    null   // no gate/milestone source yet; the design's value stands
-  ];
-  const rows = (plans || []).slice(0, 3).map(r => ({
-    k: String(r.name || r.id || '').toUpperCase(),
-    v: r.enabled ? 'ON TRACK' : 'PAUSED',
-    t: r.enabled ? 'up' : 'down'
-  }));
-  return { stats, rows, signal: pct != null ? `ON TRACK ${pct}%` : undefined };
+function ticker(activity,ticks){
+ const events=[];
+ for(const tick of ticks||[])for(const e of tick.events||[])events.push({at:e.ts||Date.parse(e.at)||0,text:(e.success===false?'FAILED · ':'')+(e.event||e.kind||'')});
+ for(const e of activity||[])events.push({at:Date.parse(e.time)||0,text:(e.success===false?'FAILED · ':'')+[e.subsystem,e.action||e.decided||e.observed,e.error].filter(Boolean).join(' ')});
+ return [...new Set(events.sort((a,b)=>b.at-a.at).filter(e=>e.text.trim()).map(e=>(e.at ? new Date(e.at).toISOString()+' · ' : 'RECORDED · ')+e.text.replace(/\s+/g,' ').trim()))].slice(0,8);
 }
-
-// ---- ticker --------------------------------------------------------------
-function ticker(activity) {
-  if (!Array.isArray(activity) || !activity.length) return [];
-  return activity.slice(-8).reverse()
-    .map(e => [e.subsystem, e.action || e.decided || e.observed].filter(Boolean).join(' '))
-    .map(s => s.replace(/\s+/g, ' ').trim())
-    .filter(Boolean).slice(0, 8);
+async function readPaper(env){
+ // The generic log reader masks read failures as an empty log. Validate the
+ // trades read first so an unavailable history never becomes a zero P/L.
+ const portfolioRaw=await env.RAYVEN_KV.get('paper:portfolio');
+ if (!portfolioRaw) return null;
+ const portfolio=JSON.parse(portfolioRaw);
+ if (!portfolio || !portfolio.positions || typeof portfolio.positions !== 'object' || Array.isArray(portfolio.positions)) throw Error('Invalid portfolio');
+ const trades=await readArray(env,'paper:trades');
+ const snapshotEnv={...env,RAYVEN_KV:{get:(key,...args)=>key==='paper:trades'?Promise.resolve(JSON.stringify(trades)):key==='paper:portfolio'?Promise.resolve(portfolioRaw):env.RAYVEN_KV.get(key,...args)}};
+ return getPaperStatus(snapshotEnv);
 }
-
-export async function getHudSummary(env) {
-  const [paper, todos, routines, activity] = await Promise.all([
-    safe(() => getPaperStatus(env), null),
-    safe(() => readTodos(env), null),
-    safe(() => readRoutines(env), null),
-    safe(() => getActivityLog(env), null)
-  ]);
-  const realms = {};
-  const odin = odinDesk(paper); if (odin) realms.odin = odin;
-  const loki = lokiDesk(todos, routines); if (loki) realms.loki = loki;
-  const thor = thorDesk(todos, routines); if (thor) realms.thor = thor;
-  return {
-    generated: new Date().toISOString(),
-    label: 'PAPER / SIMULATED — no real money',
-    realms,
-    ticker: ticker(activity)
-  };
+export async function getHudSummary(env,{now=Date.now()}={}){
+ const [paper,events,timers,activity,ticks]=await Promise.all([safe(()=>readPaper(env)),safe(()=>readArray(env,'calendar:events')),safe(()=>readArray(env,'kit:timers')),safe(()=>readArray(env,'activity:log')),safe(()=>readRecentTicks(env,1))]);
+ const realms={},odin=await odinDesk(env,paper),loki=lokiDesk(events,timers,now);
+ if(odin)realms.odin=odin;if(loki)realms.loki=loki;
+ // There is no plan/milestone tracker in this repository. Do not invent one
+ // from todos, scheduled routines or clipping campaigns.
+ return {generated:new Date(now).toISOString(),label:'PAPER / SIMULATED — no real money',realms,ticker:ticker(activity,ticks),sources:{paper:!!paper,calendar:!!events,reminders:!!timers,plans:false,events:!!activity||!!ticks?.length}};
 }
