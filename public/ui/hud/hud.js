@@ -1,8 +1,8 @@
 // HUD controller: the single piece of real UI state is the active realm.
 // Everything else derives from the realm config, the toggles, and the feeds.
-import {THEMES, REALMS, DEFAULT_REALM, HUES, TICKER_DEFAULT} from './hud-config.js';
+import {THEMES, REALMS, DEFAULT_REALM, HUES} from './hud-config.js';
 import {renderHUD} from './hud-view.js';
-import {fetchSummary, applySummary, tickerText} from './hud-data.js';
+import {fetchSummary, fetchHistory, applySummary, tickerText} from './hud-data.js';
 
 const STORE = 'asgard:hud-realm';
 const SCENES = {
@@ -20,6 +20,8 @@ export function createHUD(host, {base = '', scanlines = true, telemetry = true, 
  let realm = readHash() || readStore() || DEFAULT_REALM;
  let summary = null, scene = null, sceneRealm = null, sceneToken = 0, disposed = false, art = null;
  const listeners = [];
+ const histories = {};
+ let refreshing = false, refreshAgain = false;
  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
  const still = () => !motion || reduced.matches;
  const listen = (el, type, fn) => { el.addEventListener(type, fn); listeners.push(() => el.removeEventListener(type, fn)); };
@@ -30,8 +32,10 @@ export function createHUD(host, {base = '', scanlines = true, telemetry = true, 
  function view() {
   const t = applySummary({...THEMES[realm], id: realm}, summary);
   return {...t, realmName: realm.toUpperCase(),
-   inputHint: 'Speak to ' + realm[0].toUpperCase() + realm.slice(1) + '…',
-   live: {session: 'ASG-441', latency: '18 MS'}};
+   msgs:histories[realm]?.msgs || [],
+   historyStatus:histories[realm]?.error ? 'Conversation unavailable' : histories[realm] ? 'No conversation yet.' : 'Loading conversation…',
+   inputHint:'Open conversation',
+   live:{session:'Unavailable', latency:Number.isFinite(summary?.latencyMs) ? summary.latencyMs + ' MS' : 'Unavailable', connection:summary?.error ? 'CONNECTION UNAVAILABLE' : summary ? 'LAST FETCH OK' : 'CONNECTING', updated:summary?.generated || null}};
  }
 
  function paint() {
@@ -68,6 +72,7 @@ export function createHUD(host, {base = '', scanlines = true, telemetry = true, 
   realm = next; writeStore(realm);
   if (readHash() !== realm) location.hash = realm;
   paint();
+  refresh();
  }
 
  // Fixed 1600x900 artboard, scaled to fit whatever width it is given.
@@ -85,11 +90,16 @@ export function createHUD(host, {base = '', scanlines = true, telemetry = true, 
 
  if (!readHash()) location.hash = realm; else writeStore(realm);
  paint();
- let refreshing = false;
+
  async function refresh() {
-  if (disposed || refreshing) return; refreshing = true;
-  try { const s = await fetchSummary(base); if (!disposed && !s?.error) { summary = s; paint(); } }
-  finally { refreshing = false; }
+  if (disposed) return;
+  if (refreshing) {refreshAgain=true;return;} refreshing = true;
+  try {
+   const requestedRealm=realm;
+   const [s,h]=await Promise.all([fetchSummary(base),fetchHistory(base,requestedRealm)]);
+   if (!disposed) {summary=s;histories[requestedRealm]=h;paint();}
+  }
+  finally {refreshing=false;if(refreshAgain&&!disposed){refreshAgain=false;queueMicrotask(refresh);}}
  }
  refresh();
  const refreshTimer = setInterval(() => { if (!document.hidden) refresh(); }, 60000);
@@ -102,7 +112,7 @@ export function createHUD(host, {base = '', scanlines = true, telemetry = true, 
   setTelemetry(on) { telemetry = !!on; paint(); },
   refresh,
   status: () => ({render:scene?.instance.status(),realm, scene: sceneRealm, live: !!scene, summary: !!summary,
-   ticker: tickerText(summary) !== TICKER_DEFAULT ? 'live' : 'default',
+   ticker:summary?.sources?.events && !summary?.error ? 'recorded' : 'unavailable',
    scale: art ? Number((art.style.transform.match(/[\d.]+/) || [1])[0]) : null,
    hues: Object.keys(HUES).length}),
   dispose() { if (disposed) return; disposed = true; clearInterval(refreshTimer); sceneToken++; observer.disconnect(); listeners.forEach(off => off()); scene?.instance.dispose(); host.replaceChildren(); }

@@ -85,7 +85,7 @@ test('bar timings are deterministic and inside their band', () => {
   }
 });
 
-test('live values replace desk numbers but never the labels, and missing feeds fall back', () => {
+test('live values replace desk numbers but never the labels, and missing feeds stay unavailable', () => {
   const base = {...THEMES.odin, id: 'odin'};
   const merged = applySummary(base, {realms: {odin: {
     stats: [{v: '3'}, {v: '9'}, {v: '5 / 4', t: 'up'}, {v: '-$120', t: 'down'}],
@@ -96,23 +96,23 @@ test('live values replace desk numbers but never the labels, and missing feeds f
   assert.deepEqual(merged.desk.stats.map(s => s.v), ['3', '9', '5 / 4', '-$120']);
   assert.equal(merged.desk.stats[3].t, 'down');
   assert.equal(merged.desk.rows[0].v, '+$12');
-  // A row the feed did not supply keeps the design's row rather than blanking.
-  assert.deepEqual(merged.desk.rows[1], base.desk.rows[1]);
-  assert.equal(merged.signal, 'WIN RATE 55%');
-  // No feed at all is a no-op.
-  assert.equal(applySummary(base, null), base);
-  assert.equal(applySummary(base, {realms: {}}), base);
-  // A stat the feed leaves null keeps the design value.
+  // Missing rows are never padded with example trades.
+  assert.equal(merged.desk.rows.length, 1);
+  assert.equal(merged.signal, 'Unavailable');
+  // Missing sources are explicit.
+  assert.equal(applySummary(base, null).desk.stats[0].v, 'Unavailable');
+  assert.equal(applySummary(base, {realms: {}}).desk.stats[0].v, 'Unavailable');
+  // Null is unavailable, not the example value.
   const partial = applySummary(base, {realms: {odin: {stats: [null, {v: '2'}, null, null]}}});
-  assert.equal(partial.desk.stats[0].v, base.desk.stats[0].v);
+  assert.equal(partial.desk.stats[0].v, 'Unavailable');
   assert.equal(partial.desk.stats[1].v, '2');
 });
 
-test('the ticker uses real events when there are any and the design line when quiet', () => {
-  assert.equal(tickerText(null), TICKER_DEFAULT);
-  assert.equal(tickerText({ticker: []}), TICKER_DEFAULT);
+test('the ticker uses real events when there are any and an honest empty state when quiet', () => {
+  assert.equal(tickerText(null), 'Events unavailable');
+  assert.equal(tickerText({ticker: []}), 'No recent events');
   assert.equal(tickerText({ticker: ['monitoring  swept 4 watches', 'memory written']}),
-    'MONITORING SWEPT 4 WATCHES · MEMORY WRITTEN ·');
+    'monitoring swept 4 watches · memory written ·');
 });
 
 test('calendar, timers and paper snapshots use their actual sources', async () => {
@@ -138,18 +138,43 @@ test('calendar, timers and paper snapshots use their actual sources', async () =
  assert.equal(result.sources.plans,false);
  assert.equal(result.realms.odin.rows[0].v,'+$24');
  assert.equal(result.realms.odin.rows[0].asOf,now);
- assert.deepEqual(result.ticker,['monitoring swept watches']);
+ assert.deepEqual(result.ticker,[new Date(now).toISOString()+' · monitoring swept watches']);
  delete store['paper:candles:freya'];
  const missing=await getHudSummary(env,{now});
  assert.equal(missing.realms.odin.rows[0].v,null,'No fabricated zero P&L');
 });
 
-test('a failing subsystem degrades to the design values instead of throwing', async () => {
+test('a failing subsystem is unavailable instead of showing examples', async () => {
   const env = {RAYVEN_KV: {get: async () => { throw Error('KV down'); }, put: async () => {}, list: async () => { throw Error('KV down'); }}};
   const s = await getHudSummary(env);
   assert.ok(s.generated);
   assert.deepEqual(s.ticker, []);
-  // Nothing sourced means nothing overridden, so applySummary is a no-op.
+  // Missing sources never become reference metrics.
   const base = {...THEMES.thor, id: 'thor'};
-  assert.equal(applySummary(base, s).desk.stats[0].v, base.desk.stats[0].v);
+  assert.equal(applySummary(base, s).desk.stats[0].v, 'Unavailable');
+  assert.equal(tickerText(s), 'Events unavailable');
+});
+
+
+test('all realms suppress example conversations, advice and unmeasured telemetry', () => {
+ for (const id of REALMS) {
+  const view=applySummary({...THEMES[id],id},null);
+  assert.deepEqual(view.msgs,[]);
+  assert.equal(view.counsel.name,'');
+  assert.ok(view.telemetry.every(x=>x.v==='Unavailable'));
+  assert.equal(view.tagA,'');
+  assert.equal(view.tagB,'');
+  assert.ok(view.desk.stats.every(x=>x.v==='Unavailable' && x.t==='flat'));
+ }
+});
+
+test('empty and failed data are distinct, with no invented market marks', async () => {
+ const env={RAYVEN_KV:{get:async()=>null}};
+ const summary=await getHudSummary(env);
+ assert.equal(summary.realms.odin,undefined,'Uninitialized paper account is not a measured zero balance');
+ const view=applySummary({...THEMES.loki,id:'loki'},summary);
+ assert.equal(view.desk.stats[0].v,'0');
+ assert.deepEqual(view.desk.rows,[]);
+ const broken=applySummary({...THEMES.loki,id:'loki'},{...summary,error:'offline'});
+ assert.equal(broken.desk.stats[0].v,'Unavailable');
 });

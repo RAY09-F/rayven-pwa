@@ -1,42 +1,46 @@
-// Live feeds for the HUD. Anything the backend can answer replaces the matching
-// design value; anything it cannot is left alone, so the handoff's numbers stay
-// visible rather than being blanked out.
-import {TICKER_DEFAULT} from './hud-config.js';
-
+// Only source-backed observations belong in the HUD; design examples never do.
+export const UNAVAILABLE = 'Unavailable';
 const TIMEOUT = 8000;
 
 export async function fetchSummary(base = '') {
+ const started = performance.now();
  try {
-  const r = await fetch(`${base}/hud/summary`, {cache: 'no-store', signal: AbortSignal.timeout(TIMEOUT)});
+  const r = await fetch(`${base}/hud/summary`, {cache:'no-store', signal:AbortSignal.timeout(TIMEOUT)});
   if (!r.ok) throw Error('HTTP ' + r.status);
-  return await r.json();
- } catch (error) { return {error: String(error.message || error)}; }
+  const data = await r.json();
+  if (!data || !data.realms || !data.sources || !Number.isFinite(Date.parse(data.generated))) throw Error('Invalid summary');
+  return {...data, latencyMs:Math.round(performance.now()-started)};
+ } catch(error) { return {error:String(error.message || error)}; }
 }
 
-// Overlay live stats/rows onto a realm's desk without disturbing labels or order.
+export async function fetchHistory(base, realm) {
+ try {
+  const r = await fetch(`${base}/history?persona=${encodeURIComponent(realm)}`, {cache:'no-store', signal:AbortSignal.timeout(TIMEOUT)});
+  if (!r.ok) throw Error('HTTP ' + r.status);
+  const data = await r.json();
+  if (data.persona !== realm || !Array.isArray(data.turns)) throw Error('Invalid history');
+  return {msgs:data.turns.filter(m => ['user','assistant'].includes(m.role) && typeof m.text === 'string').slice(-3).map(m => ({bot:m.role==='assistant',text:m.text}))};
+ } catch { return {error:true,msgs:[]}; }
+}
+
 export function applySummary(theme, summary) {
- const realm = summary?.realms?.[theme.id];
- if (!realm) return theme;
- const desk = {...theme.desk};
- if (Array.isArray(realm.stats)) {
-  desk.stats = theme.desk.stats.map((s, i) => {
-   const live = realm.stats[i];
-   return live && live.v != null ? {...s, v: String(live.v), t: live.t ?? s.t} : s;
-  });
- }
- if (Array.isArray(realm.rows) && realm.rows.length) {
-  desk.rows = theme.desk.rows.map((r, i) => {
-   const live = realm.rows[i];
-   return live && live.k != null && live.v != null ? {k: String(live.k), v: String(live.v), t: live.t ?? r.t} : r;
-  });
- }
- return {...theme, desk, signal: realm.signal || theme.signal};
+ const realm = !summary?.error ? summary?.realms?.[theme.id] : null;
+ return {...theme,
+  desk:{...theme.desk,
+   stats:theme.desk.stats.map((s,i) => ({k:s.k,v:realm?.stats?.[i]?.v == null ? UNAVAILABLE : String(realm.stats[i].v),t:realm?.stats?.[i]?.t || 'flat'})),
+   rows:Array.isArray(realm?.rows) ? realm.rows.filter(r => r && r.k != null).slice(0,3).map(r => ({k:String(r.k),v:r.v == null ? UNAVAILABLE : String(r.v),t:r.t || 'flat',asOf:r.asOf})) : [{k:'DATA',v:UNAVAILABLE,t:'flat'}]},
+  // Council load, decorative instrument readings and advisor quotes have no
+  // measured source. Do not relabel a trading win rate as computational load.
+  signal:UNAVAILABLE,
+  telemetry:theme.telemetry.map(x => ({k:x.k,v:UNAVAILABLE})),
+  tagA:'',tagB:'',msgs:[],counsel:{...theme.counsel,name:'',line:'No advisor response yet.'}
+ };
 }
 
-// The ticker takes real system events when there are any, and keeps the
-// handoff's line as the resting state when the log is quiet.
 export function tickerText(summary) {
- const events = summary?.ticker;
- if (!Array.isArray(events) || !events.length) return TICKER_DEFAULT;
- return events.map(e => String(e).toUpperCase().replace(/\s+/g, ' ').trim()).join(' · ') + ' ·';
+ if (!summary || summary.error || summary.sources?.events === false) return 'Events unavailable';
+ const events = summary.ticker;
+ if (!Array.isArray(events)) return 'Events unavailable';
+ if (!events.length) return 'No recent events';
+ return events.map(e => String(e).replace(/\s+/g,' ').trim()).filter(Boolean).join(' · ') + ' ·';
 }

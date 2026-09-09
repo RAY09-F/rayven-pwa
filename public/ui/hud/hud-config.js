@@ -2,7 +2,8 @@
 // nameplate, roster, telemetry, taglines, conversation and the left data module
 // — is read from here, so a realm is a data change, never a markup change.
 // Copy and numbers are the design handoff's verbatim; live feeds override the
-// desk values at runtime (see hud-data.js) and fall back to these.
+// runtime observations via hud-data.js. Examples below are reference-only and
+// must never be displayed as live data.
 
 export const HUES = { violet:'#b98cff', crimson:'#ff6b6b', gold:'#f4d17a', azure:'#6ea8ff', jade:'#4ade80' };
 export const DELTA = { up:'#4ade80', down:'#ff8a7a', flat:'var(--ink)' };
@@ -78,7 +79,7 @@ export const THEMES = {
  }
 };
 
-export const TICKER_DEFAULT = 'COUNCIL SYNCED · FIVE PERSPECTIVES ONLINE · BIFROST LINK STABLE · YGGDRASIL INDEX 0.997 · MEMORY WRITTEN 14:02 · RAVENS DISPATCHED · WELLS DEEP · GATES OPEN ·';
+export const TICKER_DEFAULT = 'Events unavailable';
 
 // Deterministic bar timings so the rails animate out of phase without random().
 export function seq(n, lo, hi) {

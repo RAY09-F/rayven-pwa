@@ -1,6 +1,6 @@
 // Builds the HUD from a realm config. Nothing here knows a realm by name:
 // every value is read off the config object, so a realm is pure data.
-import {HUES, seq, deltaColor, TICKER_DEFAULT} from './hud-config.js';
+import {HUES, deltaColor} from './hud-config.js';
 
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const add = (parent, tag, cls, text) => { const n = el(tag, cls, text); parent.append(n); return n; };
@@ -33,13 +33,10 @@ function topRail(art, t, live) {
  add(rail, 'div', 'spacer');
  const st = add(rail, 'div', 'status');
  const link = add(st, 'div', 'row'); link.style.gap = '6px';
- add(link, 'div', 'dot an'); add(link, 'b', null, 'LINK STABLE');
+ add(link, 'b', null, live.connection);
  const ses = add(st, 'div', 'nw', 'SESSION '); ses.append(el('span', null, live.session));
  const lat = add(st, 'div', 'nw', 'LAT '); lat.append(el('span', null, live.latency));
- const eq = add(st, 'div', 'eq');
- for (const [dur, delay] of [['1.4s',''],['1.9s','.2s'],['1.1s','.5s'],['2.3s','.1s'],['1.6s','.7s']]) {
-  const i = add(eq, 'i', 'an'); i.style.animationDuration = dur; if (delay) i.style.animationDelay = delay;
- }
+ st.title = live.updated ? 'Snapshot: ' + live.updated + ' · refreshed every 60 seconds' : 'No successful data fetch';
  add(rail, 'div', 'vdiv');
  const nav = add(rail, 'nav', 'nav');
  add(nav, 'a', 'on', 'COUNCIL').href = '/#' + t.id; add(nav, 'a', null, 'CHANNEL').href = '/hall/#' + t.id; add(nav, 'a', null, 'SYSTEM').href = '/hall/?settings=1#' + t.id;
@@ -47,8 +44,8 @@ function topRail(art, t, live) {
  const v = add(rail, 'div', 'voice-top');
  const m = add(v, 'div', 'm');
  for (const [h, o] of [[5,.7],[9,1],[3,.5]]) { const i = add(m, 'i'); i.style.height = h + 'px'; i.style.opacity = o; }
- add(v, 'div', null, 'VOICE ON');
- add(v, 'div', 'kbd', '⌘K');
+ add(v, 'div', null, 'VOICE OFF');
+ 
 }
 
 function leftColumn(art, t) {
@@ -84,6 +81,7 @@ function leftColumn(art, t) {
   const row = add(rows, 'div', 'desk-row');
   add(row, 'div', 'k', r.k); add(row, 'div', 'rule');
   add(row, 'div', 'v', r.v).style.color = deltaColor(r.t);
+  if (r.asOf) row.title='Recorded market snapshot: '+new Date(r.asOf).toISOString();
  }
  const foot = add(col, 'div', 'left-foot');
  const seg = add(foot, 'div', 'seg'); add(seg, 'i'); add(seg, 'i'); add(seg, 'i');
@@ -156,7 +154,7 @@ function centreStage(art, t, showTelemetry) {
  const render = add(ring, 'div', 'render an');
  render.dataset.stage = 'council';
  const fb = add(render, 'div', 'render-fallback');
- add(fb, 'div', 'd'); add(fb, 'div', 'a', 'COUNCIL RENDER · 3D STAGE'); add(fb, 'div', 'b', 'DROP THE REALM SCENE HERE');
+ add(fb, 'div', 'd'); add(fb, 'div', 'a', 'COUNCIL RENDER · 3D STAGE'); add(fb, 'div', 'b', 'SCENE UNAVAILABLE');
  nameplate(stage, t);
 }
 
@@ -165,6 +163,7 @@ function rightColumn(art, t) {
  const h1 = add(col, 'div', 'head-row');
  add(h1, 'div', 'heading', 'CONVERSATION'); add(h1, 'div', 'rule'); add(h1, 'div', 'micro', t.microTag);
  const msgs = add(col, 'div', 'msgs');
+ if (!t.msgs.length) add(msgs, 'div', 'bubble', t.historyStatus);
  for (const m of t.msgs) {
   if (m.bot) {
    const row = add(msgs, 'div', 'msg-bot');
@@ -179,8 +178,8 @@ function rightColumn(art, t) {
  }
  const listen = add(col, 'div', 'listen');
  add(listen, 'div', 'o');
- bars(add(listen, 'div', 'wave'), seq(26, 0.6, 1.7));
- add(listen, 'div', 'micro', 'LISTENING');
+
+ add(listen, 'div', 'micro', 'MICROPHONE OFF');
  const h2 = add(col, 'div', 'head-row'); h2.style.marginTop = '4px';
  add(h2, 'div', 'heading', 'COUNSEL'); add(h2, 'div', 'rule'); add(h2, 'div', 'micro', t.counselTag);
  const hue = HUES[t.counsel.hue];
@@ -191,12 +190,12 @@ function rightColumn(art, t) {
  add(body, 'div', 'line', t.counsel.line);
  add(card, 'div', 'chev', '›');
  add(col, 'div', 'spacer');
- const comp = add(col, 'div', 'composer');
+ const comp = add(col, 'a', 'composer');
+ comp.href='/hall/#'+t.id;
  add(comp, 'div', 'hint', t.inputHint);
- add(add(comp, 'div', 'mic'), 'i');
  add(comp, 'div', 'send', '➤');
  const sr = add(col, 'div', 'send-row');
- add(sr, 'div', null, 'ENTER TO SEND'); add(sr, 'div', null, t.realm);
+ add(sr, 'div', null, 'CHAT AND VOICE'); add(sr, 'div', null, t.realm);
 }
 
 function ticker(art, text) {
@@ -213,7 +212,7 @@ function bottomRail(art, t, onPick) {
  const lbl = add(load, 'div', 'lbl');
  add(lbl, 'div', null, 'COUNCIL LOAD'); lbl.append(el('span', null, t.signal));
  const segs = add(load, 'div', 'segs');
- for (let i = 0; i < 6; i++) add(segs, 'i', i === 3 ? 'an' : null);
+ segs.hidden = true;
  add(rail, 'div', 'spacer');
  const sw = add(rail, 'nav', 'switcher');
  for (const id of ['thor','loki','odin']) {
@@ -223,7 +222,7 @@ function bottomRail(art, t, onPick) {
   b.addEventListener('click', () => onPick(id));
  }
  add(rail, 'div', 'spacer');
- const vp = add(rail, 'div', 'voice-pill');
+ const vp = add(rail, 'a', 'voice-pill'); vp.href='/hall/#'+t.id;
  const m = add(vp, 'div', 'm');
  for (const h of [6,12,8,4]) add(m, 'i').style.height = h + 'px';
  add(vp, 'div', null, 'VOICE'); add(vp, 'div', 'c', '⌄');
@@ -232,7 +231,7 @@ function bottomRail(art, t, onPick) {
 }
 
 // Renders one realm into `host` and returns the artboard element.
-export function renderHUD(host, view, {scanlines = true, telemetry = true, ticker: tickerText = TICKER_DEFAULT, onPick = () => {}} = {}) {
+export function renderHUD(host, view, {scanlines = true, telemetry = true, ticker: tickerText = 'Events unavailable', onPick = () => {}} = {}) {
  host.replaceChildren();
  const art = add(host, 'div', 'hud-art');
  overlays(art, scanlines);
