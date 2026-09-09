@@ -1,0 +1,16 @@
+async page => {
+ await page.unrouteAll({behavior:'wait'});
+ await page.setExtraHTTPHeaders({'Cloudflare-Workers-Version-Overrides':'asgrard-backend="bf8ac0d6-5ae6-49f6-8041-fb95e1a6276f"'});
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('https://asgrard-backend.rayanfahil2.workers.dev/?motion=false#loki',{waitUntil:'domcontentloaded',timeout:90000});
+ await page.waitForFunction(()=>window.AsgardHUD?.status().render?.frames>0,null,{timeout:120000});
+ await page.evaluate(()=>AsgardHUD.refresh());
+ const result=await page.evaluate(()=>({realm:AsgardHUD.realm,canvases:document.querySelectorAll('canvas').length,render:AsgardHUD.status().render.scene,voiceOff:document.body.innerText.includes('VOICE OFF'),fakeListening:document.body.innerText.includes('LISTENING'),stats:[...document.querySelectorAll('.stat .v')].map(x=>x.textContent),conversationLink:document.querySelector('.composer').getAttribute('href'),overflow:[...document.querySelectorAll('.stat')].some(x=>x.scrollWidth>x.clientWidth+1)}));
+ if(result.canvases!==1||!result.voiceOff||result.fakeListening||result.overflow)throw Error('Live HUD failed '+JSON.stringify(result));
+ // Keep private conversation text out of repository screenshots.
+ for(const realm of ['thor','odin']){
+  await page.evaluate(r=>AsgardHUD.select(r),realm);
+  await page.waitForFunction(r=>AsgardHUD.status().scene===r&&AsgardHUD.status().render?.frames>0,realm,{timeout:120000});
+ }
+ return {result,errors};
+}

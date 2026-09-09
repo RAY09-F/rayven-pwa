@@ -1,0 +1,139 @@
+{
+  "version": "9572fac7-3a3f-4203-b5fa-a7ea47513299",
+  "release": "floating-393e9063de3e",
+  "started": "2026-09-09T01:31:52.371Z",
+  "samples": [
+    {
+      "at": "2026-09-09T01:31:52.371Z",
+      "elapsedSeconds": 0,
+      "sources": {
+        "paper": true,
+        "calendar": true,
+        "reminders": true,
+        "plans": false,
+        "events": true
+      },
+      "ok": true
+    },
+    {
+      "at": "2026-09-09T01:32:25.379Z",
+      "elapsedSeconds": 33,
+      "sources": {
+        "paper": true,
+        "calendar": true,
+        "reminders": true,
+        "plans": false,
+        "events": true
+      },
+      "ok": true
+    },
+    {
+      "at": "2026-09-09T01:32:57.181Z",
+      "elapsedSeconds": 65,
+      "sources": {
+        "paper": true,
+        "calendar": true,
+        "reminders": true,
+        "plans": false,
+        "events": true
+      },
+      "ok": true
+    },
+    {
+      "at": "2026-09-09T01:33:29.159Z",
+      "elapsedSeconds": 97,
+      "sources": {
+        "paper": true,
+        "calendar": true,
+        "reminders": true,
+        "plans": false,
+        "events": true
+      },
+      "ok": true
+    },
+    {
+      "at": "2026-09-09T01:34:00.945Z",
+      "elapsedSeconds": 129,
+      "sources": {
+        "paper": true,
+        "calendar": true,
+        "reminders": true,
+        "plans": false,
+        "events": true
+      },
+      "ok": true
+    },
+    {
+      "at": "2026-09-09T01:34:32.938Z",
+      "elapsedSeconds": 161,
+      "sources": {
+        "paper": true,
+        "calendar": true,
+        "reminders": true,
+        "plans": false,
+        "events": true
+      },
+      "ok": true
+    },
+    {
+      "at": "2026-09-09T01:35:04.490Z",
+      "elapsedSeconds": 192,
+      "sources": {
+        "paper": true,
+        "calendar": true,
+        "reminders": true,
+        "plans": false,
+        "events": true
+      },
+      "ok": true
+    },
+    {
+      "at": "2026-09-09T01:35:36.310Z",
+      "elapsedSeconds": 224,
+      "sources": {
+        "paper": true,
+        "calendar": true,
+        "reminders": true,
+        "plans": false,
+        "events": true
+      },
+      "ok": true
+    },
+    {
+      "at": "2026-09-09T01:36:07.715Z",
+      "elapsedSeconds": 255,
+      "sources": {
+        "paper": true,
+        "calendar": true,
+        "reminders": true,
+        "plans": false,
+        "events": true
+      },
+      "ok": true
+    },
+    {
+      "at": "2026-09-09T01:36:39.727Z",
+      "elapsedSeconds": 287,
+      "sources": {
+        "paper": true,
+        "calendar": true,
+        "reminders": true,
+        "plans": false,
+        "events": true
+      },
+      "ok": true
+    },
+    {
+      "at": "2026-09-09T01:37:11.718Z",
+      "elapsedSeconds": 319,
+      "sources": {
+        "paper": true,
+        "calendar": true,
+        "reminders": true,
+        "plans": false,
+        "events": true
+      },
+      "ok": true
+    }
+  ]
+}

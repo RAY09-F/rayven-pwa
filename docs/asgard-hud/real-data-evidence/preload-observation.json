@@ -1,0 +1,13 @@
+{
+  "version": "9572fac7-3a3f-4203-b5fa-a7ea47513299",
+  "release": "floating-393e9063de3e",
+  "started": "2026-09-09T01:31:02.064Z",
+  "samples": [
+    {
+      "at": "2026-09-09T01:31:02.065Z",
+      "elapsedSeconds": 0,
+      "ok": false,
+      "error": "Incorrect candidate asset /ui/hud-real-v1/hud/hud.js"
+    }
+  ]
+}

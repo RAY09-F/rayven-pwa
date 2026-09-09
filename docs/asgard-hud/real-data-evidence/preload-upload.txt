@@ -1,0 +1,53 @@
+
+ ⛅️ wrangler 4.122.0 (update available 4.130.0)
+───────────────────────────────────────────────
+🌀 Building list of assets...
+✨ Read 198 files from the assets directory /home/rayanfahil2/asgard-deploy/public
+🌀 Starting asset upload...
+🌀 Found 19 new or modified static assets to upload. Proceeding with upload...
++ /ui/hud-real-v1/hud/fonts.css
++ /ui/hud-real-v1/hud/fonts/CormorantGaramond-OFL.txt
++ /ui/hud-real-v1/hud/hud-config.js
++ /ui/hud-real-v1/hud/hud.css
++ /ui/hud-real-v1/hud/fonts/font-1.ttf
++ /ui/hud-real-v1/hud/fonts/font-7.ttf
++ /ui/hud-real-v1/hud/fonts/font-4.ttf
++ /ui/hud-real-v1/hud/hud-data.js
++ /ui/hud-real-v1/hud/fonts/IBMPlexMono-OFL.txt
++ /ui/hud-real-v1/hud/hud-view.js
++ /ui/app.js
++ /ui/hud-real-v1/hud/fonts/font-5.ttf
++ /ui/hud-real-v1/hud/fonts/font-2.ttf
++ /ui/hud-real-v1/hud/fonts/Cinzel-OFL.txt
++ /ui/hud-real-v1/hud/hud.js
++ /ui/release.json
++ /ui/hud-real-v1/hud/fonts/font-0.ttf
++ /ui/hud-real-v1/hud/fonts/font-6.ttf
++ /ui/hud-real-v1/hud/fonts/font-3.ttf
+Uploaded 6 of 19 assets
+Uploaded 13 of 19 assets
+Uploaded 19 of 19 assets
+✨ Success! Uploaded 19 files (161 already uploaded) (1.86 sec)
+
+Total Upload: 876.08 KiB / gzip: 240.77 KiB
+Worker Startup Time: 14 ms
+Your Worker has access to the following bindings:
+Binding                                                                     Resource                  
+env.LEDGER (AsgardLedger)                                                   Durable Object            
+env.RAYVEN_KV (ee3cce96335249a9a4cc990cdfd8a2a5)                            KV Namespace              
+env.VECTORIZE (rayven-memory)                                               Vectorize Index           
+env.CLIPS (asgardclips)                                                     R2 Bucket                 
+env.AI                                                                      AI                        
+env.ASSETS                                                                  Assets                    
+env.TELEGRAM_WEBHOOK_HOST ("https://asgrard-backend.rayanfahil2.w...")      Environment Variable      
+env.LEDGER_BACKEND ("do")                                                   Environment Variable      
+
+Uploaded asgrard-backend (6.29 sec)
+Worker Version ID: 9572fac7-3a3f-4203-b5fa-a7ea47513299
+
+To deploy this version to production traffic use the command wrangler versions deploy
+
+Changes to non-versioned settings (config properties 'logpush' or 'tail_consumers') take effect after your next deployment using the command wrangler versions deploy
+
+Changes to triggers (routes, custom domains, cron schedules, etc) must be applied with the command wrangler triggers deploy
+
