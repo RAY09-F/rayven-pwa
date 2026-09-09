@@ -207,13 +207,13 @@ export async function runCouncillor(env, id, task, ctx = {}) {
   const model = tier === 'owner' ? TIERS.owner : TIERS.cheap;
   const result = await callClaudeWithTools(env, system, `Task from ${getPersona(c.owner).name}${ctx.triggeringEventId ? ` (event ${ctx.triggeringEventId})` : ''}.`, 'You have no long-term memory of your own; use search_memory if you have it.',
     [{ role: 'user', content: objective }], true, null, c.owner, false, ctx.convo || null,
-    { allowBridgePause:ctx.allowBridgePause!==false, toolsOverride: toolsFor(id), maxIter: MAX_ROUND_TRIPS, model, councillor: id, triggeringEventId: ctx.triggeringEventId || null, maxTokens: 2200, scope: { councillor: id, tools: [...c.tools] } });
+    { executionResume:ctx.executionResume, routineContinuation:ctx.routineContinuation, allowBridgePause:ctx.allowBridgePause!==false, toolsOverride: toolsFor(id), maxIter: MAX_ROUND_TRIPS, model, councillor: id, triggeringEventId: ctx.triggeringEventId || null, maxTokens: 2200, scope: { councillor: id, tools: [...c.tools] } });
   if (!result.ok) {
     const why = String((result.data && result.data.error && (result.data.error.message || result.data.error)) || `HTTP ${result.status || '?'}`).slice(0, 200);
     return { ok: false, summary: `${c.name} failed: ${why}`, actions: result.actions || [], data: null, ms: Date.now() - t0 };
   }
   const textBlock = (result.data.content || []).find(b => b.type === 'text');
-  return { ok: true, paused:!!result.paused, summary: textBlock ? textBlock.text.trim() : '(no report)', actions: result.actions || [], data: null, ms: Date.now() - t0 };
+  return { ok: true, paused:!!result.paused, execution:result.execution, summary: textBlock ? textBlock.text.trim() : '(no report)', actions: result.actions || [], data: null, ms: Date.now() - t0 };
 }
 
 // ---- 2.4 delegation ----------------------------------------------------------

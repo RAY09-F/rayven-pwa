@@ -1017,10 +1017,10 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
         const block=toolUseBlocks[0];
         const checkpoint={personaAndBaseline,channelAndSender,longTermMemoryBlock,personaId,allowTools,extraContext,
           startTainted:tainted,convo:{...convo,channel:convo?.channel || 'background',meta},messages:[...messages,{role:'assistant',content:data.content}],
-          toolUseId:block.id,question:block.input.question,options:{maxIter:Math.max(1,maxIter-iteration-1),maxTokens:maxTok,model:opts.model,effort:opts.effort,toolsOverride:opts.toolsOverride,scope:structuredClone(scope),councillor:scope.councillor || opts.councillor || null,allowBridgePause:opts.allowBridgePause}};
+          toolUseId:block.id,question:block.input.question,options:{maxIter:Math.max(1,maxIter-iteration-1),maxTokens:maxTok,model:opts.model,effort:opts.effort,toolsOverride:opts.toolsOverride,scope:structuredClone(scope),councillor:scope.councillor || opts.councillor || null,allowBridgePause:opts.allowBridgePause,routineContinuation:opts.routineContinuation}};
         await commitTrace(env,trace,meta);
         if(await execution.pause(block.input.question,checkpoint)) {
-          return {ok:true,paused:true,actions,data:{content:[{type:'text',text:block.input.question}],stop_reason:'end_turn'}};
+          return {ok:true,paused:true,execution:{id:execution.id,token:execution.token},actions,data:{content:[{type:'text',text:block.input.question}],stop_reason:'end_turn'}};
         }
       }
 

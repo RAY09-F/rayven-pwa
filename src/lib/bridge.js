@@ -112,7 +112,7 @@ export async function getBridgeSnapshot(env,{now=Date.now(),since=0,dismissed=[]
         councillor:COUNCIL[n.source]?n.source:null,title:n.title,description:text(n.body),at:iso(n.time)};
     }));
   const dismissedSet=new Set(Array.isArray(dismissed)?dismissed.filter(id=>typeof id==='string').slice(-200):[]);
-  const questions=(values.executions||[]).filter(hasOwner).filter(r=>r.state==='waiting'&&r.question?.expiresAt>now).map(r=>({
+  const questions=(values.executions||[]).filter(hasOwner).filter(r=>r.state==='waiting'&&r.question?.expiresAt>now&&(!r.routine||r.routine.ready)).map(r=>({
     id:'question:'+r.id+':'+r.question.revision,sourceId:r.id,type:'QUESTION',persona:r.persona,councillor:r.councillor,
     title:r.question.text,revision:r.question.revision,at:iso(r.at),expiresAt:iso(r.question.expiresAt)}));
   const needs=[...reviews,...questions,...notices.filter(n=>!dismissedSet.has(n.id))].sort((a,b)=>
@@ -127,7 +127,7 @@ export async function getBridgeSnapshot(env,{now=Date.now(),since=0,dismissed=[]
       historyAvailable:sources['history:'+id],statusAvailable:sources['status:'+id]};
   });
   const boundedSince=Number.isFinite(since)?Math.max(0,Math.min(since,now)):0;
-  const outcomes={done:'Reply processing returned a result.',failed:'Reply processing failed; earlier actions may have completed.',cancelled:'Reply processing was cancelled; earlier actions may have completed.',unknown:'Execution updates stopped or the question expired. The outcome is unknown.'};
+  const outcomes={queued:'Routine queued for batch processing; remaining steps have not finished.',done:'Reply processing returned a result.',failed:'Reply processing failed; earlier actions may have completed.',cancelled:'Reply processing was cancelled; earlier actions may have completed.',unknown:'Execution updates stopped or the question expired. The outcome is unknown.'};
   const executionActivity=(values.executions||[]).filter(hasOwner).filter(r=>outcomes[r.state]).map(r=>({
     persona:r.persona,councillor:r.councillor,time:r.at,summary:outcomes[r.state],
     detail:'Recorded execution '+r.id+'. Check the hall and action records before starting the work again.'}));
@@ -142,7 +142,7 @@ export async function getBridgeSnapshot(env,{now=Date.now(),since=0,dismissed=[]
   const cost=lastTick?.day===new Date(now).toISOString().slice(0,10)&&Number.isFinite(lastTick.costToday?.usd)?lastTick.costToday:null;
   const weather=values['history:thor']?.meta?.council?.valkyrie?.weather;
   return {generatedAt:new Date(now).toISOString(),since:new Date(boundedSince).toISOString(),sources,
-    needs:needs.slice(0,5),needsTotal:sources.approvals&&sources.notifications&&sources.executions?needs.length:null,
+    needs:needs.slice(0,5),needsTotal:sources.approvals&&sources.notifications&&sources.executions&&!(values.executions||[]).some(r=>hasOwner(r)&&r.state==='waiting'&&r.routine&&!r.routine.ready)?needs.length:null,
     running,halls,activity,
     glance:{nextEvent:sources.calendar?(calendar?{title:calendar.title,date:calendar.date,time:calendar.time||null,timeZone:'America/Los_Angeles'}:null):null,
       openTodos:sources.todos?values.todos.filter(t=>isObject(t)&&!t.done).length:null,
