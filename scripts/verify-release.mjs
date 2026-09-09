@@ -12,7 +12,7 @@ const live=JSON.parse(manifest.bytes);
 if(live.fingerprint!==expected.fingerprint)throw Error(`Wrong release: ${live.id}`);
 const checks=[];
 for(const [path,hash] of Object.entries(expected.assets)){
- const url=path==='/index.html'?'/':path,{bytes,type}=await get(url);
+ const url=path.endsWith('/index.html')?path.slice(0,-10):path,{bytes,type}=await get(url);
  const digest=createHash('sha256').update(bytes).digest('hex');
  if(digest!==hash)throw Error(`Wrong asset bytes: ${url}`);
  const mime=path.endsWith('.js')?'javascript':path.endsWith('.css')?'css':path.endsWith('.json')?'json':path.endsWith('.html')?'html':null;
