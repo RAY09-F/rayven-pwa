@@ -1,23 +1,4 @@
-<!-- ============================================================================
-     ASGARD · INDEX
-     The Warden form (04) rebuilt as the front door to Asgard.
-     One body. Three temperaments. THOR blue/white · LOKI green/black · ODIN white/gold.
-     Switching a persona does NOT rebuild the armour — it changes its temperature
-     over ~900ms, and shifts its tempo. Same guardian, different mood.
 
-     WIRING NOTE FOR CODEX — read this before touching anything:
-       Everything on screen comes from the DATA object near the bottom of the
-       script (search "===== DATA"). Nothing is hard-coded in the markup.
-       The page also exposes window.ASGARD with these methods:
-         ASGARD.persona('thor'|'loki'|'odin')   switch persona (crossfades)
-         ASGARD.state('idle'|'listening'|'thinking'|'speaking')
-         ASGARD.level(0..1)                     drive the glow from audio
-         ASGARD.say('text')                     replace the prompt line
-         ASGARD.metric('latency', 240)          update any readout
-         ASGARD.onPersona = function(id){}      fires when the user switches
-         ASGARD.onMic     = function(on){}      fires when mic starts/stops
-       Do not restructure the page to add the backend. Call these instead.
-     ============================================================================ -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -26,7 +7,7 @@
 <meta name="theme-color" content="#04070F">
 <title>ASGARD</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2216%22%20fill%3D%22%2304070f%22%2F%3E%3Cpath%20d%3D%22M14%2049L32%2012L50%2049M23%2034H41%22%20fill%3D%22none%22%20stroke%3D%22%23bfefff%22%20stroke-width%3D%224%22%2F%3E%3Cpath%20d%3D%22M10%2053H54%22%20stroke%3D%22%23ffd08a%22%20stroke-width%3D%222%22%2F%3E%3C%2Fsvg%3E">
-<meta name="description" content="Choose Thor, Loki or Odin and enter your ASGARD hall. An animated Warden welcomes you; conversations happen inside.">
+<meta name="description" content="Your ASGARD workspace. Talk with Thor, Loki and Odin, use your tools and keep your context in one place.">
 <style>
 :root{
   --bg:#04070F; --txt:#DCE9F5; --cy:#4FC3FF; --hot:#BFEFFF; --rim:#FFD08A;
@@ -198,6 +179,7 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;background:
   .id p{display:none}
 }
 </style>
+<link rel="stylesheet" href="/ui/warden-workspace.css">
 </head>
 <body>
 <canvas id="c"></canvas>
@@ -238,25 +220,23 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;background:
       <button data-p="odin">Odin</button>
     </div>
 
-    <div class="ctl">
-      <button class="mic hit" id="mic" aria-label="Enable microphone glow" aria-pressed="false" title="Sound-reactive glow only. Enter a hall to talk.">
-        <span class="ring"></span>
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="9" y="3" width="6" height="11" rx="3"></rect>
-          <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"></path>
-          <path d="M12 18v3"></path>
-        </svg>
-        <small id="micLabel" role="status">Mic glow</small>
-      </button>
-      <a class="enter hit" id="enterLink" href="#"><i></i><span id="enterText">Enter Thor</span></a>
-    </div>
-
-    <div class="bar" id="bar"></div>
-    <div class="hint">Click figure to charge &nbsp;&middot;&nbsp; 1 / 2 / 3 &nbsp;&middot;&nbsp; M for mic</div>
-    <div class="brand">ASGARD // WARDEN PREVIEW</div>
+    <div class="hint">Click figure to charge · 1 / 2 / 3 to switch</div>
+    <div class="brand">ASGARD // YOUR WORKSPACE</div>
   </div>
 
 </div>
+
+<main class="workspace-panel" aria-label="Assistant workspace">
+  <header class="workspace-head"><div><span class="workspace-kicker">DIRECT CONNECTION</span><h2 id="chat-name">Thor</h2></div><button id="settings" type="button" aria-label="Open settings">Settings</button></header>
+  <nav class="workspace-tools" aria-label="Workspace tools"><button data-open-arsenal="">Tools <small id="arsenal-count">Loading…</small></button><button data-open-missions>Missions</button><button data-open-activity>Activity</button></nav>
+  <details class="council-strip"><summary>Council advisors</summary><div id="council-dock"></div></details>
+  <div id="transcript" role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions text" tabindex="0"></div>
+  <div id="connection-status" role="status">Loading your conversation…</div>
+  <form id="composer"><label class="sr-only" for="message">Message your assistant</label><textarea id="message" rows="2" maxlength="16000" placeholder="Ask Thor anything…"></textarea><div class="composer-actions"><button type="button" id="mic" aria-label="Start voice conversation" aria-pressed="false"><span id="micLabel">Talk</span></button><button type="button" id="stop" hidden>Stop</button><button type="submit" id="send">Send ↗</button></div></form>
+  <div class="workspace-foot">Enter to send · Shift + Enter for a new line · Ctrl + K for tools</div>
+</main>
+<dialog id="settings-dialog"><form method="dialog"><h2>Your workspace</h2><label><input id="voice-output" type="checkbox"> Read replies aloud</label><label><input id="still-motion" type="checkbox"> Reduce motion</label><p>Voice uses your microphone when you press Talk. Speech recognition may use your browser’s speech service.</p><button type="button" data-reset-view>Reset figure</button><button>Done</button></form></dialog>
+<noscript><p class="no-script">ASGARD needs JavaScript enabled for chat and voice.</p></noscript>
 
 <script>
 (function(){
@@ -275,8 +255,6 @@ var DATA = {
     thor: {
       name:  'THOR',
       role:  'Primary · Command & Response',
-      href:  '/hall/#thor',                    // <-- the hall this persona opens
-      enter: 'Enter Thor',
       tempo: 1.00,                        // motion speed multiplier
       agit:  1.00,                        // how restless the armour is
       /* blue / white — cold, steady, high contrast, gold rims */
@@ -302,8 +280,6 @@ var DATA = {
     loki: {
       name:  'LOKI',
       role:  'Signals · Briefs & Timing',
-      href:  '/hall/#loki',
-      enter: 'Enter Loki',
       tempo: 1.22,                        // quicker, more restless
       agit:  1.30,
       /* green / black — low, venomous, acid-lime rims */
@@ -329,8 +305,6 @@ var DATA = {
     odin: {
       name:  'ODIN',
       role:  'Counsel · Revenue & Strategy',
-      href:  '/hall/#odin',
-      enter: 'Enter Odin',
       tempo: 0.82,                        // slower, heavier, deliberate
       agit:  0.78,
       /* white / gold — inverted: warm body, cold white rims */
@@ -807,7 +781,6 @@ var E={
   m1:document.getElementById('m1'), m2:document.getElementById('m2'), m3:document.getElementById('m3'),
   pts:document.getElementById('pts'), sem:document.getElementById('sem'), vox:document.getElementById('vox'),
   say:document.getElementById('sayLine'), sw:document.getElementById('switch'),
-  enter:document.getElementById('enterLink'), enterTxt:document.getElementById('enterText'),
   mic:document.getElementById('mic'), micLabel:document.getElementById('micLabel'),
   bar:document.getElementById('bar')
 };
@@ -815,31 +788,13 @@ var E={
 E.pts.textContent=String(COUNT).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
 E.m2.textContent=String(NPLATE);
 
-/* the bottom bar comes from DATA */
-(function(){
-  E.bar.innerHTML='';
-  DATA.bar.forEach(function(b){
-    var el=document.createElement(b.href?'a':'span');
-    el.textContent=b.label;
-    if(b.on) el.className='on';
-    if(b.href){if(b.persona)el.dataset.personaLink='true';el.href=b.href;el.style.textDecoration='none';el.className=(el.className+' hit').trim();}
-    E.bar.appendChild(el);
-  });
-})();
-
 var overrides={};                       // metrics the backend has taken over
 function writeMetrics(){
   E.k1.textContent=P.labels[0];E.k2.textContent=P.labels[1];E.k3.textContent=P.labels[2];
 }
 
 var sayIndex=0;
-function writeSay(txt){
-  E.say.classList.add('swap');
-  setTimeout(function(){
-    E.say.innerHTML='In your hall — <em>&ldquo;'+String(txt).replace(/[<>&]/g,'')+'&rdquo;</em>';
-    E.say.classList.remove('swap');
-  },300);
-}
+function writeSay(txt){ E.say.textContent=String(txt); }
 
 function setPersona(id,silent){
   if(!hasPersona(id)) return;
@@ -861,10 +816,8 @@ function setPersona(id,silent){
     E.idBlock.classList.remove('swap');
   },300);
 
-  E.enter.href=P.href; E.enterTxt.textContent=P.enter;
-  E.bar.querySelectorAll('[data-persona-link]').forEach(function(a){a.hash=id;});
   writeMetrics();
-  writeSay(P.lines[sayIndex]||P.lines[0]);
+
   document.title='ASGARD · '+P.name;
   if(typeof API.onPersona==='function'){try{API.onPersona(id);}catch(e){}}
 }
@@ -875,9 +828,8 @@ E.sw.addEventListener('click',function(e){
 });
 window.addEventListener('keydown',function(e){
   if(e.repeat||e.ctrlKey||e.metaKey||e.altKey||e.target.closest('input,textarea,select,[contenteditable]'))return;
-  if(e.key==='Enter'&&!e.target.closest('a,button')){e.preventDefault();location.assign(P.href);return;}
   if(e.key==='1')setPersona('thor'); else if(e.key==='2')setPersona('loki'); else if(e.key==='3')setPersona('odin');
-  else if(e.key==='m'||e.key==='M')toggleMic();
+  else if(e.key==='m'||e.key==='M')E.mic.click();
 });
 
 /* =========================================================================
@@ -888,47 +840,6 @@ var voice=0, voiceTarget=0, micOn=false, analyser=null, actx=null, stream=null, 
 var external=-1;               // >=0 when ASGARD.level() is driving instead of the mic
 var lastLoud=0,micPending=false,micAttempt=0;
 
-function toggleMic(){ micOn||micPending ? stopMic() : startMic(); }
-
-async function startMic(){
-  if(micOn||micPending)return;
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){E.micLabel.textContent='No mic';return;}
-  var attempt=++micAttempt, acquired=null;
-  micPending=true;E.micLabel.textContent='Allow mic';
-  try{
-    acquired=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
-    if(attempt!==micAttempt){acquired.getTracks().forEach(function(t){t.stop();});return;}
-    stream=acquired;
-    var AC=window.AudioContext||window.webkitAudioContext;
-    if(!AC)throw new Error('Audio unavailable');
-    actx=new AC();if(actx.state==='suspended')await actx.resume();
-    if(attempt!==micAttempt)return;
-    var src=actx.createMediaStreamSource(stream);
-    analyser=actx.createAnalyser();analyser.fftSize=1024;analyser.smoothingTimeConstant=0.55;
-    tdata=new Uint8Array(analyser.fftSize);src.connect(analyser);
-    micOn=true;E.mic.classList.add('live');E.micLabel.textContent='Mic glow on';
-    E.mic.setAttribute('aria-pressed','true');E.mic.setAttribute('aria-label','Disable microphone glow');
-    mode='live';
-    stream.getTracks().forEach(function(t){t.addEventListener('ended',function(){if(attempt===micAttempt)stopMic();});});
-    if(typeof API.onMic==='function'){try{API.onMic(true);}catch(e){}}
-  }catch(e){
-    if(acquired)acquired.getTracks().forEach(function(t){t.stop();});
-    if(attempt===micAttempt){stopMic();E.micLabel.textContent='Mic unavailable';}
-  }finally{if(attempt===micAttempt)micPending=false;}
-}
-function stopMic(){
-  ++micAttempt;micPending=false;micOn=false;
-  E.mic.classList.remove('live');E.micLabel.textContent='Mic glow';
-  E.mic.setAttribute('aria-pressed','false');E.mic.setAttribute('aria-label','Enable microphone glow');
-  if(stream){stream.getTracks().forEach(function(t){t.stop();});stream=null;}
-  if(actx){try{var closing=actx.close();if(closing&&closing.catch)closing.catch(function(){});}catch(e){}actx=null;}
-  analyser=null;voiceTarget=0;
-  if(external<0)mode='auto';
-  if(typeof API.onMic==='function'){try{API.onMic(false);}catch(e){}}
-}
-window.addEventListener('pagehide',stopMic);
-document.addEventListener('visibilitychange',function(){if(document.hidden)stopMic();});
-E.mic.addEventListener('click',toggleMic);
 
 function readMic(){
   if(!analyser) return 0;
@@ -945,7 +856,7 @@ function readMic(){
    ========================================================================= */
 var ORDER=DATA.cycle;
 var CYCLE=ORDER.reduce(function(a,k){return a+DATA.states[k].dur;},0);
-var mode='auto';                  // 'auto' = timed cycle, 'live' = driven
+var mode='live';                  // 'auto' = timed cycle, 'live' = driven
 var liveState='idle';
 var S0=DATA.states.idle;
 var cur={coh:S0.coh,agit:S0.agit,lift:S0.lift,core:S0.core,br:S0.bright,bre:S0.breath};
@@ -963,7 +874,8 @@ var API = {
     external=cl(Number(v)||0,0,1); mode='live';
     return API;
   },
-  auto:function(){external=-1; if(!micOn) mode='auto'; return API;},
+  auto:function(){external=0;liveState='idle';mode='live';return API;},
+  reduced:function(value){REDUCED=!!value;return API;},
   say:function(t){writeSay(t);return API;},
   metric:function(id,val){overrides[id]=String(val);var el=E[id==='latency'?'m3':id];if(id==='latency')overrides.m3=String(val);if(el)el.textContent=String(val);return API;},
   data:DATA,
@@ -997,7 +909,7 @@ function fallback(){
     var cycleTime=t%CYCLE,elapsed=0,key=ORDER[0];
     for(var j=0;j<ORDER.length;j++){if(cycleTime<elapsed+DATA.states[ORDER[j]].dur){key=ORDER[j];break;}elapsed+=DATA.states[ORDER[j]].dur;}
     if(mode==='live')key=micOn&&external<0?(now-lastLoud<900?'listening':'idle'):liveState;
-    if(stKey!==key){stKey=key;E.stv.textContent=DATA.states[key].label;sayIndex=DATA.states[key].line||0;writeSay(P.lines[sayIndex]||P.lines[0]);}
+    if(stKey!==key){stKey=key;E.stv.textContent=DATA.states[key].label;sayIndex=DATA.states[key].line||0;}
     E.vox.textContent=micOn||external>=0?(voice*100).toFixed(0)+'%':'—';
     if(!overrides.m3)E.m3.textContent=(dt*1000).toFixed(1)+' ms';
     if(palT<1){palT=cl(palT+dt/palDur,0,1);palNow=mixPal(palFrom,palTo,ss(0,1,palT));paint(palNow);}
@@ -1074,7 +986,7 @@ else{
       stKey=key;
       E.stv.textContent=S.label;
       sayIndex=S.line||0;
-      writeSay(P.lines[sayIndex]||P.lines[0]);
+
     }
 
     /* --- ease toward it --------------------------------------------------- */
@@ -1152,5 +1064,6 @@ else{
 }
 })();
 </script>
+<script type="module" src="/ui/warden-workspace.js"></script>
 </body>
 </html>

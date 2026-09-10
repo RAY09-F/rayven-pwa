@@ -1,12 +1,10 @@
 {
-  "name": "The Floating Realms",
-  "id": "floating-2fa584f036cf",
-  "sourceBase": "b1f738535977d5dbe37c8b5245717ea3b9a79f3d",
-  "fingerprint": "2fa584f036cfecad25adac2408c1dcf850c548b26d468f5b2e4d94e62f50fec1",
+  "name": "ASGARD Workspace",
+  "id": "workspace-80e756f3485d",
+  "sourceBase": "e8b28a406c411bc3418baafa0febe11fc010f839",
+  "fingerprint": "80e756f3485ddcb4106b757405b549fda6d4c5c67f12cf17468448775f6a0954",
   "assets": {
-    "/hall/index.html": "920579f9342b14a447b42761bac30a78db79f13a0b9b71501af7873c70168a63",
-    "/hud/index.html": "934b2b5db8eba2c0c47a6263732567c9674b555b33fc13d025673bf58f760a99",
-    "/index.html": "b5a7c6a8f725d6c3e2dc483216f8ab6512752434c4f67939bc4d2cb23d7d96ba",
+    "/index.html": "6d8e0435283d3627457d6b5bf06a75f8ea7d82b53a6220110e423eb20bb87d6e",
     "/ui/app.js": "047d531bf9016569dc7f37235d6b90a2f7952dea3b5de04551243c359af01d9a",
     "/ui/arsenal.js": "35899d7e899188f5e43f3041417420a7833d500090dd97d54532a1226383c809",
     "/ui/astral-cartographer-model.js": "f80d19a2c9fc101b4bed6cbc5d8084bdf5219fe6a4e292d685f261bcfd280df6",
@@ -157,7 +155,7 @@
     "/ui/scene.js": "534e39f773bd74deda211ccf4762714944e23eee312b280edab370c950ba891f",
     "/ui/solar-throne-model.js": "1e7fe4538577da58417655ca0598a73c5317a9d762d4f9454b25a2a9946bf552",
     "/ui/solar-throne.js": "b8c654ec387359d3afd121bd8e6221b054bba3470fa93d4a16c63aa8d2f11a2e",
-    "/ui/state.js": "9974120739cbe01aeb3f944ac6765abc340511bd2110e227ff9936c71cd59d79",
+    "/ui/state.js": "0040d9427c02d493e3a77375afeb876b4a308531ba4975c53f2ded3fb51bff84",
     "/ui/tool-catalog.json": "4cd7de82f8888483868285758f1eb4e31dab7ac3c975b1a12a74714cf8411537",
     "/ui/vendor/OrbitControls.js": "845c827054bda45b84ae0e9e0db4e707f75d2182af9cd88787b2cac86aeef8ef",
     "/ui/vendor/Projector.js": "b0d5535a29f84ffb939339bc7ded5bc778aabcd31cda9c4a5621e44a7d7d0e43",
@@ -165,6 +163,8 @@
     "/ui/vendor/THREE-LICENSE.txt": "8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc",
     "/ui/vendor/three.core.min.js": "6486aa0d719cfa87ec88dc47223b59b1fb8417a1a407fc0e52467c943e2f8cc9",
     "/ui/vendor/three.module.min.js": "36a60b0120335f89a80a0dab70292292b0ec414b3d05e83cd09a3ea428c6712a",
-    "/ui/voice-stream.js": "75b017210ab86cc3ce22f2cbe58be4661206f2f36708ad3578f38734970cca9d"
+    "/ui/voice-stream.js": "75b017210ab86cc3ce22f2cbe58be4661206f2f36708ad3578f38734970cca9d",
+    "/ui/warden-workspace.css": "aff22c3ee47bbaca85c3c94a44063247e91c4d8ed9bb862983d8ea3a5bb18769",
+    "/ui/warden-workspace.js": "2733ff958a68239ee1c5dc21e9c7ac5b45a09a5e7911d674ec0c4e88b3c46f32"
   }
 }

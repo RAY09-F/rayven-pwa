@@ -1477,7 +1477,18 @@ How to speak on a phone call:
       if (legacy) {
         return Response.redirect(new URL(`/?persona=${legacy[1]}`, url).toString(), 301);
       }
-      // Phase 6.8: /hub is a real page again (public/hub/index.html) — served by the asset handler below.
+      // One workspace now owns chat, voice and tools. Preserve old bookmarks;
+      // browsers retain the original #persona when Location has no fragment.
+      const oldWorkspace = url.pathname.match(/^\/(hall|hud|hub)(?:\/index\.html|\/)?$/);
+      const oldPage = ['\/team.html','\/odinhud.html','\/halls-preview.html','\/fx-lab.html'].includes(url.pathname);
+      if (oldWorkspace || oldPage) {
+        const target = new URL('/', url);
+        target.search = url.search;
+        if (url.pathname === '/odinhud.html') target.searchParams.set('persona','odin');
+        if (url.pathname === '/team.html') target.searchParams.set('panel','council');
+        if (oldWorkspace?.[1] === 'hub') target.searchParams.set('panel','tools');
+        return Response.redirect(target.toString(), 302);
+      }
       // Anything GET/HEAD that fell through every API route above is the static
       // page in public/. With run_worker_first on, Cloudflare no longer serves
       // it automatically; this is the one explicit call that does it.
