@@ -28,3 +28,5 @@ The existing browser regression suite covers all three halls, keyboard controls,
 - Prior Worker version for rollback: `433c5e9b-7044-4a55-ba1d-72a62e4fbbe5`.
 - Pre-motion release backup branch: `pre-warden-motion`; development backup: `pre-warden-motion-development`.
 - Only `/index.html` differs among the 162 fingerprinted content assets; release metadata is regenerated.
+
+The candidate passed all 11 rollout samples over 314 seconds and was promoted to 100% of traffic. Pinned live browser tests passed motion/glow, charge, reduced motion, navigation and microphone handling without JavaScript errors. All 162 pinned live asset hashes and MIME types matched the release manifest.
