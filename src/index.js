@@ -1,5 +1,9 @@
 import {summarizeOlderHistory} from './lib/history-summary.js';
 import { activeIdentity, safeError } from './lib/chat-diagnostics.js';
+import {answerBridgeQuestion} from './lib/bridge-question.js';
+import { anthropicFetch } from './lib/anthropic-gateway.js';
+import { logSelfCheck } from './tools/catalog-brain-dev.js';
+import { voiceWebSocket } from './lib/voice-websocket.js';
 // ASGARD backend — Cloudflare Worker entrypoint. HTTP router plus the main
 // chat-handling logic; all integrations live in ./lib/*.js. Three personas
 // (THOR/LOKI/ODIN — see lib/personas.js) share this one brain: same worker,
@@ -18,6 +22,8 @@ import { handleSpotifyLogin, handleSpotifyCallback, spotifyNowPlayingData, spoti
 import { runLokiBriefIfDue, runLokiBrief, runOdinReportIfDue, runOdinReport, getOdinReports } from './lib/reports.js';
 import { runPaperTradingCycleIfDue, runPaperTradingDailyReportIfDue, sendPaperTradingReportNow, getPaperStatus, getPaperChartData, forceDemoTrade, INSTRUMENTS, runPaperCloseTasksIfDue, collectTraderReviews } from './lib/paperTrading.js';
 import { getHudSummary } from './lib/hud.js';
+import { getBridgeSnapshot } from './lib/bridge.js';
+import { bridgeReview, bridgeAction } from './lib/bridge-actions.js';
 import { fetchKrakenCandles, fetchTwelveDataCandles } from './lib/marketData.js';
 import { handleAgentQuery } from './lib/sibling-agents.js';
 import { collectCodeReview, runProactiveCheckIn, runProactiveCheckInIfDue, runCodeCheckIfDue, runCodeCheck, runMorningBriefing, runMorningBriefingIfDue } from './lib/checkin.js';
@@ -110,7 +116,7 @@ async function handleChatTurn(env, ctx, opts) {
   // for real (Claude, tools) but nothing it says is saved: no history write, no
   // auto-memory capture, no status stamps. A smoke run must never pollute a
   // conversation or spend a KV write.
-  const { personaId, isTelegram, body, botToken, smoke = false } = opts;
+  const { personaId, isTelegram, body, botToken, smoke = false, onText, onReset, signal, afterResponse, voiceTurn } = opts;
   const persona = getPersona(personaId);
 
   let userMessage;
@@ -231,8 +237,8 @@ async function handleChatTurn(env, ctx, opts) {
   // history/memory read on the rare pending-confirmation turn, which is free
   // because it happens in parallel anyway.
   const [pendingRaw, prefetchedConvo, prefetchedMemoryBlock] = await Promise.all([
-    env.RAYVEN_KV.get(pendingKey),
-    loadConversation(env, memoryKey),
+    smoke ? null : env.RAYVEN_KV.get(pendingKey),
+    smoke ? { turns: [], meta: {} } : loadConversation(env, memoryKey),
     getRecentMemoryBlock(env, personaId)
   ]);
   // The conversation object (Phase 1): turns plus meta -- the taint bit, the
@@ -245,7 +251,7 @@ async function handleChatTurn(env, ctx, opts) {
   // APPROVE 1234 / REJECT 1234 (Phase 1.5) -- honoured only from Rayan on his
   // private surfaces, resolved without a model call, never saved to history.
   const approvalReply = matchApprovalReply(userMessage);
-  if (approvalReply && rayanPrivate) {
+  if (approvalReply && rayanPrivate && !smoke) {
     const r = await resolveApproval(env, approvalReply.id, approvalReply.decision, (e, t, i, p) => executeTool(e, t, i, p));
     if (!smoke) ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
     return { reply: await sendReply(r.text) };
@@ -302,11 +308,7 @@ async function handleChatTurn(env, ctx, opts) {
   // in Rayan's household memory). The short-length check filters out bare
   // acks ("ok", "yes", "lol") without an extra import — a wasted call on a
   // genuinely short-but-meaningful message just comes back with an empty [].
-  if (!smoke && !isWakeTrigger && rayanIsSender && typeof userMessage === 'string' && userMessage.trim().length >= 8) {
-    ctx.waitUntil(extractAndSaveFacts(env, userMessage, personaId).catch(err => {
-      console.error('Auto-memory extraction failed:', err.message);
-    }));
-  }
+
 
   const longTermMemoryBlock = prefetchedMemoryBlock;
 
@@ -339,7 +341,7 @@ async function handleChatTurn(env, ctx, opts) {
   }
   if (!smoke) meta.lastTurnAt = Date.now();
 
-  if (isWakeTrigger && personaId === DEFAULT_PERSONA_ID) {
+  if (!smoke && isWakeTrigger && personaId === DEFAULT_PERSONA_ID) {
     // ---- one cheap KV read only — no new fetches/tool calls on the wake-greeting path ----
     const codeCheckRaw = await env.RAYVEN_KV.get('codecheck:result');
     if (codeCheckRaw) {
@@ -381,9 +383,25 @@ async function handleChatTurn(env, ctx, opts) {
   // with anyone who is not Rayan (Rule 15). The bit persists in meta.
   tickTaint(meta);   // one turn older: a taint clears once its turns have rolled out of the window
   const convo = { meta, channel: isTelegram ? (isGroupChat ? 'telegram-group' : 'telegram') : 'web', sender: senderTag };
-  const result = await callClaudeWithTools(env, activeIdentity(persona), channelContext, longTermMemoryBlock, claudeMessages, !isWakeTrigger, wakeCodeCheckContext, personaId, channelStartsTainted(isTelegram, telegramChatType, senderTag === 'Rayan'), convo);
-
-  if (!smoke) ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
+  if (!smoke && voiceTurn) {
+    const beforeVoice = history.slice();
+    voiceTurn.commit = async heardChars => {
+      const heard = String(voiceTurn.generated || '').slice(0,heardChars);
+      await saveConversation(env,memoryKey,heard ? [...beforeVoice,{role:'assistant',content:heard}] : beforeVoice,meta);
+    };
+  }
+  let result;
+  try {
+    result = await callClaudeWithTools(env, activeIdentity(persona), channelContext, longTermMemoryBlock, claudeMessages, !isWakeTrigger && !smoke, wakeCodeCheckContext, personaId, channelStartsTainted(isTelegram, telegramChatType, senderTag === 'Rayan'), convo, { onText, onReset, signal, effort: /\b(research|compare|strategy|plan)\b/i.test(userMessage) ? 'high' : 'low' });
+    signal?.throwIfAborted();
+  } catch (error) {
+    // Retain receipts, usage and taint from tools that completed before cancellation.
+    // No partial assistant sentence is saved as a successful answer.
+    if (!smoke) await saveConversation(env, memoryKey, history, meta);
+    throw error;
+  } finally {
+    if (!smoke) ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
+  }
 
   if (!result.ok) {
     // Say WHAT went wrong. "Claude API error" on its own sent Rayan looking in
@@ -399,13 +417,24 @@ async function handleChatTurn(env, ctx, opts) {
     return { error: `Claude API error — ${why}`, details: result.data };
   }
 
-  const textBlock = result.data.content.find(b => b.type === 'text');
-  const reply = textBlock ? textBlock.text : "Done, sir.";
+  signal?.throwIfAborted();
+  const reply = result.data.content.filter(b => b.type === 'text').map(b => b.text).join('\n') || 'Done, sir.';
 
   history.push({ role: 'assistant', content: reply });
   if (history.length > _hl2) history = history.slice(-_hl2);
-  if (!smoke) await saveConversation(env, memoryKey, history, meta);
+  if (!smoke && voiceTurn) {
+    voiceTurn.commit = async heardChars => {
+      const heard = reply.slice(0,heardChars);
+      await saveConversation(env,memoryKey,heard ? [...history.slice(0,-1),{role:'assistant',content:heard}] : history.slice(0,-1),meta);
+    };
+  } else if (!smoke) await saveConversation(env, memoryKey, history, meta);
 
+  if (!smoke && !isWakeTrigger && rayanIsSender && typeof userMessage === 'string' && userMessage.trim().length >= 8) {
+    const extract = () => extractAndSaveFacts(env, userMessage, personaId).catch(err => {
+      console.error('Auto-memory extraction failed:', err.message);
+    });
+    if (afterResponse) afterResponse.push(extract); else ctx.waitUntil(extract());
+  }
   return { reply: await sendReply(reply) };
 }
 
@@ -588,7 +617,7 @@ export default {
       for (const id of ['thor', 'loki', 'odin']) {
         const core = coreFor(id, toolDefinitionsForPersona(id));
         try {
-          const r = await fetch('https://api.anthropic.com/v1/messages/count_tokens', { method: 'POST', headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: MODELS.sonnet, tools: core, messages: [{ role: 'user', content: 'hi' }] }) });
+          const r = await anthropicFetch(env,'/v1/messages/count_tokens', { method: 'POST', headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: MODELS.sonnet, tools: core, messages: [{ role: 'user', content: 'hi' }] }) });
           const j = await r.json().catch(() => null);
           out[id] = { tools: core.length, inputTokens: j && j.input_tokens != null ? j.input_tokens : null, error: r.ok ? null : JSON.stringify(j).slice(0, 200) };
         } catch (e) { out[id] = { tools: core.length, inputTokens: null, error: e.message }; }
@@ -751,15 +780,38 @@ export default {
     // Feeds ODIN's HUD paper-trading panel. Unauthenticated like /memory and
     // /activity -- read-only, and everything in the payload is already
     // labeled PAPER/SIMULATED so there is nothing here worth gating.
+    if (url.pathname === '/paper-trading/status') {
+      return json(await getPaperStatus(env), corsHeaders);
+    }
+
     // Feeds the three-realm council HUD's left data module and ticker in one
     // round trip. Same unauthenticated, read-only posture as /activity and
     // /paper-trading/status -- it is an aggregate of those same sources.
-    if (url.pathname === '/hud/summary') {
-      return json(await getHudSummary(env), corsHeaders);
+    if (url.pathname === '/bridge/state' && request.method === 'GET') {
+      const since=Number(url.searchParams.get('since')||0);
+      const dismissed=(url.searchParams.get('dismissed')||'').split(',').filter(id=>/^notice:[a-f0-9]{24}$/.test(id)).slice(-200);
+      return json(await getBridgeSnapshot(env,{since,dismissed}), {...corsHeaders,'Cache-Control':'no-store'});
     }
 
-    if (url.pathname === '/paper-trading/status') {
-      return json(await getPaperStatus(env), corsHeaders);
+    if (url.pathname === '/bridge/review' && request.method === 'GET') {
+      const result=await bridgeReview(env,{id:url.searchParams.get('id'),persona:url.searchParams.get('persona')},TOOL_DEFINITIONS);
+      return json(result,{...corsHeaders,'Cache-Control':'no-store'},result.ok?200:409);
+    }
+    if (['/bridge/action','/bridge/answer'].includes(url.pathname) && request.method === 'POST') {
+      // Same private web surface as the existing approval conversation, with
+      // an additional cross-origin guard. The execution gate remains shared.
+      const admin=!!env.ADMIN_TOKEN&&await timingSafeEqual(request.headers.get('x-asgard-admin')||'',env.ADMIN_TOKEN);
+      const origins=new Set([url.origin,'https://asgrard-backend.rayanfahil2.workers.dev','https://rayven-backend.rayanfahil2.workers.dev']);
+      if(!origins.has(request.headers.get('origin'))&&!admin)return json({ok:false,message:'Open ASGARD to review this action.'},corsHeaders,403);
+      const body=await request.json().catch(()=>null);
+      const result=url.pathname==='/bridge/answer'
+        ? await answerBridgeQuestion(env,body,callClaudeWithTools,{signal:request.signal})
+        : await bridgeAction(env,body,TOOL_DEFINITIONS,(e,t,i,p)=>executeTool(e,t,i,p));
+      return json(result,{...corsHeaders,'Cache-Control':'no-store'},result.ok?200:409);
+    }
+
+    if (url.pathname === '/hud/summary') {
+      return json(await getHudSummary(env), corsHeaders);
     }
 
     // Feeds the HUD's candlestick + equity-curve panel: recent candles and
@@ -1390,6 +1442,15 @@ How to speak on a phone call:
       return json({ transcript: t ? JSON.parse(t) : [] }, corsHeaders);
     }
 
+    if (url.pathname === '/voice/config' && request.method === 'GET') return json({enabled:env.VOICE_STREAM_ENABLED==='true',input:'browser-recognition',output:'pcm_16000'},corsHeaders);
+    if (url.pathname === '/voice/stream') return voiceWebSocket(request,env,ctx,async(personaId,message,options)=>{
+      const afterResponse=[];
+      const result=await handleChatTurn(env,ctx,{personaId,isTelegram:false,body:{message},botToken:null,...options,afterResponse});
+      // Voice history is committed from the browser's heard-alignment receipt.
+      for(const task of afterResponse)ctx.waitUntil(task());
+      return result;
+    });
+
     if (url.pathname === '/tts' && request.method === 'POST') {
       try {
         // Accepts "persona" (ASGARD hub) or "assistant" (per-assistant pages),
@@ -1408,7 +1469,9 @@ How to speak on a phone call:
           } catch (e) { return new Response(`TTS unavailable: ${why}; fallback voice failed: ${e.message}`, { status: 500, headers: corsHeaders }); }
         };
         if (!env.ELEVENLABS_API_KEY || !voiceId) return melo('ElevenLabs is not configured');
-        const elevenRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+        let elevenRes;
+        try { elevenRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+          signal: AbortSignal.timeout(15000),
           method: 'POST',
           headers: {
             'xi-api-key': env.ELEVENLABS_API_KEY,
@@ -1417,13 +1480,14 @@ How to speak on a phone call:
           },
           body: JSON.stringify({
             text: text,
-            model_id: 'eleven_turbo_v2_5',
+            model_id: 'eleven_flash_v2_5',
             voice_settings: getPersonaVoiceSettings(resolvePersonaId(persona || assistant))
           })
         });
+        } catch { return melo('ElevenLabs connection failed'); }
         if (!elevenRes.ok) {
-          const errorDetail = await elevenRes.text();
-          return melo(`ElevenLabs error (${elevenRes.status}): ${errorDetail.slice(0, 100)}`);
+          await elevenRes.body?.cancel();
+          return melo(`ElevenLabs error (${elevenRes.status})`);
         }
         return new Response(elevenRes.body, { headers: { ...corsHeaders, 'content-type': 'audio/mpeg' } });
       } catch (err) {
@@ -1544,6 +1608,32 @@ How to speak on a phone call:
       // falls back to THOR so an old cached PWA still works.
       const personaId = resolvePersonaId(body.persona || body.assistant);
       const smoke = request.headers.get('X-Asgard-Smoke') === '1';
+      if ((request.headers.get('Accept') || '').includes('text/event-stream')) {
+        const abort = new AbortController(), encoder = new TextEncoder(), afterResponse = [];
+        const disconnect = () => abort.abort();
+        request.signal.addEventListener('abort', disconnect, { once: true });
+        const stream = new ReadableStream({
+          start(controller) {
+            const emit = (event, data) => { if (!abort.signal.aborted) controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)); };
+            const work = (async () => {
+              try {
+                const result = await handleChatTurn(env, ctx, { personaId, isTelegram: false, body, botToken: null, smoke,
+                  signal: abort.signal, afterResponse, onText: text => emit('text', { text }), onReset: () => emit('reset', {}) });
+                if (result?.error) emit('error', { message: result.error });
+                else emit('done', { reply: result?.reply || '', persona: personaId });
+              } catch (error) {
+                if (!abort.signal.aborted) emit('error', { message: 'The reply was interrupted. Please try again.' });
+              } finally {
+                request.signal.removeEventListener('abort', disconnect);
+                if (!abort.signal.aborted) { controller.close(); for (const task of afterResponse) ctx.waitUntil(task()); }
+              }
+            })();
+            ctx.waitUntil(work);
+          },
+          cancel() { abort.abort(); }
+        });
+        return new Response(stream, { headers: { ...corsHeaders, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform' } });
+      }
       const result = await handleChatTurn(env, ctx, { personaId, isTelegram: false, body, botToken: null, smoke });
       if (!result) return new Response('OK', { headers: corsHeaders });
       if (result.error) {
@@ -1565,6 +1655,7 @@ How to speak on a phone call:
     // (asgard-upgrade Phase 1.4, Rule 5b) -- only if there is anything to write.
     const job = (fn) => fn(env).catch(err => console.error('cron job failed:', err && err.message));
     const jobs = [
+      job(logSelfCheck),
       job(runProactiveCheckInIfDue),
       job(runMorningBriefingIfDue),
       job(runCodeCheckIfDue),

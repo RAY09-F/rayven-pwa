@@ -1,0 +1,17 @@
+{
+  "id": "7466b4b4-21bb-45a5-8770-9e3d211e0f0d",
+  "source": "wrangler",
+  "strategy": "percentage",
+  "author_email": "rayanfahil2@gmail.com",
+  "annotations": {
+    "workers/message": "Real-data council root: verified 319-second 10% canary and deployed WebGL checks",
+    "workers/triggered_by": "deployment"
+  },
+  "versions": [
+    {
+      "version_id": "bf8ac0d6-5ae6-49f6-8041-fb95e1a6276f",
+      "percentage": 100
+    }
+  ],
+  "created_on": "2026-09-09T01:45:58.118601Z"
+}

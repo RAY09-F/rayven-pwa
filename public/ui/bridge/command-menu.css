@@ -1,0 +1,11 @@
+.bridge-body dialog:has(.command-menu){width:min(660px,calc(100vw - 24px));padding:26px;max-height:calc(100dvh - 32px)}
+.bridge-body dialog:has(.command-menu) h2{font-size:32px;margin-bottom:18px}
+.command-menu label{font-size:12px;color:#b9bfca}.command-menu #command-search{width:100%;box-sizing:border-box;min-height:48px;background:#080d13;font-size:14px}
+#command-count{font-size:11px;line-height:1.5;color:#b5becb;min-height:18px;margin:12px 0}
+#command-results{list-style:none;padding:0;margin:0;max-height:min(420px,48dvh);overflow-y:auto;overscroll-behavior:contain;border-top:1px solid #ffffff1c}
+#command-results li{margin:0;border-bottom:1px solid #ffffff12;overflow-wrap:anywhere;font-size:12px;color:#b9bfca}
+.bridge-body #command-results a,.bridge-body #command-results button{box-sizing:border-box;display:block;width:100%;padding:12px 10px;background:transparent;border:0;border-radius:0;text-align:left;text-decoration:none;min-height:58px;color:#e9e7df}
+#command-results strong{display:block;font:500 14px/1.4 system-ui,sans-serif}#command-results span{display:block;margin-top:4px;color:#9da8b8;font:11px/1.5 system-ui,sans-serif;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.bridge-body #command-results a:hover,.bridge-body #command-results button:hover,.bridge-body #command-results :focus-visible{background:#e3c38912;color:#e3c389;outline-offset:-3px}
+.command-help{font-size:10px;color:#a4afbc;margin:14px 0}.command-menu>button{margin-top:0}
+@media(max-width:600px){.bridge-body dialog:has(.command-menu){padding:20px 16px}.bridge-body dialog:has(.command-menu) h2{font-size:28px;line-height:1.1}.command-help{font-size:9px}.command-menu #command-search{font-size:16px}#command-results{max-height:42dvh}}

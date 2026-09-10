@@ -1,0 +1,180 @@
+{
+  "slides": 17,
+  "desktopChecks": 17,
+  "mobileChecks": 17,
+  "keyboard": true,
+  "pdf": true,
+  "pageErrors": [],
+  "results": [
+    {
+      "viewport": 1280,
+      "slide": 1,
+      "scrollsVertically": false
+    },
+    {
+      "viewport": 1280,
+      "slide": 2,
+      "scrollsVertically": false
+    },
+    {
+      "viewport": 1280,
+      "slide": 3,
+      "scrollsVertically": false
+    },
+    {
+      "viewport": 1280,
+      "slide": 4,
+      "scrollsVertically": false
+    },
+    {
+      "viewport": 1280,
+      "slide": 5,
+      "scrollsVertically": false
+    },
+    {
+      "viewport": 1280,
+      "slide": 6,
+      "scrollsVertically": false
+    },
+    {
+      "viewport": 1280,
+      "slide": 7,
+      "scrollsVertically": false
+    },
+    {
+      "viewport": 1280,
+      "slide": 8,
+      "scrollsVertically": false
+    },
+    {
+      "viewport": 1280,
+      "slide": 9,
+      "scrollsVertically": false
+    },
+    {
+      "viewport": 1280,
+      "slide": 10,
+      "scrollsVertically": false
+    },
+    {
+      "viewport": 1280,
+      "slide": 11,
+      "scrollsVertically": false
+    },
+    {
+      "viewport": 1280,
+      "slide": 12,
+      "scrollsVertically": false
+    },
+    {
+      "viewport": 1280,
+      "slide": 13,
+      "scrollsVertically": false
+    },
+    {
+      "viewport": 1280,
+      "slide": 14,
+      "scrollsVertically": false
+    },
+    {
+      "viewport": 1280,
+      "slide": 15,
+      "scrollsVertically": false
+    },
+    {
+      "viewport": 1280,
+      "slide": 16,
+      "scrollsVertically": false
+    },
+    {
+      "viewport": 1280,
+      "slide": 17,
+      "scrollsVertically": false
+    },
+    {
+      "viewport": 375,
+      "slide": 1,
+      "scrollsVertically": false
+    },
+    {
+      "viewport": 375,
+      "slide": 2,
+      "scrollsVertically": true
+    },
+    {
+      "viewport": 375,
+      "slide": 3,
+      "scrollsVertically": true
+    },
+    {
+      "viewport": 375,
+      "slide": 4,
+      "scrollsVertically": true
+    },
+    {
+      "viewport": 375,
+      "slide": 5,
+      "scrollsVertically": true
+    },
+    {
+      "viewport": 375,
+      "slide": 6,
+      "scrollsVertically": true
+    },
+    {
+      "viewport": 375,
+      "slide": 7,
+      "scrollsVertically": true
+    },
+    {
+      "viewport": 375,
+      "slide": 8,
+      "scrollsVertically": false
+    },
+    {
+      "viewport": 375,
+      "slide": 9,
+      "scrollsVertically": true
+    },
+    {
+      "viewport": 375,
+      "slide": 10,
+      "scrollsVertically": true
+    },
+    {
+      "viewport": 375,
+      "slide": 11,
+      "scrollsVertically": true
+    },
+    {
+      "viewport": 375,
+      "slide": 12,
+      "scrollsVertically": true
+    },
+    {
+      "viewport": 375,
+      "slide": 13,
+      "scrollsVertically": true
+    },
+    {
+      "viewport": 375,
+      "slide": 14,
+      "scrollsVertically": true
+    },
+    {
+      "viewport": 375,
+      "slide": 15,
+      "scrollsVertically": true
+    },
+    {
+      "viewport": 375,
+      "slide": 16,
+      "scrollsVertically": true
+    },
+    {
+      "viewport": 375,
+      "slide": 17,
+      "scrollsVertically": true
+    }
+  ]
+}

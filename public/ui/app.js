@@ -1,3 +1,4 @@
+import {CAST} from './council-data.js';
 import {VoiceClient} from './voice-stream.js?v=brain-wave6';
 import {readChatReply} from './event-stream.js?v=brain-wave1';
 import {createArsenal} from './arsenal.js?v=floating-realms-3';
@@ -574,3 +575,18 @@ window.AsgardUI={status:()=>({persona:activeHall(),state:workspace.dataset.state
 document.querySelector('[data-focus-chat]')?.addEventListener('click',()=>{if(conversation.hidden)reopen.click();const input=document.getElementById('in-'+activeHall());input.focus();input.scrollIntoView({block:'center',behavior:'auto'});});
 
 if(new URLSearchParams(location.search).get("settings")==="1"){dialog.showModal();releaseDiagnostics();}
+
+// The Bridge hands a draft to the existing composer without sending it.
+try {
+  const draft=JSON.parse(sessionStorage.getItem('asgard:bridge:draft')||'null');
+  if(draft&&halls.includes(draft.persona)&&typeof draft.text==='string'&&Date.now()-draft.at<86400000){
+    show(draft.persona);
+    const input=document.getElementById('in-'+draft.persona);
+    if(input){input.value=restoreDraft(input.value,draft.text);sessionStorage.removeItem('asgard:bridge:draft');if(conversation.hidden)reopen.click();input.focus();}
+  }
+}catch{}
+if(new URLSearchParams(location.search).get('tools')==='1')arsenal.openTools();
+
+// A public council deep link only opens the matching profile; it never submits a turn.
+const requestedAdvisor=new URLSearchParams(location.search).get('advisor');
+if(CAST[requestedAdvisor]?.kind==='councillor'&&CAST[requestedAdvisor].hall===activeHall()&&!new URLSearchParams(location.search).has('settings'))arsenal.openAgent(requestedAdvisor);

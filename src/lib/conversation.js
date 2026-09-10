@@ -1,3 +1,4 @@
+import { ledger } from './ledger.js';
 // ---------------------------------------------------------------------------
 // THE CONVERSATION OBJECT (asgard-upgrade Phase 1, Hard Rule 5a)
 // ---------------------------------------------------------------------------
@@ -27,12 +28,23 @@ export function wrap(turns, meta) {
   return JSON.stringify({ v: 2, turns: Array.isArray(turns) ? turns : [], meta: meta && typeof meta === 'object' ? meta : {} });
 }
 
-export async function loadConversation(env, key) {
-  try { return unwrap(await env.RAYVEN_KV.get(key)); } catch (e) { return { turns: [], meta: {} }; }
+export async function loadConversation(env, key, {strict=false}={}) {
+  const read=async()=>{
+    const raw=env.CONVERSATION_MIRROR_ENABLED==='true'
+      ? await ledger.conversationMirror(env,key) : await env.RAYVEN_KV.get(key);
+    if(strict && raw!=null){
+      const value=typeof raw==='string'?JSON.parse(raw):raw;
+      if(!Array.isArray(value)&&(!value||!Array.isArray(value.turns)))throw Error('Invalid saved conversation');
+    }
+    return unwrap(raw);
+  };
+  if(strict || env.CONVERSATION_MIRROR_ENABLED==='true')return read();
+  try{return await read();}catch{return {turns:[],meta:{}};}
 }
 
 export async function saveConversation(env, key, turns, meta) {
-  try { await env.RAYVEN_KV.put(key, wrap(turns, meta)); } catch (e) { console.error('Conversation save failed:', e && e.message); }
+  if(env.CONVERSATION_MIRROR_ENABLED==='true'){await ledger.conversationMirror(env,key,wrap(turns,meta));return true;}
+  try { await env.RAYVEN_KV.put(key, wrap(turns, meta)); return true; } catch (e) { console.error('Conversation save failed:', e && e.message); return false; }
 }
 
 // One spool entry: { ts, kind, ...fields }. Oldest entries fall off at the cap.

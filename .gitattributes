@@ -1,3 +1,2 @@
-# Fingerprinted release assets must retain their exact bytes on every OS.
-public/** -text
-index.html -text
+# Keep the generated, CSP-hashed offline sample reproducible on Windows.
+public/workshop/sample-download.html text eol=lf

@@ -1,0 +1,980 @@
+{
+  "verifiedAt": "2026-09-09T01:47:05.084Z",
+  "base": "https://rayven-backend.rayanfahil2.workers.dev",
+  "release": "floating-5129bddde7ea",
+  "fingerprint": "5129bddde7ea72cae26abdff204f8dbde8d3b380632ba48bd295048ad5357b67",
+  "checks": [
+    {
+      "path": "/hall/",
+      "bytes": 14379,
+      "type": "text/html",
+      "sha256": "920579f9342b14a447b42761bac30a78db79f13a0b9b71501af7873c70168a63"
+    },
+    {
+      "path": "/hud/",
+      "bytes": 1312,
+      "type": "text/html",
+      "sha256": "934b2b5db8eba2c0c47a6263732567c9674b555b33fc13d025673bf58f760a99"
+    },
+    {
+      "path": "/",
+      "bytes": 1312,
+      "type": "text/html",
+      "sha256": "934b2b5db8eba2c0c47a6263732567c9674b555b33fc13d025673bf58f760a99"
+    },
+    {
+      "path": "/ui/app.js",
+      "bytes": 37375,
+      "type": "text/javascript",
+      "sha256": "047d531bf9016569dc7f37235d6b90a2f7952dea3b5de04551243c359af01d9a"
+    },
+    {
+      "path": "/ui/arsenal.js",
+      "bytes": 16890,
+      "type": "text/javascript",
+      "sha256": "35899d7e899188f5e43f3041417420a7833d500090dd97d54532a1226383c809"
+    },
+    {
+      "path": "/ui/astral-cartographer-model.js",
+      "bytes": 26073,
+      "type": "text/javascript",
+      "sha256": "f80d19a2c9fc101b4bed6cbc5d8084bdf5219fe6a4e292d685f261bcfd280df6"
+    },
+    {
+      "path": "/ui/astral-cartographer.js",
+      "bytes": 911,
+      "type": "text/javascript",
+      "sha256": "ca136e971ed4acd57adcd5c8477a9b463ac281bdfa0925b80f81542751c62342"
+    },
+    {
+      "path": "/ui/astral-v1/app.js",
+      "bytes": 35963,
+      "type": "text/javascript",
+      "sha256": "eb011173dd4f0bcf15b35e88d8d6881b31e1614d4c17d8f99e12f6b72f37dc4c"
+    },
+    {
+      "path": "/ui/astral-v1/arsenal.js",
+      "bytes": 16890,
+      "type": "text/javascript",
+      "sha256": "35899d7e899188f5e43f3041417420a7833d500090dd97d54532a1226383c809"
+    },
+    {
+      "path": "/ui/astral-v1/astral-cartographer-model.js",
+      "bytes": 26073,
+      "type": "text/javascript",
+      "sha256": "f80d19a2c9fc101b4bed6cbc5d8084bdf5219fe6a4e292d685f261bcfd280df6"
+    },
+    {
+      "path": "/ui/astral-v1/astral-cartographer.js",
+      "bytes": 911,
+      "type": "text/javascript",
+      "sha256": "ca136e971ed4acd57adcd5c8477a9b463ac281bdfa0925b80f81542751c62342"
+    },
+    {
+      "path": "/ui/astral-v1/council-data.js",
+      "bytes": 17240,
+      "type": "text/javascript",
+      "sha256": "b86861df6e9cf144fd528aefb9a4911d0fc42c9e7359853708e8344b44b15b60"
+    },
+    {
+      "path": "/ui/astral-v1/council-scene.js",
+      "bytes": 12959,
+      "type": "text/javascript",
+      "sha256": "a1fd8249be3a35615dea95cadb7190714e34c189e1f564491d923888693b98c6"
+    },
+    {
+      "path": "/ui/astral-v1/expansion-catalog.json",
+      "bytes": 98376,
+      "type": "application/json",
+      "sha256": "077a75c7b26c568a39471558701f44b9f154bd9cefb17ec10dff62a990d0ee90"
+    },
+    {
+      "path": "/ui/astral-v1/expansion.js",
+      "bytes": 12701,
+      "type": "text/javascript",
+      "sha256": "93299da26d00c81aa57ea568f0f2da2ec93be93f782c32ac95a8de9105979d44"
+    },
+    {
+      "path": "/ui/astral-v1/hologram-persona.js",
+      "bytes": 21130,
+      "type": "text/javascript",
+      "sha256": "165ccb5045be00c3b4bfa72c51f0bc7dafe6354194825e6896bf00a352a20e2c"
+    },
+    {
+      "path": "/ui/astral-v1/hologram-projection.js",
+      "bytes": 6399,
+      "type": "text/javascript",
+      "sha256": "8e8140a74dda4eca0f91791898260870529b4452f430a44adc8c4a33d99e749f"
+    },
+    {
+      "path": "/ui/astral-v1/holographic-field.js",
+      "bytes": 2430,
+      "type": "text/javascript",
+      "sha256": "06ba92add1597a645f3410e0a5690ec3f018eb942fb392ba2d09d5987d81acf4"
+    },
+    {
+      "path": "/ui/astral-v1/interface.css",
+      "bytes": 39187,
+      "type": "text/css",
+      "sha256": "343114bbe1e5e4539884c54e6224d1d2c7c2ce95139bc9bcd2529d855f5471bf"
+    },
+    {
+      "path": "/ui/astral-v1/local-tools.js",
+      "bytes": 14713,
+      "type": "text/javascript",
+      "sha256": "2fb0bc78ad5618f1d48a5af44effe61bdc836bb18ba10fd8e83d9723c9167888"
+    },
+    {
+      "path": "/ui/astral-v1/nameplate-layout.js",
+      "bytes": 1256,
+      "type": "text/javascript",
+      "sha256": "524ebd0e6c6c7e7ad2ad7f6ce2e34e36c5f0e152440269dbd484682abb391f1f"
+    },
+    {
+      "path": "/ui/astral-v1/prism-foundry-model.js",
+      "bytes": 12556,
+      "type": "text/javascript",
+      "sha256": "4d629a645d48f36d8dd8167697a36f20532e3440b17ec96cf800653fc5f64906"
+    },
+    {
+      "path": "/ui/astral-v1/prism-foundry.js",
+      "bytes": 662,
+      "type": "text/javascript",
+      "sha256": "a68cf88cfde1ed3f0a79b2828cfaa1dc30d93b02e7658770ab793421368f7728"
+    },
+    {
+      "path": "/ui/astral-v1/realm-architecture.js",
+      "bytes": 4454,
+      "type": "text/javascript",
+      "sha256": "5f970f80cd9fd0fa1ab174f20d0dc31ffd4a8ceea7a50ae1fcabc6c975b47344"
+    },
+    {
+      "path": "/ui/astral-v1/realm-controls.js",
+      "bytes": 1131,
+      "type": "text/javascript",
+      "sha256": "0f19ace086ff2fd36666ece165944d6faf12bbc22577c05b7b54e86132b1451f"
+    },
+    {
+      "path": "/ui/astral-v1/realm-loki.js",
+      "bytes": 8856,
+      "type": "text/javascript",
+      "sha256": "cdb3381ac3e08f64a2e307c4a194a08ef74aa218e35f579531ff3dad415e74cd"
+    },
+    {
+      "path": "/ui/astral-v1/realm-odin.js",
+      "bytes": 14336,
+      "type": "text/javascript",
+      "sha256": "06da6f5166311d8f3e63f5ee4cb01ea5127704c0037eb9f780f47fbfa2ce25aa"
+    },
+    {
+      "path": "/ui/astral-v1/realm-thor.js",
+      "bytes": 11594,
+      "type": "text/javascript",
+      "sha256": "0c30226649433d2fc47ec6662f5bf1b252a4a599a01d57a20d84feffc47328aa"
+    },
+    {
+      "path": "/ui/astral-v1/scene.js",
+      "bytes": 17988,
+      "type": "text/javascript",
+      "sha256": "0ae0acb2093bf28ae9487d931015878afa5c6ba5309abeae680bb02ed5f1be92"
+    },
+    {
+      "path": "/ui/astral-v1/state.js",
+      "bytes": 6329,
+      "type": "text/javascript",
+      "sha256": "9974120739cbe01aeb3f944ac6765abc340511bd2110e227ff9936c71cd59d79"
+    },
+    {
+      "path": "/ui/astral-v1/tool-catalog.json",
+      "bytes": 127253,
+      "type": "application/json",
+      "sha256": "ac1551b541792edc79cad1c573b80f6f9ece22b91565a18be94dec48984330ba"
+    },
+    {
+      "path": "/ui/astral-v1/vendor/OrbitControls.js",
+      "bytes": 40520,
+      "type": "text/javascript",
+      "sha256": "845c827054bda45b84ae0e9e0db4e707f75d2182af9cd88787b2cac86aeef8ef"
+    },
+    {
+      "path": "/ui/astral-v1/vendor/Projector.js",
+      "bytes": 26725,
+      "type": "text/javascript",
+      "sha256": "b0d5535a29f84ffb939339bc7ded5bc778aabcd31cda9c4a5621e44a7d7d0e43"
+    },
+    {
+      "path": "/ui/astral-v1/vendor/SVGRenderer.js",
+      "bytes": 17811,
+      "type": "text/javascript",
+      "sha256": "36a473ceb5b0e96ce3ed0f7afa3c402bc95818f40a152f58a4916337b10be99c"
+    },
+    {
+      "path": "/ui/astral-v1/vendor/THREE-LICENSE.txt",
+      "bytes": 1081,
+      "type": "text/plain",
+      "sha256": "8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc"
+    },
+    {
+      "path": "/ui/astral-v1/vendor/three.core.min.js",
+      "bytes": 384222,
+      "type": "text/javascript",
+      "sha256": "6486aa0d719cfa87ec88dc47223b59b1fb8417a1a407fc0e52467c943e2f8cc9"
+    },
+    {
+      "path": "/ui/astral-v1/vendor/three.module.min.js",
+      "bytes": 364998,
+      "type": "text/javascript",
+      "sha256": "36a60b0120335f89a80a0dab70292292b0ec414b3d05e83cd09a3ea428c6712a"
+    },
+    {
+      "path": "/ui/council-data.js",
+      "bytes": 17240,
+      "type": "text/javascript",
+      "sha256": "b86861df6e9cf144fd528aefb9a4911d0fc42c9e7359853708e8344b44b15b60"
+    },
+    {
+      "path": "/ui/council-scene.js",
+      "bytes": 13544,
+      "type": "text/javascript",
+      "sha256": "229054cb6efa9cc8f6a16e99801280e82582dfc54d1cac1f7a8d29e524e42654"
+    },
+    {
+      "path": "/ui/event-stream.js",
+      "bytes": 1777,
+      "type": "text/javascript",
+      "sha256": "7978c5abf5a4b18b5d5a1eaf003aa654dbd2cc14119ee05a93d9a27c286684a6"
+    },
+    {
+      "path": "/ui/expansion-catalog.json",
+      "bytes": 98376,
+      "type": "application/json",
+      "sha256": "077a75c7b26c568a39471558701f44b9f154bd9cefb17ec10dff62a990d0ee90"
+    },
+    {
+      "path": "/ui/expansion.js",
+      "bytes": 12701,
+      "type": "text/javascript",
+      "sha256": "93299da26d00c81aa57ea568f0f2da2ec93be93f782c32ac95a8de9105979d44"
+    },
+    {
+      "path": "/ui/hologram-persona.js",
+      "bytes": 21130,
+      "type": "text/javascript",
+      "sha256": "165ccb5045be00c3b4bfa72c51f0bc7dafe6354194825e6896bf00a352a20e2c"
+    },
+    {
+      "path": "/ui/hologram-projection.js",
+      "bytes": 6399,
+      "type": "text/javascript",
+      "sha256": "8e8140a74dda4eca0f91791898260870529b4452f430a44adc8c4a33d99e749f"
+    },
+    {
+      "path": "/ui/holographic-field.js",
+      "bytes": 2430,
+      "type": "text/javascript",
+      "sha256": "06ba92add1597a645f3410e0a5690ec3f018eb942fb392ba2d09d5987d81acf4"
+    },
+    {
+      "path": "/ui/hud-real-v1/app.js",
+      "bytes": 37269,
+      "type": "text/javascript",
+      "sha256": "0f6f91b8ee104e3ae7bec5f3ba022a97505ab38e55f903b8a0a80b7263caf706"
+    },
+    {
+      "path": "/ui/hud-real-v1/arsenal.js",
+      "bytes": 16890,
+      "type": "text/javascript",
+      "sha256": "35899d7e899188f5e43f3041417420a7833d500090dd97d54532a1226383c809"
+    },
+    {
+      "path": "/ui/hud-real-v1/astral-cartographer-model.js",
+      "bytes": 26073,
+      "type": "text/javascript",
+      "sha256": "f80d19a2c9fc101b4bed6cbc5d8084bdf5219fe6a4e292d685f261bcfd280df6"
+    },
+    {
+      "path": "/ui/hud-real-v1/astral-cartographer.js",
+      "bytes": 911,
+      "type": "text/javascript",
+      "sha256": "ca136e971ed4acd57adcd5c8477a9b463ac281bdfa0925b80f81542751c62342"
+    },
+    {
+      "path": "/ui/hud-real-v1/council-data.js",
+      "bytes": 17240,
+      "type": "text/javascript",
+      "sha256": "b86861df6e9cf144fd528aefb9a4911d0fc42c9e7359853708e8344b44b15b60"
+    },
+    {
+      "path": "/ui/hud-real-v1/council-scene.js",
+      "bytes": 13544,
+      "type": "text/javascript",
+      "sha256": "229054cb6efa9cc8f6a16e99801280e82582dfc54d1cac1f7a8d29e524e42654"
+    },
+    {
+      "path": "/ui/hud-real-v1/event-stream.js",
+      "bytes": 1777,
+      "type": "text/javascript",
+      "sha256": "7978c5abf5a4b18b5d5a1eaf003aa654dbd2cc14119ee05a93d9a27c286684a6"
+    },
+    {
+      "path": "/ui/hud-real-v1/expansion-catalog.json",
+      "bytes": 98376,
+      "type": "application/json",
+      "sha256": "077a75c7b26c568a39471558701f44b9f154bd9cefb17ec10dff62a990d0ee90"
+    },
+    {
+      "path": "/ui/hud-real-v1/expansion.js",
+      "bytes": 12701,
+      "type": "text/javascript",
+      "sha256": "93299da26d00c81aa57ea568f0f2da2ec93be93f782c32ac95a8de9105979d44"
+    },
+    {
+      "path": "/ui/hud-real-v1/hologram-persona.js",
+      "bytes": 21130,
+      "type": "text/javascript",
+      "sha256": "165ccb5045be00c3b4bfa72c51f0bc7dafe6354194825e6896bf00a352a20e2c"
+    },
+    {
+      "path": "/ui/hud-real-v1/hologram-projection.js",
+      "bytes": 6399,
+      "type": "text/javascript",
+      "sha256": "8e8140a74dda4eca0f91791898260870529b4452f430a44adc8c4a33d99e749f"
+    },
+    {
+      "path": "/ui/hud-real-v1/holographic-field.js",
+      "bytes": 2430,
+      "type": "text/javascript",
+      "sha256": "06ba92add1597a645f3410e0a5690ec3f018eb942fb392ba2d09d5987d81acf4"
+    },
+    {
+      "path": "/ui/hud-real-v1/hud/fonts.css",
+      "bytes": 1297,
+      "type": "text/css",
+      "sha256": "40a4d7e58c25fe252c7555a4672a4f886d04da11019b0fb591baa311ab6a2e7e"
+    },
+    {
+      "path": "/ui/hud-real-v1/hud/fonts/Cinzel-OFL.txt",
+      "bytes": 4383,
+      "type": "text/plain",
+      "sha256": "f2b3029aba64c378bf0963b62945eee15e564fe4330b934c8f2eb058282b5e83"
+    },
+    {
+      "path": "/ui/hud-real-v1/hud/fonts/CormorantGaramond-OFL.txt",
+      "bytes": 4387,
+      "type": "text/plain",
+      "sha256": "60700d351cac4650c51f3f9db318d2a420f8b45052dba2715eb5fec41f0f6956"
+    },
+    {
+      "path": "/ui/hud-real-v1/hud/fonts/IBMPlexMono-OFL.txt",
+      "bytes": 4456,
+      "type": "text/plain",
+      "sha256": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da"
+    },
+    {
+      "path": "/ui/hud-real-v1/hud/fonts/font-0.ttf",
+      "bytes": 45884,
+      "type": "font/ttf",
+      "sha256": "a0242f6698ae0d3220a29986a09274f9d1eddb4a24da4e50faf387fd1804eb7b"
+    },
+    {
+      "path": "/ui/hud-real-v1/hud/fonts/font-1.ttf",
+      "bytes": 46116,
+      "type": "font/ttf",
+      "sha256": "5150b3609eeaaa9c6d7e093cb9b16ab8ec2f7110ddf0cbe751887e6f158398af"
+    },
+    {
+      "path": "/ui/hud-real-v1/hud/fonts/font-2.ttf",
+      "bytes": 289788,
+      "type": "font/ttf",
+      "sha256": "63e313fb9c65b6b2e177222010bbea911bfc5c79bee0fb69f8246fcc4e08c93a"
+    },
+    {
+      "path": "/ui/hud-real-v1/hud/fonts/font-3.ttf",
+      "bytes": 290236,
+      "type": "font/ttf",
+      "sha256": "6d37a86241a25d63f8fe6018b4c083449886b7165c1acb15edd0f574f690ecf7"
+    },
+    {
+      "path": "/ui/hud-real-v1/hud/fonts/font-4.ttf",
+      "bytes": 290392,
+      "type": "font/ttf",
+      "sha256": "69e7ae35cba23d962227b86f99217c250e642e4c6f6104b4f3ec465039e4e2d8"
+    },
+    {
+      "path": "/ui/hud-real-v1/hud/fonts/font-5.ttf",
+      "bytes": 128456,
+      "type": "font/ttf",
+      "sha256": "1d1488e07efe5c4619f40bb260d3e286e67c8c369c800fcd33f4eb83a6a63fdd"
+    },
+    {
+      "path": "/ui/hud-real-v1/hud/fonts/font-6.ttf",
+      "bytes": 128812,
+      "type": "font/ttf",
+      "sha256": "a7fdc993f9f0387caedba4e42521136fa97e4c0837ae6239bf0413ccf8af00c2"
+    },
+    {
+      "path": "/ui/hud-real-v1/hud/fonts/font-7.ttf",
+      "bytes": 129916,
+      "type": "font/ttf",
+      "sha256": "4fc14a73ca53ba9d32fd759ae1ca1a3133326035d0dd337862b3ee1633cc156e"
+    },
+    {
+      "path": "/ui/hud-real-v1/hud/hud-config.js",
+      "bytes": 6831,
+      "type": "text/javascript",
+      "sha256": "6341029ec46e20ac871d90fbbdf971d2cfa9eb61aa8d11fd9af75972e8cefd2a"
+    },
+    {
+      "path": "/ui/hud-real-v1/hud/hud-data.js",
+      "bytes": 2520,
+      "type": "text/javascript",
+      "sha256": "1bed578be2cf8e973f3f7f35a7185d5ac1870521458e8296b9568292d5411056"
+    },
+    {
+      "path": "/ui/hud-real-v1/hud/hud-view.js",
+      "bytes": 11279,
+      "type": "text/javascript",
+      "sha256": "e79f78687bc66fcf8fc03355aa2b5c2d85008f165a94d00073b918497683e8ba"
+    },
+    {
+      "path": "/ui/hud-real-v1/hud/hud.css",
+      "bytes": 24547,
+      "type": "text/css",
+      "sha256": "b33d7b54afb9e547fc71c408b1828bd5c26026002676bab68fd4a95e2f11da23"
+    },
+    {
+      "path": "/ui/hud-real-v1/hud/hud.js",
+      "bytes": 6001,
+      "type": "text/javascript",
+      "sha256": "7180176af365580f7474ee2f955d5fb4576a94a7f92372ea17b42bffff0a2ea1"
+    },
+    {
+      "path": "/ui/hud-real-v1/interface.css",
+      "bytes": 40559,
+      "type": "text/css",
+      "sha256": "8a22d9ca018757d228f4c03febb8076aad765ab4d7de3e308d8e47a0c17cf90f"
+    },
+    {
+      "path": "/ui/hud-real-v1/local-tools.js",
+      "bytes": 14713,
+      "type": "text/javascript",
+      "sha256": "2fb0bc78ad5618f1d48a5af44effe61bdc836bb18ba10fd8e83d9723c9167888"
+    },
+    {
+      "path": "/ui/hud-real-v1/nameplate-layout.js",
+      "bytes": 1256,
+      "type": "text/javascript",
+      "sha256": "524ebd0e6c6c7e7ad2ad7f6ce2e34e36c5f0e152440269dbd484682abb391f1f"
+    },
+    {
+      "path": "/ui/hud-real-v1/prism-foundry-model.js",
+      "bytes": 12556,
+      "type": "text/javascript",
+      "sha256": "4d629a645d48f36d8dd8167697a36f20532e3440b17ec96cf800653fc5f64906"
+    },
+    {
+      "path": "/ui/hud-real-v1/prism-foundry.js",
+      "bytes": 662,
+      "type": "text/javascript",
+      "sha256": "a68cf88cfde1ed3f0a79b2828cfaa1dc30d93b02e7658770ab793421368f7728"
+    },
+    {
+      "path": "/ui/hud-real-v1/realm-architecture.js",
+      "bytes": 4454,
+      "type": "text/javascript",
+      "sha256": "5f970f80cd9fd0fa1ab174f20d0dc31ffd4a8ceea7a50ae1fcabc6c975b47344"
+    },
+    {
+      "path": "/ui/hud-real-v1/realm-controls.js",
+      "bytes": 1131,
+      "type": "text/javascript",
+      "sha256": "0f19ace086ff2fd36666ece165944d6faf12bbc22577c05b7b54e86132b1451f"
+    },
+    {
+      "path": "/ui/hud-real-v1/realm-loki.js",
+      "bytes": 8856,
+      "type": "text/javascript",
+      "sha256": "cdb3381ac3e08f64a2e307c4a194a08ef74aa218e35f579531ff3dad415e74cd"
+    },
+    {
+      "path": "/ui/hud-real-v1/realm-odin.js",
+      "bytes": 14336,
+      "type": "text/javascript",
+      "sha256": "06da6f5166311d8f3e63f5ee4cb01ea5127704c0037eb9f780f47fbfa2ce25aa"
+    },
+    {
+      "path": "/ui/hud-real-v1/realm-thor.js",
+      "bytes": 11594,
+      "type": "text/javascript",
+      "sha256": "0c30226649433d2fc47ec6662f5bf1b252a4a599a01d57a20d84feffc47328aa"
+    },
+    {
+      "path": "/ui/hud-real-v1/scene.js",
+      "bytes": 18146,
+      "type": "text/javascript",
+      "sha256": "534e39f773bd74deda211ccf4762714944e23eee312b280edab370c950ba891f"
+    },
+    {
+      "path": "/ui/hud-real-v1/solar-throne-model.js",
+      "bytes": 28318,
+      "type": "text/javascript",
+      "sha256": "1e7fe4538577da58417655ca0598a73c5317a9d762d4f9454b25a2a9946bf552"
+    },
+    {
+      "path": "/ui/hud-real-v1/solar-throne.js",
+      "bytes": 1151,
+      "type": "text/javascript",
+      "sha256": "b8c654ec387359d3afd121bd8e6221b054bba3470fa93d4a16c63aa8d2f11a2e"
+    },
+    {
+      "path": "/ui/hud-real-v1/state.js",
+      "bytes": 6329,
+      "type": "text/javascript",
+      "sha256": "9974120739cbe01aeb3f944ac6765abc340511bd2110e227ff9936c71cd59d79"
+    },
+    {
+      "path": "/ui/hud-real-v1/tool-catalog.json",
+      "bytes": 143308,
+      "type": "application/json",
+      "sha256": "4cd7de82f8888483868285758f1eb4e31dab7ac3c975b1a12a74714cf8411537"
+    },
+    {
+      "path": "/ui/hud-real-v1/vendor/OrbitControls.js",
+      "bytes": 40520,
+      "type": "text/javascript",
+      "sha256": "845c827054bda45b84ae0e9e0db4e707f75d2182af9cd88787b2cac86aeef8ef"
+    },
+    {
+      "path": "/ui/hud-real-v1/vendor/Projector.js",
+      "bytes": 26725,
+      "type": "text/javascript",
+      "sha256": "b0d5535a29f84ffb939339bc7ded5bc778aabcd31cda9c4a5621e44a7d7d0e43"
+    },
+    {
+      "path": "/ui/hud-real-v1/vendor/SVGRenderer.js",
+      "bytes": 17811,
+      "type": "text/javascript",
+      "sha256": "36a473ceb5b0e96ce3ed0f7afa3c402bc95818f40a152f58a4916337b10be99c"
+    },
+    {
+      "path": "/ui/hud-real-v1/vendor/THREE-LICENSE.txt",
+      "bytes": 1081,
+      "type": "text/plain",
+      "sha256": "8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc"
+    },
+    {
+      "path": "/ui/hud-real-v1/vendor/three.core.min.js",
+      "bytes": 384222,
+      "type": "text/javascript",
+      "sha256": "6486aa0d719cfa87ec88dc47223b59b1fb8417a1a407fc0e52467c943e2f8cc9"
+    },
+    {
+      "path": "/ui/hud-real-v1/vendor/three.module.min.js",
+      "bytes": 364998,
+      "type": "text/javascript",
+      "sha256": "36a60b0120335f89a80a0dab70292292b0ec414b3d05e83cd09a3ea428c6712a"
+    },
+    {
+      "path": "/ui/hud-real-v1/voice-stream.js",
+      "bytes": 6206,
+      "type": "text/javascript",
+      "sha256": "75b017210ab86cc3ce22f2cbe58be4661206f2f36708ad3578f38734970cca9d"
+    },
+    {
+      "path": "/ui/hud/fonts.css",
+      "bytes": 1297,
+      "type": "text/css",
+      "sha256": "40a4d7e58c25fe252c7555a4672a4f886d04da11019b0fb591baa311ab6a2e7e"
+    },
+    {
+      "path": "/ui/hud/fonts/Cinzel-OFL.txt",
+      "bytes": 4383,
+      "type": "text/plain",
+      "sha256": "f2b3029aba64c378bf0963b62945eee15e564fe4330b934c8f2eb058282b5e83"
+    },
+    {
+      "path": "/ui/hud/fonts/CormorantGaramond-OFL.txt",
+      "bytes": 4387,
+      "type": "text/plain",
+      "sha256": "60700d351cac4650c51f3f9db318d2a420f8b45052dba2715eb5fec41f0f6956"
+    },
+    {
+      "path": "/ui/hud/fonts/IBMPlexMono-OFL.txt",
+      "bytes": 4456,
+      "type": "text/plain",
+      "sha256": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da"
+    },
+    {
+      "path": "/ui/hud/fonts/font-0.ttf",
+      "bytes": 45884,
+      "type": "font/ttf",
+      "sha256": "a0242f6698ae0d3220a29986a09274f9d1eddb4a24da4e50faf387fd1804eb7b"
+    },
+    {
+      "path": "/ui/hud/fonts/font-1.ttf",
+      "bytes": 46116,
+      "type": "font/ttf",
+      "sha256": "5150b3609eeaaa9c6d7e093cb9b16ab8ec2f7110ddf0cbe751887e6f158398af"
+    },
+    {
+      "path": "/ui/hud/fonts/font-2.ttf",
+      "bytes": 289788,
+      "type": "font/ttf",
+      "sha256": "63e313fb9c65b6b2e177222010bbea911bfc5c79bee0fb69f8246fcc4e08c93a"
+    },
+    {
+      "path": "/ui/hud/fonts/font-3.ttf",
+      "bytes": 290236,
+      "type": "font/ttf",
+      "sha256": "6d37a86241a25d63f8fe6018b4c083449886b7165c1acb15edd0f574f690ecf7"
+    },
+    {
+      "path": "/ui/hud/fonts/font-4.ttf",
+      "bytes": 290392,
+      "type": "font/ttf",
+      "sha256": "69e7ae35cba23d962227b86f99217c250e642e4c6f6104b4f3ec465039e4e2d8"
+    },
+    {
+      "path": "/ui/hud/fonts/font-5.ttf",
+      "bytes": 128456,
+      "type": "font/ttf",
+      "sha256": "1d1488e07efe5c4619f40bb260d3e286e67c8c369c800fcd33f4eb83a6a63fdd"
+    },
+    {
+      "path": "/ui/hud/fonts/font-6.ttf",
+      "bytes": 128812,
+      "type": "font/ttf",
+      "sha256": "a7fdc993f9f0387caedba4e42521136fa97e4c0837ae6239bf0413ccf8af00c2"
+    },
+    {
+      "path": "/ui/hud/fonts/font-7.ttf",
+      "bytes": 129916,
+      "type": "font/ttf",
+      "sha256": "4fc14a73ca53ba9d32fd759ae1ca1a3133326035d0dd337862b3ee1633cc156e"
+    },
+    {
+      "path": "/ui/hud/hud-config.js",
+      "bytes": 6831,
+      "type": "text/javascript",
+      "sha256": "6341029ec46e20ac871d90fbbdf971d2cfa9eb61aa8d11fd9af75972e8cefd2a"
+    },
+    {
+      "path": "/ui/hud/hud-data.js",
+      "bytes": 2520,
+      "type": "text/javascript",
+      "sha256": "1bed578be2cf8e973f3f7f35a7185d5ac1870521458e8296b9568292d5411056"
+    },
+    {
+      "path": "/ui/hud/hud-view.js",
+      "bytes": 11279,
+      "type": "text/javascript",
+      "sha256": "e79f78687bc66fcf8fc03355aa2b5c2d85008f165a94d00073b918497683e8ba"
+    },
+    {
+      "path": "/ui/hud/hud.css",
+      "bytes": 24547,
+      "type": "text/css",
+      "sha256": "b33d7b54afb9e547fc71c408b1828bd5c26026002676bab68fd4a95e2f11da23"
+    },
+    {
+      "path": "/ui/hud/hud.js",
+      "bytes": 6001,
+      "type": "text/javascript",
+      "sha256": "7180176af365580f7474ee2f955d5fb4576a94a7f92372ea17b42bffff0a2ea1"
+    },
+    {
+      "path": "/ui/interface.css",
+      "bytes": 40559,
+      "type": "text/css",
+      "sha256": "8a22d9ca018757d228f4c03febb8076aad765ab4d7de3e308d8e47a0c17cf90f"
+    },
+    {
+      "path": "/ui/local-tools.js",
+      "bytes": 14713,
+      "type": "text/javascript",
+      "sha256": "2fb0bc78ad5618f1d48a5af44effe61bdc836bb18ba10fd8e83d9723c9167888"
+    },
+    {
+      "path": "/ui/nameplate-layout.js",
+      "bytes": 1256,
+      "type": "text/javascript",
+      "sha256": "524ebd0e6c6c7e7ad2ad7f6ce2e34e36c5f0e152440269dbd484682abb391f1f"
+    },
+    {
+      "path": "/ui/prism-foundry-model.js",
+      "bytes": 12556,
+      "type": "text/javascript",
+      "sha256": "4d629a645d48f36d8dd8167697a36f20532e3440b17ec96cf800653fc5f64906"
+    },
+    {
+      "path": "/ui/prism-foundry.js",
+      "bytes": 662,
+      "type": "text/javascript",
+      "sha256": "a68cf88cfde1ed3f0a79b2828cfaa1dc30d93b02e7658770ab793421368f7728"
+    },
+    {
+      "path": "/ui/prism-v1/app.js",
+      "bytes": 35946,
+      "type": "text/javascript",
+      "sha256": "ab2108576e65ae280dd4fe9f7be508d6425b21d374ac7e7760d3e8ef1b18d72a"
+    },
+    {
+      "path": "/ui/prism-v1/arsenal.js",
+      "bytes": 16890,
+      "type": "text/javascript",
+      "sha256": "35899d7e899188f5e43f3041417420a7833d500090dd97d54532a1226383c809"
+    },
+    {
+      "path": "/ui/prism-v1/council-data.js",
+      "bytes": 17240,
+      "type": "text/javascript",
+      "sha256": "b86861df6e9cf144fd528aefb9a4911d0fc42c9e7359853708e8344b44b15b60"
+    },
+    {
+      "path": "/ui/prism-v1/expansion-catalog.json",
+      "bytes": 98376,
+      "type": "application/json",
+      "sha256": "077a75c7b26c568a39471558701f44b9f154bd9cefb17ec10dff62a990d0ee90"
+    },
+    {
+      "path": "/ui/prism-v1/expansion.js",
+      "bytes": 12701,
+      "type": "text/javascript",
+      "sha256": "93299da26d00c81aa57ea568f0f2da2ec93be93f782c32ac95a8de9105979d44"
+    },
+    {
+      "path": "/ui/prism-v1/hologram-persona.js",
+      "bytes": 21130,
+      "type": "text/javascript",
+      "sha256": "165ccb5045be00c3b4bfa72c51f0bc7dafe6354194825e6896bf00a352a20e2c"
+    },
+    {
+      "path": "/ui/prism-v1/hologram-projection.js",
+      "bytes": 6399,
+      "type": "text/javascript",
+      "sha256": "8e8140a74dda4eca0f91791898260870529b4452f430a44adc8c4a33d99e749f"
+    },
+    {
+      "path": "/ui/prism-v1/holographic-field.js",
+      "bytes": 2430,
+      "type": "text/javascript",
+      "sha256": "06ba92add1597a645f3410e0a5690ec3f018eb942fb392ba2d09d5987d81acf4"
+    },
+    {
+      "path": "/ui/prism-v1/interface.css",
+      "bytes": 38175,
+      "type": "text/css",
+      "sha256": "603611d4b097a69c218e5826e7e98254d96be1029c2a2d797ee3e42d601ad28d"
+    },
+    {
+      "path": "/ui/prism-v1/local-tools.js",
+      "bytes": 14713,
+      "type": "text/javascript",
+      "sha256": "2fb0bc78ad5618f1d48a5af44effe61bdc836bb18ba10fd8e83d9723c9167888"
+    },
+    {
+      "path": "/ui/prism-v1/nameplate-layout.js",
+      "bytes": 1256,
+      "type": "text/javascript",
+      "sha256": "524ebd0e6c6c7e7ad2ad7f6ce2e34e36c5f0e152440269dbd484682abb391f1f"
+    },
+    {
+      "path": "/ui/prism-v1/prism-foundry-model.js",
+      "bytes": 12556,
+      "type": "text/javascript",
+      "sha256": "4d629a645d48f36d8dd8167697a36f20532e3440b17ec96cf800653fc5f64906"
+    },
+    {
+      "path": "/ui/prism-v1/prism-foundry.js",
+      "bytes": 12194,
+      "type": "text/javascript",
+      "sha256": "5aad284a9e3771854feb88ea5d25f57c432a16f1bc61a62e57f2bc7d5f745041"
+    },
+    {
+      "path": "/ui/prism-v1/realm-architecture.js",
+      "bytes": 4454,
+      "type": "text/javascript",
+      "sha256": "5f970f80cd9fd0fa1ab174f20d0dc31ffd4a8ceea7a50ae1fcabc6c975b47344"
+    },
+    {
+      "path": "/ui/prism-v1/realm-controls.js",
+      "bytes": 1131,
+      "type": "text/javascript",
+      "sha256": "0f19ace086ff2fd36666ece165944d6faf12bbc22577c05b7b54e86132b1451f"
+    },
+    {
+      "path": "/ui/prism-v1/realm-loki.js",
+      "bytes": 8856,
+      "type": "text/javascript",
+      "sha256": "cdb3381ac3e08f64a2e307c4a194a08ef74aa218e35f579531ff3dad415e74cd"
+    },
+    {
+      "path": "/ui/prism-v1/realm-odin.js",
+      "bytes": 14336,
+      "type": "text/javascript",
+      "sha256": "06da6f5166311d8f3e63f5ee4cb01ea5127704c0037eb9f780f47fbfa2ce25aa"
+    },
+    {
+      "path": "/ui/prism-v1/realm-thor.js",
+      "bytes": 11594,
+      "type": "text/javascript",
+      "sha256": "0c30226649433d2fc47ec6662f5bf1b252a4a599a01d57a20d84feffc47328aa"
+    },
+    {
+      "path": "/ui/prism-v1/scene.js",
+      "bytes": 17575,
+      "type": "text/javascript",
+      "sha256": "56fc061fa73959988579b241273cae892995e75bade7a9f3bcb1cc4e85b9663a"
+    },
+    {
+      "path": "/ui/prism-v1/state.js",
+      "bytes": 6329,
+      "type": "text/javascript",
+      "sha256": "9974120739cbe01aeb3f944ac6765abc340511bd2110e227ff9936c71cd59d79"
+    },
+    {
+      "path": "/ui/prism-v1/tool-catalog.json",
+      "bytes": 127253,
+      "type": "application/json",
+      "sha256": "ac1551b541792edc79cad1c573b80f6f9ece22b91565a18be94dec48984330ba"
+    },
+    {
+      "path": "/ui/prism-v1/vendor/OrbitControls.js",
+      "bytes": 40520,
+      "type": "text/javascript",
+      "sha256": "845c827054bda45b84ae0e9e0db4e707f75d2182af9cd88787b2cac86aeef8ef"
+    },
+    {
+      "path": "/ui/prism-v1/vendor/Projector.js",
+      "bytes": 26725,
+      "type": "text/javascript",
+      "sha256": "b0d5535a29f84ffb939339bc7ded5bc778aabcd31cda9c4a5621e44a7d7d0e43"
+    },
+    {
+      "path": "/ui/prism-v1/vendor/SVGRenderer.js",
+      "bytes": 17811,
+      "type": "text/javascript",
+      "sha256": "36a473ceb5b0e96ce3ed0f7afa3c402bc95818f40a152f58a4916337b10be99c"
+    },
+    {
+      "path": "/ui/prism-v1/vendor/THREE-LICENSE.txt",
+      "bytes": 1081,
+      "type": "text/plain",
+      "sha256": "8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc"
+    },
+    {
+      "path": "/ui/prism-v1/vendor/three.core.min.js",
+      "bytes": 384222,
+      "type": "text/javascript",
+      "sha256": "6486aa0d719cfa87ec88dc47223b59b1fb8417a1a407fc0e52467c943e2f8cc9"
+    },
+    {
+      "path": "/ui/prism-v1/vendor/three.module.min.js",
+      "bytes": 364998,
+      "type": "text/javascript",
+      "sha256": "36a60b0120335f89a80a0dab70292292b0ec414b3d05e83cd09a3ea428c6712a"
+    },
+    {
+      "path": "/ui/realm-architecture.js",
+      "bytes": 4454,
+      "type": "text/javascript",
+      "sha256": "5f970f80cd9fd0fa1ab174f20d0dc31ffd4a8ceea7a50ae1fcabc6c975b47344"
+    },
+    {
+      "path": "/ui/realm-controls.js",
+      "bytes": 1131,
+      "type": "text/javascript",
+      "sha256": "0f19ace086ff2fd36666ece165944d6faf12bbc22577c05b7b54e86132b1451f"
+    },
+    {
+      "path": "/ui/realm-loki.js",
+      "bytes": 8856,
+      "type": "text/javascript",
+      "sha256": "cdb3381ac3e08f64a2e307c4a194a08ef74aa218e35f579531ff3dad415e74cd"
+    },
+    {
+      "path": "/ui/realm-odin.js",
+      "bytes": 14336,
+      "type": "text/javascript",
+      "sha256": "06da6f5166311d8f3e63f5ee4cb01ea5127704c0037eb9f780f47fbfa2ce25aa"
+    },
+    {
+      "path": "/ui/realm-thor.js",
+      "bytes": 11594,
+      "type": "text/javascript",
+      "sha256": "0c30226649433d2fc47ec6662f5bf1b252a4a599a01d57a20d84feffc47328aa"
+    },
+    {
+      "path": "/ui/scene.js",
+      "bytes": 18146,
+      "type": "text/javascript",
+      "sha256": "534e39f773bd74deda211ccf4762714944e23eee312b280edab370c950ba891f"
+    },
+    {
+      "path": "/ui/solar-throne-model.js",
+      "bytes": 28318,
+      "type": "text/javascript",
+      "sha256": "1e7fe4538577da58417655ca0598a73c5317a9d762d4f9454b25a2a9946bf552"
+    },
+    {
+      "path": "/ui/solar-throne.js",
+      "bytes": 1151,
+      "type": "text/javascript",
+      "sha256": "b8c654ec387359d3afd121bd8e6221b054bba3470fa93d4a16c63aa8d2f11a2e"
+    },
+    {
+      "path": "/ui/state.js",
+      "bytes": 6329,
+      "type": "text/javascript",
+      "sha256": "9974120739cbe01aeb3f944ac6765abc340511bd2110e227ff9936c71cd59d79"
+    },
+    {
+      "path": "/ui/tool-catalog.json",
+      "bytes": 143308,
+      "type": "application/json",
+      "sha256": "4cd7de82f8888483868285758f1eb4e31dab7ac3c975b1a12a74714cf8411537"
+    },
+    {
+      "path": "/ui/vendor/OrbitControls.js",
+      "bytes": 40520,
+      "type": "text/javascript",
+      "sha256": "845c827054bda45b84ae0e9e0db4e707f75d2182af9cd88787b2cac86aeef8ef"
+    },
+    {
+      "path": "/ui/vendor/Projector.js",
+      "bytes": 26725,
+      "type": "text/javascript",
+      "sha256": "b0d5535a29f84ffb939339bc7ded5bc778aabcd31cda9c4a5621e44a7d7d0e43"
+    },
+    {
+      "path": "/ui/vendor/SVGRenderer.js",
+      "bytes": 17811,
+      "type": "text/javascript",
+      "sha256": "36a473ceb5b0e96ce3ed0f7afa3c402bc95818f40a152f58a4916337b10be99c"
+    },
+    {
+      "path": "/ui/vendor/THREE-LICENSE.txt",
+      "bytes": 1081,
+      "type": "text/plain",
+      "sha256": "8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc"
+    },
+    {
+      "path": "/ui/vendor/three.core.min.js",
+      "bytes": 384222,
+      "type": "text/javascript",
+      "sha256": "6486aa0d719cfa87ec88dc47223b59b1fb8417a1a407fc0e52467c943e2f8cc9"
+    },
+    {
+      "path": "/ui/vendor/three.module.min.js",
+      "bytes": 364998,
+      "type": "text/javascript",
+      "sha256": "36a60b0120335f89a80a0dab70292292b0ec414b3d05e83cd09a3ea428c6712a"
+    },
+    {
+      "path": "/ui/voice-stream.js",
+      "bytes": 6206,
+      "type": "text/javascript",
+      "sha256": "75b017210ab86cc3ce22f2cbe58be4661206f2f36708ad3578f38734970cca9d"
+    }
+  ]
+}

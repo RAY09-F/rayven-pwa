@@ -1,50 +1,53 @@
 import {stableRequest} from './cost-policy.js';
 import {logUsage} from './usage-log.js';
+import { anthropicFetch } from './anthropic-gateway.js';
 // Thin wrapper around the Anthropic Messages API with one retry on transient
 // errors. Ported unchanged from worker.js. Used by the main chat loop and by
 // every background subsystem that needs a Claude call (code check, monitoring
 // relevance filter, email classification, day-planning briefing).
 import { MODELS } from './models.js';
+import { collectMessage, providerError } from './anthropic-stream.js';
 
 export async function callAnthropic(env, systemBlocks, tools, messages, maxTokens, model, opts = {}) {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json'
-      },
-      body: JSON.stringify({
-        // sonnet-5: $2/$10 per Mtok against sonnet-4-6's $3/$15 — a third cheaper
-        // for the same work, with a newer cutoff and 1M context. Safe to swap
-        // because this file sets no temperature/top_p: Claude 4.7+ rejects those
-        // two being sent together, and we send neither.
-        model: model || MODELS.sonnet,
-        max_tokens: maxTokens || 1400,   // 900 was clipping longer answers mid-thought
-        ...stableRequest(systemBlocks,tools,messages),
-        ...(opts.toolChoiceNone ? {tool_choice:{type:'none'}} : {})
-      })
-    });
-
-    if (response.ok) { const data=await response.json();logUsage(model || MODELS.sonnet,data.usage,opts.usageContext?.source || 'tool-loop',opts.usageContext || {});return {ok:true,data}; }
-
-    const isTransient = response.status === 429 || response.status === 500 || response.status === 503 || response.status === 529;
-    if (isTransient && attempt === 0) {
-      await new Promise(r => setTimeout(r, 700));
-      continue;
+  const selectedModel = model || MODELS.sonnet;
+  const body = { model: selectedModel, max_tokens: maxTokens || 1400, ...stableRequest(systemBlocks,tools,messages), ...(opts.toolChoiceNone ? {tool_choice:{type:'none'}} : {}) };
+  if (/^claude-(sonnet-5|opus-5)$/.test(selectedModel)) { body.output_config = { effort: opts.effort || 'low' }; body.thinking = { type: 'adaptive' }; }
+  if (opts.onText) body.stream = true;
+  if (env.CONTEXT_EDITING_ENABLED === 'true') body.context_management = { edits: [...(body.thinking ? [{type:'clear_thinking_20251015',keep:{type:'thinking_turns',value:2}}] : []), {type:'clear_tool_uses_20250919',trigger:{type:'input_tokens',value:30000},keep:{type:'tool_uses',value:3},exclude_tools:['delegate','approve','reject']}] };
+  const sleep = opts.sleep || (ms => new Promise((resolve, reject) => {
+    const abort = () => { clearTimeout(timer); reject(opts.signal.reason || new Error('Reply cancelled.')); };
+    const timer = setTimeout(() => { opts.signal?.removeEventListener('abort', abort); resolve(); }, ms);
+    opts.signal?.addEventListener('abort', abort, { once: true });
+    if (opts.signal?.aborted) abort();
+  }));
+  for (let attempt = 0; attempt < 3; attempt++) {
+    opts.signal?.throwIfAborted();
+    try {
+      const response = await anthropicFetch(env,'/v1/messages', {
+        method: 'POST', signal: opts.signal,
+        headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json', ...(body.context_management ? {'anthropic-beta':'context-management-2025-06-27'} : {}) },
+        body: JSON.stringify(body)
+      });
+      if (response.ok) {
+        // Never replay an interrupted successful stream: tools or text may already have escaped.
+        const data = opts.onText ? await collectMessage(response.body, opts.onText) : await response.json();
+        logUsage(selectedModel,data.usage,opts.usageContext?.source || 'tool-loop',opts.usageContext || {});
+        if (data.context_management?.applied_edits) console.log('CONTEXT_EDITS',data.context_management.applied_edits);
+        return { ok: true, data };
+      }
+      const data = await response.json().catch(() => ({}));
+      const spendCap = (data.error?.details?.error_code || data.details?.error_code) === 'enforced_spend_limit_reached';
+      const retryAfter = response.headers.get('retry-after');
+      const delay = retryAfter == null ? 1000 * 2 ** attempt : /^\d+(\.\d+)?$/.test(retryAfter) ? Number(retryAfter) * 1000 : Date.parse(retryAfter) - Date.now();
+      if (!spendCap && [429, 500, 503, 529].includes(response.status) && attempt < 2 && Number.isFinite(delay) && delay <= 30000) {
+        await sleep(Math.max(0, delay)); continue;
+      }
+      console.warn('ANTHROPIC_FAILURE', { status: response.status, type: data.error?.type || 'unknown' });
+      return { ok: false, status: response.status, data: { error: { message: providerError(response.status, data) } } };
+    } catch (error) {
+      if (opts.signal?.aborted) throw error;
+      return { ok: false, status: error.status || 502, data: { error: { message: error.status ? error.message : 'The assistant connection ended before completion. Please try again.' } } };
     }
-    // The REASON a request was rejected lives in this body, and until now it was
-    // parsed, wrapped, and then never shown to anyone — so every failure, from a
-    // bad tool schema to an expired key to a rate limit, surfaced to Rayan as the
-    // same four words. Log it and pass it up. A service that tells you why it
-    // refused is worth more than any amount of guessing at it.
-    const raw = await response.text();
-    let parsed;
-    try { parsed = JSON.parse(raw); }
-    catch { parsed = { error: { message: raw.slice(0, 400) || `HTTP ${response.status}` } }; }
-    console.log(`ANTHROPIC ${response.status}: ${raw.slice(0, 800)}`);
-    return { ok: false, status: response.status, data: parsed };
   }
 }
 
@@ -54,17 +57,18 @@ export async function callAnthropic(env, systemBlocks, tools, messages, maxToken
 // failure just gets picked up again next tick rather than retried in-request.
 export async function callAnthropicSimple(env, systemPrompt, userText, maxTokens, model, schema, usageContext = {}) {
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await anthropicFetch(env,'/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({
         model: model || MODELS.sonnet,
         max_tokens: maxTokens || 400,
+        ...(schema ? { output_config: { format: { type: 'json_schema', schema } } } : {}),
         system: systemPrompt,
         messages: [{ role: 'user', content: userText }]
       })
     });
-    if (!res.ok) return { ok: false, error: `Anthropic API returned status ${res.status}: ${await res.text().catch(() => '(no body)')}` };
+    if (!res.ok) return { ok: false, error: providerError(res.status, await res.json().catch(() => ({}))) };
     const data = await res.json();
     logUsage(model || MODELS.sonnet,data.usage,usageContext.source || 'single-shot',{persist:true,...usageContext});
     const textBlock = data.content && data.content.find(b => b.type === 'text');

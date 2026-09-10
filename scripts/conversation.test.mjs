@@ -1,7 +1,7 @@
 // Deterministic conversation boundaries; no network, microphone, playback, or browser claims.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createRequestLedger,replyText,restoreDraft,nearTranscriptEnd,formatReply,assistantState,parseReplyPayload,requestErrorMessage} from '../public/ui/prism-v1/state.js';
+import {createRequestLedger,replyText,restoreDraft,nearTranscriptEnd,formatReply,assistantState,parseReplyPayload,requestErrorMessage} from '../public/ui/state.js';
 
 test('duplicate submission is rejected per persona while other conversations remain independent',()=>{
   const requests=createRequestLedger(),thor=requests.begin('thor','first');
@@ -95,13 +95,13 @@ test('HTML error pages and malformed declared JSON are not successful assistant 
 // This verifies callback ownership, not actual device playback or browser permission behavior.
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-const appSource=readFileSync(new URL('../public/ui/prism-v1/app.js',import.meta.url),'utf8');
+const appSource=readFileSync(new URL('../public/ui/app.js',import.meta.url),'utf8');
 function audioHarness(){
   const audios=[],utterances=[];let fallbackCount=0;
   class FakeAudio{constructor(){audios.push(this);}play(){return Promise.resolve();}pause(){}}
   class Utterance{constructor(text){this.text=text;utterances.push(this);}}
   const context=vm.createContext({
-    speechPhase:'idle',preferences:{output:true},document:{hidden:false},window:{speechSynthesis:{}},
+    liveVoice:null,speechPhase:'idle',preferences:{output:true},document:{hidden:false},window:{speechSynthesis:{}},
     refreshState(){},killRecognition(){},listeningPaused:false,API:{base:'https://example.test'},AbortSignal,
     fetch:async()=>({ok:true,blob:async()=>({})}),Audio:FakeAudio,SpeechSynthesisUtterance:Utterance,
     speechSynthesis:{speak(){fallbackCount++;},cancel(){}},setTimeout:()=>1,clearTimeout(){},

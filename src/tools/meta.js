@@ -39,17 +39,17 @@ export function groupOf(name) { const m = META.get(name); return (m && m.group) 
 // CORE per god: exact names, master order applied at build time; only names
 // that exist and that the god is allowed. Kept under MAX_CORE.
 export const CORE_NAMES = {
-  thor: ['remember_this', 'search_memory', 'add_todo', 'list_todos', 'complete_todo', 'add_calendar_event', 'list_calendar_events', 'remove_calendar_event', 'set_timer', 'timers', 'cancel_timer',
+  thor: ['util_ask_user', 'remember_this', 'search_memory', 'add_todo', 'list_todos', 'complete_todo', 'add_calendar_event', 'list_calendar_events', 'remove_calendar_event', 'set_timer', 'timers', 'cancel_timer',
     'web_search', 'tavily_research', 'weather', 'world_time', 'maps_search_places', 'maps_directions',
     'spotify_play', 'spotify_pause', 'spotify_resume', 'spotify_next', 'spotify_now_playing', 'play_youtube_video',
     'browser_navigate', 'browser_read_page', 'browser_click', 'browser_type', 'browser_screenshot',
     'send_text', 'make_call', 'delegate', 'routine_create', 'routine_list', 'routine_run_now', 'approvals_list', 'approve', 'reject', 'list_my_tools', 'find_tools'],
-  loki: ['add_calendar_event', 'list_calendar_events', 'remove_calendar_event', 'set_timer', 'timers', 'cancel_timer', 'days_until', 'world_time',
+  loki: ['util_ask_user', 'add_calendar_event', 'list_calendar_events', 'remove_calendar_event', 'set_timer', 'timers', 'cancel_timer', 'days_until', 'world_time',
     'add_todo', 'list_todos', 'complete_todo', 'add_content_idea', 'list_content_ideas', 'remember_this', 'search_memory',
     'weather', 'air_quality', 'web_search', 'tavily_research', 'look_up', 'news_search',
     'watch_add', 'watch_list', 'watch_remove', 'watch_pause', 'watch_resume', 'delegate',
     'routine_create', 'routine_list', 'routine_pause', 'routine_resume', 'routine_run_now', 'routine_history', 'approvals_list', 'approve', 'reject', 'list_my_tools', 'find_tools'],
-  odin: ['paper_trading_status', 'trading_status', 'trading_readiness', 'trading_halt', 'trading_resume', 'paper_backtest',
+  odin: ['util_ask_user', 'paper_trading_status', 'trading_status', 'trading_readiness', 'trading_halt', 'trading_resume', 'paper_backtest',
     'stock_price', 'crypto_price', 'token_search', 'company_filings', 'news_search', 'web_search', 'calculate', 'convert_money',
     'remember_this', 'search_memory', 'add_todo', 'list_todos', 'delegate', 'routine_create', 'routine_list', 'routine_run_now',
     'approvals_list', 'approve', 'reject', 'cost_report', 'list_my_tools', 'find_tools']

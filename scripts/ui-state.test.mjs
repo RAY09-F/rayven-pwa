@@ -2,8 +2,8 @@
 // Pure state + real Three.js geometry checks. No browser, GPU, audio or network.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as THREE from '../public/ui/prism-v1/vendor/three.module.min.js';
-import { initialPersona, readPreferences, editableTarget, assistantState } from '../public/ui/prism-v1/state.js';
+import * as THREE from '../public/ui/vendor/three.module.min.js';
+import { initialPersona, readPreferences, editableTarget, assistantState } from '../public/ui/state.js';
 
 test('valid explicit persona wins over hall and hash', () => {
   assert.equal(initialPersona('?persona=loki&hall=odin', '#thor'), 'loki');

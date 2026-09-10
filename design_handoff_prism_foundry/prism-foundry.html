@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Prism Foundry</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.184.0/build/three.module.js",
+    "three/addons/controls/OrbitControls.js": "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js",
+    "three/addons/exporters/OBJExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js",
+    "three/addons/exporters/GLTFExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js"
+  },
+  "integrity": {
+    "https://unpkg.com/three@0.184.0/build/three.module.js": "sha384-8FCZ1eVO6it4+pbec2aDtnTrwjWXZLJRC+MAGCIPDgsYnUrl/E0A2YlF8ioMKI/J",
+    "https://unpkg.com/three@0.184.0/build/three.core.js": "sha384-dw2ooPewaEIrAgl6oFDBmmBWCE9oW9LxRGcfwZ0hLvEprzo202wXl7vCYHRlSnOT",
+    "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js": "sha384-4rziNxOBZKQ69i+w+f89KJ55TCYquwchVbByQwmaOeIOXdOU2PLDn3kOfXHwIJC9",
+    "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js": "sha384-nbwtoZENJD3Vq+ACK0CuGQdPMuDWHkamC2KJD70EV5nfg6jQjfppKOea07YJN+N3",
+    "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js": "sha384-VofkvpG6HERhFCYbsUOHeNXBCqID2nfqkQqnVzE1jc/oPcz+qJ13ADdXH08hE+cQ"
+  }
+}
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Cormorant+Garamond:wght@500&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;height:100%;background:#050b12;overflow:hidden}
+three-d-stage:not(:defined){visibility:hidden}
+three-d-stage{display:block;width:100vw;height:100vh;position:relative}
+#labels{position:fixed;inset:0;pointer-events:none;font-family:'Cinzel',serif}
+.lbl{position:absolute;transform:translate(-50%,0);text-align:center;color:#fff;white-space:nowrap;
+  transition:opacity .25s;letter-spacing:.14em;will-change:transform;text-shadow:0 0 6px var(--c),0 1px 2px rgba(0,0,0,.95)}
+.lbl b{display:block;font-weight:700;font-size:15px;color:var(--c);filter:brightness(1.35)}
+.lbl small{display:block;font-family:'Cormorant Garamond',serif;font-size:12px;letter-spacing:.32em;color:rgba(255,255,255,.75);margin-top:3px}
+.lbl.core b{font-size:26px}
+.lbl.core small{font-size:13px}
+.lbl.hot b{filter:brightness(1.8)}
+.lbl .dot{display:block;width:1px;height:14px;margin:0 auto 4px;background:linear-gradient(to bottom,var(--c),transparent)}
+.lbl.core .dot{order:3;margin:6px auto 0;background:linear-gradient(to top,var(--c),transparent)}
+.lbl.core{display:flex;flex-direction:column;transform-origin:50% 100%}
+.lbl{transform-origin:50% 0}
+</style>
+</head>
+<body>
+<three-d-stage name="prism-foundry" background="radial-gradient(ellipse at 50% 40%,#0f2430 0%,#050b12 70%)"></three-d-stage>
+<div id="labels"></div>
+<script src="./three-d-stage.js"></script>
+<script type="module">
+const stage = document.querySelector('three-d-stage');
+const { THREE } = await stage.ready;
+const renderer = stage._renderer, camera = stage._camera, scene = stage._scene, controls = stage._controls;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1;
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+stage._key.shadow.mapSize.set(1024, 1024); stage._key.shadow.radius = 4;
+controls.dampingFactor = 0.05;
+// Studio environment for real reflections: dark dome with a few soft light panels
+{
+  const env = new THREE.Scene(); env.background = new THREE.Color(0x06101a);
+  const panel = (c, i, pos, size) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(...size), new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide })); m.material.color.multiplyScalar(i); m.position.set(...pos); m.lookAt(0,0,0); env.add(m); };
+  panel(0xffe6c0, 6, [4, 6, 3], [5, 3]); panel(0x9ad4ff, 3, [-6, 3, -4], [6, 4]); panel(0xfff0d0, 1.5, [0, -3, 6], [8, 2]); panel(0x2a6a9a, 1, [0, 8, 0], [12, 12]);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(env, 0.04).texture; scene.environmentIntensity = 0.9; pmrem.dispose();
+}
+scene.fog = new THREE.FogExp2(0x050b12, 0.045);
+// Dim the neutral studio so emissive crystals own the scene
+scene.children.forEach(l => { if (l.isHemisphereLight) { l.intensity = 0.25; l.color.set(0x4a7a9a); l.groundColor.set(0x0a1a2a); } else if (l.isDirectionalLight) l.intensity *= 0.35; });
+stage._ground.material.opacity = 0.45;
+
+const mat = (name, color, o={}) => Object.assign(new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.2, ...o }), { name });
+const gem = (name, color, em, i=1.6) => Object.assign(new THREE.MeshPhysicalMaterial({ color, roughness: 0, metalness: 0, transmission: 1, thickness: 0.8, ior: 2.42, dispersion: 0.35, attenuationColor: new THREE.Color(color), attenuationDistance: 1.2, specularIntensity: 1, clearcoat: 1, clearcoatRoughness: 0, emissive: em, emissiveIntensity: i, flatShading: true, side: THREE.FrontSide }), { name });
+const M = {
+  stone: mat('dark_stone', 0x0f1820, { roughness: 0.55, metalness: 0.2 }),
+  slate: mat('slate_inlay', 0x1a2e40, { roughness: 0.35, metalness: 0.3 }),
+  brass: mat('brass', 0xe0a93a, { roughness: 0.22, metalness: 0.85, emissive: 0x3a2000, emissiveIntensity: 0.25 }),
+  gold:  gem('gold_crystal', 0xffd45a, 0xff8c00, 0.7),
+  glass: Object.assign(new THREE.MeshPhysicalMaterial({ color: 0x9fe4ff, roughness: 0.02, metalness: 0, clearcoat: 1, transparent: true, opacity: 0.22, emissive: 0x1a6a8a, emissiveIntensity: 0.3 }), { name: 'smoked_glass' }),
+};
+const agents = [
+  { key: 'amber',    name: 'MISS MINUTES', role: 'THE CLOCK',        hex: 0xff7a1a, em: 0xff4a00, css: '#ff8f3a', angle: 90 },
+  { key: 'sapphire', name: 'HUNTER B-15',  role: 'THE RUNNER',       hex: 0x4aa8ff, em: 0x0a5aff, css: '#6ab8ff', angle: 18 },
+  { key: 'copper',   name: 'MOBIUS',       role: 'THE LEDGER',       hex: 0xffc08a, em: 0xff7a20, css: '#ffc79a', angle: 306 },
+  { key: 'emerald',  name: 'SYLVIE',       role: 'THE APOCALYPSES',  hex: 0x2aff9a, em: 0x00c860, css: '#4dffab', angle: 234 },
+  { key: 'violet',   name: 'KANG',         role: 'THE WATCH',        hex: 0x9a5cff, em: 0x5a10ff, css: '#a97cff', angle: 162 },
+];
+
+const add = (parent, name, geo, m, pos=[0,0,0], rot=[0,0,0]) => {
+  const mesh = new THREE.Mesh(geo, m); mesh.name = name;
+  mesh.position.set(...pos); mesh.rotation.set(...rot);
+  mesh.castShadow = mesh.receiveShadow = true; parent.add(mesh); return mesh;
+};
+// Reference-style stone: elongated faceted bipyramid — sharp apex, one crown break, wide girdle, sharp culet; flat facets
+const crystal = (r, hUp, hDown, n=6) => {
+  const ring = (rad, y, off) => Array.from({ length: n }, (_, i) => { const a = (i + off) / n * Math.PI * 2; return [Math.cos(a)*rad, y, Math.sin(a)*rad*0.9]; });
+  const R = [ring(r*0.55, hUp*0.5, 0.5), ring(r, 0, 0), ring(r*0.6, -hDown*0.45, 0.5), [[0, -hDown, 0]]];
+  const P = [];
+  const tri = (a, b, c) => P.push(...a, ...b, ...c);
+  const apex = [0, hUp, 0];
+  for (let i = 0; i < n; i++) tri(apex, R[0][i], R[0][(i+1)%n]);
+  for (let k = 0; k < R.length - 2; k++) for (let i = 0; i < n; i++) {
+    const a = R[k][i], b = R[k][(i+1)%n], c = R[k+1][i], d = R[k+1][(i+1)%n];
+    tri(a, c, d); tri(a, d, b);
+  }
+  const last = R[R.length-2], tip = R[R.length-1][0];
+  for (let i = 0; i < n; i++) tri(last[i], tip, last[(i+1)%n]);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+  g.computeVertexNormals();
+  return g;
+};
+
+const model = new THREE.Group(); model.name = 'prism_foundry';
+add(model, 'dais_base', new THREE.CylinderGeometry(3.0, 3.2, 0.12, 96), M.stone, [0, 0.06, 0]);
+add(model, 'dais_step', new THREE.CylinderGeometry(2.4, 2.5, 0.10, 96), M.slate, [0, 0.17, 0]);
+add(model, 'dais_ring_outer', new THREE.TorusGeometry(2.75, 0.02, 12, 128), M.brass, [0, 0.125, 0], [Math.PI/2, 0, 0]);
+add(model, 'dais_ring_inner', new THREE.TorusGeometry(1.35, 0.02, 12, 128), M.brass, [0, 0.225, 0], [Math.PI/2, 0, 0]);
+add(model, 'pedestal_foot', new THREE.CylinderGeometry(0.95, 1.05, 0.14, 64), M.stone, [0, 0.29, 0]);
+add(model, 'pedestal_band_low', new THREE.CylinderGeometry(0.82, 0.82, 0.08, 64), M.brass, [0, 0.40, 0]);
+add(model, 'pedestal_column', new THREE.CylinderGeometry(0.72, 0.78, 0.36, 64), M.slate, [0, 0.62, 0]);
+add(model, 'pedestal_band_high', new THREE.CylinderGeometry(0.8, 0.76, 0.08, 64), M.brass, [0, 0.84, 0]);
+add(model, 'pedestal_bowl', new THREE.CylinderGeometry(0.9, 0.7, 0.12, 64), M.brass, [0, 0.94, 0]);
+add(model, 'pedestal_cup', new THREE.CylinderGeometry(0.6, 0.86, 0.06, 64), M.stone, [0, 1.03, 0]);
+// Detail: fluted column, inlaid dais grooves, radial brass channels to each station, prongs holding the core
+for (let i = 0; i < 18; i++) { const a = i/18*Math.PI*2; add(model, `column_flute_${i+1}`, new THREE.CylinderGeometry(0.035, 0.035, 0.34, 10), M.brass, [Math.cos(a)*0.76, 0.62, Math.sin(a)*0.76]); }
+[1.7, 2.1, 2.9].forEach((r, i) => add(model, `dais_groove_${i+1}`, new THREE.TorusGeometry(r, 0.012, 8, 160), M.brass, [0, r > 2.4 ? 0.125 : 0.225, 0], [Math.PI/2, 0, 0]));
+for (let i = 0; i < 24; i++) { const a = i/24*Math.PI*2; add(model, `dais_stud_${i+1}`, new THREE.SphereGeometry(0.035, 12, 8), M.brass, [Math.cos(a)*2.62, 0.13, Math.sin(a)*2.62]); }
+for (let i = 0; i < 6; i++) {
+  const a = i/6*Math.PI*2 + Math.PI/6;
+  const prong = add(model, `core_prong_${i+1}`, new THREE.CylinderGeometry(0.028, 0.045, 0.75, 10), M.brass, [Math.cos(a)*0.5, 1.4, Math.sin(a)*0.5]);
+  prong.rotation.set(Math.sin(a)*0.32, 0, -Math.cos(a)*0.32);
+  add(model, `core_prong_tip_${i+1}`, new THREE.SphereGeometry(0.045, 12, 8), M.brass, [Math.cos(a)*0.62, 1.76, Math.sin(a)*0.62]);
+}
+
+// Core group (floats + spins)
+const core = new THREE.Group(); core.name = 'core'; core.position.y = 2.15; model.add(core);
+const coreCrystal = add(core, 'core_crystal', crystal(0.66, 1.7, 1.0, 6), M.gold);
+add(core, 'core_crystal_inner', crystal(0.3, 0.9, 0.5, 6), M.brass, [0,0,0], [0, Math.PI/6, 0]);
+add(core, 'core_girdle', new THREE.TorusGeometry(0.67, 0.018, 10, 96), M.brass, [0, 0, 0], [Math.PI/2, 0, 0]).scale.z = 0.9;
+const rings = [
+  add(model, 'orbit_ring_a', new THREE.TorusGeometry(1.15, 0.035, 16, 128), M.brass, [0, 2.05, 0], [Math.PI/2 + 0.35, 0, 0.2]),
+  add(model, 'orbit_ring_b', new THREE.TorusGeometry(1.3, 0.03, 16, 128), M.brass, [0, 1.9, 0], [Math.PI/2 - 0.25, 0, -0.45]),
+  add(model, 'orbit_ring_c', new THREE.TorusGeometry(1.0, 0.025, 16, 128), M.brass, [0, 2.3, 0], [Math.PI/2 + 0.1, 0, 1.1]),
+];
+const shards = [];
+[[-0.9,0.5,-0.4,1.9,0.18],[0.85,0.55,-0.5,2.1,0.16],[0.2,0.1,-1.0,2.4,0.2],[-0.5,0.3,-0.9,1.6,0.14],[1.1,0.4,0.0,1.4,0.12],[-1.15,0.2,0.2,1.3,0.12]]
+  .forEach(([x,z,tilt,h,r],i) => shards.push(add(model, `glass_shard_${i+1}`, new THREE.ConeGeometry(r, h, 4, 1), M.glass, [x, 1.05 + h/2, z], [tilt*0.4, i*0.7, -x*0.25])));
+
+const coreLight = new THREE.PointLight(0xffc020, 60, 9, 2); coreLight.position.set(0, 2.3, 0); model.add(coreLight);
+
+// Satellites
+const stations = agents.map(a => {
+  const ang = THREE.MathUtils.degToRad(a.angle), R = 2.05;
+  const grp = new THREE.Group(); grp.name = `${a.key}_station`;
+  grp.position.set(Math.cos(ang)*R, 0, Math.sin(ang)*R);
+  const m = gem(`${a.key}_crystal`, a.hex, a.em);
+  const chan = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.012, R - 1.0), M.brass); chan.name = `${a.key}_channel`;
+  chan.position.set(Math.cos(ang)*(R+1.0)/2, 0.227, Math.sin(ang)*(R+1.0)/2); chan.rotation.y = -ang + Math.PI/2; model.add(chan);
+  add(grp, `${a.key}_plinth_step`, new THREE.CylinderGeometry(0.44, 0.5, 0.05, 48), M.slate, [0, 0.245, 0]);
+  for (let i = 0; i < 4; i++) { const b = i/4*Math.PI*2 + Math.PI/4; const claw = add(grp, `${a.key}_claw_${i+1}`, new THREE.CylinderGeometry(0.012, 0.02, 0.42, 8), M.brass, [Math.cos(b)*0.18, 0.5, Math.sin(b)*0.18]); claw.rotation.set(Math.sin(b)*0.28, 0, -Math.cos(b)*0.28); }
+  add(grp, `${a.key}_plinth`, new THREE.CylinderGeometry(0.34, 0.4, 0.08, 48), M.stone, [0, 0.26, 0]);
+  add(grp, `${a.key}_plinth_ring`, new THREE.TorusGeometry(0.3, 0.015, 10, 64), M.brass, [0, 0.305, 0], [Math.PI/2, 0, 0]);
+  const gemGrp = new THREE.Group(); gemGrp.position.y = 0.85; grp.add(gemGrp);
+  const gm = add(gemGrp, `${a.key}_crystal`, crystal(0.2, 0.5, 0.32, 6), m);
+  add(gemGrp, `${a.key}_girdle`, new THREE.TorusGeometry(0.205, 0.008, 8, 48), M.brass, [0,0,0], [Math.PI/2, 0, 0]).scale.z = 0.9;
+  const halo = add(gemGrp, `${a.key}_halo`, new THREE.TorusGeometry(0.34, 0.012, 10, 64), M.brass, [0,0,0], [Math.PI/2 + 0.5, 0.3, 0]);
+  const halo2 = add(gemGrp, `${a.key}_halo_2`, new THREE.TorusGeometry(0.28, 0.008, 8, 64), M.brass, [0,0,0], [Math.PI/2 - 0.7, -0.4, 0]);
+  const light = new THREE.PointLight(a.hex, 6, 4, 2); light.position.y = 0.9; grp.add(light);
+  // Beam to core
+  const from = new THREE.Vector3(Math.cos(ang)*R, 0.85, Math.sin(ang)*R), to = new THREE.Vector3(0, 2.0, 0);
+  const len = from.distanceTo(to);
+  const beamMat = mat(`${a.key}_beam`, a.hex, { emissive: a.hex, emissiveIntensity: 2.5, transparent: true, opacity: 0.5, roughness: 1, metalness: 0 });
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.02, len, 8), beamMat); beam.name = `${a.key}_beam`;
+  beam.position.copy(from).lerp(to, 0.5);
+  beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), to.clone().sub(from).normalize());
+  beam.castShadow = false; model.add(beam);
+  model.add(grp);
+  return { a, grp, gemGrp, gm, m, halo, halo2, light, beam, beamMat, phase: Math.random()*6.28, hot: 0 };
+});
+stage.setObject(model);
+// Floating ember dust (viewer only)
+const dustN = 420, dustPos = new Float32Array(dustN*3), dustSeed = new Float32Array(dustN);
+for (let i = 0; i < dustN; i++) { const a = Math.random()*6.283, r = 0.6 + Math.random()*2.6; dustPos.set([Math.cos(a)*r, 0.3 + Math.random()*3.4, Math.sin(a)*r], i*3); dustSeed[i] = Math.random()*6.283; }
+const dustGeo = new THREE.BufferGeometry(); dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0xffd27a, size: 0.035, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true }));
+scene.add(dust);
+stations.forEach(s => s.beam.castShadow = false);
+// Frame from the bounding sphere (with label headroom) against the real aspect
+const frame = () => {
+  const w = renderer.domElement.clientWidth || 1, h = renderer.domElement.clientHeight || 1;
+  camera.aspect = w / h;
+  const r = 3.9, vfov = camera.fov * Math.PI / 360, hfov = Math.atan(Math.tan(vfov) * camera.aspect);
+  const d = r / Math.sin(Math.min(vfov, hfov)) * 0.95;
+  controls.target.set(0, 1.35, 0);
+  camera.position.copy(controls.target).add(new THREE.Vector3(0.55, 0.5, 1).normalize().multiplyScalar(d));
+  camera.near = 0.05; camera.far = 200; camera.updateProjectionMatrix(); controls.update();
+};
+frame(); window.addEventListener('resize', frame);
+controls.autoRotate = true; controls.autoRotateSpeed = 0.9;
+
+// Labels
+const labelsEl = document.getElementById('labels');
+const mkLabel = (name, role, css, extra='') => {
+  const d = document.createElement('div'); d.className = 'lbl ' + extra; d.style.setProperty('--c', css);
+  d.innerHTML = `<span class="dot"></span><b>${name}</b><small>${role}</small>`; labelsEl.appendChild(d); return d;
+};
+const coreLabel = mkLabel('LOKI', 'GOD OF MISCHIEF · THE ONE WHO MAKES', '#ffd84a', 'core');
+stations.forEach(s => s.label = mkLabel(s.a.name, s.a.role, s.a.css));
+const v = new THREE.Vector3();
+const place = (el, obj, dy, radial=0, up=false, occludeAgainst=null) => {
+  obj.getWorldPosition(v);
+  if (radial) { const l = Math.hypot(v.x, v.z) || 1; v.x += v.x/l*radial; v.z += v.z/l*radial; }
+  let visible = v.z !== undefined;
+  if (occludeAgainst) {
+    const dir = v.clone().sub(camera.position), dist = dir.length();
+    occRay.set(camera.position, dir.normalize()); occRay.far = dist - 0.3;
+    visible = occRay.intersectObjects(occludeAgainst, false).length === 0;
+  }
+  v.y += dy; v.project(camera);
+  const w = renderer.domElement.clientWidth, h = renderer.domElement.clientHeight;
+  const d = camera.position.distanceTo(controls.target);
+  const s = THREE.MathUtils.clamp(7 / d, 0.7, 1.4);
+  // screen-space anchor: straight under (or above) the projected gem point
+  const px = (v.x*0.5+0.5)*w, py = THREE.MathUtils.clamp((-v.y*0.5+0.5)*h + (up ? -34 : 26)*s, up ? 96 : 8, h - (up ? 8 : 96));
+  el.style.transform = `translate(-50%,${up ? '-100%' : '0'}) translate(${px}px,${py}px) scale(${s})`;
+  el.style.opacity = visible && v.z < 1 ? 1 : 0;
+};
+const occRay = new THREE.Raycaster();
+const occluders = [coreCrystal, ...rings, ...model.children.filter(o => o.isMesh && /pedestal|dais_base/.test(o.name))];
+
+// Pointer reactivity
+const ray = new THREE.Raycaster(), ptr = new THREE.Vector2(-9, -9), ptrLerp = new THREE.Vector2();
+renderer.domElement.addEventListener('pointermove', e => {
+  const r = renderer.domElement.getBoundingClientRect();
+  ptr.set(((e.clientX - r.left)/r.width)*2 - 1, -((e.clientY - r.top)/r.height)*2 + 1);
+});
+renderer.domElement.addEventListener('pointerleave', () => ptr.set(-9, -9));
+let pulse = 0;
+renderer.domElement.addEventListener('pointerdown', () => { pulse = 1; });
+
+const clock = new THREE.Clock(); let frameNo = 0, hit = null;
+renderer.setAnimationLoop(() => {
+  const t = clock.getElapsedTime(), dt = Math.min(clock.getDelta() || 0.016, 0.05), k = 1 - Math.exp(-dt * 6);
+  ptrLerp.lerp(ptr.x < -5 ? new THREE.Vector2() : ptr, k);
+  pulse *= Math.exp(-dt * 4);
+
+  // Core: hover, spin, tilt toward pointer, heartbeat glow
+  core.position.y = 2.15 + Math.sin(t*1.3)*0.08;
+  core.rotation.y = t*0.6;
+  core.rotation.z = ptrLerp.x*0.18; core.rotation.x = -ptrLerp.y*0.12;
+  const beat = 0.5 + 0.5*Math.sin(t*2.2);
+  M.gold.emissiveIntensity = 0.55 + beat*0.35 + pulse*1.5;
+  coreLight.intensity = 45 + beat*25 + pulse*90;
+  coreLight.color.setHSL(0.09 + Math.sin(t*0.5)*0.015, 1, 0.5);
+  rings[0].rotation.z += 0.7*dt; rings[1].rotation.x += 0.55*dt; rings[2].rotation.y += 0.9*dt;
+  rings.forEach((r,i) => r.position.y = (i===0?2.05:i===1?1.9:2.3) + Math.sin(t*1.3 + i)*0.05);
+  shards.forEach((s,i) => { s.rotation.y += 0.12*dt*(i%2?1:-1); });
+  M.glass.emissiveIntensity = 0.3 + beat*0.5;
+  { const p = dustGeo.attributes.position.array; for (let i = 0; i < dustN; i++) { p[i*3+1] += dt*(0.06 + 0.05*Math.sin(dustSeed[i])); p[i*3] += Math.sin(t*0.6 + dustSeed[i])*dt*0.05; if (p[i*3+1] > 3.9) p[i*3+1] = 0.3; } dustGeo.attributes.position.needsUpdate = true; dust.material.opacity = 0.5 + beat*0.35; }
+
+  // Hover pick (every other frame)
+  if (!(frameNo++ & 1)) { ray.setFromCamera(ptr, camera); hit = ray.intersectObjects(stations.map(s => s.gm).concat(coreCrystal))[0]; }
+  coreLabel.classList.toggle('hot', hit && hit.object === coreCrystal);
+
+  stations.forEach((s, i) => {
+    const target = hit && hit.object === s.gm ? 1 : 0;
+    s.hot += (target - s.hot)*k;
+    const bob = Math.sin(t*1.7 + s.phase)*0.07;
+    s.gemGrp.position.y = 0.85 + bob + s.hot*0.15;
+    s.gemGrp.rotation.y = t*(0.9 + i*0.1) + s.hot*0.3;
+    const sc = 1 + s.hot*0.35 + pulse*0.25;
+    s.gm.scale.setScalar(sc);
+    s.halo.rotation.z += (1.2 + s.hot*3)*dt; s.halo2.rotation.z -= 1.8*dt;
+    const flicker = 0.5 + 0.5*Math.sin(t*3 + s.phase*2);
+    s.m.emissiveIntensity = 0.7 + flicker*0.4 + s.hot*1.5 + pulse*1.5;
+    s.light.intensity = 9 + flicker*5 + s.hot*18 + pulse*20;
+    s.beamMat.opacity = 0.25 + flicker*0.25 + s.hot*0.5 + pulse*0.4;
+    s.beam.scale.x = s.beam.scale.z = 1 + s.hot*2 + pulse*1.5;
+    s.label.classList.toggle('hot', s.hot > 0.5);
+    place(s.label, s.gemGrp, -0.3, 0, false, occluders);
+  });
+  place(coreLabel, core, 1.45, 0, true);
+
+  controls.update();
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

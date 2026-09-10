@@ -1,0 +1,34 @@
+### Result
+{"results":{"thor":{"hash":"#thor","stored":"thor","scene":"astral-cartographer","animated":false,"canvases":1,"left":746},"loki":{"hash":"#loki","stored":"loki","scene":"prism-foundry","animated":false,"canvases":1,"left":746},"odin":{"hash":"#odin","stored":"odin","scene":"solar-throne","animated":false,"canvases":1,"left":746}},"reused":{"slot":true,"canvas":true,"stat":"2"},"paused":{"scene":false,"css":true},"errors":[]}
+### Ran Playwright code
+```js
+await (async page => {
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://127.0.0.1:4191/?motion=false#thor',{waitUntil:'domcontentloaded',timeout:90000});
+ const results={};
+ for(const realm of ['thor','loki','odin']){
+  await page.evaluate(r=>AsgardHUD.select(r),realm);
+  await page.waitForFunction(r=>AsgardHUD.status().scene===r&&AsgardHUD.status().render?.frames>0,realm,{timeout:90000});
+  results[realm]=await page.evaluate(()=>({hash:location.hash,stored:localStorage.getItem('asgard:hud-realm'),scene:AsgardHUD.status().render.scene,animated:AsgardHUD.status().render.animated,canvases:document.querySelectorAll('canvas').length,left:document.querySelector('.col-left').scrollHeight}));
+  if(results[realm].hash!=='#'+realm||results[realm].canvases!==1||results[realm].animated||results[realm].left>746)throw Error('Realm contract '+realm);
+  await page.screenshot({path:'output/playwright/hud-'+realm+'-verified.png',timeout:90000});
+ }
+ await page.route('**/hud/summary',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({realms:{odin:{stats:[{v:'2'}]}},ticker:['paper trade closed']})}));
+ const reused=await page.evaluate(async()=>{const before=document.querySelector('.render'),canvas=before.querySelector('canvas');await AsgardHUD.refresh();AsgardHUD.setTelemetry(false);AsgardHUD.setScanlines(false);return {slot:before===document.querySelector('.render'),canvas:canvas===document.querySelector('.render canvas'),stat:document.querySelector('.stat .v').textContent};});
+ if(!reused.slot||!reused.canvas||reused.stat!=='2')throw Error('Refresh lost mounted scene');
+ await page.emulateMedia({reducedMotion:'reduce'});await page.evaluate(()=>AsgardHUD.setMotion(true));
+ const paused=await page.evaluate(()=>({scene:AsgardHUD.status().render.animated,css:[...document.querySelectorAll('.an')].every(el=>getComputedStyle(el).animationPlayState==='paused')}));
+ if(paused.scene||!paused.css)throw Error('Reduced motion failed');
+ await page.emulateMedia({reducedMotion:'no-preference'});await page.evaluate(()=>AsgardHUD.setMotion(false));
+ const frozen=await page.evaluate(()=>AsgardHUD.status().render.animationTime);await page.waitForTimeout(400);
+ const final=await page.evaluate(()=>AsgardHUD.status().render.animationTime);if(frozen!==final)throw Error('Scene continued while paused');
+ return {results,reused,paused,errors};
+}
+)(page);
+```
+### Page
+- Page URL: http://127.0.0.1:4191/?motion=false#odin
+- Page Title: ASGARD · Council HUD
+- Console: 2 errors, 2 warnings
+### Events
+- New console entries: .playwright-cli/console-2026-09-09T01-05-04-028Z.log#L8-L12

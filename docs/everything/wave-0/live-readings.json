@@ -1,0 +1,61 @@
+{
+  "at": "2026-09-09T01:53:20.702Z",
+  "base": "https://asgrard-backend.rayanfahil2.workers.dev",
+  "scope": "Read-only requests and free provider token counting. No inference, voice generation, browser actions or sends.",
+  "results": [
+    {
+      "path": "/",
+      "status": 200,
+      "headersMs": 618.03,
+      "completeMs": 641.02,
+      "bytes": 1312,
+      "sha256": "934b2b5db8eba2c0c47a6263732567c9674b555b33fc13d025673bf58f760a99"
+    },
+    {
+      "path": "/ui/release.json",
+      "status": 200,
+      "headersMs": 66.31,
+      "completeMs": 76.84,
+      "bytes": 17193,
+      "result": {
+        "id": "floating-5129bddde7ea",
+        "fingerprint": "5129bddde7ea72cae26abdff204f8dbde8d3b380632ba48bd295048ad5357b67"
+      }
+    },
+    {
+      "path": "/browser/status",
+      "status": 200,
+      "headersMs": 160.35,
+      "completeMs": 164.26,
+      "bytes": 53,
+      "result": {
+        "lastPoll": 1787152761593,
+        "connected": false
+      }
+    },
+    {
+      "path": "/admin/core-tokens",
+      "status": 200,
+      "headersMs": 439.9,
+      "completeMs": 446.86,
+      "bytes": 872,
+      "result": {
+        "thor": {
+          "tools": 39,
+          "inputTokens": null,
+          "error": "{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_i"
+        },
+        "loki": {
+          "tools": 38,
+          "inputTokens": null,
+          "error": "{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_i"
+        },
+        "odin": {
+          "tools": 28,
+          "inputTokens": null,
+          "error": "{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_i"
+        }
+      }
+    }
+  ]
+}

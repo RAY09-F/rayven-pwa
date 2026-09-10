@@ -118,7 +118,7 @@ export function createArsenal({getPersona,getDraft,setDraft,onSelect=()=>{},rese
   document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openTools();}});
   renderCouncil();
   fetch('/ui/tool-catalog.json?v=rendered-realms-1').then(r=>{if(!r.ok)throw Error('Catalogue unavailable');return r.json();}).then(data=>{tools=Array.isArray(data.tools)?data.tools:[];document.getElementById('arsenal-count').textContent=tools.length+' backend · 36 local';if(modal.open&&document.getElementById('arsenal-title').textContent==='The Arsenal')openTools();}).catch(()=>{catalogError=true;document.getElementById('arsenal-count').textContent='Catalogue unavailable';if(modal.open&&document.getElementById('arsenal-title').textContent==='The Arsenal')openTools();});
-  return {openAgent,switchPersona(){group='all';renderCouncil();if(modal.open)close();},
+  return {openAgent,openTools,switchPersona(){group='all';renderCouncil();if(modal.open)close();},
     startRequest(hall){const item={id:++requestCounter,hall,at:Date.now(),start:performance.now(),state:'Awaiting reply'};journal.push(item);if(journal.length>30)journal.shift();return item.id;},
     finishRequest(id,outcome){const item=journal.find(i=>i.id===id);if(item){item.state=outcome==='cancelled'?'Stopped waiting · server work unconfirmed':outcome==='received'?'Reply received':'Request failed · server work unconfirmed';item.ms=performance.now()-item.start;}},
     status:()=>({tools:tools.length,requests:journal.length})};

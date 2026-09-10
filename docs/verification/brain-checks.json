@@ -1,0 +1,27 @@
+{
+  "automated": {
+    "command": "npm test",
+    "tests": 148,
+    "passed": 148,
+    "failed": 0
+  },
+  "browser": {
+    "environment": "Chrome WebGL with software driver, local fixture replies",
+    "checks": [
+      "partial reply before completion",
+      "partial reply has no completed receipt",
+      "final reply replaces partial",
+      "cancelled stream cannot append completed reply",
+      "rendered realm remains mounted"
+    ],
+    "passed": 5
+  },
+  "build": {
+    "command": "wrangler deploy --dry-run",
+    "uploadKiB": 936.8,
+    "gzipKiB": 257.23,
+    "deployed": false
+  },
+  "latencyGate": "BLOCKED: no actual live timing evidence",
+  "selectionGate": "BLOCKED: no actual provider-search transcripts"
+}

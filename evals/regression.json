@@ -1,0 +1,52 @@
+{
+  "cases": [
+    {
+      "id": "retired-model",
+      "evidence": "src/lib/models.js",
+      "test": "scripts/brain-regression.test.mjs",
+      "outcome": "Current centralized model IDs; no retired IDs in request code."
+    },
+    {
+      "id": "thinking-budget-400",
+      "evidence": "brief Part12",
+      "test": "scripts/brain-regression.test.mjs",
+      "outcome": "No invalid 400-token thinking budget."
+    },
+    {
+      "id": "paper-identities",
+      "evidence": "docs/ASGARD-PROGRESS.md Wave4",
+      "test": "scripts/brain-council.test.mjs",
+      "outcome": "All five historical paper IDs are preserved."
+    },
+    {
+      "id": "extension-host",
+      "evidence": "docs/PERF-BASELINE.md",
+      "test": "scripts/brain-regression.test.mjs",
+      "outcome": "Actual and legacy Worker hosts remain supported."
+    },
+    {
+      "id": "image-result-cap",
+      "evidence": "docs/ASGARD-PROGRESS.md Wave7",
+      "test": "scripts/brain-regression.test.mjs",
+      "outcome": "Screenshot is still an image content block."
+    },
+    {
+      "id": "smoke-writes",
+      "evidence": "docs/ASGARD-PROGRESS.md Wave1",
+      "test": "scripts/brain-stream.test.mjs",
+      "outcome": "Smoke tests cannot consume approvals or write history."
+    },
+    {
+      "id": "voice-races",
+      "evidence": "docs/ASGARD-PROGRESS.md Wave6",
+      "test": "scripts/brain-voice.test.mjs",
+      "outcome": "Interrupted/replaced turns preserve heard text once."
+    },
+    {
+      "id": "copy-disagreement",
+      "evidence": "docs/ASGARD-PROGRESS.md Wave8",
+      "test": "scripts/brain-infra.test.mjs",
+      "outcome": "Disagreement halts migration without rewriting the old copy."
+    }
+  ]
+}

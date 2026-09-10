@@ -1,0 +1,6 @@
+{
+  "checkedAt": "2026-09-09T01:48:06.100596+00:00",
+  "tailBytes": 0,
+  "observedWorkerErrorEvents": 0,
+  "scope": "wrangler tail --status error during both canaries and live verification"
+}

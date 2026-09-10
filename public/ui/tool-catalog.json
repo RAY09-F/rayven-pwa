@@ -51,6 +51,31 @@
       }
     },
     {
+      "id": "util_ask_user",
+      "title": "util ask user",
+      "description": "Pause this work and ask Rayan one necessary question in the Bridge. Use alone in a tool-use turn. Only use when missing information prevents continuing; do not ask for approval through this tool. The same work resumes after an answer.",
+      "group": "misc",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1200
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "id": "web_search",
       "title": "web search",
       "description": "Quick Google search via SerpAPI for current, real-time, or factual info.",
@@ -2338,6 +2363,4621 @@
         "required": [
           "name"
         ]
+      }
+    },
+    {
+      "id": "business_hourly_floor",
+      "title": "business hourly floor",
+      "description": "Calculate the hourly revenue needed to cover owner pay, overhead and reserve. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "ownerPay": {
+            "type": "number",
+            "description": "Period owner pay",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "overhead": {
+            "type": "number",
+            "description": "Period overhead",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "reserve": {
+            "type": "number",
+            "description": "Period reserve",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "billableHours": {
+            "type": "number",
+            "description": "Period billable hours",
+            "minimum": 0.000001,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "ownerPay",
+          "overhead",
+          "reserve",
+          "billableHours"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_project_quote",
+      "title": "business project quote",
+      "description": "Build an itemized service quote with contingency on labor and direct costs. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "tasks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Task",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "hours": {
+                  "type": "number",
+                  "description": "Hours",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                },
+                "rate": {
+                  "type": "number",
+                  "description": "Hourly rate",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                }
+              },
+              "required": [
+                "name",
+                "hours",
+                "rate"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          },
+          "directCosts": {
+            "type": "number",
+            "description": "Direct costs",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "contingencyPct": {
+            "type": "number",
+            "description": "Contingency percentage",
+            "minimum": 0,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "tasks",
+          "directCosts",
+          "contingencyPct"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_capacity_plan",
+      "title": "business capacity plan",
+      "description": "Find billable capacity and whole projects possible after time off and admin work. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "weeklyHours": {
+            "type": "number",
+            "description": "Weekly hours",
+            "minimum": 0,
+            "maximum": 168
+          },
+          "weeks": {
+            "type": "number",
+            "description": "Planning weeks",
+            "minimum": 0.000001,
+            "maximum": 1000000000
+          },
+          "timeOffHours": {
+            "type": "number",
+            "description": "Time off hours",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "adminPct": {
+            "type": "number",
+            "description": "Admin share of remaining hours",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "projectHours": {
+            "type": "number",
+            "description": "Hours per project",
+            "minimum": 0.000001,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "weeklyHours",
+          "weeks",
+          "timeOffHours",
+          "adminPct",
+          "projectHours"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_revenue_target",
+      "title": "business revenue target",
+      "description": "Translate a revenue goal into required sales and qualified leads. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "number",
+            "description": "Revenue goal",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "existingRevenue": {
+            "type": "number",
+            "description": "Already booked revenue",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "price": {
+            "type": "number",
+            "description": "Revenue per sale",
+            "minimum": 0.000001,
+            "maximum": 1000000000
+          },
+          "closePct": {
+            "type": "number",
+            "description": "Lead close percentage",
+            "minimum": 0.000001,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "target",
+          "existingRevenue",
+          "price",
+          "closePct"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_break_even",
+      "title": "business break even",
+      "description": "Calculate contribution and whole units needed to cover fixed operating costs. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "fixedCosts": {
+            "type": "number",
+            "description": "Fixed costs",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "price": {
+            "type": "number",
+            "description": "Unit price",
+            "minimum": 0.000001,
+            "maximum": 1000000000
+          },
+          "variableCost": {
+            "type": "number",
+            "description": "Variable cost per unit",
+            "minimum": 0,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "fixedCosts",
+          "price",
+          "variableCost"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_margin_price",
+      "title": "business margin price",
+      "description": "Calculate a price from unit cost and target gross margin. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "unitCost": {
+            "type": "number",
+            "description": "Cost per unit",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "marginPct": {
+            "type": "number",
+            "description": "Target gross margin percent",
+            "minimum": 0,
+            "maximum": 99.99
+          }
+        },
+        "required": [
+          "unitCost",
+          "marginPct"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_discount_impact",
+      "title": "business discount impact",
+      "description": "Measure per-unit margin loss and extra sales needed to preserve contribution after a discount. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "price": {
+            "type": "number",
+            "description": "Original price",
+            "minimum": 0.000001,
+            "maximum": 1000000000
+          },
+          "unitCost": {
+            "type": "number",
+            "description": "Unit cost",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "discountPct": {
+            "type": "number",
+            "description": "Discount percent",
+            "minimum": 0,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "price",
+          "unitCost",
+          "discountPct"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_payment_fee_price",
+      "title": "business payment fee price",
+      "description": "Gross up an invoice to receive a target net amount after processor fees. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "net": {
+            "type": "number",
+            "description": "Required net receipt",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "fixedFee": {
+            "type": "number",
+            "description": "Fixed transaction fee",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "feePct": {
+            "type": "number",
+            "description": "Percentage fee",
+            "minimum": 0,
+            "maximum": 99.99
+          }
+        },
+        "required": [
+          "net",
+          "fixedFee",
+          "feePct"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_retainer_usage",
+      "title": "business retainer usage",
+      "description": "Reconcile included retainer hours, overage and effective hourly revenue. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "retainer": {
+            "type": "number",
+            "description": "Retainer amount",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "includedHours": {
+            "type": "number",
+            "description": "Included hours",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "usedHours": {
+            "type": "number",
+            "description": "Used hours",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "overageRate": {
+            "type": "number",
+            "description": "Overage hourly rate",
+            "minimum": 0,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "retainer",
+          "includedHours",
+          "usedHours",
+          "overageRate"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_scope_change",
+      "title": "business scope change",
+      "description": "Estimate the price and delivery delay of an added scope request. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "hours": {
+            "type": "number",
+            "description": "Additional hours",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "rate": {
+            "type": "number",
+            "description": "Hourly rate",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "costs": {
+            "type": "number",
+            "description": "Additional direct costs",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "contingencyPct": {
+            "type": "number",
+            "description": "Contingency percentage",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "weeklyCapacity": {
+            "type": "number",
+            "description": "Available hours per week",
+            "minimum": 0.000001,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "hours",
+          "rate",
+          "costs",
+          "contingencyPct",
+          "weeklyCapacity"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_pert_estimate",
+      "title": "business pert estimate",
+      "description": "Calculate a three-point PERT work estimate and standard deviation. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "optimistic": {
+            "type": "number",
+            "description": "Optimistic hours",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "likely": {
+            "type": "number",
+            "description": "Most likely hours",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "pessimistic": {
+            "type": "number",
+            "description": "Pessimistic hours",
+            "minimum": 0,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "optimistic",
+          "likely",
+          "pessimistic"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_utilization",
+      "title": "business utilization",
+      "description": "Measure available, worked and billable time utilization. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "availableHours": {
+            "type": "number",
+            "description": "Available hours",
+            "minimum": 0.000001,
+            "maximum": 1000000000
+          },
+          "workedHours": {
+            "type": "number",
+            "description": "Worked hours",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "billableHours": {
+            "type": "number",
+            "description": "Billable hours",
+            "minimum": 0,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "availableHours",
+          "workedHours",
+          "billableHours"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_pipeline_forecast",
+      "title": "business pipeline forecast",
+      "description": "Weight prospective deal values by user-provided closing probabilities. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "deals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Deal",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "value": {
+                  "type": "number",
+                  "description": "Deal value",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                },
+                "probabilityPct": {
+                  "type": "number",
+                  "description": "Closing probability",
+                  "minimum": 0,
+                  "maximum": 100
+                }
+              },
+              "required": [
+                "name",
+                "value",
+                "probabilityPct"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "deals"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_funnel_forecast",
+      "title": "business funnel forecast",
+      "description": "Propagate an audience through ordered conversion stages. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "audience": {
+            "type": "integer",
+            "description": "Starting audience",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "stages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Stage",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "conversionPct": {
+                  "type": "number",
+                  "description": "Conversion from preceding stage",
+                  "minimum": 0,
+                  "maximum": 100
+                }
+              },
+              "required": [
+                "name",
+                "conversionPct"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "audience",
+          "stages"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_acquisition_cost",
+      "title": "business acquisition cost",
+      "description": "Calculate paid and fully loaded customer acquisition cost. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "adSpend": {
+            "type": "number",
+            "description": "Advertising cost",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "laborCost": {
+            "type": "number",
+            "description": "Acquisition labor cost",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "otherCost": {
+            "type": "number",
+            "description": "Other acquisition cost",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "customers": {
+            "type": "integer",
+            "description": "New customers",
+            "minimum": 1,
+            "maximum": 1000000
+          }
+        },
+        "required": [
+          "adSpend",
+          "laborCost",
+          "otherCost",
+          "customers"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_customer_payback",
+      "title": "business customer payback",
+      "description": "Estimate months to recover acquisition cost from customer contribution. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "acquisitionCost": {
+            "type": "number",
+            "description": "Cost to acquire a customer",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "monthlyRevenue": {
+            "type": "number",
+            "description": "Monthly revenue per customer",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "monthlyServiceCost": {
+            "type": "number",
+            "description": "Monthly service cost per customer",
+            "minimum": 0,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "acquisitionCost",
+          "monthlyRevenue",
+          "monthlyServiceCost"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_churn_cohort",
+      "title": "business churn cohort",
+      "description": "Project a starting customer cohort with constant monthly churn and no new customers. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "customers": {
+            "type": "integer",
+            "description": "Starting customers",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "monthlyChurnPct": {
+            "type": "number",
+            "description": "Monthly churn percentage",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "months": {
+            "type": "integer",
+            "description": "Months",
+            "minimum": 1,
+            "maximum": 120
+          },
+          "revenuePerCustomer": {
+            "type": "number",
+            "description": "Monthly revenue per customer",
+            "minimum": 0,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "customers",
+          "monthlyChurnPct",
+          "months",
+          "revenuePerCustomer"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_repeat_purchase_value",
+      "title": "business repeat purchase value",
+      "description": "Estimate finite-period contribution from initial and repeat orders. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "initialOrder": {
+            "type": "number",
+            "description": "Initial order revenue",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "repeatOrder": {
+            "type": "number",
+            "description": "Repeat order revenue",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "expectedRepeats": {
+            "type": "number",
+            "description": "Expected repeat count",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "marginPct": {
+            "type": "number",
+            "description": "Gross margin",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "acquisitionCost": {
+            "type": "number",
+            "description": "Acquisition cost",
+            "minimum": 0,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "initialOrder",
+          "repeatOrder",
+          "expectedRepeats",
+          "marginPct",
+          "acquisitionCost"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_offer_compare",
+      "title": "business offer compare",
+      "description": "Rank service offers by contribution per delivery hour, including direct costs. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "offers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Offer",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "price": {
+                  "type": "number",
+                  "description": "Price",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                },
+                "cost": {
+                  "type": "number",
+                  "description": "Direct costs",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                },
+                "hours": {
+                  "type": "number",
+                  "description": "Delivery hours",
+                  "minimum": 0.000001,
+                  "maximum": 1000000000
+                }
+              },
+              "required": [
+                "name",
+                "price",
+                "cost",
+                "hours"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "offers"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_client_concentration",
+      "title": "business client concentration",
+      "description": "Measure revenue concentration and the loss of the largest client. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "clients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Client",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "revenue": {
+                  "type": "number",
+                  "description": "Revenue for same period",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                }
+              },
+              "required": [
+                "name",
+                "revenue"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "clients"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_cash_runway",
+      "title": "business cash runway",
+      "description": "Estimate operating cash runway with constant monthly income and outgoings. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cash": {
+            "type": "number",
+            "description": "Available operating cash",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "monthlyReceipts": {
+            "type": "number",
+            "description": "Monthly receipts",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "monthlyOutgoings": {
+            "type": "number",
+            "description": "Monthly outgoings",
+            "minimum": 0,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "cash",
+          "monthlyReceipts",
+          "monthlyOutgoings"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_cash_schedule",
+      "title": "business cash schedule",
+      "description": "Roll forward explicit monthly receipts and payments to identify a funding gap. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "openingCash": {
+            "type": "number",
+            "description": "Opening cash",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "periods": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "description": "Period",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "receipts": {
+                  "type": "number",
+                  "description": "Receipts",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                },
+                "payments": {
+                  "type": "number",
+                  "description": "Payments",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                }
+              },
+              "required": [
+                "label",
+                "receipts",
+                "payments"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "openingCash",
+          "periods"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_invoice_aging",
+      "title": "business invoice aging",
+      "description": "Group unpaid invoice balances into aging buckets using explicit days overdue. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "invoices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Invoice identifier",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "amount": {
+                  "type": "number",
+                  "description": "Unpaid amount",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                },
+                "overdueDays": {
+                  "type": "integer",
+                  "description": "Days overdue; zero means current",
+                  "minimum": 0,
+                  "maximum": 100000
+                }
+              },
+              "required": [
+                "id",
+                "amount",
+                "overdueDays"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "invoices"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_milestone_payments",
+      "title": "business milestone payments",
+      "description": "Split a project total into named payment milestones whose percentages sum to 100. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number",
+            "description": "Project total",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "milestones": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Milestone",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "percent": {
+                  "type": "number",
+                  "description": "Percentage of total",
+                  "minimum": 0,
+                  "maximum": 100
+                }
+              },
+              "required": [
+                "name",
+                "percent"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "total",
+          "milestones"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_budget_variance",
+      "title": "business budget variance",
+      "description": "Compare category budgets with actual spending and remaining allowance. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Category",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "budget": {
+                  "type": "number",
+                  "description": "Budget",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                },
+                "actual": {
+                  "type": "number",
+                  "description": "Actual spending",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                }
+              },
+              "required": [
+                "name",
+                "budget",
+                "actual"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "categories"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_outsource_compare",
+      "title": "business outsource compare",
+      "description": "Compare internal delivery opportunity cost with an outsourced quote and review time. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "hours": {
+            "type": "number",
+            "description": "Internal delivery hours",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "internalHourlyValue": {
+            "type": "number",
+            "description": "Internal hourly opportunity value",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "supplierQuote": {
+            "type": "number",
+            "description": "Supplier quote",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "reviewHours": {
+            "type": "number",
+            "description": "Internal review hours",
+            "minimum": 0,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "hours",
+          "internalHourlyValue",
+          "supplierQuote",
+          "reviewHours"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_hiring_capacity",
+      "title": "business hiring capacity",
+      "description": "Estimate workers required for demand after productive-time allowance. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "demandHours": {
+            "type": "number",
+            "description": "Required productive hours per period",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "hoursPerWorker": {
+            "type": "number",
+            "description": "Paid hours per worker per period",
+            "minimum": 0.000001,
+            "maximum": 1000000000
+          },
+          "productivePct": {
+            "type": "number",
+            "description": "Productive percentage",
+            "minimum": 0.000001,
+            "maximum": 100
+          },
+          "existingWorkers": {
+            "type": "integer",
+            "description": "Current workers",
+            "minimum": 0,
+            "maximum": 1000000
+          }
+        },
+        "required": [
+          "demandHours",
+          "hoursPerWorker",
+          "productivePct",
+          "existingWorkers"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_meeting_cost",
+      "title": "business meeting cost",
+      "description": "Estimate attendee time cost plus preparation for a meeting. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "durationHours": {
+            "type": "number",
+            "description": "Meeting duration hours",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "preparationHours": {
+            "type": "number",
+            "description": "Total preparation hours",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "preparationRate": {
+            "type": "number",
+            "description": "Preparation hourly cost",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "attendees": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "description": "Role",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "count": {
+                  "type": "integer",
+                  "description": "People",
+                  "minimum": 1,
+                  "maximum": 10000
+                },
+                "hourlyCost": {
+                  "type": "number",
+                  "description": "Hourly cost per person",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                }
+              },
+              "required": [
+                "role",
+                "count",
+                "hourlyCost"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "durationHours",
+          "preparationHours",
+          "preparationRate",
+          "attendees"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_inventory_reorder",
+      "title": "business inventory reorder",
+      "description": "Calculate reorder point from expected lead-time demand and safety stock. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "dailyDemand": {
+            "type": "number",
+            "description": "Average daily units",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "leadDays": {
+            "type": "number",
+            "description": "Replenishment lead days",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "safetyUnits": {
+            "type": "number",
+            "description": "Safety units",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "onHand": {
+            "type": "number",
+            "description": "Units on hand",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "onOrder": {
+            "type": "number",
+            "description": "Units on order",
+            "minimum": 0,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "dailyDemand",
+          "leadDays",
+          "safetyUnits",
+          "onHand",
+          "onOrder"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_batch_cost",
+      "title": "business batch cost",
+      "description": "Calculate saleable batch unit costs including waste and packaging. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "rawUnits": {
+            "type": "integer",
+            "description": "Units produced",
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "rejectedUnits": {
+            "type": "integer",
+            "description": "Rejected units",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "materials": {
+            "type": "number",
+            "description": "Batch material cost",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "labor": {
+            "type": "number",
+            "description": "Batch labor cost",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "setup": {
+            "type": "number",
+            "description": "Batch setup cost",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "packagingPerUnit": {
+            "type": "number",
+            "description": "Packaging per saleable unit",
+            "minimum": 0,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "rawUnits",
+          "rejectedUnits",
+          "materials",
+          "labor",
+          "setup",
+          "packagingPerUnit"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_shipping_subsidy",
+      "title": "business shipping subsidy",
+      "description": "Measure order contribution after shipping charges, fulfillment and processor fees. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "orderRevenue": {
+            "type": "number",
+            "description": "Item revenue",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "goodsCost": {
+            "type": "number",
+            "description": "Goods cost",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "shippingCharged": {
+            "type": "number",
+            "description": "Customer shipping charge",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "shippingCost": {
+            "type": "number",
+            "description": "Carrier cost",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "packagingCost": {
+            "type": "number",
+            "description": "Packaging cost",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "feePct": {
+            "type": "number",
+            "description": "Fee percentage on total charged",
+            "minimum": 0,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "orderRevenue",
+          "goodsCost",
+          "shippingCharged",
+          "shippingCost",
+          "packagingCost",
+          "feePct"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_refund_exposure",
+      "title": "business refund exposure",
+      "description": "Estimate sales retained and processing losses with a supplied refund assumption. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "orders": {
+            "type": "integer",
+            "description": "Orders",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "orderValue": {
+            "type": "number",
+            "description": "Average order value",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "refundPct": {
+            "type": "number",
+            "description": "Refunded order share",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "unrecoveredFeePerRefund": {
+            "type": "number",
+            "description": "Unrecoverable cost per refund",
+            "minimum": 0,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "orders",
+          "orderValue",
+          "refundPct",
+          "unrecoveredFeePerRefund"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_bundle_economics",
+      "title": "business bundle economics",
+      "description": "Compare bundle pricing with standalone totals and component costs. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Component",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "standalonePrice": {
+                  "type": "number",
+                  "description": "Standalone price",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                },
+                "cost": {
+                  "type": "number",
+                  "description": "Cost",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                },
+                "quantity": {
+                  "type": "integer",
+                  "description": "Quantity",
+                  "minimum": 1,
+                  "maximum": 10000
+                }
+              },
+              "required": [
+                "name",
+                "standalonePrice",
+                "cost",
+                "quantity"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          },
+          "bundlePrice": {
+            "type": "number",
+            "description": "Bundle price",
+            "minimum": 0,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "components",
+          "bundlePrice"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_commission_plan",
+      "title": "business commission plan",
+      "description": "Apply progressive commission tiers to sales, with a final remainder rate. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sales": {
+            "type": "number",
+            "description": "Sales",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "tiers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "width": {
+                  "type": "number",
+                  "description": "Sales amount in this tier",
+                  "minimum": 0.000001,
+                  "maximum": 1000000000
+                },
+                "ratePct": {
+                  "type": "number",
+                  "description": "Commission percentage",
+                  "minimum": 0,
+                  "maximum": 100
+                }
+              },
+              "required": [
+                "width",
+                "ratePct"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          },
+          "remainderRatePct": {
+            "type": "number",
+            "description": "Commission beyond listed tiers",
+            "minimum": 0,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "sales",
+          "tiers",
+          "remainderRatePct"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_ad_break_even",
+      "title": "business ad break even",
+      "description": "Compute break-even return on ad spend and maximum acquisition cost from order margin. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "orderValue": {
+            "type": "number",
+            "description": "Revenue per order",
+            "minimum": 0.000001,
+            "maximum": 1000000000
+          },
+          "goodsCost": {
+            "type": "number",
+            "description": "Goods cost",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "fulfillmentCost": {
+            "type": "number",
+            "description": "Fulfillment cost",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "feePct": {
+            "type": "number",
+            "description": "Processing fee percent",
+            "minimum": 0,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "orderValue",
+          "goodsCost",
+          "fulfillmentCost",
+          "feePct"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "creator_campaign_budget",
+      "title": "creator campaign budget",
+      "description": "Allocate a fixed campaign budget by channel weights with cent reconciliation. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "budget": {
+            "type": "number",
+            "description": "Total budget",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Channel",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "weight": {
+                  "type": "number",
+                  "description": "Relative allocation weight",
+                  "minimum": 0.000001,
+                  "maximum": 1000000000
+                }
+              },
+              "required": [
+                "name",
+                "weight"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "budget",
+          "channels"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "creator_content_mix",
+      "title": "creator content mix",
+      "description": "Allocate a target post count across content pillars by largest remainder. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "postCount": {
+            "type": "integer",
+            "description": "Total posts",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "pillars": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Pillar",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "weight": {
+                  "type": "number",
+                  "description": "Relative share",
+                  "minimum": 0.000001,
+                  "maximum": 1000000000
+                }
+              },
+              "required": [
+                "name",
+                "weight"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "postCount",
+          "pillars"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "creator_production_capacity",
+      "title": "creator production capacity",
+      "description": "Calculate weekly content output from production time and setup overhead. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "weeklyHours": {
+            "type": "number",
+            "description": "Production hours per week",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "setupHours": {
+            "type": "number",
+            "description": "Weekly setup hours",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "minutesPerAsset": {
+            "type": "number",
+            "description": "Minutes per finished asset",
+            "minimum": 0.000001,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "weeklyHours",
+          "setupHours",
+          "minutesPerAsset"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "creator_repurpose_matrix",
+      "title": "creator repurpose matrix",
+      "description": "Create a concrete derivative-asset production checklist for each source and format. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Source title",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "minItems": 1,
+            "maxItems": 100
+          },
+          "formats": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Derivative format",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "count": {
+                  "type": "integer",
+                  "description": "Assets per source",
+                  "minimum": 1,
+                  "maximum": 20
+                }
+              },
+              "required": [
+                "name",
+                "count"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "sources",
+          "formats"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "creator_publishing_queue",
+      "title": "creator publishing queue",
+      "description": "Assign ordered content titles to supplied publishing slots without posting. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "titles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Content title",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "minItems": 1,
+            "maxItems": 100
+          },
+          "slots": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Publishing slot label",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "titles",
+          "slots"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "creator_campaign_metrics",
+      "title": "creator campaign metrics",
+      "description": "Calculate campaign click, conversion and cost metrics from measured counts. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "impressions": {
+            "type": "integer",
+            "description": "Impressions",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "clicks": {
+            "type": "integer",
+            "description": "Clicks",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "conversions": {
+            "type": "integer",
+            "description": "Conversions",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "spend": {
+            "type": "number",
+            "description": "Spend",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "revenue": {
+            "type": "number",
+            "description": "Attributed revenue",
+            "minimum": 0,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "impressions",
+          "clicks",
+          "conversions",
+          "spend",
+          "revenue"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "creator_engagement_audit",
+      "title": "creator engagement audit",
+      "description": "Compare content engagement rates against its own measured reach. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "posts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "description": "Post",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "reach": {
+                  "type": "integer",
+                  "description": "Unique reach",
+                  "minimum": 1,
+                  "maximum": 1000000
+                },
+                "likes": {
+                  "type": "integer",
+                  "description": "Likes",
+                  "minimum": 0,
+                  "maximum": 1000000
+                },
+                "comments": {
+                  "type": "integer",
+                  "description": "Comments",
+                  "minimum": 0,
+                  "maximum": 1000000
+                },
+                "shares": {
+                  "type": "integer",
+                  "description": "Shares",
+                  "minimum": 0,
+                  "maximum": 1000000
+                },
+                "saves": {
+                  "type": "integer",
+                  "description": "Saves",
+                  "minimum": 0,
+                  "maximum": 1000000
+                }
+              },
+              "required": [
+                "title",
+                "reach",
+                "likes",
+                "comments",
+                "shares",
+                "saves"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "posts"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "creator_video_retention",
+      "title": "creator video retention",
+      "description": "Analyze audience loss between ordered video checkpoints. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "checkpoints": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "seconds": {
+                  "type": "number",
+                  "description": "Elapsed seconds",
+                  "minimum": 0,
+                  "maximum": 100000
+                },
+                "viewers": {
+                  "type": "integer",
+                  "description": "Remaining viewers",
+                  "minimum": 0,
+                  "maximum": 1000000
+                }
+              },
+              "required": [
+                "seconds",
+                "viewers"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "checkpoints"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "creator_sponsorship_quote",
+      "title": "creator sponsorship quote",
+      "description": "Build a sponsorship estimate from production cost, audience value and exclusivity. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "deliverables": {
+            "type": "integer",
+            "description": "Deliverables",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "productionPerAsset": {
+            "type": "number",
+            "description": "Production cost per asset",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "expectedViews": {
+            "type": "integer",
+            "description": "Total expected views",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "suppliedCPM": {
+            "type": "number",
+            "description": "User supplied fee per 1000 views",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "exclusivityFee": {
+            "type": "number",
+            "description": "Exclusivity fee",
+            "minimum": 0,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "deliverables",
+          "productionPerAsset",
+          "expectedViews",
+          "suppliedCPM",
+          "exclusivityFee"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "creator_email_performance",
+      "title": "creator email performance",
+      "description": "Calculate delivery, open, click and unsubscribe rates from supplied campaign counts. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sent": {
+            "type": "integer",
+            "description": "Emails sent",
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "bounced": {
+            "type": "integer",
+            "description": "Bounces",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "uniqueOpens": {
+            "type": "integer",
+            "description": "Unique opens",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "uniqueClicks": {
+            "type": "integer",
+            "description": "Unique clickers",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "unsubscribes": {
+            "type": "integer",
+            "description": "Unsubscribes",
+            "minimum": 0,
+            "maximum": 1000000
+          }
+        },
+        "required": [
+          "sent",
+          "bounced",
+          "uniqueOpens",
+          "uniqueClicks",
+          "unsubscribes"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "creator_webinar_forecast",
+      "title": "creator webinar forecast",
+      "description": "Estimate webinar attendance, buyers and contribution using supplied conversion assumptions. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "registrations": {
+            "type": "integer",
+            "description": "Registrations",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "attendancePct": {
+            "type": "number",
+            "description": "Attendance share",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "purchasePct": {
+            "type": "number",
+            "description": "Attendee purchase share",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "offerPrice": {
+            "type": "number",
+            "description": "Price",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "deliveryCostPerBuyer": {
+            "type": "number",
+            "description": "Delivery cost per buyer",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "eventCost": {
+            "type": "number",
+            "description": "Fixed event cost",
+            "minimum": 0,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "registrations",
+          "attendancePct",
+          "purchasePct",
+          "offerPrice",
+          "deliveryCostPerBuyer",
+          "eventCost"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "creator_launch_pacing",
+      "title": "creator launch pacing",
+      "description": "Calculate progress and required remaining sales pace for a fixed launch window. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "goalUnits": {
+            "type": "integer",
+            "description": "Sales goal",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "soldUnits": {
+            "type": "integer",
+            "description": "Units sold",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "elapsedDays": {
+            "type": "integer",
+            "description": "Days elapsed",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "totalDays": {
+            "type": "integer",
+            "description": "Launch duration days",
+            "minimum": 1,
+            "maximum": 10000
+          }
+        },
+        "required": [
+          "goalUnits",
+          "soldUnits",
+          "elapsedDays",
+          "totalDays"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_priority_score",
+      "title": "business priority score",
+      "description": "Rank work using explicit reach, impact, confidence and effort inputs. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "initiatives": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Initiative",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "reach": {
+                  "type": "number",
+                  "description": "People reached",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                },
+                "impact": {
+                  "type": "number",
+                  "description": "Impact score",
+                  "minimum": 0,
+                  "maximum": 10
+                },
+                "confidencePct": {
+                  "type": "number",
+                  "description": "Confidence",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "effortHours": {
+                  "type": "number",
+                  "description": "Effort hours",
+                  "minimum": 0.000001,
+                  "maximum": 1000000000
+                }
+              },
+              "required": [
+                "name",
+                "reach",
+                "impact",
+                "confidencePct",
+                "effortHours"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "initiatives"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_risk_reserve",
+      "title": "business risk reserve",
+      "description": "Calculate expected cost exposure from named project risks and supplied probabilities. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "risks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Risk",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "probabilityPct": {
+                  "type": "number",
+                  "description": "Probability",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "costImpact": {
+                  "type": "number",
+                  "description": "Cost if risk occurs",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                },
+                "delayHours": {
+                  "type": "number",
+                  "description": "Delay if risk occurs",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                }
+              },
+              "required": [
+                "name",
+                "probabilityPct",
+                "costImpact",
+                "delayHours"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "risks"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_workload_balance",
+      "title": "business workload balance",
+      "description": "Compare assigned work with each team member’s available capacity. Offline estimate from your inputs; use a single currency throughout. No external actions.",
+      "group": "business",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "people": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Person",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "capacityHours": {
+                  "type": "number",
+                  "description": "Available hours",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                },
+                "assignedHours": {
+                  "type": "number",
+                  "description": "Assigned hours",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                }
+              },
+              "required": [
+                "name",
+                "capacityHours",
+                "assignedHours"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "people"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_csv_parse",
+      "title": "wb csv parse",
+      "description": "Parse quoted delimited text to records; rejects uneven rows and duplicate headers. Runs locally on supplied data; no external actions.",
+      "group": "data",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Delimited text",
+            "maxLength": 20000
+          },
+          "delimiter": {
+            "type": "string",
+            "description": "Delimiter",
+            "maxLength": 1
+          }
+        },
+        "required": [
+          "text",
+          "delimiter"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_table_select",
+      "title": "wb table select",
+      "description": "Project an ordered subset of columns from records. Runs locally on supplied data; no external actions.",
+      "group": "data",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "description": "JSON array of flat records",
+            "maxItems": 500
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Value",
+              "maxLength": 1000
+            },
+            "description": "JSON array of strings",
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "rows",
+          "columns"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_table_filter",
+      "title": "wb table filter",
+      "description": "Filter records using strict equality, substring or numeric comparison. Runs locally on supplied data; no external actions.",
+      "group": "data",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "description": "JSON array of flat records",
+            "maxItems": 500
+          },
+          "column": {
+            "type": "string",
+            "description": "Column",
+            "maxLength": 20000
+          },
+          "operator": {
+            "type": "string",
+            "enum": [
+              "equals",
+              "contains",
+              "gt",
+              "lt"
+            ],
+            "description": "equals / contains / gt / lt"
+          },
+          "value": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "rows",
+          "column",
+          "operator",
+          "value"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_table_sort",
+      "title": "wb table sort",
+      "description": "Stable sort by a homogeneous string or numeric column. Runs locally on supplied data; no external actions.",
+      "group": "data",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "description": "JSON array of flat records",
+            "maxItems": 500
+          },
+          "column": {
+            "type": "string",
+            "description": "Column",
+            "maxLength": 20000
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "description": "asc / desc"
+          }
+        },
+        "required": [
+          "rows",
+          "column",
+          "direction"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_table_group_sum",
+      "title": "wb table group sum",
+      "description": "Group records by one column and aggregate a numeric measure with counts. Runs locally on supplied data; no external actions.",
+      "group": "data",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "description": "JSON array of flat records",
+            "maxItems": 500
+          },
+          "group_by": {
+            "type": "string",
+            "description": "Grouping column",
+            "maxLength": 20000
+          },
+          "measure": {
+            "type": "string",
+            "description": "Numeric column",
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "rows",
+          "group_by",
+          "measure"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_table_join",
+      "title": "wb table join",
+      "description": "Left join records on matching scalar keys, preserving one-to-many matches; right columns use a prefix. Runs locally on supplied data; no external actions.",
+      "group": "data",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "left": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "description": "JSON array of flat records",
+            "maxItems": 500
+          },
+          "right": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "description": "JSON array of flat records",
+            "maxItems": 500
+          },
+          "left_key": {
+            "type": "string",
+            "description": "Left join key",
+            "maxLength": 20000
+          },
+          "right_key": {
+            "type": "string",
+            "description": "Right join key",
+            "maxLength": 20000
+          },
+          "prefix": {
+            "type": "string",
+            "description": "Right-column prefix",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "left",
+          "right",
+          "left_key",
+          "right_key",
+          "prefix"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_table_duplicates",
+      "title": "wb table duplicates",
+      "description": "Report duplicate composite keys and their zero-based row indexes. Runs locally on supplied data; no external actions.",
+      "group": "data",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "description": "JSON array of flat records",
+            "maxItems": 500
+          },
+          "keys": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Value",
+              "maxLength": 1000
+            },
+            "description": "JSON array of strings",
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "rows",
+          "keys"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_table_pivot",
+      "title": "wb table pivot",
+      "description": "Pivot numeric values by row and column categories, summing duplicate pairs. Runs locally on supplied data; no external actions.",
+      "group": "data",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "description": "JSON array of flat records",
+            "maxItems": 500
+          },
+          "row_key": {
+            "type": "string",
+            "description": "Row category",
+            "maxLength": 20000
+          },
+          "column_key": {
+            "type": "string",
+            "description": "Column category",
+            "maxLength": 20000
+          },
+          "measure": {
+            "type": "string",
+            "description": "Numeric measure",
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "rows",
+          "row_key",
+          "column_key",
+          "measure"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_table_unpivot",
+      "title": "wb table unpivot",
+      "description": "Convert selected wide columns into long attribute/value records. Runs locally on supplied data; no external actions.",
+      "group": "data",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "description": "JSON array of flat records",
+            "maxItems": 500
+          },
+          "id_columns": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Value",
+              "maxLength": 1000
+            },
+            "description": "JSON array of strings",
+            "maxItems": 500
+          },
+          "value_columns": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Value",
+              "maxLength": 1000
+            },
+            "description": "JSON array of strings",
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "rows",
+          "id_columns",
+          "value_columns"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_table_profile",
+      "title": "wb table profile",
+      "description": "Summarize record column types, missing/null counts and distinct present values. Runs locally on supplied data; no external actions.",
+      "group": "data",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "description": "JSON array of flat records",
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "rows"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_table_crosstab",
+      "title": "wb table crosstab",
+      "description": "Count joint frequencies for two categorical record columns. Runs locally on supplied data; no external actions.",
+      "group": "data",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "description": "JSON array of flat records",
+            "maxItems": 500
+          },
+          "x": {
+            "type": "string",
+            "description": "First category",
+            "maxLength": 20000
+          },
+          "y": {
+            "type": "string",
+            "description": "Second category",
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "rows",
+          "x",
+          "y"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_table_fill_missing",
+      "title": "wb table fill missing",
+      "description": "Replace absent or null values in one column with a supplied scalar. Runs locally on supplied data; no external actions.",
+      "group": "data",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "description": "JSON array of flat records",
+            "maxItems": 500
+          },
+          "column": {
+            "type": "string",
+            "description": "Column",
+            "maxLength": 20000
+          },
+          "replacement": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "rows",
+          "column",
+          "replacement"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_text_line_endings",
+      "title": "wb text line endings",
+      "description": "Normalize pasted text to LF or CRLF and report original line-ending counts. Runs locally on supplied data; no external actions.",
+      "group": "content",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Text",
+            "maxLength": 20000
+          },
+          "style": {
+            "type": "string",
+            "enum": [
+              "LF",
+              "CRLF"
+            ],
+            "description": "LF / CRLF"
+          }
+        },
+        "required": [
+          "text",
+          "style"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_text_whitespace_audit",
+      "title": "wb text whitespace audit",
+      "description": "Locate trailing whitespace, tabs and repeated spaces with one-based line numbers. Runs locally on supplied data; no external actions.",
+      "group": "content",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Text",
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_text_word_frequency",
+      "title": "wb text word frequency",
+      "description": "Count Unicode letter/number words, case-insensitively, with explicit stop words. Runs locally on supplied data; no external actions.",
+      "group": "content",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Text",
+            "maxLength": 20000
+          },
+          "stop_words": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Value",
+              "maxLength": 1000
+            },
+            "description": "JSON array of strings",
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "text",
+          "stop_words"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_text_ngram_frequency",
+      "title": "wb text ngram frequency",
+      "description": "Find repeated contiguous word phrases of a chosen length. Runs locally on supplied data; no external actions.",
+      "group": "content",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Text",
+            "maxLength": 20000
+          },
+          "size": {
+            "type": "integer",
+            "description": "Words per phrase",
+            "minimum": 2,
+            "maximum": 8
+          }
+        },
+        "required": [
+          "text",
+          "size"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_text_literal_replace",
+      "title": "wb text literal replace",
+      "description": "Replace every non-overlapping literal occurrence, reporting replacement count. Runs locally on supplied data; no external actions.",
+      "group": "content",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Text",
+            "maxLength": 20000
+          },
+          "find": {
+            "type": "string",
+            "description": "Literal search",
+            "maxLength": 20000
+          },
+          "replacement": {
+            "type": "string",
+            "description": "Replacement",
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "text",
+          "find",
+          "replacement"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_text_line_diff",
+      "title": "wb text line diff",
+      "description": "Compare texts using a bounded longest-common-subsequence line diff. Runs locally on supplied data; no external actions.",
+      "group": "content",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "before": {
+            "type": "string",
+            "description": "Original text",
+            "maxLength": 20000
+          },
+          "after": {
+            "type": "string",
+            "description": "Revised text",
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "before",
+          "after"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_markdown_heading_audit",
+      "title": "wb markdown heading audit",
+      "description": "Inspect ATX Markdown heading hierarchy outside fenced code; report skipped levels. Runs locally on supplied data; no external actions.",
+      "group": "content",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Markdown",
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_text_chunk",
+      "title": "wb text chunk",
+      "description": "Split text into fixed Unicode-code-point chunks with bounded overlap. Runs locally on supplied data; no external actions.",
+      "group": "content",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Text",
+            "maxLength": 20000
+          },
+          "size": {
+            "type": "integer",
+            "description": "Code points per chunk",
+            "minimum": 1,
+            "maximum": 5000
+          },
+          "overlap": {
+            "type": "integer",
+            "description": "Repeated code points",
+            "minimum": 0,
+            "maximum": 4999
+          }
+        },
+        "required": [
+          "text",
+          "size",
+          "overlap"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_text_unicode_audit",
+      "title": "wb text unicode audit",
+      "description": "Detect control and invisible formatting characters, and compare NFC normalization. Runs locally on supplied data; no external actions.",
+      "group": "content",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Text",
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_text_term_audit",
+      "title": "wb text term audit",
+      "description": "Locate case-insensitive literal discouraged terms and suggest supplied alternatives. Runs locally on supplied data; no external actions.",
+      "group": "content",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Text",
+            "maxLength": 20000
+          },
+          "terms": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string",
+                  "description": "Discouraged term",
+                  "maxLength": 100
+                },
+                "replacement": {
+                  "type": "string",
+                  "description": "Alternative",
+                  "maxLength": 100
+                }
+              },
+              "required": [
+                "term",
+                "replacement"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Term replacement records",
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "text",
+          "terms"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_url_query_edit",
+      "title": "wb url query edit",
+      "description": "Set and remove URL query parameters while retaining unrelated repeated parameters. Runs locally on supplied data; no external actions.",
+      "group": "web",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "HTTP(S) URL",
+            "maxLength": 20000
+          },
+          "set": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Parameter",
+                  "maxLength": 100
+                },
+                "value": {
+                  "type": "string",
+                  "description": "Value",
+                  "maxLength": 2000
+                }
+              },
+              "required": [
+                "name",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Parameters to set",
+            "maxItems": 100
+          },
+          "remove": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Value",
+              "maxLength": 1000
+            },
+            "description": "JSON array of strings",
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "url",
+          "set",
+          "remove"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_url_tracking_strip",
+      "title": "wb url tracking strip",
+      "description": "Remove utm_* and common click identifiers from a URL; preserve content parameters. Runs locally on supplied data; no external actions.",
+      "group": "web",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "HTTP(S) URL",
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_url_resolve",
+      "title": "wb url resolve",
+      "description": "Resolve relative link targets against an HTTP(S) base, reporting unsupported protocols individually. Runs locally on supplied data; no external actions.",
+      "group": "web",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "base": {
+            "type": "string",
+            "description": "Base URL",
+            "maxLength": 20000
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Value",
+              "maxLength": 1000
+            },
+            "description": "JSON array of strings",
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "base",
+          "links"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_url_query_compare",
+      "title": "wb url query compare",
+      "description": "Compare URL query parameter multimaps, preserving repeated-value order. Runs locally on supplied data; no external actions.",
+      "group": "web",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "before": {
+            "type": "string",
+            "description": "Original HTTP(S) URL",
+            "maxLength": 20000
+          },
+          "after": {
+            "type": "string",
+            "description": "New HTTP(S) URL",
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "before",
+          "after"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_web_sitemap_build",
+      "title": "wb web sitemap build",
+      "description": "Generate a bounded XML sitemap from unique HTTP(S) page URLs. Runs locally on supplied data; no external actions.",
+      "group": "web",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "urls": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Value",
+              "maxLength": 1000
+            },
+            "description": "JSON array of strings",
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "urls"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_web_meta_build",
+      "title": "wb web meta build",
+      "description": "Generate escaped title, description, canonical and Open Graph HTML tags from supplied copy. Runs locally on supplied data; no external actions.",
+      "group": "web",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Page title",
+            "maxLength": 300
+          },
+          "description": {
+            "type": "string",
+            "description": "Summary",
+            "maxLength": 2000
+          },
+          "url": {
+            "type": "string",
+            "description": "Canonical URL",
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "url"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_web_link_audit",
+      "title": "wb web link audit",
+      "description": "Audit supplied link labels and targets for empty/generic labels and duplicate labels with different destinations. Runs locally on supplied data; no external actions.",
+      "group": "web",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "links": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "description": "Visible label",
+                  "maxLength": 1000
+                },
+                "url": {
+                  "type": "string",
+                  "description": "HTTP(S) URL",
+                  "maxLength": 20000
+                }
+              },
+              "required": [
+                "label",
+                "url"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Link records",
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "links"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_web_redirect_audit",
+      "title": "wb web redirect audit",
+      "description": "Detect exact-match redirect cycles and report final destinations and hop counts; does not fetch URLs. Runs locally on supplied data; no external actions.",
+      "group": "web",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "redirects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "from": {
+                  "type": "string",
+                  "description": "Source URL",
+                  "maxLength": 20000
+                },
+                "to": {
+                  "type": "string",
+                  "description": "Destination URL",
+                  "maxLength": 20000
+                }
+              },
+              "required": [
+                "from",
+                "to"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Redirect records",
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "redirects"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_json_compare",
+      "title": "wb json compare",
+      "description": "Recursively compare JSON values and return changed JSON Pointer paths. Runs locally on supplied data; no external actions.",
+      "group": "data",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "before": {},
+          "after": {}
+        },
+        "required": [
+          "before",
+          "after"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_json_flatten",
+      "title": "wb json flatten",
+      "description": "Flatten JSON to JSON Pointer/value entries, retaining empty containers. Runs locally on supplied data; no external actions.",
+      "group": "data",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "value": {}
+        },
+        "required": [
+          "value"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_json_pointer_get",
+      "title": "wb json pointer get",
+      "description": "Retrieve one JSON value by RFC 6901 pointer, including escaped property names. Runs locally on supplied data; no external actions.",
+      "group": "data",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "value": {},
+          "pointer": {
+            "type": "string",
+            "description": "JSON Pointer; empty selects root",
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "value",
+          "pointer"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_json_merge_patch",
+      "title": "wb json merge patch",
+      "description": "Apply RFC 7396 JSON Merge Patch: null deletes object fields and arrays replace atomically. Runs locally on supplied data; no external actions.",
+      "group": "data",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "document": {},
+          "patch": {}
+        },
+        "required": [
+          "document",
+          "patch"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_json_shape",
+      "title": "wb json shape",
+      "description": "Infer an observed structural shape from JSON, combining distinct array item shapes; not a formal validator. Runs locally on supplied data; no external actions.",
+      "group": "data",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "value": {}
+        },
+        "required": [
+          "value"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_list_set_compare",
+      "title": "wb list set compare",
+      "description": "Compare two scalar lists as sets, returning intersection and each side only. Runs locally on supplied data; no external actions.",
+      "group": "data",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "left": {
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            },
+            "description": "Left scalar list",
+            "maxItems": 500
+          },
+          "right": {
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            },
+            "description": "Right scalar list",
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "left",
+          "right"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_records_reconcile",
+      "title": "wb records reconcile",
+      "description": "Reconcile snapshots by unique key into added, removed and changed records. Runs locally on supplied data; no external actions.",
+      "group": "data",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "before": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "description": "JSON array of flat records",
+            "maxItems": 500
+          },
+          "after": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "description": "JSON array of flat records",
+            "maxItems": 500
+          },
+          "key": {
+            "type": "string",
+            "description": "Unique key column",
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "before",
+          "after",
+          "key"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_jsonl_parse",
+      "title": "wb jsonl parse",
+      "description": "Parse newline-delimited JSON with precise one-based line errors; blank lines are ignored. Runs locally on supplied data; no external actions.",
+      "group": "data",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "JSON Lines",
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_color_contrast",
+      "title": "wb color contrast",
+      "description": "Compute WCAG relative-luminance contrast and AA/AAA thresholds for opaque sRGB colors. Runs locally on supplied data; no external actions.",
+      "group": "design",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "foreground": {
+            "type": "string",
+            "description": "Hex foreground",
+            "maxLength": 7
+          },
+          "background": {
+            "type": "string",
+            "description": "Hex background",
+            "maxLength": 7
+          }
+        },
+        "required": [
+          "foreground",
+          "background"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_color_palette_pairs",
+      "title": "wb color palette pairs",
+      "description": "Evaluate every unique palette pair and identify pairs meeting a supplied contrast ratio. Runs locally on supplied data; no external actions.",
+      "group": "design",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "colors": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Hex color",
+              "maxLength": 7
+            },
+            "description": "Palette",
+            "maxItems": 30
+          },
+          "minimum": {
+            "type": "number",
+            "description": "Minimum ratio",
+            "minimum": 1,
+            "maximum": 21
+          }
+        },
+        "required": [
+          "colors",
+          "minimum"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_color_alpha_composite",
+      "title": "wb color alpha composite",
+      "description": "Composite a foreground over an opaque background in encoded sRGB channels. Runs locally on supplied data; no external actions.",
+      "group": "design",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "foreground": {
+            "type": "string",
+            "description": "Hex foreground",
+            "maxLength": 7
+          },
+          "background": {
+            "type": "string",
+            "description": "Hex background",
+            "maxLength": 7
+          },
+          "alpha": {
+            "type": "number",
+            "description": "Foreground opacity",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": [
+          "foreground",
+          "background",
+          "alpha"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_color_gradient",
+      "title": "wb color gradient",
+      "description": "Generate evenly spaced encoded-sRGB gradient stops between two colors. Runs locally on supplied data; no external actions.",
+      "group": "design",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "string",
+            "description": "First hex",
+            "maxLength": 7
+          },
+          "end": {
+            "type": "string",
+            "description": "Last hex",
+            "maxLength": 7
+          },
+          "steps": {
+            "type": "integer",
+            "description": "Number of stops",
+            "minimum": 2,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "steps"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_color_contrast_adjust",
+      "title": "wb color contrast adjust",
+      "description": "Find the nearest integer-channel mix toward black or white that meets a contrast target, or report impossible. Runs locally on supplied data; no external actions.",
+      "group": "design",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "foreground": {
+            "type": "string",
+            "description": "Hex foreground",
+            "maxLength": 7
+          },
+          "background": {
+            "type": "string",
+            "description": "Hex background",
+            "maxLength": 7
+          },
+          "target": {
+            "type": "number",
+            "description": "Target ratio",
+            "minimum": 1,
+            "maximum": 21
+          }
+        },
+        "required": [
+          "foreground",
+          "background",
+          "target"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_color_distance",
+      "title": "wb color distance",
+      "description": "Compute Euclidean OKLab perceptual distance for two opaque sRGB colors (not a contrast ratio). Runs locally on supplied data; no external actions.",
+      "group": "design",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "first": {
+            "type": "string",
+            "description": "First hex",
+            "maxLength": 7
+          },
+          "second": {
+            "type": "string",
+            "description": "Second hex",
+            "maxLength": 7
+          }
+        },
+        "required": [
+          "first",
+          "second"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_dependency_order",
+      "title": "wb dependency order",
+      "description": "Topologically order dependencies; rejects missing nodes and cycles. Runs locally on supplied data; no external actions.",
+      "group": "planning",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "nodes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Value",
+              "maxLength": 1000
+            },
+            "description": "JSON array of strings",
+            "maxItems": 500
+          },
+          "edges": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "from": {
+                  "type": "string",
+                  "description": "Predecessor",
+                  "maxLength": 100
+                },
+                "to": {
+                  "type": "string",
+                  "description": "Successor",
+                  "maxLength": 100
+                }
+              },
+              "required": [
+                "from",
+                "to"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Directed prerequisite edges",
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "nodes",
+          "edges"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_critical_path",
+      "title": "wb critical path",
+      "description": "Compute earliest start/finish and critical tasks for an acyclic dependency plan with unlimited parallel resources. Runs locally on supplied data; no external actions.",
+      "group": "planning",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "tasks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Task identifier",
+                  "maxLength": 100
+                },
+                "duration": {
+                  "type": "number",
+                  "description": "Duration",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                }
+              },
+              "required": [
+                "id",
+                "duration"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Task records",
+            "maxItems": 500
+          },
+          "edges": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "from": {
+                  "type": "string",
+                  "description": "Predecessor",
+                  "maxLength": 100
+                },
+                "to": {
+                  "type": "string",
+                  "description": "Successor",
+                  "maxLength": 100
+                }
+              },
+              "required": [
+                "from",
+                "to"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Prerequisite edges",
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "tasks",
+          "edges"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_interval_merge",
+      "title": "wb interval merge",
+      "description": "Merge overlapping or touching numeric intervals, returning total covered length. Runs locally on supplied data; no external actions.",
+      "group": "planning",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "intervals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "start": {
+                  "type": "number",
+                  "description": "Start",
+                  "minimum": -1000000000000,
+                  "maximum": 1000000000000
+                },
+                "end": {
+                  "type": "number",
+                  "description": "End",
+                  "minimum": -1000000000000,
+                  "maximum": 1000000000000
+                }
+              },
+              "required": [
+                "start",
+                "end"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Intervals",
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "intervals"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_interval_conflicts",
+      "title": "wb interval conflicts",
+      "description": "Report overlapping named intervals; touching endpoints are allowed. Runs locally on supplied data; no external actions.",
+      "group": "planning",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Identifier",
+                  "maxLength": 100
+                },
+                "start": {
+                  "type": "number",
+                  "description": "Start",
+                  "minimum": -1000000000000,
+                  "maximum": 1000000000000
+                },
+                "end": {
+                  "type": "number",
+                  "description": "End",
+                  "minimum": -1000000000000,
+                  "maximum": 1000000000000
+                }
+              },
+              "required": [
+                "id",
+                "start",
+                "end"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Event intervals",
+            "maxItems": 200
+          }
+        },
+        "required": [
+          "events"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_bin_pack",
+      "title": "wb bin pack",
+      "description": "Pack positive item sizes with first-fit decreasing; deterministic heuristic, not guaranteed optimal. Runs locally on supplied data; no external actions.",
+      "group": "planning",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sizes": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "description": "Item size",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "description": "Item sizes",
+            "maxItems": 500
+          },
+          "capacity": {
+            "type": "number",
+            "description": "Bin capacity",
+            "minimum": 0.000001,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "sizes",
+          "capacity"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "wb_round_robin_schedule",
+      "title": "wb round robin schedule",
+      "description": "Build a single round-robin tournament with byes for an odd participant count. Runs locally on supplied data; no external actions.",
+      "group": "planning",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "participants": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Participant",
+              "maxLength": 100
+            },
+            "description": "Unique participants",
+            "maxItems": 50
+          }
+        },
+        "required": [
+          "participants"
+        ],
+        "additionalProperties": false
       }
     },
     {

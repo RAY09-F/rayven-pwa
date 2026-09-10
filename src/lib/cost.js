@@ -9,7 +9,7 @@ import {ledger,ledgerBackend} from './ledger.js';
 import { MODELS } from './models.js';
 
 // $ per million tokens, input / output. Cache reads are billed at 10% of input,
-// cache writes at 125%; Message Batches at 50% of everything.
+// cache writes at 125% (5m) or 200% (1h); Message Batches at 50% of everything.
 export const PRICES = {
   [MODELS.sonnet]: { in: 2, out: 10 },
   [MODELS.haiku]: { in: 1, out: 5 }
@@ -21,7 +21,7 @@ export function usd(model, usage, { batch = false } = {}) {
   const u = usage || {};
   const inTok = Number(u.input_tokens) || 0, outTok = Number(u.output_tokens) || 0, cr = Number(u.cache_read_input_tokens) || 0, cw = Number(u.cache_creation_input_tokens) || 0;
   const hourWrites = Math.min(cw, Number(u.cache_creation?.ephemeral_1h_input_tokens) || 0);
-  let dollars = (inTok * p.in + outTok * p.out + cr * p.in * 0.1 + (cw-hourWrites)*p.in*1.25 + hourWrites*p.in*2) / 1e6;
+  let dollars = (inTok * p.in + outTok * p.out + cr * p.in * 0.1 + (cw - hourWrites) * p.in * 1.25 + hourWrites * p.in * 2) / 1e6;
   if (batch) dollars *= 0.5;
   return dollars;
 }

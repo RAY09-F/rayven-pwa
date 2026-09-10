@@ -1,3 +1,6 @@
+import {implementationToolName} from './tool-aliases.js';
+import {trackExecution} from './bridge-runs.js';
+import {routineRevision,verifyRoutineContinuation,routineHasPendingWork,activateRoutineQuestion,finishRoutineContinuation} from './routine-continuation.js';
 // ===========================================================================
 // ROUTINES (asgard-upgrade Phase 3.2/3.3/3.4)
 //
@@ -26,8 +29,8 @@
 import { isDue, stampRun, validateSchedule, describeSchedule, localParts, DEFAULT_TZ } from './schedule.js';
 import { eventMatches } from './events.js';
 import { getPersona, personaAllowsTool, PERSONAS, getPersonaBotToken, historyKeyFor, ALL_PERSONA_IDS } from './personas.js';
-import { HARD_CONFIRM_TOOLS } from './permissions.js';
-import { APPROVAL_WHILE_TAINTED } from './containment.js';
+import { HARD_CONFIRM_TOOLS, checkPermission } from './permissions.js';
+import { APPROVAL_WHILE_TAINTED, isConsequential } from './containment.js';
 import { createApproval } from './approvals.js';
 import { COUNCIL, councilOf, runCouncillor, recordCouncilRun, getCouncilStatus } from './council.js';
 import { callAnthropicSimple } from './anthropic.js';
@@ -41,7 +44,7 @@ import { listTimers } from './kit.js';
 import { getAutonomyLog } from './autonomy.js';
 import { getRecentMemoryBlock, addLongTermMemory } from './memory.js';
 import { getPaperSummaryText, getPaperStatus } from './paperTrading.js';
-import { loadConversation, saveConversation, provenance } from './conversation.js';
+import { loadConversation, saveConversation, provenance, isTainted } from './conversation.js';
 import { sendTelegramMessage, getRayanPrivateChatId } from './telegram.js';
 import { notify } from './notifications.js';
 import { noteWrites, tickLog, readTickLast } from './tick.js';
@@ -53,6 +56,8 @@ const MAX_PER_TICK = 12;
 const MAX_PER_DAY = 60;
 const MAX_RUNS_KEPT = 20;
 const MAX_STEPS = 8;
+const routineStepTitle=s=>s.read?'Read '+s.read:s.delegate?'Ask '+(COUNCIL[String(s.delegate.councillor).toLowerCase().replace(/[\s-]+/g,'_')]?.name||s.delegate.councillor):s.tool?'Request '+s.tool:s.compose?'Compose result':s.memory_append?'Request memory update':'Prepare message';
+const routineReceipt=({execution,...run})=>({...run,...(execution?{executionId:execution.id}:{})});
 const DELIVERIES = ['telegram', 'notify', 'speak', 'silent'];
 
 async function readJson(env, key, fallback) { try { const raw = await env.RAYVEN_KV.get(key); return raw ? JSON.parse(raw) : fallback; } catch (e) { return fallback; } }
@@ -184,26 +189,58 @@ async function readStep(env, s, owner, ctx) {
 // resume (Phase 6.2): { stepIndex, steps, text, runAt } -- continue a run whose
 // compose step went through the Batch API, with the composed text filled in.
 export async function runRoutine(env, routine, event, execute, resume = null) {
+  const tracking=await trackExecution(env,{persona:routine.owner,resume:resume?.execution,enabled:!resume||!!resume.execution,
+    routine:{id:routine.id,title:routine.name,plan:routine.steps.map(routineStepTitle)}});
+  const execution=tracking.id?{id:tracking.id,token:tracking.token}:null;
+  try {
+    const run=await runRoutineSteps(env,routine,event,execute,resume,execution);
+    if(execution)run.execution=execution;
+    return run;
+  } catch(error) {
+    if(execution)await finishRoutineContinuation(env,execution,'unknown').catch(()=>{});
+    throw error;
+  } finally {
+    // Child tool loops borrow this execution. Their reply completion must not
+    // finish the routine; the saved outer receipt settles its final outcome.
+    await tracking.finish('done');
+  }
+}
+
+async function runRoutineSteps(env, routine, event, execute, resume, execution) {
+  const progress=async(index,status)=>{
+    if(!execution)return;
+    try {
+      if(!await ledger.execution(env,'routineProgress',{...execution,index,status}))throw Error('Routine execution lease unavailable');
+    } catch(cause) {
+      const error=new Error('Routine execution update could not be confirmed; no further step started',{cause});
+      error.executionUnknown=true;throw error;
+    }
+  };
   const owner = routine.owner;
-  const ctx = { steps: resume ? resume.steps.slice() : [], event: event || null, date: dateCtx() };
+  const ctx = { steps: resume ? resume.steps.slice() : [], event: event || null, date: resume?.date || dateCtx() };
   const t0 = Date.now();
-  const run = { at: resume ? resume.runAt : new Date().toISOString(), event: event ? event.event : null, steps: resume ? [{ i: resume.stepIndex, summary: `composed via the Batch API: ${String(resume.text).slice(0, 60)}` }] : [], ok: true, ...(resume ? { resumedAt: new Date().toISOString() } : {}) };
+  const run = { at: resume ? resume.runAt : new Date().toISOString(), event: event ? event.event : null, steps: resume ? [...(resume.recordedSteps||[]),{ i: resume.stepIndex, summary: `${resume.kind==='question'?'Councillor answered':'composed via the Batch API'}: ${String(resume.text).slice(0, 60)}` }] : [], ok: true, ...(resume ? { resumedAt: new Date().toISOString() } : {}) };
   let writes = 0;
   let lastText = resume ? String(resume.text) : '';
-  if (resume) ctx.steps[resume.stepIndex] = { text: String(resume.text), summary: 'composed (batch)' };
+  if (resume) ctx.steps[resume.stepIndex] = { text: String(resume.text), summary: resume.kind==='question'?'councillor answered':'composed (batch)' };
   for (let i = resume ? resume.stepIndex + 1 : 0; i < routine.steps.length; i++) {
     const raw = routine.steps[i];
     const s = fill(raw, ctx);
+    if(s.tool)s.tool=implementationToolName(s.tool);
     let res;
     try {
+      await progress(i,'in_progress');
       if (s.tool) {
-        if (needsApproval(s.tool)) {
-          const ap = await createApproval(env, { persona: owner, tool: s.tool, input: s.args || {}, tainted: false, sources: [], provenance: `routine "${routine.name}"${event ? ` on event ${event.event}` : ' (scheduled)'}`, channel: 'routine' });
+        if(!personaAllowsTool(owner,s.tool))throw Error('Tool is outside this hall: '+s.tool);
+        const permission=await checkPermission(env,s.tool);
+        if(permission==='off')throw Error('Tool is turned off: '+s.tool);
+        if (needsApproval(s.tool)||permission==='confirm'||resume?.tainted&&(APPROVAL_WHILE_TAINTED.has(s.tool)||isConsequential(s.tool))) {
+          const ap = await createApproval(env, { persona: owner, tool: s.tool, input: s.args || {}, tainted: !!resume?.tainted, sources: resume?.tainted?['resumed routine context']:[], provenance: `routine "${routine.name}"${event ? ` on event ${event.event}` : ' (scheduled)'}`, channel: 'routine' });
           writes += 1; res = { text: ap.ok ? `queued for Rayan's approval (#${ap.id})` : `could not queue: ${ap.error}`, summary: `approval ${ap.ok ? ap.id : 'failed'}` };
         } else {
           if (IRREVERSIBLE_TOOLS.has(s.tool)) {
             const c = await critic(env, routine, `${s.tool} ${JSON.stringify(s.args || {})}`, event);
-            if (!c.ok) { const ap = await createApproval(env, { persona: owner, tool: s.tool, input: s.args || {}, tainted: false, sources: [], provenance: `routine "${routine.name}" — critic said: ${c.why}`, channel: 'routine' }); writes += 1; res = { text: `held for approval (#${ap.id}): ${c.why}`, summary: 'critic held it' }; ctx.steps.push(res); run.steps.push({ i, kind: s.tool, summary: res.summary }); continue; }
+            if (!c.ok) { const ap = await createApproval(env, { persona: owner, tool: s.tool, input: s.args || {}, tainted: !!resume?.tainted, sources: resume?.tainted?['resumed routine context']:[], provenance: `routine "${routine.name}" — critic said: ${c.why}`, channel: 'routine' }); writes += 1; res = { text: `held for approval (#${ap.id}): ${c.why}`, summary: 'critic held it' }; ctx.steps.push(res); run.steps.push({ i, kind: s.tool, summary: res.summary }); await progress(i,'done'); continue; }
           }
           const out = await execute(env, s.tool, s.args || {}, owner);
           const text = typeof out === 'string' ? out : JSON.stringify(out);
@@ -211,7 +248,14 @@ export async function runRoutine(env, routine, event, execute, resume = null) {
         }
       } else if (s.delegate) {
         const cid = String(s.delegate.councillor).toLowerCase().replace(/[\s-]+/g, '_');
-        const r = await runCouncillor(env, cid, s.delegate.task, {});
+        const routineContinuation={routineId:routine.id,owner,revision:await routineRevision(routine),stepIndex:i,
+          title:routine.name,plan:routine.steps.map(routineStepTitle),steps:structuredClone(ctx.steps),recordedSteps:structuredClone(run.steps),date:ctx.date,runAt:run.at,event:event||null};
+        const r = await runCouncillor(env, cid, s.delegate.task, {routineContinuation,executionResume:execution,convo:resume?.meta?{meta:resume.meta,channel:'background'}:undefined});
+        if(r.paused){
+          run.paused=true;run.execution=r.execution;run.delivered='waiting for your answer';
+          run.steps.push({i,summary:'Waiting for your answer in the Bridge'});run.ms=Date.now()-t0;run.writes=writes;
+          return run;
+        }
         await recordCouncilRun(env, cid, { summary: `Routine "${routine.name}": ${String(s.delegate.task).slice(0, 60)}`, detail: r.summary, didSomething: (r.actions || []).length > 0, patch: { lastRoutine: routine.id } });
         if ((r.actions || []).length) writes += 1;
         res = { text: r.summary, summary: `${COUNCIL[cid].name}: ${r.summary.slice(0, 60)}`, ok: r.ok };
@@ -223,7 +267,7 @@ export async function runRoutine(env, routine, event, execute, resume = null) {
         if (s.compose.batch) {
           // Phase 6.2: off the live bill. Submit, remember where we were, and stop; the tick's
           // collector resumes this run (from the next step) when the batch comes back.
-          const sub = await submitAndRemember(env, 'routine-compose', [{ custom_id: `${routine.id}:${i}:${Date.now()}`.slice(0, 64), model, max_tokens: s.compose.maxTokens || 700, system, messages: [{ role: 'user', content: user }] }], { routineId: routine.id, stepIndex: i, steps: ctx.steps.map(x => ({ text: x.text, summary: x.summary })), event: event || null, runAt: run.at, model });
+          const sub = await submitAndRemember(env, 'routine-compose', [{ custom_id: `${routine.id}:${i}:${Date.now()}`.slice(0, 64), model, max_tokens: s.compose.maxTokens || 700, system, messages: [{ role: 'user', content: user }] }], { routineId: routine.id, stepIndex: i, steps: ctx.steps.map(x => ({ text: x.text, summary: x.summary })), event: event || null, runAt: run.at, model, execution,owner,revision:await routineRevision(routine),date:ctx.date,recordedSteps:run.steps,tainted:resume?.tainted,conversationMeta:resume?.meta });
           if (!sub.ok) throw new Error(`batch submit failed: ${sub.error}`);
           writes += 1;
           run.steps.push({ i, summary: 'compose submitted to the Batch API; the run resumes when it comes back (up to 24 h)' });
@@ -241,18 +285,20 @@ export async function runRoutine(env, routine, event, execute, resume = null) {
         const text = String(s.memory_append.text || '').trim();
         if (!text || /^NOTHING$/i.test(text)) res = { text: 'nothing to append', summary: 'nothing to append' };
         else {
-          const c = await critic(env, routine, `append to ${persona}'s long-term memory: ${text.slice(0, 500)}`, event);
-          if (!c.ok) { const ap = await createApproval(env, { persona: owner, tool: 'remember_this', input: { fact: text }, tainted: false, sources: [], provenance: `routine "${routine.name}" — critic said: ${c.why}`, channel: 'routine' }); writes += 1; res = { text: `held for approval (#${ap.id}): ${c.why}`, summary: 'critic held it' }; }
+          const c = resume?.tainted?{ok:false,why:'resumed routine contains untrusted content'}:await critic(env, routine, `append to ${persona}'s long-term memory: ${text.slice(0, 500)}`, event);
+          if (!c.ok) { const ap = await createApproval(env, { persona: owner, tool: 'remember_this', input: { fact: text }, tainted: !!resume?.tainted, sources: resume?.tainted?['resumed routine context']:[], provenance: `routine "${routine.name}" — critic said: ${c.why}`, channel: 'routine' }); writes += 1; res = { text: `held for approval (#${ap.id}): ${c.why}`, summary: 'critic held it' }; }
           else { await addLongTermMemory(env, text, persona, null, provenance(`routine:${routine.id}`, persona, 'trusted-tool')); writes += 2; res = { text: 'appended to memory', summary: 'memory appended' }; }
         }
       } else if (typeof s.say === 'string') {
         res = { text: s.say, summary: s.say.slice(0, 60) };
       } else throw new Error(`unknown step ${i + 1}`);
     } catch (err) {
+      if(err?.executionUnknown)throw err;
       run.ok = false; run.error = `step ${i + 1}: ${err && err.message ? err.message : String(err)}`;
       run.steps.push({ i, error: run.error });
       break;
     }
+    await progress(i,'done');
     ctx.steps.push(res);
     run.steps.push({ i, summary: res.summary });
     lastText = res.text || lastText;
@@ -303,6 +349,7 @@ export async function runRoutinesIfDue(env, events, execute) {
     if (entry.enabled === false || entry.deleted) continue;
     const r = await readRoutine(env, entry.id);
     if (!r || r.enabled === false || r.deleted) continue;
+    if(await routineHasPendingWork(env,r.id)){results.push({id:r.id,skipped:'waiting for an answer or unfinished continuation'});continue;}
     let fired = null;
     if (r.trigger.kind === 'event') { fired = (events || []).find(ev => eventMatches(r.trigger, ev)) || null; if (!fired) continue; }
     else {
@@ -315,8 +362,8 @@ export async function runRoutinesIfDue(env, events, execute) {
     if (today_runs >= MAX_PER_DAY) { results.push({ id: r.id, skipped: 'daily cap' }); tickLog('notes', { routine: r.id, note: 'daily routine cap reached' }); await writeRoutine(env, r); continue; }
     const run = await runRoutine(env, r, fired, execute);
     ran++; today_runs++;
-    r.runs = [...(r.runs || []), run].slice(-MAX_RUNS_KEPT);
-    r.failures = run.ok ? 0 : (r.failures || 0) + 1;
+    r.runs = [...(r.runs || []), routineReceipt(run)].slice(-MAX_RUNS_KEPT);
+    r.failures = run.paused ? (r.failures||0) : run.ok ? 0 : (r.failures || 0) + 1;
     if (!run.ok && r.failures >= 3) {
       r.enabled = false; r.pausedReason = `3 failures in a row; last: ${run.error}`;
       const idx = index.find(e => e.id === r.id); if (idx) { idx.enabled = false; await writeIndex(env, index); }
@@ -324,7 +371,8 @@ export async function runRoutinesIfDue(env, events, execute) {
     }
     if (r.intro && run.delivered && /^(telegram|notify|speak)$/.test(run.delivered)) r.intro = false;
     await writeRoutine(env, r);
-    tickLog('autonomy', { persona: r.owner, councillor: null, summary: `Routine "${r.name}" ${run.ok ? 'ran' : 'FAILED'}${fired ? ` on ${fired.event}` : ''}: ${run.delivered || run.error || ''}`, time: run.at });
+    await activateRoutineQuestion(env,run);
+    tickLog('autonomy', { persona: r.owner, councillor: null, summary: `Routine "${r.name}" ${run.paused ? 'WAITING' : run.ok ? 'ran' : 'FAILED'}${fired ? ` on ${fired.event}` : ''}: ${run.delivered || run.error || ''}`, time: run.at });
     results.push({ id: r.id, ok: run.ok, delivered: run.delivered, error: run.error });
   }
   // patchLast only when something ran -- otherwise the pointer key would be
@@ -361,7 +409,7 @@ export async function routineList(env, owner) {
   const index = (await readIndex(env)).filter(e => visibleTo(owner, e) && !e.deleted);
   if (!index.length) return 'No routines yet. Describe one and I will set it up.';
   const rows = [];
-  for (const e of index) { const r = await readRoutine(env, e.id); if (!r) continue; const lastRun = (r.runs || []).slice(-1)[0]; rows.push(`${r.enabled ? '●' : '○'} ${describeRoutine(r)}${lastRun ? ` Last run ${lastRun.at.slice(0, 16).replace('T', ' ')} ${lastRun.ok ? 'ok' : 'FAILED'}.` : ' Not run yet.'}${r.pausedReason ? ` PAUSED: ${r.pausedReason}` : ''}`); }
+  for (const e of index) { const r = await readRoutine(env, e.id); if (!r) continue; const lastRun = (r.runs || []).slice(-1)[0]; rows.push(`${r.enabled ? '●' : '○'} ${describeRoutine(r)}${lastRun ? ` Last run ${lastRun.at.slice(0, 16).replace('T', ' ')} ${lastRun.paused ? 'WAITING' : lastRun.ok ? 'ok' : 'FAILED'}.` : ' Not run yet.'}${r.pausedReason ? ` PAUSED: ${r.pausedReason}` : ''}`); }
   return rows.join('\n');
 }
 
@@ -397,9 +445,12 @@ export async function routineRunNow(env, owner, match, execute) {
   const { hit } = await findMine(env, owner, match);
   if (!hit) return `No routine matching "${match}".`;
   const r = await readRoutine(env, hit.id); if (!r) return 'That routine is missing.';
+  if(await routineHasPendingWork(env,r.id))return 'This routine already has waiting or unfinished work. Check the Bridge before starting it again.';
   const run = await runRoutine(env, r, null, execute);
-  r.runs = [...(r.runs || []), run].slice(-MAX_RUNS_KEPT);
+  r.runs = [...(r.runs || []), routineReceipt(run)].slice(-MAX_RUNS_KEPT);
   await writeRoutine(env, r);
+  await activateRoutineQuestion(env,run);
+  if(run.paused)return `Paused "${r.name}": waiting for your answer in the Bridge.`;
   return run.ok ? `Ran "${r.name}": ${run.delivered}. ${run.steps.map(s => s.summary).filter(Boolean).slice(-2).join(' / ')}` : `"${r.name}" failed: ${run.error}`;
 }
 
@@ -409,7 +460,7 @@ export async function routineHistory(env, owner, match) {
   const r = await readRoutine(env, hit.id); if (!r) return 'That routine is missing.';
   const runs = (r.runs || []).slice(-10).reverse();
   if (!runs.length) return `"${r.name}" has not run yet.`;
-  return `"${r.name}" — last ${runs.length} runs:\n` + runs.map(x => `${x.at.slice(0, 16).replace('T', ' ')} ${x.ok ? 'ok' : 'FAILED ' + (x.error || '')}${x.event ? ` on ${x.event}` : ''} → ${x.delivered || ''} (${x.ms} ms)`).join('\n');
+  return `"${r.name}" — last ${runs.length} runs:\n` + runs.map(x => `${x.at.slice(0, 16).replace('T', ' ')} ${x.paused ? 'WAITING' : x.ok ? 'ok' : 'FAILED ' + (x.error || '')}${x.event ? ` on ${x.event}` : ''} → ${x.delivered || ''} (${x.ms} ms)`).join('\n');
 }
 
 // ROUTINE_TOOL_DEFINITIONS lives in routineTools.js (no imports) so tools.js
@@ -447,20 +498,32 @@ const SEEDS = [
 
 // Phase 6.2: a batched compose step came back -- continue the run from the next step.
 export async function resumeBatchedRoutine(env, entry, results, execute) {
-  const meta = entry && entry.meta ? entry.meta : {};
-  const r = meta.routineId ? await readRoutine(env, meta.routineId) : null;
-  if (!r) return { note: 'routine no longer exists' };
-  const res = (results || []).find(x => x && x.text);
-  let run;
-  if (!res) run = { at: meta.runAt || new Date().toISOString(), resumedAt: new Date().toISOString(), ok: false, error: `batch returned no text (${(results || []).map(x => x && x.error).filter(Boolean).join('; ') || 'empty'})`, steps: [], delivered: null };
-  else {
-    if (res.usage) tickLog('cost', costLine({ persona: r.owner, councillor: null, model: meta.model || MODELS.haiku, usage: res.usage, source: `routine-batch:${r.id}`, batch: true }));
-    run = await runRoutine(env, r, meta.event || null, execute, { stepIndex: Number(meta.stepIndex) || 0, steps: Array.isArray(meta.steps) ? meta.steps : [], text: String(res.text).trim(), runAt: meta.runAt || new Date().toISOString() });
+  const meta=entry?.meta||{};
+  let r=meta.routineId?await readRoutine(env,meta.routineId):null;
+  if(meta.execution){
+    try{r=await verifyRoutineContinuation(env,meta);}
+    catch{await finishRoutineContinuation(env,meta.execution,'failed');return {note:'Routine changed or was disabled; batch continuation was not executed.'};}
+    if(!await ledger.execution(env,'resumeRoutineBatch',meta.execution))return {note:'Batch continuation already claimed or no longer available; nothing repeated.'};
   }
-  r.runs = [...(r.runs || []), run].slice(-MAX_RUNS_KEPT);
-  r.failures = run.ok ? 0 : (r.failures || 0) + 1;
-  await writeRoutine(env, r);
-  return { note: `resumed "${r.name}": ${run.ok ? run.delivered : run.error}` };
+  if(!r)return {note:'routine no longer exists'};
+  const res=(results||[]).find(x=>x&&x.text);
+  let run;
+  try {
+    if(!res)run={at:meta.runAt||new Date().toISOString(),ok:false,error:'Batch returned no text.',steps:[],delivered:null};
+    else{
+      if(res.usage)tickLog('cost',costLine({persona:r.owner,councillor:null,model:meta.model||MODELS.haiku,usage:res.usage,source:`routine-batch:${r.id}`,batch:true}));
+      if(meta.execution&&!await ledger.execution(env,'routineProgress',{...meta.execution,index:meta.stepIndex,status:'done'}))throw Error('Batch execution update unavailable');
+      run=await runRoutine(env,r,meta.event||null,execute,{stepIndex:Number(meta.stepIndex)||0,steps:meta.steps||[],text:String(res.text).trim(),runAt:meta.runAt||new Date().toISOString(),execution:meta.execution,date:meta.date,recordedSteps:meta.recordedSteps,tainted:meta.tainted,meta:meta.conversationMeta});
+    }
+    r.runs=[...(r.runs||[]).filter(old=>!meta.execution||old.at!==run.at),routineReceipt(run)].slice(-MAX_RUNS_KEPT);
+    r.failures=run.paused?(r.failures||0):run.ok?0:(r.failures||0)+1;
+    await writeRoutine(env,r);await activateRoutineQuestion(env,run);
+    if(meta.execution&&!run.paused)await finishRoutineContinuation(env,meta.execution,run.batched?'queued':run.ok?'done':'failed');
+    return {note:`resumed "${r.name}": ${run.ok?run.delivered:run.error}`};
+  } catch(error){
+    if(meta.execution)await finishRoutineContinuation(env,meta.execution,'unknown').catch(()=>{});
+    throw error;
+  }
 }
 
 export async function seedRoutinesIfMissing(env) {
@@ -513,3 +576,15 @@ export async function enableTemplate(env, owner, query) {
   return `On: "${t.name}" — ${say}. It runs by itself from now; say "pause ${t.name.toLowerCase()}" to stop it.${/\$event\.payload|ntfy_push/.test(JSON.stringify(t.steps)) ? ' (Some of these use the phone push, which needs the NTFY_TOPIC secret.)' : ''}`;
 }
 export async function templatesText() { const { listTemplates } = await import('./templates.js'); return 'Things I can automate — say the sentence to switch one on:\n' + listTemplates().map(t => `- ${t.say}  [${t.owner}]`).join('\n'); }
+
+// Continue only the steps following the councillor that asked the question.
+export async function resumeQuestionRoutine(env,saved,text,execute,execution,meta) {
+  const r=await verifyRoutineContinuation(env,saved);
+  if(!await ledger.execution(env,'routineProgress',{...execution,index:saved.stepIndex,status:'done'}))throw Error('Routine execution lease unavailable');
+  const run=await runRoutine(env,r,saved.event,execute,{...saved,kind:'question',text,execution,meta,tainted:isTainted(meta)});
+  r.runs=[...(r.runs||[]).filter(old=>old.at!==run.at),routineReceipt(run)].slice(-MAX_RUNS_KEPT);
+  r.failures=run.paused?(r.failures||0):run.ok?0:(r.failures||0)+1;
+  await writeRoutine(env,r);
+  await activateRoutineQuestion(env,run);
+  return run;
+}

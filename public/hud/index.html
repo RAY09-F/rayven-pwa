@@ -6,8 +6,8 @@
 <title>ASGARD · Council HUD</title>
 <meta name="description" content="ASGARD three-realm council HUD — Thor, Loki and Odin.">
 
-<link rel="stylesheet" href="/ui/hud-real-v1/hud/fonts.css">
-<link rel="stylesheet" href="/ui/hud-real-v1/hud/hud.css">
+<link rel="stylesheet" href="/ui/hud/fonts.css">
+<link rel="stylesheet" href="/ui/hud/hud.css">
 <style>
 /* Recorded conversations can be much longer than the reference examples. */
 .hud-art .msgs{min-height:0;overflow:auto;overscroll-behavior:contain}
@@ -18,10 +18,8 @@
 <body>
 <div class="hud-host" id="hud"></div>
 <script type="module">
-import {createHUD} from '/ui/hud-real-v1/hud/hud.js';
+import {createHUD} from '/ui/hud/hud.js';
 const q = new URLSearchParams(location.search);
-const requestedRealm = q.get('hall') || q.get('persona');
-if (!location.hash && ['thor','loki','odin'].includes(requestedRealm)) location.hash = requestedRealm;
 const flag = (k, d) => q.has(k) ? q.get(k) !== 'false' && q.get(k) !== '0' : d;
 window.AsgardHUD = createHUD(document.getElementById('hud'), {
  scanlines: flag('scanlines', true),

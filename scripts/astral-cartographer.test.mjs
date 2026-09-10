@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as T from '../public/ui/astral-v1/vendor/three.module.min.js';
-import {buildAstralCartographer, ASTRAL_AGENT_IDS} from '../public/ui/astral-v1/astral-cartographer-model.js';
+import * as T from '../public/ui/vendor/three.module.min.js';
+import {buildAstralCartographer, ASTRAL_AGENT_IDS} from '../public/ui/astral-cartographer-model.js';
 
 function seeded(seed = 1977) {
   return () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);

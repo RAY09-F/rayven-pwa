@@ -1,0 +1,5 @@
+import {readTool,field} from './api-tool.js';
+export const TOOLS=[
+ readTool({name:'util_openalex',description:'Find scholarly works in OpenAlex, with titles, years and source links. Keyless casual access; availability is subject to shared limits.',properties:{query:field('Research topic')},required:['query'],example:{query:'urban heat islands'},request:(_,i)=>({url:`https://api.openalex.org/works?search=${encodeURIComponent(i.query)}&per-page=5`}),select:v=>v.results.map(r=>({title:r.display_name,year:r.publication_year,doi:r.doi,url:r.id,citations:r.cited_by_count}))}),
+ readTool({name:'util_pubmed',description:'Find PubMed article identifiers for a health research query. A search result is not medical advice.',properties:{query:field('Research query')},required:['query'],example:{query:'sleep duration review'},request:(_,i)=>({url:`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(i.query)}&retmode=json&retmax=5`}),select:v=>({count:v.esearchresult.count,articles:v.esearchresult.idlist.map(id=>({id,url:`https://pubmed.ncbi.nlm.nih.gov/${id}/`}))})})
+];

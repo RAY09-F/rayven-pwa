@@ -14,7 +14,8 @@
 // One KV key, `approvals`, capped at 50. Creating one is the ONE extra write
 // the reply path is allowed (Rule 5a); resolving one is a second, on a turn
 // Rayan explicitly started. Both are counted against the Rule 5e ceiling.
-import { HARD_CONFIRM_TOOLS } from './permissions.js';
+import { HARD_CONFIRM_TOOLS, checkPermission } from './permissions.js';
+import { ledger } from './ledger.js';
 import { getPersonaBotToken, getPersona } from './personas.js';
 import { sendTelegramMessage, getRayanPrivateChatId } from './telegram.js';
 import { describeAction } from './containment.js';
@@ -67,6 +68,40 @@ export async function createApproval(env, { persona, tool, input, tainted, sourc
 
 function firstLine(s) { return String(s || '').split('\n')[0].slice(0, 80); }
 
+export async function approvalRevision(rec) {
+  const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify([rec.id,rec.persona,rec.createdAt,rec.expiresAt,rec.tool,rec.input])));
+  return Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,'0')).join('');
+}
+export async function readApproval(env,id,persona) {
+  return (await readAll(env)).find(a=>a.id===String(id)&&a.persona===persona)||null;
+}
+
+async function claim(env,rec,revision,required=false) {
+  if(!env.LEDGER){if(required)throw Error('Approval coordination is unavailable. Nothing was executed.');return null;}
+  const fields={key:rec.persona+':'+rec.id+':'+rec.createdAt,revision,token:crypto.randomUUID()};
+  let result;try{result=await ledger.approvalClaim(env,'claim',fields);}catch{throw Error('Approval coordination could not respond. Nothing was executed. Refresh before trying again.');}
+  if(!result.ok)throw Error(result.message);
+  return fields;
+}
+async function finish(env,fields,status,revision,message) {
+  if(fields)await ledger.approvalClaim(env,'finish',{...fields,status,revision,message});
+}
+
+export async function editApproval(env,id,persona,input,expectedRevision) {
+  const list=await readAll(env),rec=list.find(a=>a.id===String(id)&&a.persona===persona);
+  if(!rec||rec.status!=='pending'||(!Number.isFinite(Date.parse(rec.expiresAt))||Date.parse(rec.expiresAt)<=Date.now()))return {ok:false,text:'This approval is no longer waiting. Refresh its record.'};
+  const revision=await approvalRevision(rec);
+  if(revision!==expectedRevision)return {ok:false,text:'The proposed action changed. Read it again before editing.'};
+  let held;
+  try {
+    held=await claim(env,rec,revision,true);
+    rec.input=input;rec.description=describeAction(rec.tool,input,true,[rec.provenance||'previous proposal']);rec.editedAt=new Date().toISOString();
+    await writeAll(env,list);
+    await finish(env,held,'pending',await approvalRevision(rec),'The proposal was edited; it still needs approval.');
+    return {ok:true,text:'Saved your changes. The action is still waiting for approval.'};
+  }catch(error){if(held)await finish(env,held,'unknown',revision,'An edit was interrupted. Refresh and inspect the saved proposal.').catch(()=>{});return {ok:false,text:error.message};}
+}
+
 export async function listApprovals(env) {
   const list = (await readAll(env)).filter(a => a.status === 'pending' && Date.parse(a.expiresAt) > Date.now());
   if (!list.length) return 'Nothing is waiting for approval.';
@@ -82,17 +117,27 @@ export function matchApprovalReply(text) {
 
 // Resolve one. `execute(env, tool, input, personaId)` is passed in so this
 // module does not import the dispatcher (which imports this module).
-export async function resolveApproval(env, id, decision, execute) {
+export async function resolveApproval(env, id, decision, execute, options={}) {
   const list = await readAll(env);
   const rec = list.find(a => a.id === String(id));
   if (!rec) return { ok: false, text: `No approval numbered ${id}.` };
+  if(!['approve','reject'].includes(decision))return {ok:false,text:'Unknown approval decision. Nothing was executed.'};
+  if(options.persona&&options.persona!==rec.persona)return {ok:false,text:'That approval belongs to another hall.'};
   if (rec.status !== 'pending') return { ok: false, text: `Approval ${id} was already ${rec.status}.` };
-  if (Date.parse(rec.expiresAt) < Date.now()) { rec.status = 'expired'; await writeAll(env, list); return { ok: false, text: `Approval ${id} expired.` }; }
+  if (!Number.isFinite(Date.parse(rec.expiresAt)) || Date.parse(rec.expiresAt) <= Date.now()) { rec.status = 'expired'; await writeAll(env, list); return { ok: false, text: `Approval ${id} expired.` }; }
+
+  const revision=await approvalRevision(rec);
+  if(options.revision&&options.revision!==revision)return {ok:false,text:'The proposed action changed. Review it again before approving.'};
+  if(decision==='approve'&&await checkPermission(env,rec.tool)==='off')return {ok:false,text:'This tool is turned off. Nothing was executed.'};
+  let held;
+  try{held=await claim(env,rec,revision,options.requireClaim);}catch(error){return {ok:false,text:error.message};}
+  try {
 
   if (decision === 'reject') {
     rec.status = 'rejected'; rec.resolvedAt = new Date().toISOString();
     await writeAll(env, list);
     emit('approval.resolved', { id: rec.id, tool: rec.tool, decision: 'rejected' });
+    await finish(env,held,'rejected',revision,'This approval was rejected. Nothing was executed.');
     return { ok: true, text: `Rejected ${id}. Nothing was ${rec.tool === 'send_text' ? 'sent' : 'done'}.`, record: rec };
   }
 
@@ -101,6 +146,7 @@ export async function resolveApproval(env, id, decision, execute) {
     rec.status = 'approved'; rec.resolvedAt = new Date().toISOString(); rec.note = 'staged for live confirmation';
     await writeAll(env, list);
     await env.RAYVEN_KV.put(`pending:${rec.persona}`, JSON.stringify({ toolName: rec.tool, toolInput: rec.input, personaId: rec.persona, created: Date.now(), approvalId: rec.id }), { expirationTtl: 300 });
+    await finish(env,held,'approved',revision,'Approved and staged for the existing live confirmation. Nothing sent yet.');
     return { ok: true, text: `Approved ${id}. This one still needs your live word — it is a real ${rec.tool === 'send_text' ? 'text' : 'call'}:\n\n${rec.description}\n\nSay "yes" or "go ahead" within 5 minutes and ${getPersona(rec.persona).name} will do exactly that.`, record: rec, staged: true };
   }
 
@@ -109,9 +155,11 @@ export async function resolveApproval(env, id, decision, execute) {
   emit('approval.resolved', { id: rec.id, tool: rec.tool, decision: 'approved' });
   let result;
   try { result = await execute(env, rec.tool, rec.input, rec.persona); }
-  catch (e) { result = `That tool failed: ${e && e.message ? e.message : String(e)}`; }
+  catch (e) { await finish(env,held,'unknown',revision,'The tool call was interrupted; its outcome is unknown. Inspect its records before retrying.');return {ok:false,text:'The tool call was interrupted; its outcome is unknown. Inspect its records before retrying.',record:rec}; }
   const text = typeof result === 'string' ? result : JSON.stringify(result).slice(0, 1500);
-  return { ok: true, text: `Approved ${id} — ran ${rec.tool}.\n${text}`, record: rec, result };
+  await finish(env,held,'approved',revision,'Approval handled. Inspect the tool result for its outcome.');
+  return { ok: true, text: `Approved ${id} — ${rec.tool} returned:\n${text}`, record: rec, result };
+  }catch(error){if(held)await finish(env,held,'unknown',revision,'Approval handling was interrupted. Its outcome needs checking.').catch(()=>{});return {ok:false,text:'Approval handling was interrupted. Its outcome needs checking before retrying.'};}
 }
 
 export const APPROVAL_TOOL_DEFINITIONS = [

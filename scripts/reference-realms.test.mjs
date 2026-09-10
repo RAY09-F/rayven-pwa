@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import * as THREE from '../public/ui/prism-v1/vendor/three.module.min.js';
-import {createThor} from '../public/ui/prism-v1/realm-thor.js';
-import {createLoki} from '../public/ui/prism-v1/realm-loki.js';
-import {createOdin} from '../public/ui/prism-v1/realm-odin.js';
-import {createRealm} from '../public/ui/prism-v1/realm-architecture.js';
-import {CAST} from '../public/ui/prism-v1/council-data.js';
-import {clampLayout,clampView,normalizedSceneState,COUNCIL_POSITIONS} from '../public/ui/prism-v1/realm-controls.js';
+import * as THREE from '../public/ui/vendor/three.module.min.js';
+import {createThor} from '../public/ui/realm-thor.js';
+import {createLoki} from '../public/ui/realm-loki.js';
+import {createOdin} from '../public/ui/realm-odin.js';
+import {createRealm} from '../public/ui/realm-architecture.js';
+import {CAST} from '../public/ui/council-data.js';
+import {clampLayout,clampView,normalizedSceneState,COUNCIL_POSITIONS} from '../public/ui/realm-controls.js';
 
 const factories={thor:createThor,loki:createLoki,odin:createOdin};
 const states=['idle','connecting','permission-pending','listening','thinking','speaking','error','cancelled'];
@@ -88,7 +88,7 @@ test('state, layout and camera inputs normalize malformed data and enforce bound
 });
 test('production scene and factories do not import or load reference photographs',async()=>{
  for(const file of ['scene.js','realm-thor.js','realm-loki.js','realm-odin.js','realm-architecture.js']){
-  const source=await readFile(new URL('../public/ui/prism-v1/'+file,import.meta.url),'utf8');
+  const source=await readFile(new URL('../public/ui/'+file,import.meta.url),'utf8');
   assert.doesNotMatch(source,/(?:import|load|fetch|src\s*=)[^\n;]*\.(?:jpe?g|png|webp)\b/i,file);
   assert.doesNotMatch(source,/references\/|asgard-reference-build-pack\//i,file);
  }

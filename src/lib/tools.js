@@ -1,4 +1,10 @@
 import {modelRoundLimit, boundedToolResult} from './cost-policy.js';
+import {QUESTION_TOOL,validQuestion} from './bridge-question.js';
+import {trackExecution} from './bridge-runs.js';
+import { councilToolAllowed } from './council-scope.js';
+import { discoveryTools, discoveryPrompt, cacheToolPrefix, capToolResult } from './tool-discovery.js';
+import { CONTEXT_DEFINITIONS, contextTool } from './context-tools.js';
+import { implementationToolName, aliasSchemas } from './tool-aliases.js';
 // The tool schema array Claude sees, the executeTool dispatcher, and the
 // tool-use loop (callClaudeWithTools). This is the most-imported module — it wires
 // together every integration module into what RAYVEN can actually do. Ported
@@ -57,6 +63,8 @@ const TASK_LOG_CAP = 500;
 // ctx (optional): { tainted, meta } from the turn that is calling -- so a
 // memory write can carry honest provenance and a tool can see the session.
 export async function executeTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {}) {
+  name = implementationToolName(name);
+  if (!councilToolAllowed(ctx.scope, name)) return `Tool blocked: ${name} is outside the active councillor's permissions. Nothing was executed.`;
   const startedAt = Date.now();
   let success = true;
   let error = null;
@@ -89,6 +97,7 @@ export async function getTaskLog(env) {
 
 async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {}) {
   switch (name) {
+    case 'util_context': case 'plan_today': case 'world_here': return contextTool(env, name);
     case 'web_search': return await runWebSearch(env, input.query);
     case 'tavily_research': return await tavilySearch(env, input.query);
     case 'tavily_extract': return await tavilyExtract(env, input.url);
@@ -104,7 +113,7 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {
     case 'routine_delete': return await routineDelete(env, personaId, input && input.match);
     case 'routine_run_now': return await routineRunNow(env, personaId, input && input.match, (e, t, i, p) => executeTool(e, t, i, p));
     case 'routine_history': return await routineHistory(env, personaId, input && input.match);
-    case 'delegate': { const { delegate } = await import('./council.js'); return await delegate(env, personaId, input || {}, { meta: ctx && ctx.meta, channel: ctx && ctx.channel }); }
+    case 'delegate': { const { delegate } = await import('./council.js'); return await delegate(env, personaId, input || {}, { meta: ctx && ctx.meta, channel: ctx && ctx.channel, scope: ctx && ctx.scope }); }
     case 'approve': return (await resolveApproval(env, input && input.id, 'approve', (e, t, i, p) => executeTool(e, t, i, p))).text;
     case 'reject': return (await resolveApproval(env, input && input.id, 'reject', (e, t, i, p) => executeTool(e, t, i, p))).text;
     case 'search_memory': return await searchMemory(env, input, personaId);
@@ -280,6 +289,8 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {
 }
 
 export const TOOL_DEFINITIONS = [
+  ...CONTEXT_DEFINITIONS,
+  QUESTION_TOOL,
   {
     name: 'web_search',
     description: "Quick Google search via SerpAPI for current, real-time, or factual info.",
@@ -817,7 +828,7 @@ TOOL_DEFINITIONS.push(...ROUTINE_TOOL_DEFINITIONS);
 TOOL_DEFINITIONS.push({ name: 'flag_capability', description: 'Mark one of your saved capabilities as broken, with the error it gave. A flag only -- it stays saved until you forget it yourself.', input_schema: { type: 'object', properties: { name: { type: 'string' }, error: { type: 'string' } }, required: ['name'] } });
 TOOL_DEFINITIONS.push({
   name: 'delegate',
-  description: 'Hand a task to one of YOUR OWN five councillors by name or id. wait true (default) runs it now and returns the report into this turn; wait false queues it for the next five-minute tick and the report arrives on your Telegram bot. A councillor uses only its own narrow tools and can never send a text, call, or post -- it hands those back for confirmation.',
+  description: 'Hand a task to one of YOUR OWN five councillors by name or id. wait true (default) selects a narrow profile for this same turn without a separate model call; wait false queues it for the next five-minute tick and the report is saved for your next hall visit; no outgoing message is sent. A councillor uses only its own narrow tools and can never send a text, call, or post -- it hands those back for confirmation.',
   input_schema: { type: 'object', properties: { councillor: { type: 'string', description: 'councillor name or id, e.g. "jane_foster"' }, task: { type: 'string', description: 'the task, plainly, with everything the councillor needs' }, wait: { type: 'boolean', description: 'default true' } }, required: ['councillor', 'task'] }
 });
 
@@ -855,8 +866,8 @@ export function toolDefinitionsForPersona(personaId) {
   // fourth's tools this is not merely tidiness: a tool NAME in the schema is
   // itself a disclosure, so the three upstairs must never be handed them.
   const allowed = TOOL_DEFINITIONS.filter(t => personaAllowsTool(personaId, t.name) || isCatalogTool(t.name));   // Phase 7: the catalogue is open to every persona
-  if (persona.toolNames === null) return allowed;
-  return allowed.filter(t => persona.toolNames.includes(t.name) || isCatalogTool(t.name));   // Phase 7: the catalogue rides along for every god
+  if (persona.toolNames === null) return aliasSchemas(allowed);
+  return aliasSchemas(allowed.filter(t => persona.toolNames.includes(t.name) || isCatalogTool(t.name) || t.name === QUESTION_TOOL.name || CONTEXT_DEFINITIONS.some(c => c.name === t.name)));   // Phase 7: the catalogue rides along for every god
 }
 
 // Put an ephemeral cache breakpoint on the final content block of the last
@@ -905,35 +916,61 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   trace.councillor = opts.councillor || null;
   trace.triggeringEventId = opts.triggeringEventId || null;
   const actions = [];
+  const scope = opts.executionResume && opts.scope ? structuredClone(opts.scope) : opts.scope || { councillor: null, tools: [] };
+  if(opts.executionResume && scope.councillor){
+    const {COUNCIL}=await import('./council.js');
+    const current=COUNCIL[scope.councillor];
+    if(!current || current.hidden || current.owner!==personaId)throw Error('The saved councillor is no longer available in this hall');
+    scope.tools=scope.tools.filter(name=>current.tools.includes(implementationToolName(name)));
+    if(opts.toolsOverride)opts={...opts,toolsOverride:opts.toolsOverride
+      .filter(t=>scope.tools.includes(implementationToolName(t.name)))
+      .map(t=>TOOL_DEFINITIONS.find(now=>now.name===implementationToolName(t.name))).filter(Boolean)};
+  }
   let taintCause = 0;
   const systemBlocks = [
-    { type: 'text', text: personaAndBaseline, cache_control: { type: 'ephemeral' } },
-    { type: 'text', text: channelAndSender },
-    { type: 'text', text: longTermMemoryBlock }
+    { type: 'text', text: env.TOOL_SEARCH_ENABLED === 'true' && allowTools !== false ? discoveryPrompt(personaAndBaseline) : personaAndBaseline, cache_control: { type: 'ephemeral', ttl: '1h' } }
   ];
-  if (extraContext) systemBlocks.push({ type: 'text', text: extraContext });
+  const stableProfile = env.MEMORY_FACTS_ENABLED === 'true' && !getPersona(personaId).hidden;
+  if (stableProfile) systemBlocks.push({type:'text',text:longTermMemoryBlock,cache_control:{type:'ephemeral',ttl:'1h'}});
+  // Per-turn facts belong after the stable system prefix. Never persist this envelope.
+  const contextualMessages = initialMessages.map(message => ({ ...message }));
+  const firstUser = contextualMessages.find(message => message.role === 'user');
+  if (firstUser) {
+    const context = { type: 'text', text: [channelAndSender, stableProfile ? null : longTermMemoryBlock, extraContext].filter(Boolean).join('\n\n') };
+    firstUser.content = [context, ...(typeof firstUser.content === 'string' ? [{ type: 'text', text: firstUser.content }] : firstUser.content)];
+  }
 
   // A second cache breakpoint, on the last message going in. Without it every one
   // of the up-to-14 tool-loop iterations re-processed the whole conversation and
   // every accumulated tool result from scratch — the deeper the tool chain, the
   // more it cost. With it, each iteration only pays for what is genuinely new.
-  let messages = withMessageCacheBreakpoint([...initialMessages]);
-  let lastResult = null;
+  let messages = opts.resumeMessages || withMessageCacheBreakpoint(contextualMessages);
 
   // Phase 7.0 -- the toolbox. Once per turn: age the open groups (20 idle turns
   // closes one), then open whatever the latest message's keywords ask for, so
   // "play some music" / "open youtube.com" / "text Jay" work in one turn. The
   // model then sees CORE plus the open groups; everything else is reachable
   // through find_tools. State rides in the conversation object (Rule 5a).
-  if (convo && !opts.toolsOverride) {
+  if (convo && !opts.toolsOverride && env.TOOL_SEARCH_ENABLED !== 'true') {
     tickToolbox(meta);
     const lastUser = [...initialMessages].reverse().find(m => m && m.role === 'user');
     const lastText = lastUser ? (typeof lastUser.content === 'string' ? lastUser.content : (Array.isArray(lastUser.content) ? lastUser.content.filter(b => b && b.type === 'text').map(b => b.text).join(' ') : '')) : '';
     const kw = groupsByKeywords(lastText.replace(/^\[[^\]]+\]:\s*/, ''));
     if (kw.length) openGroups(meta, kw, 'keyword');
   }
-  const toolsForCall = () => allowTools === false ? [] : (opts.toolsOverride || (convo ? toolsForConversation(personaId, toolDefinitionsForPersona(personaId), meta) : toolDefinitionsForPersona(personaId)));
-  let toolsForThisCall = toolsForCall();
+  // Discovery searches one fixed permitted catalogue for this whole turn. Even
+  // a restricted councillor override needs the server search entry when its
+  // definitions are deferred; otherwise none of those tools can be discovered.
+  const canPause = allowTools!==false && !_pp.hidden && opts.allowBridgePause!==false
+    && (channel==='web' || !convo || !!opts.executionResume);
+  // Workflow control adds no external capability to a councillor's allow-list.
+  const restrictedTools=opts.toolsOverride && canPause && env.LEDGER
+    ? [...opts.toolsOverride.filter(t=>t.name!==QUESTION_TOOL.name),QUESTION_TOOL] : opts.toolsOverride;
+  const discoveryCatalogue = env.TOOL_SEARCH_ENABLED === 'true' && allowTools !== false
+    ? discoveryTools(restrictedTools || toolDefinitionsForPersona(personaId)) : null;
+  const toolsForCall = () => allowTools === false ? [] : (discoveryCatalogue || restrictedTools || (convo ? toolsForConversation(personaId, toolDefinitionsForPersona(personaId), meta) : toolDefinitionsForPersona(personaId)));
+  const compatibleTools = () => toolsForCall().map(tool => { if(env.TOOL_SEARCH_ENABLED==='true')return tool; const {defer_loading,...legacy}=tool;return legacy; });
+  let toolsForThisCall = compatibleTools();
 
   // 14 iterations, not 6 — the sibling system hit "I looped too many times"
   // halfway through real multi-step work at 6. A persona may raise its own
@@ -942,15 +979,23 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   const _p = getPersona(personaId);
   const maxIter = modelRoundLimit(opts.maxIter || _p.toolIterations);
   const maxTok = opts.maxTokens || _p.maxTokens || undefined;
+  const execution = await trackExecution(env,{persona:personaId,councillor:opts.councillor,
+    enabled:allowTools !== false && (!convo || channel === 'web' || !!opts.executionResume),resume:opts.executionResume});
+  let executionOutcome = 'failed';
+  try {
   for (let iteration = 0; iteration < maxIter; iteration++) {
-    if (iteration > 0) toolsForThisCall = toolsForCall();   // find_tools may have opened groups since the last call
+    if (iteration > 0) toolsForThisCall = compatibleTools();   // find_tools may have opened groups since the last call
+    opts.signal?.throwIfAborted();
+    if (iteration > 0) opts.onReset?.();
+    const cachedTools = cacheToolPrefix(toolsForThisCall);
+    await execution.step(`Process reply · round ${iteration+1}`);
     const finalRound=iteration===maxIter-1;
     if(finalRound&&iteration>0){console.log('TOOL_ROUND_LIMIT',{persona:personaId,rounds:maxIter});messages.push({role:'user',content:'Answer now using only results already obtained. Clearly state any unfinished work. Do not request more tools.'});}
-    const result = await callAnthropic(env, systemBlocks, toolsForThisCall, messages, maxTok, opts.model, {toolChoiceNone:finalRound});
-    lastResult = result;
+    const result = await callAnthropic(env, systemBlocks, cachedTools, messages, maxTok, opts.model, {...opts,toolChoiceNone:finalRound});
     // Phase 6.6: every call's usage becomes a cost line -- in the conversation's spool on the
     // reply path, in the tick buffer for cron -- rolled up by the tick, never a write here.
     if (result && result.ok && result.data && result.data.usage) {
+      console.log('ANTHROPIC_USAGE', { model: opts.model || MODELS.sonnet, usage: result.data.usage });
       const line = costLine({ persona: personaId, councillor: opts.councillor || null, model: opts.model || _p.model || MODELS.sonnet, usage: result.data.usage, source: convo ? channel : 'cron' });
       if (convo) spoolPush(meta, 'cost', line); else tickLog('cost', line);
     }
@@ -958,6 +1003,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
     if (!result.ok) { record(trace, 'error', 'anthropic', { note: `HTTP ${result.status || '?'}`, ok: false }); await commitTrace(env, trace, convo ? meta : null); return result; }
 
     const data = result.data;
+    if (data.stop_reason === 'pause_turn') { messages.push({role:'assistant',content:data.content}); continue; }
     if (data.stop_reason === 'tool_use' && finalRound) return {ok:false,data:{error:{message:'The model requested another tool after the six-round limit. No further action was run.'}},actions};
     if (data.stop_reason === 'tool_use') {
       // EVERY tool_use block, not just the first. Claude can ask for several
@@ -970,14 +1016,37 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
       const toolUseBlocks = data.content.filter(b => b.type === 'tool_use');
       if (!toolUseBlocks.length) break;
 
+      if(toolUseBlocks.length===1 && toolUseBlocks[0].name===QUESTION_TOOL.name && validQuestion(toolUseBlocks[0].input)
+        && canPause) {
+        const block=toolUseBlocks[0];
+        const checkpoint={personaAndBaseline,channelAndSender,longTermMemoryBlock,personaId,allowTools,extraContext,
+          startTainted:tainted,convo:{...convo,channel:convo?.channel || 'background',meta},messages:[...messages,{role:'assistant',content:data.content}],
+          toolUseId:block.id,question:block.input.question,options:{maxIter:Math.max(1,maxIter-iteration-1),maxTokens:maxTok,model:opts.model,effort:opts.effort,toolsOverride:opts.toolsOverride,scope:structuredClone(scope),councillor:scope.councillor || opts.councillor || null,allowBridgePause:opts.allowBridgePause,routineContinuation:opts.routineContinuation}};
+        await commitTrace(env,trace,meta);
+        if(await execution.pause(block.input.question,checkpoint)) {
+          return {ok:true,paused:true,execution:{id:execution.id,token:execution.token},actions,data:{content:[{type:'text',text:block.input.question}],stop_reason:'end_turn'}};
+        }
+      }
+
       const toolResults = [];
       let anyUntrusted = false;
-      for (const blk of toolUseBlocks) {
+      for (const requestedBlock of toolUseBlocks) {
+        const blk = { ...requestedBlock, name: implementationToolName(requestedBlock.name) };
+        opts.signal?.throwIfAborted();
+        await execution.step(`Handle request: ${blk.name}`);
         let toolResult;
-        if (!personaAllowsTool(personaId, blk.name) && !isCatalogTool(blk.name)) {
+        if(blk.name===QUESTION_TOOL.name) {
+          toolResult='Work could not be paused. Ask alone, with one question, from an eligible private conversation or background task. Do not claim a saved question or waiting job exists.';
+        } else if (!councilToolAllowed(scope, blk.name) || (opts.toolsOverride && !opts.toolsOverride.some(tool => implementationToolName(tool.name) === blk.name))) {
+          toolResult = `Tool blocked: ${blk.name} is outside the active councillor's permissions. Nothing was executed.`;
+          record(trace, 'policy', blk.name, {note: 'councillor allow-list refusal', ok: false});
+        } else if (allowTools === false) {
+          toolResult = 'Tools are disabled for this request. Nothing was executed.';
+        } else if (!personaAllowsTool(personaId, blk.name) && !isCatalogTool(blk.name)) {
           toolResult = `Tool blocked: ${blk.name} is outside your lane. That belongs to ${toolOwnerName(blk.name)} — tell Rayan to switch personas instead of answering as if you ran it.`;
         } else {
           let permLevel = await checkPermission(env, blk.name);
+          opts.signal?.throwIfAborted();
           // The gate. Once untrusted content is in the room, anything that could
           // carry data out of it, spend money, publish, or change what the system
           // does later gets escalated to needing Rayan — no matter what his
@@ -1010,8 +1079,9 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
             // A throwing tool used to take the whole request down with it and
             // leave its tool_use unanswered. Now the failure becomes the result,
             // which is both survivable and something the model can react to.
+            opts.signal?.throwIfAborted();
             try {
-              toolResult = await executeTool(env, blk.name, blk.input, personaId, { tainted, meta, channel });
+              toolResult = await executeTool(env, blk.name, blk.input, personaId, { tainted, meta, channel, scope });
               actions.push(blk.name);
               if (convo) noteToolUse(meta, blk.name);   // Phase 7.0: keeps its group open
               if (blk.name === 'browser_navigate') noteDomain(meta, blk.input && blk.input.url);
@@ -1040,7 +1110,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
             }
           }
         }
-        toolResults.push({ type: 'tool_result', tool_use_id: blk.id, content: boundedToolResult(toolResult) });
+        toolResults.push({ type: 'tool_result', tool_use_id: blk.id, content: capToolResult(toolResult, blk.input?.response_format) });
       }
 
       messages.push({ role: 'assistant', content: data.content });
@@ -1051,8 +1121,23 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
       continue;
     }
     await commitTrace(env, trace, convo ? meta : null);
+    executionOutcome = 'done';
     return result;
   }
+  // pause_turn means the server work is incomplete, not a final answer. The
+  // same is true when the tool loop runs out of rounds after executing tools.
+  // Returning the last successful HTTP envelope made the chat route say Done.
+  record(trace, 'error', 'turn_limit', { note: 'No completed answer within the tool-loop limit', ok: false });
   await commitTrace(env, trace, convo ? meta : null);
-  return lastResult;
+  return { ok: false, status: 502, actions, data: { error: {
+    message: 'The assistant reached its work limit before finishing this reply. Earlier actions may have completed; check their records before retrying.'
+  } } };
+  } catch (error) {
+    executionOutcome = opts.signal?.aborted ? 'cancelled' : 'failed';
+    record(trace, 'error', 'turn', { note: opts.signal?.aborted ? 'Reply cancelled; earlier actions may have completed' : 'Turn interrupted', ok: false });
+    await commitTrace(env, trace, convo ? meta : null);
+    throw error;
+  } finally {
+    await execution.finish(executionOutcome);
+  }
 }

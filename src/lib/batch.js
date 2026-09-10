@@ -1,4 +1,5 @@
 import {logUsage} from './usage-log.js';
+import { anthropicFetch } from './anthropic-gateway.js';
 // THE MESSAGE BATCHES WRAPPER (asgard-upgrade Phase 6.2, first used by Phase 4.3).
 //
 // Work that is not time-sensitive goes off the live bill: submit a batch of
@@ -7,7 +8,7 @@ import {logUsage} from './usage-log.js';
 // batches live in ONE key, system:batches -- one write when a batch is
 // submitted, one when it is collected. Never used for anything Rayan is
 // waiting on; the morning brief, evening glance and market notes stay live.
-const API = 'https://api.anthropic.com/v1/messages/batches';
+const API = '/v1/messages/batches';
 const STATE_KEY = 'system:batches';
 const HEADERS = env => ({ 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' });
 
@@ -17,7 +18,7 @@ export async function submitBatch(env, requests) {
   if (!Array.isArray(requests) || !requests.length) return { ok: false, error: 'no requests' };
   const body = { requests: requests.map(r => ({ custom_id: String(r.custom_id).slice(0, 64), params: { model: r.model, max_tokens: r.max_tokens || 400, system: r.system, messages: r.messages } })) };
   try {
-    const res = await fetch(API, { method: 'POST', headers: HEADERS(env), body: JSON.stringify(body) });
+    const res = await anthropicFetch(env,API, { method: 'POST', headers: HEADERS(env), body: JSON.stringify(body) });
     const j = await res.json().catch(() => null);
     if (!res.ok || !j || !j.id) return { ok: false, error: `Batches API ${res.status}: ${JSON.stringify(j).slice(0, 300)}` };
     return { ok: true, id: j.id, status: j.processing_status };
@@ -26,7 +27,7 @@ export async function submitBatch(env, requests) {
 
 export async function batchStatus(env, id) {
   try {
-    const res = await fetch(`${API}/${encodeURIComponent(id)}`, { headers: HEADERS(env) });
+    const res = await anthropicFetch(env,`${API}/${encodeURIComponent(id)}`, { headers: HEADERS(env) });
     const j = await res.json().catch(() => null);
     if (!res.ok || !j) return { ok: false, error: `Batches API ${res.status}: ${JSON.stringify(j).slice(0, 300)}` };
     return { ok: true, status: j.processing_status, resultsUrl: j.results_url || null, counts: j.request_counts || null, expiresAt: j.expires_at || null };
@@ -36,7 +37,8 @@ export async function batchStatus(env, id) {
 // The results file is JSONL: one { custom_id, result } per line.
 export async function batchResults(env, resultsUrl) {
   try {
-    const res = await fetch(resultsUrl, { headers: HEADERS(env) });
+    const u = new URL(resultsUrl); if(u.origin!=='https://api.anthropic.com')throw Error('Unexpected batch results host');
+    const res = await anthropicFetch(env,u.pathname, { headers: HEADERS(env) });
     if (!res.ok) return { ok: false, error: `results ${res.status}` };
     const text = await res.text();
     const out = [];

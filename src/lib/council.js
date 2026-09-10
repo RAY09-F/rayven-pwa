@@ -16,6 +16,9 @@
 // paper agent 'vidar', council 'hogun' wraps paper agent 'heimdall'. Never
 // rename a key on either side.
 // ===========================================================================
+import { canonicalToolName } from './tool-aliases.js';
+import { loadConversation, saveConversation } from './conversation.js';
+import { historyKeyFor } from './personas.js';
 import { MODELS } from './models.js';
 import { ledger, mirror } from './ledger.js';
 import { TOOL_DEFINITIONS, callClaudeWithTools } from './tools.js';
@@ -123,6 +126,23 @@ export const COUNCIL = {
   // ⟦PROJECT-H:END⟧
 };
 
+const PROFILE_FAMILIES = {
+  jane_foster: ['web_'], valkyrie: ['maps_', 'music_', 'video_', 'world_forecast'],
+  hulk: ['browser_'], korg: ['comms_'], darcy: ['memory_', 'plan_'],
+  miss_minutes: ['plan_', 'util_time', 'util_countdown', 'util_set_timer', 'util_timers', 'util_cancel_timer'],
+  hunter_b15: ['web_'], mobius: ['plan_', 'memory_'], sylvie: ['world_', 'util_', 'money_convert'], kang: ['watch_']
+};
+for (const [id, profile] of Object.entries(COUNCIL)) {
+  const families = PROFILE_FAMILIES[id];
+  if (families) profile.tools = profile.tools.filter(name => families.some(prefix => prefix.endsWith('_') ? canonicalToolName(name).startsWith(prefix) : canonicalToolName(name) === prefix));
+  profile.title = id === 'jane_foster' ? 'The Seeker' : profile.role;
+  profile.job = profile.theme;
+  profile.toolPrefix = [...new Set(profile.tools.map(name => canonicalToolName(name).split('_')[0] + '_'))];
+  profile.watches = profile.dutyNote || 'The task assigned by the owning persona.';
+  profile.model = profile.tier === 'owner' ? 'sonnet' : 'haiku';
+  profile.stateKey = `council:${profile.owner}:${id}`;
+  profile.voiceLine = `${profile.name}: ${profile.role}.`;
+}
 export const COUNCIL_IDS = Object.keys(COUNCIL);
 export const stateKeyFor = (id) => `council:${COUNCIL[id].owner}:${id}`;
 export const visibleCouncil = () => COUNCIL_IDS.filter(id => !COUNCIL[id].hidden);
@@ -178,21 +198,22 @@ export async function runCouncillor(env, id, task, ctx = {}) {
   if (!c) return { ok: false, summary: `No councillor called ${id}.`, actions: [], data: null };
   const tier = ctx.tier || c.tier;
   const system = `${c.prompt}\n\n${coreRules(c.owner)}`;
+  const objective = typeof task === 'object' ? JSON.stringify(task) : String(task);
   const t0 = Date.now();
   if (tier === 'free') {
-    const r = await freeTier(env, system, String(task));
+    const r = await freeTier(env, system, objective);
     return { ok: r.ok, summary: r.ok ? r.text : `${c.name} could not answer: ${r.error}`, actions: [], data: null, ms: Date.now() - t0 };
   }
   const model = tier === 'owner' ? TIERS.owner : TIERS.cheap;
   const result = await callClaudeWithTools(env, system, `Task from ${getPersona(c.owner).name}${ctx.triggeringEventId ? ` (event ${ctx.triggeringEventId})` : ''}.`, 'You have no long-term memory of your own; use search_memory if you have it.',
-    [{ role: 'user', content: String(task) }], true, null, c.owner, false, ctx.convo || null,
-    { toolsOverride: toolsFor(id), maxIter: MAX_ROUND_TRIPS, model, councillor: id, triggeringEventId: ctx.triggeringEventId || null, maxTokens: 700 });
+    [{ role: 'user', content: objective }], true, null, c.owner, false, ctx.convo || null,
+    { executionResume:ctx.executionResume, routineContinuation:ctx.routineContinuation, allowBridgePause:ctx.allowBridgePause!==false, toolsOverride: toolsFor(id), maxIter: MAX_ROUND_TRIPS, model, councillor: id, triggeringEventId: ctx.triggeringEventId || null, maxTokens: 2200, scope: { councillor: id, tools: [...c.tools] } });
   if (!result.ok) {
     const why = String((result.data && result.data.error && (result.data.error.message || result.data.error)) || `HTTP ${result.status || '?'}`).slice(0, 200);
     return { ok: false, summary: `${c.name} failed: ${why}`, actions: result.actions || [], data: null, ms: Date.now() - t0 };
   }
   const textBlock = (result.data.content || []).find(b => b.type === 'text');
-  return { ok: true, summary: textBlock ? textBlock.text.trim() : '(no report)', actions: result.actions || [], data: null, ms: Date.now() - t0 };
+  return { ok: true, paused:!!result.paused, execution:result.execution, summary: textBlock ? textBlock.text.trim() : '(no report)', actions: result.actions || [], data: null, ms: Date.now() - t0 };
 }
 
 // ---- 2.4 delegation ----------------------------------------------------------
@@ -208,12 +229,13 @@ export async function delegate(env, personaId, { councillor, task, wait = true }
   const c = COUNCIL[match];
   if (wait === false) {
     if (!ctx.meta) return 'Queued delegation needs a live conversation to ride in; run it now with wait:true instead.';
-    spoolPush(ctx.meta, 'delegation', { persona: personaId, councillor: match, task: String(task).slice(0, 2000), status: 'queued' });
-    return `${c.name} has it. It runs on the next tick (within five minutes) and the report comes back on your Telegram bot.`;
+    spoolPush(ctx.meta, 'delegation', { persona: personaId, councillor: match, task: String(task).slice(0, 2000), brief: { objective: String(task).slice(0,2000), output: 'Concise sourced summary, at most 1500 tokens: findings, uncertainties, and actions actually completed.', tools: [...c.tools], boundaries: 'Only the assigned objective. No outgoing messages, purchases, publishing or new schedules. Stop after six tool rounds or sufficient evidence.' }, status: 'queued' });
+    return `${c.name} has it. It runs on the next tick (within five minutes) and the report is saved for your next visit to this hall. Outgoing messages stay off.`;
   }
-  const r = await runCouncillor(env, match, task, { convo: ctx.meta ? { meta: ctx.meta, channel: ctx.channel || 'delegation' } : null, tier: c.tier === 'free' ? 'cheap' : c.tier });
-  await recordCouncilRun(env, match, { summary: `Delegated by ${getPersona(personaId).name}: ${String(task).slice(0, 80)}`, detail: r.summary, didSomething: (r.actions || []).length > 0, meta: ctx.meta || null, patch: { lastDelegatedAt: new Date().toISOString() } });
-  return `${c.name} reports:\n${r.summary}`;
+  if (!ctx.scope) return 'Inline delegation needs a live turn; use wait:false to queue this task.';
+  ctx.scope.councillor = match;
+  ctx.scope.tools = [...c.tools];
+  return `${c.name} is the active profile for this turn. ${c.prompt}\nObjective: ${String(task).slice(0,2000)}\nUse only these tools: ${c.tools.join(', ')}. Return a concise, sourced result in this turn. No separate model has run and the task is not yet complete.`;
 }
 
 // Runs the queued delegations one tick drained. Delivered by the god's bot.
@@ -221,14 +243,18 @@ export async function runQueuedDelegations(env, drained) {
   const items = (drained || []).filter(e => e.kind === 'delegation' && e.status === 'queued');
   let ran = 0;
   for (const d of items.slice(0, 5)) {
-    const c = COUNCIL[d.councillor]; if (!c) continue;
-    const r = await runCouncillor(env, d.councillor, d.task, {});
-    await recordCouncilRun(env, d.councillor, { summary: `Queued task from ${getPersona(d.persona).name}: ${String(d.task).slice(0, 80)}`, detail: r.summary, didSomething: true, patch: { lastDelegatedAt: new Date().toISOString() } });
-    try {
-      const chatId = await getRayanPrivateChatId(env);
-      const token = getPersonaBotToken(env, d.persona) || env.TELEGRAM_BOT_TOKEN;
-      if (chatId && token) await sendTelegramMessage(env, chatId, `${c.name} (${getPersona(d.persona).name}'s council) — on "${String(d.task).slice(0, 60)}":\n${r.summary}`, token);
-    } catch (e) {}
+    const c = COUNCIL[d.councillor]; if (!c || c.owner !== d.persona) continue;
+    const r = await runCouncillor(env, d.councillor, d.brief || d.task, {});
+    if(r.paused){
+      await recordCouncilRun(env,d.councillor,{summary:'Waiting for your answer in the Bridge',detail:r.summary,didSomething:false});
+      ran++;continue;
+    }
+    await recordCouncilRun(env, d.councillor, { summary: `Queued task ${r.ok ? 'returned a reply' : 'failed'} from ${getPersona(d.persona).name}: ${String(d.task).slice(0, 80)}`, detail: r.summary, didSomething: r.ok, patch: { lastDelegatedAt: new Date().toISOString() } });
+    // Queued reports use the existing hall speech inbox. Never send a real message here.
+    const key = historyKeyFor(c.owner, 'web');
+    const conversation = await loadConversation(env, key);
+    conversation.meta.pendingSpeech = [...(conversation.meta.pendingSpeech || []), { at: new Date().toISOString(), routine: c.name, text: r.summary.slice(0,8000) }].slice(-5);
+    await saveConversation(env, key, conversation.turns, conversation.meta);
     ran++;
   }
   return ran;
@@ -236,7 +262,7 @@ export async function runQueuedDelegations(env, drained) {
 
 export const DELEGATE_TOOL_DEFINITION = {
   name: 'delegate',
-  description: 'Hand a task to one of YOUR OWN five councillors by name or id. wait true (default) runs it now and returns the report into this turn; wait false queues it for the next five-minute tick and the report arrives on your Telegram bot. A councillor uses only its own narrow tools and can never send a text, call, or post -- it hands those back for confirmation.',
+  description: 'Hand a task to one of YOUR OWN five councillors by name or id. wait true (default) selects a narrow profile for this same turn without a separate model call; wait false queues it for the next five-minute tick and the report is saved for your next hall visit; no outgoing message is sent. A councillor uses only its own narrow tools and can never send a text, call, or post -- it hands those back for confirmation.',
   input_schema: { type: 'object', properties: { councillor: { type: 'string', description: 'councillor name or id, e.g. "jane_foster"' }, task: { type: 'string', description: 'the task, plainly, with everything the councillor needs' }, wait: { type: 'boolean', description: 'default true' } }, required: ['councillor', 'task'] }
 };
 
