@@ -1,0 +1,13 @@
+.council-orbit{position:fixed;inset:0 42% 0 0;z-index:4;pointer-events:none;--energy:0}
+.orbit-agent{position:absolute;left:var(--x);top:var(--y);transform:translate(-50%,-50%);display:flex;align-items:center;flex-direction:column;gap:5px;pointer-events:auto;border:0;background:transparent;color:#eaf5ff;cursor:pointer;padding:10px 6px;min-width:70px;min-height:64px;text-shadow:0 2px 6px #000;font-family:system-ui}
+.orbit-agent strong{font-size:9px;letter-spacing:.13em;font-weight:500;background:#040912b8;padding:3px 5px;border-radius:4px}.orbit-agent small{font-size:8px;color:#c0cad9;background:#040912a8;padding:2px 4px;border-radius:3px}
+.orbit-glyph{position:relative;width:28px;height:28px;border:1px dashed var(--member);border-radius:50%;animation:orbit-spin 22s linear infinite;animation-delay:var(--delay);box-shadow:0 0 calc(7px + var(--energy)*20px) color-mix(in srgb,var(--member) 48%,transparent)}
+.orbit-glyph:after{content:'';position:absolute;inset:9px;background:var(--member);transform:rotate(45deg);box-shadow:0 0 calc(9px + var(--energy)*24px) var(--member)}
+.orbit-glyph:before{content:'';position:absolute;inset:-5px;border:1px solid var(--member);border-radius:50%;opacity:.22}
+.orbit-agent:hover .orbit-glyph,.orbit-agent:focus-visible .orbit-glyph{outline:1px solid var(--member);outline-offset:5px}.orbit-agent:focus-visible{outline:2px solid #effaff;outline-offset:2px;border-radius:8px}
+.council-orbit[data-state=listening] .orbit-glyph:after,.council-orbit[data-state=speaking] .orbit-glyph:after{background:white;box-shadow:0 0 calc(12px + var(--energy)*35px) white,0 0 28px var(--member)}
+.council-orbit[data-state=thinking] .orbit-glyph{animation-duration:4s}.council-orbit.still .orbit-glyph{animation:none}
+@keyframes orbit-spin{to{transform:rotate(360deg)}}
+@media(max-width:850px){.council-orbit{inset:0 0 auto;height:43dvh;display:flex;align-items:flex-end;justify-content:space-evenly;padding-bottom:4px}.orbit-agent{position:relative;left:auto;top:auto;transform:none;padding:4px 2px;gap:2px;min-width:0;min-height:44px}.orbit-glyph{width:18px;height:18px}.orbit-glyph:after{inset:5px}.orbit-agent strong{font-size:7px;letter-spacing:0}.orbit-agent small{font-size:7px}.console{padding-bottom:66px!important}.say{display:none}}
+@media(max-height:640px) and (max-width:850px){.council-orbit{height:25dvh}.orbit-agent small{display:none}.orbit-glyph{width:14px;height:14px}.orbit-glyph:after{inset:4px}}
+@media(prefers-reduced-motion:reduce){.orbit-glyph{animation:none!important}}

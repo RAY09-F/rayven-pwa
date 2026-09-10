@@ -1,3 +1,5 @@
+import {mountArrival} from './arrival.js';
+import {mountCommandMenu} from './command-menu.js';
 import {THEMES} from '../hud/hud-config.js';
 
 const $=id=>document.getElementById(id);
@@ -10,8 +12,8 @@ const read=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))??fa
 const save=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));}catch{}};
 const date=value=>{const d=new Date(value);return value&&Number.isFinite(+d)?d.toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'Time unavailable';};
 let persona=location.hash.slice(1),snapshot=null,request=null,timer=0,disposed=false,recording=null,recordingMode=null;
-if(!realms.includes(persona))persona=read('asgard:bridge:persona','odin');
-if(!realms.includes(persona))persona='odin';
+if(!realms.includes(persona))persona=read('asgard:bridge:persona','thor');
+if(!realms.includes(persona))persona='thor';
 const visit=Date.now(),since=Math.min(visit,Math.max(0,Number(read('asgard:bridge:left',0))||0));
 let dismissed=read('asgard:bridge:dismissed',[]);if(!Array.isArray(dismissed))dismissed=[];
 const busy=new Set(),resolved=new Set(),drafts=new Map(),hallNodes=new Map();
@@ -20,9 +22,12 @@ const dialog=node('dialog');dialog.setAttribute('aria-labelledby','bridge-dialog
 function closeDialog(){dialogVersion++;recording?.abort();recording=null;dialog.close();dialogMode=null;setMic('Microphone off');lastFocus?.isConnected&&lastFocus.focus();}
 dialog.addEventListener('cancel',event=>{event.preventDefault();closeDialog();});
 function openDialog(title,mode){if(recording){recording.abort();recording=null;setMic('Microphone off');}dialogVersion++;lastFocus=document.activeElement;dialogMode=mode;dialog.replaceChildren();const heading=node('h2','',title);heading.id='bridge-dialog-title';dialog.append(heading);if(!dialog.open)dialog.showModal();return dialog;}
-function setRealm(id){if(!realms.includes(id))return;persona=id;document.documentElement.dataset.realm=id;$('bridge-persona').value=id;save('asgard:bridge:persona',id);history.replaceState(null,'','#'+id);}
+let arrival=null;
+function setRealm(id){if(!realms.includes(id))return;persona=id;document.documentElement.dataset.realm=id;$('bridge-persona').value=id;save('asgard:bridge:persona',id);history.replaceState(null,'','#'+id);arrival?.setRealm(id);}
 setRealm(persona);window.addEventListener('hashchange',()=>setRealm(location.hash.slice(1)));
 $('bridge-persona').addEventListener('change',event=>setRealm(event.target.value));
+function focusAttention(){const target=$('needs');target.scrollIntoView({block:'start'});target.focus({preventScroll:true});}
+$('bridge-attention').addEventListener('click',event=>{event.preventDefault();focusAttention();});
 $('activity-period').textContent=since?'After '+date(since):'Recent recorded activity';
 
 // Conversation stays in the hall. A Bridge draft is transferred once and never
@@ -44,11 +49,10 @@ function composer(initial='',id=persona){
 }
 $('bridge-type').addEventListener('click',()=>composer());
 function commands(){
+  if(document.querySelector('dialog[open]')&& !dialog.open)return;
+  if(dialog.open)closeDialog();
   const body=openDialog('Where would you like to go?','commands');
-  const list=node('div','bridge-command-list');
-  for(const id of realms)list.append(link('Open '+id[0].toUpperCase()+id.slice(1)+'’s hall','/hall/#'+id));
-  list.append(link('Tools and council','/hall/?tools=1#'+persona),link('Council HUD','/hud/#'+persona));
-  body.append(list,node('p','bridge-detail','Choose a room or open the existing tools panel.'),button('Close',closeDialog));
+  mountCommandMenu(body,{close:closeDialog,onAttention:focusAttention});
 }
 $('bridge-commands').addEventListener('click',commands);
 document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'||e.key==='/'&&!e.target.closest('input,textarea,select,[contenteditable=true]')){e.preventDefault();commands();}});
@@ -130,7 +134,8 @@ function renderInbox(){
   const host=$('bridge-inbox');host.setAttribute('aria-busy',String(!snapshot));host.replaceChildren();
   if(!snapshot){host.append(node('p','bridge-empty','Checking for things that need your attention…'));return;}
   const items=snapshot.needs.filter(item=>!dismissed.includes(item.id)&&!resolved.has(item.id)).slice(0,5);
-  $('needs-count').textContent=snapshot.needsTotal==null?'Some records unavailable':snapshot.needsTotal===0?'Clear':snapshot.needsTotal+' waiting';
+  const attention=snapshot.needsTotal==null?'Some records unavailable':snapshot.needsTotal===0?'Clear':snapshot.needsTotal+' waiting';
+  $('needs-count').textContent=attention;$('attention-status').textContent=attention;$('bridge-attention').dataset.waiting=String(snapshot.needsTotal>0);
   if(!items.length)host.append(node('p','bridge-empty',snapshot.needsTotal==null?'Your inbox could not be fully read. Try Refresh.':'Nothing needs you right now. You’re caught up.'));
   for(const item of items){
     const card=node('article','bridge-card');card.dataset.item=item.id;const head=node('div','bridge-card-header');
@@ -159,8 +164,8 @@ function renderActivity(){
   const groups=new Map();for(const item of snapshot.activity){const key=item.councillor||item.persona;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(item);}
   for(const [key,rows] of groups){const group=node('details','bridge-history-group');group.dataset.group=key;group.open=opened.has(key);const title=node('summary','',rows[0].name);title.append(node('span','',rows.length+' recorded · '+date(rows[0].at)));const list=node('ul');for(const row of rows){const li=node('li');li.append(node('time','bridge-time',date(row.at)),node('p','',(row.paper?'PAPER / SIM · ':'')+row.summary));if(row.detail)li.append(node('p','bridge-detail',row.detail));list.append(li);}group.append(title,list);host.append(group);}
 }
-for(const id of realms){const card=node('article','bridge-hall');card.style.setProperty('--hall-accent',THEMES[id].vars['--acc']);const art=node(renderPreviews?'canvas':'img','bridge-hall-art');art.width=300;art.height=160;if(!renderPreviews){art.src='/ui/bridge/hall-'+id+'.png';art.alt='';art.loading='lazy';}art.dataset.hallArt=id;art.setAttribute('aria-hidden','true');const title=node('h3','',id.toUpperCase()),state=node('p','bridge-detail','Reading status…'),quote=node('blockquote','','Reading conversation…'),pending=node('p','bridge-detail');card.append(art,title,state,quote,pending,link('Enter '+id+'’s hall →','/hall/#'+id));$('bridge-halls').append(card);hallNodes.set(id,{state,quote,pending});}
-function renderHalls(){for(const hall of snapshot.halls){const view=hallNodes.get(hall.id);if(!view)continue;view.state.textContent=hall.state?.task?'Last recorded: '+hall.state.task+' · '+date(hall.state.at):hall.statusAvailable?'No recorded current task':'Status unavailable';view.quote.textContent=hall.lastSaid||(hall.historyAvailable?'No conversation recorded yet.':'Conversation unavailable.');view.pending.textContent=hall.pendingCount==null?'Review count unavailable':hall.pendingCount+' awaiting review';}}
+for(const id of realms){const card=node('article','bridge-hall');card.style.setProperty('--hall-accent',THEMES[id].vars['--acc']);const art=node(renderPreviews?'canvas':'img','bridge-hall-art');art.width=300;art.height=160;if(!renderPreviews){art.src='/ui/bridge/hall-'+id+'.png';art.alt='';art.loading='lazy';}art.dataset.hallArt=id;art.setAttribute('aria-hidden','true');const title=node('h3','',id.toUpperCase()),state=node('p','bridge-detail','Reading status…'),quote=node('blockquote','','Reading conversation…'),pending=node('p','bridge-detail');card.append(art,title,quote,state,pending,link('Continue in '+id[0].toUpperCase()+id.slice(1)+' →','/hall/#'+id));$('bridge-halls').append(card);hallNodes.set(id,{state,quote,pending});}
+function renderHalls(){for(const id of realms){const hall=snapshot.halls.find(item=>item.id===id)||{id};const view=hallNodes.get(id);view.state.textContent=hall.state?.task?'Last recorded: '+hall.state.task+' · '+date(hall.state.at):hall.statusAvailable?'No recorded current task':'Status unavailable';view.quote.textContent=hall.lastSaid||(hall.historyAvailable?'No conversation recorded yet.':'Conversation unavailable.');view.pending.textContent=hall.pendingCount==null?'Review count unavailable':hall.pendingCount+' awaiting review';}}
 function renderGlance(){const host=$('bridge-glance'),g=snapshot.glance;host.replaceChildren();const entries=[
   ['Next calendar event',g.nextEvent?g.nextEvent.title:snapshot.sources.calendar?'No upcoming event':'Unavailable',g.nextEvent?[g.nextEvent.date,g.nextEvent.time,g.nextEvent.timeZone].filter(Boolean).join(' · '):'Stored ASGARD calendar'],
   ['Open to-dos',g.openTodos==null?'Unavailable':String(g.openTodos),''],
@@ -177,7 +182,9 @@ async function refresh(){
 $('bridge-refresh').addEventListener('click',refresh);
 document.addEventListener('visibilitychange',()=>{clearTimeout(timer);if(document.hidden){save('asgard:bridge:left',Date.now());recording?.stop();}else refresh();});
 addEventListener('pagehide',()=>{save('asgard:bridge:left',Date.now());disposed=true;clearTimeout(timer);clearTimeout(holdTimer);request?.abort();recording?.abort();});
-addEventListener('pageshow',e=>{if(e.persisted){disposed=false;refresh();}});
-window.AsgardBridge={refresh,status:()=>({persona,since,loaded:!!snapshot,recording:!!recording})};
+addEventListener('pageshow',e=>{if(e.persisted){disposed=false;const paused=arrival?.status().paused;arrival=mountArrival({persona,onRealm:setRealm,onCompose:()=>composer(),paused});refresh();}});
+arrival=mountArrival({persona,onRealm:setRealm,onCompose:()=>composer()});
+addEventListener('pagehide',()=>arrival.dispose());
+window.AsgardBridge={refresh,status:()=>({persona,since,loaded:!!snapshot,recording:!!recording,arrival:arrival.status()})};
 refresh();
 if(renderPreviews)import('./hall-previews.js').then(m=>m.renderHallPreviews()).catch(()=>{});

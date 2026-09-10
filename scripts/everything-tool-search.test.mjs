@@ -87,11 +87,11 @@ test('exhausted pause is a failure, not a completed answer',async()=>{
   assert.equal(requests.length,1);
 });
 
-test('exhausted tool loop retains performed actions without claiming completion',async()=>{
+test('final reserved round rejects unexpected tool execution without claiming completion',async()=>{
   const {result}=await run([{stop_reason:'tool_use',content:[calculation]}],{options:{maxIter:1}});
   assert.equal(result.ok,false);
-  assert.deepEqual(result.actions,['calculate']);
-  assert.match(result.data.error.message,/Earlier actions may have completed/);
+  assert.deepEqual(result.actions,[]);
+  assert.match(result.data.error.message,/No further action was run/);
 });
 
 test('restricted catalogue is searchable but an out-of-scope client call cannot run',async()=>{

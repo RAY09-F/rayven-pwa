@@ -1,0 +1,2 @@
+# Keep the generated, CSP-hashed offline sample reproducible on Windows.
+public/workshop/sample-download.html text eol=lf

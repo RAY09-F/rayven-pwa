@@ -1,4 +1,5 @@
 import {implementationToolName} from './tool-aliases.js';
+import {trackExecution} from './bridge-runs.js';
 import {routineRevision,verifyRoutineContinuation,routineHasPendingWork,activateRoutineQuestion,finishRoutineContinuation} from './routine-continuation.js';
 // ===========================================================================
 // ROUTINES (asgard-upgrade Phase 3.2/3.3/3.4)
@@ -188,6 +189,33 @@ async function readStep(env, s, owner, ctx) {
 // resume (Phase 6.2): { stepIndex, steps, text, runAt } -- continue a run whose
 // compose step went through the Batch API, with the composed text filled in.
 export async function runRoutine(env, routine, event, execute, resume = null) {
+  const tracking=await trackExecution(env,{persona:routine.owner,resume:resume?.execution,enabled:!resume||!!resume.execution,
+    routine:{id:routine.id,title:routine.name,plan:routine.steps.map(routineStepTitle)}});
+  const execution=tracking.id?{id:tracking.id,token:tracking.token}:null;
+  try {
+    const run=await runRoutineSteps(env,routine,event,execute,resume,execution);
+    if(execution)run.execution=execution;
+    return run;
+  } catch(error) {
+    if(execution)await finishRoutineContinuation(env,execution,'unknown').catch(()=>{});
+    throw error;
+  } finally {
+    // Child tool loops borrow this execution. Their reply completion must not
+    // finish the routine; the saved outer receipt settles its final outcome.
+    await tracking.finish('done');
+  }
+}
+
+async function runRoutineSteps(env, routine, event, execute, resume, execution) {
+  const progress=async(index,status)=>{
+    if(!execution)return;
+    try {
+      if(!await ledger.execution(env,'routineProgress',{...execution,index,status}))throw Error('Routine execution lease unavailable');
+    } catch(cause) {
+      const error=new Error('Routine execution update could not be confirmed; no further step started',{cause});
+      error.executionUnknown=true;throw error;
+    }
+  };
   const owner = routine.owner;
   const ctx = { steps: resume ? resume.steps.slice() : [], event: event || null, date: resume?.date || dateCtx() };
   const t0 = Date.now();
@@ -201,7 +229,7 @@ export async function runRoutine(env, routine, event, execute, resume = null) {
     if(s.tool)s.tool=implementationToolName(s.tool);
     let res;
     try {
-      if(resume?.execution&&!await ledger.execution(env,'routineProgress',{...resume.execution,index:i,status:'in_progress'}))throw Error('Routine execution lease unavailable; no next step started');
+      await progress(i,'in_progress');
       if (s.tool) {
         if(!personaAllowsTool(owner,s.tool))throw Error('Tool is outside this hall: '+s.tool);
         const permission=await checkPermission(env,s.tool);
@@ -212,7 +240,7 @@ export async function runRoutine(env, routine, event, execute, resume = null) {
         } else {
           if (IRREVERSIBLE_TOOLS.has(s.tool)) {
             const c = await critic(env, routine, `${s.tool} ${JSON.stringify(s.args || {})}`, event);
-            if (!c.ok) { const ap = await createApproval(env, { persona: owner, tool: s.tool, input: s.args || {}, tainted: !!resume?.tainted, sources: resume?.tainted?['resumed routine context']:[], provenance: `routine "${routine.name}" — critic said: ${c.why}`, channel: 'routine' }); writes += 1; res = { text: `held for approval (#${ap.id}): ${c.why}`, summary: 'critic held it' }; ctx.steps.push(res); run.steps.push({ i, kind: s.tool, summary: res.summary }); if(resume?.execution&&!await ledger.execution(env,'routineProgress',{...resume.execution,index:i,status:'done'}))throw Error('Routine execution update unavailable'); continue; }
+            if (!c.ok) { const ap = await createApproval(env, { persona: owner, tool: s.tool, input: s.args || {}, tainted: !!resume?.tainted, sources: resume?.tainted?['resumed routine context']:[], provenance: `routine "${routine.name}" — critic said: ${c.why}`, channel: 'routine' }); writes += 1; res = { text: `held for approval (#${ap.id}): ${c.why}`, summary: 'critic held it' }; ctx.steps.push(res); run.steps.push({ i, kind: s.tool, summary: res.summary }); await progress(i,'done'); continue; }
           }
           const out = await execute(env, s.tool, s.args || {}, owner);
           const text = typeof out === 'string' ? out : JSON.stringify(out);
@@ -222,7 +250,7 @@ export async function runRoutine(env, routine, event, execute, resume = null) {
         const cid = String(s.delegate.councillor).toLowerCase().replace(/[\s-]+/g, '_');
         const routineContinuation={routineId:routine.id,owner,revision:await routineRevision(routine),stepIndex:i,
           title:routine.name,plan:routine.steps.map(routineStepTitle),steps:structuredClone(ctx.steps),recordedSteps:structuredClone(run.steps),date:ctx.date,runAt:run.at,event:event||null};
-        const r = await runCouncillor(env, cid, s.delegate.task, {routineContinuation,executionResume:resume?.execution,convo:resume?.meta?{meta:resume.meta,channel:'background'}:undefined});
+        const r = await runCouncillor(env, cid, s.delegate.task, {routineContinuation,executionResume:execution,convo:resume?.meta?{meta:resume.meta,channel:'background'}:undefined});
         if(r.paused){
           run.paused=true;run.execution=r.execution;run.delivered='waiting for your answer';
           run.steps.push({i,summary:'Waiting for your answer in the Bridge'});run.ms=Date.now()-t0;run.writes=writes;
@@ -233,13 +261,13 @@ export async function runRoutine(env, routine, event, execute, resume = null) {
         res = { text: r.summary, summary: `${COUNCIL[cid].name}: ${r.summary.slice(0, 60)}`, ok: r.ok };
         if (!r.ok) throw new Error(r.summary);
       } else if (s.compose) {
-        const model = s.compose.tier === 'cheap' ? MODELS.haiku : MODELS.sonnet;
+        const model = MODELS.haiku;
         const system = getPersona(owner).systemPrompt;
         const user = `[ROUTINE "${routine.name}" — you are composing, not chatting. Everything below is real data from your own tools; do not invent anything beyond it. Plain text only, no markdown. If there is genuinely nothing worth saying, reply with exactly NOTHING.]\n\n${s.compose.instruction}\n\nRESULTS SO FAR:\n${ctx.steps.map((st, k) => `[step ${k}] ${String(st.text).slice(0, 2500)}`).join('\n\n')}`;
         if (s.compose.batch) {
           // Phase 6.2: off the live bill. Submit, remember where we were, and stop; the tick's
           // collector resumes this run (from the next step) when the batch comes back.
-          const sub = await submitAndRemember(env, 'routine-compose', [{ custom_id: `${routine.id}:${i}:${Date.now()}`.slice(0, 64), model, max_tokens: s.compose.maxTokens || 700, system, messages: [{ role: 'user', content: user }] }], { routineId: routine.id, stepIndex: i, steps: ctx.steps.map(x => ({ text: x.text, summary: x.summary })), event: event || null, runAt: run.at, model, execution:resume?.execution,owner,revision:await routineRevision(routine),date:ctx.date,recordedSteps:run.steps,tainted:resume?.tainted,conversationMeta:resume?.meta });
+          const sub = await submitAndRemember(env, 'routine-compose', [{ custom_id: `${routine.id}:${i}:${Date.now()}`.slice(0, 64), model, max_tokens: s.compose.maxTokens || 700, system, messages: [{ role: 'user', content: user }] }], { routineId: routine.id, stepIndex: i, steps: ctx.steps.map(x => ({ text: x.text, summary: x.summary })), event: event || null, runAt: run.at, model, execution,owner,revision:await routineRevision(routine),date:ctx.date,recordedSteps:run.steps,tainted:resume?.tainted,conversationMeta:resume?.meta });
           if (!sub.ok) throw new Error(`batch submit failed: ${sub.error}`);
           writes += 1;
           run.steps.push({ i, summary: 'compose submitted to the Batch API; the run resumes when it comes back (up to 24 h)' });
@@ -248,7 +276,7 @@ export async function runRoutine(env, routine, event, execute, resume = null) {
         }
         const r = await callAnthropicSimple(env, system, user, s.compose.maxTokens || 700, model);
         if (!r.ok) throw new Error(r.error);
-        if (r.usage) tickLog('cost', costLine({ persona: owner, councillor: null, model, usage: r.usage, source: `routine:${routine.id}` }));   // Phase 6.6
+
         res = { text: r.text.trim(), summary: `composed ${r.text.trim().slice(0, 60)}` };
       } else if (s.read) {
         res = await readStep(env, s, owner, ctx);
@@ -265,11 +293,12 @@ export async function runRoutine(env, routine, event, execute, resume = null) {
         res = { text: s.say, summary: s.say.slice(0, 60) };
       } else throw new Error(`unknown step ${i + 1}`);
     } catch (err) {
+      if(err?.executionUnknown)throw err;
       run.ok = false; run.error = `step ${i + 1}: ${err && err.message ? err.message : String(err)}`;
       run.steps.push({ i, error: run.error });
       break;
     }
-    if(resume?.execution&&!await ledger.execution(env,'routineProgress',{...resume.execution,index:i,status:'done'}))throw Error('Routine execution update unavailable');
+    await progress(i,'done');
     ctx.steps.push(res);
     run.steps.push({ i, summary: res.summary });
     lastText = res.text || lastText;

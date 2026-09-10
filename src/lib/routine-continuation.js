@@ -22,6 +22,9 @@ export async function activateRoutineQuestion(env,run) {
   if(run.paused&&run.execution){
     const ok=await ledger.execution(env,'activateRoutineQuestion',run.execution);
     if(!ok)throw Error('The routine question could not be activated. Its work remains paused.');
+  } else if(run.execution) {
+    const ok=await finishRoutineContinuation(env,run.execution,run.batched?'queued':run.ok?'done':'failed');
+    if(!ok)throw Error('The routine outcome could not be confirmed. Check the Bridge before starting again.');
   }
 }
 export async function finishRoutineContinuation(env,execution,state) {

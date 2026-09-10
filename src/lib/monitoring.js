@@ -1,3 +1,4 @@
+import { MODELS } from './models.js';
 // Proactive web monitoring — persistent watchlist, per-watch check cadence,
 // change detection, relevance filtering, and dedup. Reuses only integrations that
 // already exist (Tavily, Anthropic) — no new credentials required.
@@ -151,7 +152,7 @@ Respond with ONLY valid JSON, no markdown fences: {"alert": true or false, "summ
 
 Alert only for genuinely meaningful changes matching the watch condition (e.g. a price crossing a threshold, an item back in stock, real new content). Do NOT alert for cosmetic/irrelevant changes (ads, timestamps, unrelated boilerplate, minor wording).`;
   const userText = `Watch label: "${watch.label}"\nWhat Rayan wants to know: ${watch.condition || '(no specific condition given — use judgment on what counts as meaningful)'}\n\n--- PREVIOUS content snapshot ---\n${oldSnapshot}\n\n--- NEW content snapshot ---\n${newSnapshot}`;
-  const result = await callAnthropicSimple(env, system, userText, 300);
+  const result = await callAnthropicSimple(env, system, userText, 300, MODELS.haiku);
   if (!result.ok) return { alert: false, error: result.error };
   try {
     const cleaned = result.text.trim().replace(/^```json\s*/, '').replace(/```$/, '');
@@ -170,7 +171,7 @@ Respond with ONLY valid JSON, no markdown fences: {"alert": true or false, "summ
 Alert only for genuinely meaningful/new developments matching the watch condition. Do NOT alert for minor/repetitive/low-relevance results.`;
   const resultsText = newResults.map((r, i) => `[${i + 1}] ${r.title}\n${r.content}\nSource: ${r.url}`).join('\n\n');
   const userText = `Watch label: "${watch.label}" (search: "${watch.target}")\nWhat Rayan wants to know: ${watch.condition || '(no specific condition given — use judgment on what counts as meaningful)'}\n\n--- NEW search results since last check ---\n${resultsText}`;
-  const result = await callAnthropicSimple(env, system, userText, 300);
+  const result = await callAnthropicSimple(env, system, userText, 300, MODELS.haiku);
   if (!result.ok) return { alert: false, error: result.error };
   try {
     const cleaned = result.text.trim().replace(/^```json\s*/, '').replace(/```$/, '');

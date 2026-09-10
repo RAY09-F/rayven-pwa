@@ -1,3 +1,4 @@
+import {modelRoundLimit, boundedToolResult} from './cost-policy.js';
 import {QUESTION_TOOL,validQuestion} from './bridge-question.js';
 import {trackExecution} from './bridge-runs.js';
 import { councilToolAllowed } from './council-scope.js';
@@ -976,7 +977,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   // ceiling and its own token budget; anyone who does not stays on the house
   // defaults, so the three upstairs are completely unaffected by this.
   const _p = getPersona(personaId);
-  const maxIter = opts.maxIter || _p.toolIterations || 14;
+  const maxIter = modelRoundLimit(opts.maxIter || _p.toolIterations);
   const maxTok = opts.maxTokens || _p.maxTokens || undefined;
   const execution = await trackExecution(env,{persona:personaId,councillor:opts.councillor,
     enabled:allowTools !== false && (!convo || channel === 'web' || !!opts.executionResume),resume:opts.executionResume});
@@ -988,7 +989,9 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
     if (iteration > 0) opts.onReset?.();
     const cachedTools = cacheToolPrefix(toolsForThisCall);
     await execution.step(`Process reply · round ${iteration+1}`);
-    const result = await callAnthropic(env, systemBlocks, cachedTools, messages, maxTok, opts.model, opts);
+    const finalRound=iteration===maxIter-1;
+    if(finalRound&&iteration>0){console.log('TOOL_ROUND_LIMIT',{persona:personaId,rounds:maxIter});messages.push({role:'user',content:'Answer now using only results already obtained. Clearly state any unfinished work. Do not request more tools.'});}
+    const result = await callAnthropic(env, systemBlocks, cachedTools, messages, maxTok, opts.model, {...opts,toolChoiceNone:finalRound});
     // Phase 6.6: every call's usage becomes a cost line -- in the conversation's spool on the
     // reply path, in the tick buffer for cron -- rolled up by the tick, never a write here.
     if (result && result.ok && result.data && result.data.usage) {
@@ -1001,6 +1004,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
 
     const data = result.data;
     if (data.stop_reason === 'pause_turn') { messages.push({role:'assistant',content:data.content}); continue; }
+    if (data.stop_reason === 'tool_use' && finalRound) return {ok:false,data:{error:{message:'The model requested another tool after the six-round limit. No further action was run.'}},actions};
     if (data.stop_reason === 'tool_use') {
       // EVERY tool_use block, not just the first. Claude can ask for several
       // tools in one turn, and the old code found only content.find(...) — it

@@ -1,3 +1,4 @@
+import {CAST} from './council-data.js';
 import {VoiceClient} from './voice-stream.js?v=brain-wave6';
 import {readChatReply} from './event-stream.js?v=brain-wave1';
 import {createArsenal} from './arsenal.js?v=floating-realms-3';
@@ -585,3 +586,7 @@ try {
   }
 }catch{}
 if(new URLSearchParams(location.search).get('tools')==='1')arsenal.openTools();
+
+// A public council deep link only opens the matching profile; it never submits a turn.
+const requestedAdvisor=new URLSearchParams(location.search).get('advisor');
+if(CAST[requestedAdvisor]?.kind==='councillor'&&CAST[requestedAdvisor].hall===activeHall()&&!new URLSearchParams(location.search).has('settings'))arsenal.openAgent(requestedAdvisor);

@@ -1,3 +1,5 @@
+import {stableRequest} from './cost-policy.js';
+import {logUsage} from './usage-log.js';
 import { anthropicFetch } from './anthropic-gateway.js';
 // Thin wrapper around the Anthropic Messages API with one retry on transient
 // errors. Ported unchanged from worker.js. Used by the main chat loop and by
@@ -8,7 +10,7 @@ import { collectMessage, providerError } from './anthropic-stream.js';
 
 export async function callAnthropic(env, systemBlocks, tools, messages, maxTokens, model, opts = {}) {
   const selectedModel = model || MODELS.sonnet;
-  const body = { model: selectedModel, max_tokens: maxTokens || 1400, system: systemBlocks, tools, messages };
+  const body = { model: selectedModel, max_tokens: maxTokens || 1400, ...stableRequest(systemBlocks,tools,messages), ...(opts.toolChoiceNone ? {tool_choice:{type:'none'}} : {}) };
   if (/^claude-(sonnet-5|opus-5)$/.test(selectedModel)) { body.output_config = { effort: opts.effort || 'low' }; body.thinking = { type: 'adaptive' }; }
   if (opts.onText) body.stream = true;
   if (env.CONTEXT_EDITING_ENABLED === 'true') body.context_management = { edits: [...(body.thinking ? [{type:'clear_thinking_20251015',keep:{type:'thinking_turns',value:2}}] : []), {type:'clear_tool_uses_20250919',trigger:{type:'input_tokens',value:30000},keep:{type:'tool_uses',value:3},exclude_tools:['delegate','approve','reject']}] };
@@ -29,6 +31,7 @@ export async function callAnthropic(env, systemBlocks, tools, messages, maxToken
       if (response.ok) {
         // Never replay an interrupted successful stream: tools or text may already have escaped.
         const data = opts.onText ? await collectMessage(response.body, opts.onText) : await response.json();
+        logUsage(selectedModel,data.usage,opts.usageContext?.source || 'tool-loop',opts.usageContext || {});
         if (data.context_management?.applied_edits) console.log('CONTEXT_EDITS',data.context_management.applied_edits);
         return { ok: true, data };
       }
@@ -52,7 +55,7 @@ export async function callAnthropic(env, systemBlocks, tools, messages, maxToken
 // classification/judgement result (monitoring relevance filter, email importance
 // classification). No retry loop: these run on a 5-min cron tick, so a transient
 // failure just gets picked up again next tick rather than retried in-request.
-export async function callAnthropicSimple(env, systemPrompt, userText, maxTokens, model, schema) {
+export async function callAnthropicSimple(env, systemPrompt, userText, maxTokens, model, schema, usageContext = {}) {
   try {
     const res = await anthropicFetch(env,'/v1/messages', {
       method: 'POST',
@@ -67,6 +70,7 @@ export async function callAnthropicSimple(env, systemPrompt, userText, maxTokens
     });
     if (!res.ok) return { ok: false, error: providerError(res.status, await res.json().catch(() => ({}))) };
     const data = await res.json();
+    logUsage(model || MODELS.sonnet,data.usage,usageContext.source || 'single-shot',{persist:true,...usageContext});
     const textBlock = data.content && data.content.find(b => b.type === 'text');
     if (!textBlock) return { ok: false, error: 'No text content in Claude response.' };
     return { ok: true, text: textBlock.text, usage: data.usage || null, model: model || MODELS.sonnet };

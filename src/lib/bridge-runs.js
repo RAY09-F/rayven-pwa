@@ -15,9 +15,15 @@ export async function executionState(store, action, fields = {}, now = Date.now(
   let run = rows.find(r => r.id === fields.id);
   if (action === 'begin') {
     if (run) return false;
+    if(fields.routine && rows.some(r=>r.routine?.id===fields.routine.id&&['waiting','running','unknown','queued'].includes(r.routine.status)))return false;
     if (!['thor','loki','odin'].includes(fields.persona)) throw Error('Invalid execution owner');
     run = {id:fields.id,persona:fields.persona,councillor:fields.councillor || null,
       token:fields.token || null,title:'Reply processing',state:'running',at:now,leaseUntil:now+LEASE_MS,steps:[{id:'answer',title:'Finish reply processing',status:'pending'}]};
+    if(fields.routine){
+      run.routine={id:fields.routine.id,status:'running',ready:false};
+      run.title=fields.routine.title;
+      run.steps=fields.routine.plan.map((title,i)=>({id:String(i),title,status:'pending'}));
+    }
     rows.push(run);
   } else if(action==='resumeRoutineBatch') {
     if(!run||run.token!==fields.token||run.state!=='queued'||run.routine?.status!=='queued')return false;
@@ -87,7 +93,7 @@ export async function executionState(store, action, fields = {}, now = Date.now(
   return true;
 }
 
-export async function trackExecution(env, {persona,councillor,enabled=true,resume}={}) {
+export async function trackExecution(env, {persona,councillor,enabled=true,resume,routine}={}) {
   const noop={step:async()=>{},finish:async()=>{},pause:async()=>false};
   if (!enabled || !env.LEDGER || !['thor','loki','odin'].includes(persona)) return noop;
   const id=resume?.id || crypto.randomUUID(),token=resume?.token || crypto.randomUUID();
@@ -96,8 +102,9 @@ export async function trackExecution(env, {persona,councillor,enabled=true,resum
     try { return await ledger.execution(env,action,{id,token,...fields}); }
     catch { return false; } // Observability cannot take down an existing reply.
   };
-  if (!await send(resume?'heartbeat':'begin',{persona,councillor})) {
+  if (!await send(resume?'heartbeat':'begin',{persona,councillor,routine})) {
     if(resume)throw Error('The resumed execution lease is unavailable');
+    if(routine)throw Error('Routine execution could not be started; check the Bridge for unfinished work');
     return noop;
   }
   const timer=setInterval(async()=>{

@@ -1,0 +1,32 @@
+/* Keep the Bridge's display typography; give working content a calmer reading face. */
+#bridge-inbox,.bridge-plan,#bridge-activity,#bridge-error{font-family:system-ui,sans-serif;font-size:15px;line-height:1.65}
+.bridge-body .bridge-card{padding:24px;background:linear-gradient(135deg,#141c25,#0e141c);border-color:#ffffff1f}
+.bridge-card-header{column-gap:12px;row-gap:6px;align-items:center}
+.bridge-card .bridge-kind{font:600 10px/1.5 'IBM Plex Mono',monospace;letter-spacing:.1em;padding:4px 8px;color:#ccd6e3;background:#ffffff0b}
+.bridge-card .bridge-owner,.bridge-card .bridge-time{font:11px/1.5 system-ui,sans-serif;color:#aeb9c8}
+.bridge-body .bridge-card h3{font:600 21px/1.35 system-ui,sans-serif;letter-spacing:-.015em;margin:18px 0 12px;color:#f0eee7}
+.bridge-card>p{margin:12px 0;color:#cdd4de;max-width:76ch}
+.bridge-card .bridge-detail{font:12px/1.6 system-ui,sans-serif;color:#a3b0c0}
+.bridge-card>.bridge-detail{padding-top:12px;border-top:1px solid #ffffff12}
+.bridge-card .bridge-actions{padding-top:16px;margin-top:20px;border-top:1px solid #ffffff17;gap:10px;align-items:center}
+.bridge-body .bridge-card button,.bridge-card .bridge-actions>a{font:600 13px/1.4 system-ui,sans-serif;min-height:44px;padding:12px 16px}
+.bridge-card .bridge-actions>a{display:inline-flex;align-items:center;color:var(--acc);border-radius:8px}
+.bridge-card .bridge-actions:has(input){display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px}
+.bridge-card .bridge-actions>label{grid-column:1/-1;font-size:12px;font-weight:600;color:#cbd6e3}
+.bridge-body .bridge-card .bridge-actions>input{width:100%;min-width:0;font:16px/1.5 system-ui,sans-serif;background:#080e15}
+.bridge-body .bridge-card .bridge-actions:has(input)>button{background:var(--acc);color:var(--bg);border-color:var(--acc)}
+.bridge-history-group summary{font:600 14px/1.5 system-ui,sans-serif;gap:10px;min-height:52px}
+.bridge-history-group summary span{font:12px/1.5 system-ui,sans-serif;color:#a9b6c8}
+.bridge-history-group li{font-size:14px;line-height:1.65;padding:16px 0}
+.bridge-history-group p{color:#cdd4de;overflow-wrap:anywhere}
+.bridge-history-group time,.bridge-history-group .bridge-detail{font:12px/1.5 system-ui,sans-serif;color:#a3b0c0}
+.bridge-plan li{font-size:14px;line-height:1.55;padding:9px 0}
+.bridge-body dialog:not(:has(.command-menu)):not(.arrival-advisor){font:15px/1.65 system-ui,sans-serif;box-sizing:border-box;width:min(620px,calc(100vw - 24px));padding:28px;max-height:calc(100dvh - 32px);overflow-wrap:anywhere;scroll-padding:24px}
+.bridge-body dialog:not(:has(.command-menu)):not(.arrival-advisor) h2{font:500 34px/1.15 'Cormorant Garamond',serif;margin:0 0 22px;color:#f1eee5}
+.bridge-body dialog:not(:has(.command-menu)):not(.arrival-advisor)>p{color:#cdd4de;margin:14px 0}
+.bridge-body dialog:not(:has(.command-menu)):not(.arrival-advisor) .bridge-detail{font:12px/1.6 system-ui,sans-serif;color:#aab7c8}
+.bridge-body dialog:not(:has(.command-menu)):not(.arrival-advisor) label{font-size:13px;font-weight:600;margin:22px 0 8px;color:#d4deeb}
+.bridge-body dialog:not(:has(.command-menu)):not(.arrival-advisor) :is(input,select,textarea){box-sizing:border-box;width:100%;max-width:100%;font:16px/1.5 system-ui,sans-serif;background:#080e15;border-color:#ffffff30;padding:12px}
+.bridge-body dialog:not(:has(.command-menu)):not(.arrival-advisor) button{font:600 13px/1.4 system-ui,sans-serif;min-height:44px;padding:12px 16px}
+.bridge-body dialog:not(:has(.command-menu)):not(.arrival-advisor) .bridge-actions{border-top:1px solid #ffffff20;padding-top:18px;margin-top:24px;gap:10px}
+@media(max-width:760px){.bridge-body .bridge-card{padding:20px 18px}.bridge-body .bridge-card h3{font-size:20px;line-height:1.4}.bridge-card-header .bridge-time{flex-basis:100%;font-size:10px}.bridge-card .bridge-actions{gap:8px}.bridge-body .bridge-card button{padding:12px 14px}.bridge-history-group ul{margin-left:20px}.bridge-history-group summary span{margin-left:28px}.bridge-body dialog:not(:has(.command-menu)):not(.arrival-advisor){padding:22px 20px}.bridge-body dialog:not(:has(.command-menu)):not(.arrival-advisor) h2{font-size:30px}.bridge-body dialog:not(:has(.command-menu)):not(.arrival-advisor) .bridge-actions>button{flex:1 1 auto}}

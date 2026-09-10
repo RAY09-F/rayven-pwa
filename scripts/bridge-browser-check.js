@@ -17,7 +17,8 @@ async page => {
  await page.setViewportSize({width:1440,height:1000});
  await page.goto('http://127.0.0.1:4191/?bridge-check='+Date.now()+'#thor');
  await page.waitForFunction(()=>document.querySelectorAll('#bridge-inbox article').length===2);
- if(await page.locator('#bridge-main canvas').count())throw Error('Bridge starts WebGL by default');
+ await page.waitForFunction(()=>AsgardBridge.status().arrival?.scene?.ready);
+ if(await page.locator('#bridge-main canvas').count()!==1)throw Error('Bridge must own exactly one selected realm renderer');
  if(await page.locator('[data-pulse=true]').count()!==1)throw Error('Wrong pulse count');
  await page.getByRole('button',{name:'Edit',exact:true}).click();
  await page.getByLabel('Task',{exact:true}).fill('Edited task');
