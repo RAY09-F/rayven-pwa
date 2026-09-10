@@ -49,5 +49,15 @@ await p.locator('#mic').click();await p.waitForFunction(()=>document.querySelect
 await p.evaluate(()=>{const result=[{transcript:'voice request'}];result.isFinal=true;recFixture.onresult({results:[result]});recFixture.onend();});
 await p.waitForFunction(()=>document.querySelector('#transcript').textContent.includes('voice request'));await p.waitForFunction(()=>!document.querySelector('#send').disabled);
 assert.equal(sent.at(-1).message,'voice request');assert.ok(await p.evaluate(()=>fakeTracksStopped>0));results.push('Speech-to-send and mic cleanup');
+for(const id of ['thor','loki','odin']){
+ await p.locator('[data-p='+id+']').click();
+ assert.equal(await p.locator('#micLabel').innerText(),'Mic off');
+ assert.ok((await p.locator('#mic').getAttribute('aria-label')).toLowerCase().includes(id));
+ const before=sent.length;await p.locator('#mic').click();
+ await p.waitForFunction(()=>document.querySelector('#micLabel').textContent==='Mic on');
+ await p.locator('#mic').click();assert.equal(await p.locator('#micLabel').innerText(),'Mic off');
+ assert.equal(await p.locator('#mic').getAttribute('aria-pressed'),'false');assert.equal(sent.length,before);
+}
+results.push('Visible mic toggle turns on and off for all three personas');
 assert.deepEqual(errors,[]);await writeFile('output/warden-workspace/results.json',JSON.stringify({results,errors},null,2));console.log(JSON.stringify({results,errors},null,2));
 }finally{await browser.close();}

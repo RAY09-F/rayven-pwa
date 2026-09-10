@@ -16,13 +16,14 @@ function update(){
   const busy=!!requests.get(persona),room=rooms[persona];
   const state=busy?'thinking':listening?'listening':speaking?'speaking':'idle';
   figure.state(state);
-  const status=busy?'Working on your request…':starting?'Waiting for microphone permission…':listening?'Listening — finish speaking to send.':preparing?'Preparing spoken reply…':speaking?'Speaking. Press Stop to interrupt.':room.error|| (room.loading?'Loading your conversation…':'Ready. Type a message or press Talk.');
+  const status=busy?'Working on your request…':starting?'Waiting for microphone permission…':listening?'Listening — finish speaking to send.':preparing?'Preparing spoken reply…':speaking?'Speaking. Press Stop to interrupt.':room.error|| (room.loading?'Loading your conversation…':'Ready. Type a message or turn your mic on.');
   $('connection-status').textContent=status;figure.say(status);
   $('send').disabled=busy;$('stop').hidden=!(busy||listening||starting||speaking||preparing);
   $('mic').disabled=busy;$('mic').classList.toggle('live',listening||starting);
   $('mic').setAttribute('aria-pressed',String(listening||starting));
-  $('mic').setAttribute('aria-label',listening||starting?'Stop listening':'Start voice conversation');
-  $('micLabel').textContent=listening?'Listening…':starting?'Starting…':'Talk';
+  $('mic').setAttribute('aria-label',listening||starting?'Turn microphone off':'Turn microphone on to talk to '+names[persona]);
+  $('mic').title=listening||starting?'Turn the microphone off; keep any dictated draft':'Turn the microphone on to talk to '+names[persona];
+  $('micLabel').textContent=listening?'Mic on':starting?'Connecting…':'Mic off';
 }
 function render(){
   const tx=$('transcript'),room=rooms[persona],follow=nearTranscriptEnd(tx);tx.replaceChildren();
@@ -102,7 +103,7 @@ function stopMic(){
 async function startMic(){
   if(listening||starting){stopMic();return;}if(requests.get(persona))return;
   const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!Recognition){rooms[persona].error='Speech recognition is unavailable in this browser. You can type here, or use Chrome or Edge for Talk.';update();return;}
+  if(!Recognition){rooms[persona].error='Speech recognition is unavailable in this browser. You can type here, or use Chrome or Edge for the microphone.';update();return;}
   stopVoice();stopMic();const token=++micToken,id=persona,prefix=$('message').value.trim();starting=true;rooms[id].error='';update();
   try{
     const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
