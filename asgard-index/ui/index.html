@@ -1,0 +1,1073 @@
+<!-- ============================================================================
+     ASGARD · INDEX
+     The Warden form (04) rebuilt as the front door to Asgard.
+     One body. Three temperaments. THOR blue/white · LOKI green/black · ODIN white/gold.
+     Switching a persona does NOT rebuild the armour — it changes its temperature
+     over ~900ms, and shifts its tempo. Same guardian, different mood.
+
+     WIRING NOTE FOR CODEX — read this before touching anything:
+       Everything on screen comes from the DATA object near the bottom of the
+       script (search "===== DATA"). Nothing is hard-coded in the markup.
+       The page also exposes window.ASGARD with these methods:
+         ASGARD.persona('thor'|'loki'|'odin')   switch persona (crossfades)
+         ASGARD.state('idle'|'listening'|'thinking'|'speaking')
+         ASGARD.level(0..1)                     drive the glow from audio
+         ASGARD.say('text')                     replace the prompt line
+         ASGARD.metric('latency', 240)          update any readout
+         ASGARD.onPersona = function(id){}      fires when the user switches
+         ASGARD.onMic     = function(on){}      fires when mic starts/stops
+       Do not restructure the page to add the backend. Call these instead.
+     ============================================================================ -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#04070F">
+<title>ASGARD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@200;300;400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#04070F; --txt:#DCE9F5; --cy:#4FC3FF; --hot:#BFEFFF; --rim:#FFD08A;
+  --amb1:rgba(22,72,140,.15); --amb2:rgba(140,96,30,.07);
+  --pad:26px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;width:100%;background:var(--bg);overflow:hidden}
+body{font-family:'Inter Tight','Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;
+  color:var(--txt);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;
+  transition:background-color .9s cubic-bezier(.4,0,.2,1)}
+canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;background:var(--bg);
+  transition:background-color .9s cubic-bezier(.4,0,.2,1)}
+
+.amb{position:fixed;inset:0;pointer-events:none;z-index:2;
+  background:
+    radial-gradient(100% 74% at 50% 44%, var(--amb1), rgba(0,0,0,0) 62%),
+    radial-gradient(60% 40% at 50% 34%, var(--amb2), rgba(0,0,0,0) 70%);
+  transition:background .9s cubic-bezier(.4,0,.2,1)}
+.vig{position:fixed;inset:0;pointer-events:none;z-index:4;
+  background:radial-gradient(112% 88% at 50% 46%, rgba(0,0,0,0) 42%, rgba(1,3,8,.82) 100%)}
+.ui{position:fixed;inset:0;z-index:6;pointer-events:none}
+.ui a,.ui button,.ui .hit{pointer-events:auto}
+
+.num{font-family:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;
+  font-size:10px;letter-spacing:.10em;color:var(--hot);opacity:.80;font-variant-numeric:tabular-nums;
+  transition:color .9s cubic-bezier(.4,0,.2,1)}
+
+/* --- top left: the mark and the name ------------------------------------- */
+.mark{position:absolute;left:var(--pad);top:calc(var(--pad) - 2px);display:flex;align-items:center;gap:12px}
+.mark b{font-weight:200;font-size:12.5px;letter-spacing:.66em;color:rgba(220,233,245,.80)}
+.mark i{display:block;width:56px;height:1px;
+  background:linear-gradient(90deg,var(--rim),rgba(0,0,0,0));opacity:.5;
+  transition:background .9s cubic-bezier(.4,0,.2,1)}
+.id{position:absolute;left:var(--pad);top:calc(var(--pad) + 44px)}
+.id h1{margin:0;font-weight:200;font-size:23px;letter-spacing:.46em;color:rgba(226,241,255,.90);line-height:1;
+  transition:opacity .34s ease}
+.id p{margin:9px 0 0;font-size:9px;font-weight:300;letter-spacing:.30em;text-transform:uppercase;
+  color:rgba(220,233,245,.34);transition:opacity .34s ease}
+.id.swap h1,.id.swap p{opacity:0}
+
+/* --- top right: state ---------------------------------------------------- */
+.st{position:absolute;right:var(--pad);top:var(--pad);text-align:right}
+.st .row{display:flex;align-items:center;justify-content:flex-end;gap:9px}
+.st .dot{width:5px;height:5px;border-radius:50%;background:var(--rim);
+  box-shadow:0 0 9px 2px var(--rim);transition:background .9s,box-shadow .9s}
+.st .v{font-size:10.5px;font-weight:300;letter-spacing:.42em;color:rgba(226,241,255,.86)}
+.st .track{margin-top:10px;width:132px;height:1px;background:rgba(150,180,210,.14);margin-left:auto;position:relative;overflow:hidden}
+.st .track b{position:absolute;left:0;top:0;height:100%;width:0%;
+  background:linear-gradient(90deg,var(--rim),var(--hot));transition:background .9s}
+
+.rd{position:absolute;right:var(--pad);top:calc(var(--pad) + 62px);display:grid;gap:7px;justify-items:end}
+.rd div,.lft div{display:flex;align-items:baseline;gap:10px}
+.rd .k,.lft .k{font-size:8.5px;font-weight:300;letter-spacing:.28em;text-transform:uppercase;color:rgba(220,233,245,.26)}
+.lft{position:absolute;left:var(--pad);top:calc(var(--pad) + 108px);display:grid;gap:7px;z-index:5}
+
+/* --- the plate grid on the right edge ------------------------------------ */
+.plates{position:absolute;right:var(--pad);top:50%;transform:translateY(-50%);display:grid;grid-template-columns:repeat(3,7px);gap:4px}
+.plates i{display:block;width:7px;height:7px;border:1px solid var(--rim);opacity:.26;
+  transition:border-color .9s,opacity .5s}
+.plates i:nth-child(3n+2){border-color:var(--cy);opacity:.22}
+
+/* --- the bottom console -------------------------------------------------
+   Everything interactive lives in one strip with its own scrim, so text never
+   has to compete with the bright edge of the shoulders. */
+.console{position:absolute;left:0;right:0;bottom:0;z-index:3;
+  display:flex;flex-direction:column;align-items:center;gap:15px;
+  padding:132px 0 0;pointer-events:none}
+
+.say{font-size:10px;font-weight:300;letter-spacing:.22em;color:rgba(220,233,245,.58);
+  white-space:nowrap;text-align:center;padding:0 var(--pad);transition:opacity .30s ease}
+.say em{font-style:normal;color:var(--hot);opacity:.88;transition:color .9s}
+.say.swap{opacity:0}
+
+.sw{display:flex;align-items:center;gap:0}
+.sw button{appearance:none;background:none;border:0;cursor:pointer;padding:8px 22px;
+  font-family:inherit;font-size:9.5px;font-weight:300;letter-spacing:.38em;text-transform:uppercase;
+  color:rgba(220,233,245,.46);position:relative;transition:color .34s ease}
+.sw button:hover{color:rgba(226,241,255,.72)}
+.sw button.on{color:var(--hot)}
+.sw button:after{content:'';position:absolute;left:50%;bottom:0;width:0;height:1px;
+  background:var(--rim);transform:translateX(-50%);
+  transition:width .42s cubic-bezier(.4,0,.2,1),background .9s}
+.sw button.on:after{width:28px}
+.sw .sep{width:1px;height:9px;background:rgba(150,180,210,.18)}
+
+.ctl{display:flex;align-items:center;gap:14px}
+
+.mic{position:relative;width:42px;height:42px;border-radius:50%;appearance:none;cursor:pointer;
+  background:rgba(0,0,0,.34);border:1px solid rgba(150,180,210,.22);
+  display:grid;place-items:center;padding:0;
+  transition:border-color .34s,background .34s}
+.mic:hover{border-color:var(--cy)}
+.mic svg{width:15px;height:15px;fill:none;stroke:rgba(220,233,245,.58);stroke-width:1.3;
+  stroke-linecap:round;stroke-linejoin:round;transition:stroke .34s}
+.mic.live{border-color:var(--rim);background:rgba(0,0,0,.46)}
+.mic.live svg{stroke:var(--hot)}
+.mic .ring{position:absolute;inset:-4px;border-radius:50%;border:1px solid var(--rim);
+  opacity:0;transition:opacity .34s,border-color .9s;pointer-events:none}
+.mic.live .ring{opacity:.42}
+.mic small{position:absolute;top:calc(100% + 9px);left:50%;transform:translateX(-50%);white-space:nowrap;
+  font-size:7.5px;font-weight:300;letter-spacing:.26em;text-transform:uppercase;color:rgba(220,233,245,.26)}
+
+.enter{display:inline-flex;align-items:center;gap:13px;height:42px;padding:0 28px;
+  border:1px solid var(--rim);color:var(--hot);text-decoration:none;background:rgba(0,0,0,.30);
+  font-size:9.5px;font-weight:300;letter-spacing:.34em;text-transform:uppercase;
+  transition:background .34s,border-color .9s,color .9s,box-shadow .34s;cursor:pointer}
+.enter:hover{background:rgba(0,0,0,.10);box-shadow:0 0 26px -6px var(--rim)}
+.enter i{display:block;width:20px;height:1px;background:var(--rim);opacity:.7;transition:width .34s,background .9s}
+.enter:hover i{width:32px}
+
+.bar{width:100%;position:relative;height:34px;display:flex;align-items:center;justify-content:center;gap:34px;
+  border-top:1px solid rgba(150,180,210,.10)}
+.bar span,.bar a{font-size:9px;font-weight:300;letter-spacing:.34em;text-transform:uppercase;
+  color:rgba(220,233,245,.42);text-decoration:none}
+.bar a:hover{color:var(--hot)}
+.bar .on{color:var(--hot);opacity:.92}
+.bar .on:before{content:'';display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--rim);
+  margin-right:9px;vertical-align:middle;box-shadow:0 0 8px 1px var(--rim);transition:background .9s,box-shadow .9s}
+.brand{position:absolute;right:var(--pad);bottom:11px;
+  font-size:8.5px;font-weight:300;letter-spacing:.30em;text-transform:uppercase;color:rgba(220,233,245,.20)}
+.hint{position:absolute;left:var(--pad);bottom:11px;
+  font-size:8.5px;font-weight:300;letter-spacing:.26em;text-transform:uppercase;color:rgba(220,233,245,.20)}
+
+.corner{position:absolute;width:16px;height:16px;border:1px solid var(--rim);opacity:.18;transition:border-color .9s}
+.c1{left:12px;top:12px;border-right:0;border-bottom:0}.c2{right:12px;top:12px;border-left:0;border-bottom:0}
+.c3{left:12px;bottom:12px;border-right:0;border-top:0}.c4{right:12px;bottom:12px;border-left:0;border-top:0}
+
+/* --- responsive ---------------------------------------------------------- */
+@media (max-width:1000px){
+  :root{--pad:18px}
+  .id h1{font-size:19px;letter-spacing:.40em}
+  .plates{display:none}
+  .bar{gap:22px}
+  .sw button{padding:8px 16px;letter-spacing:.30em}
+}
+@media (max-width:680px){
+  .id p{display:none}
+  .lft{display:none}
+  .hint{display:none}
+  .brand{display:none}
+  .say{white-space:normal;line-height:1.8;max-width:86vw;font-size:9px;letter-spacing:.14em}
+  .bar{gap:16px}
+  .bar span,.bar a{font-size:8px;letter-spacing:.20em}
+  .console{gap:13px;padding-top:120px}
+}
+@media (max-width:430px){
+  :root{--pad:14px}
+  .id h1{font-size:16.5px;letter-spacing:.32em}
+  .st .track{width:98px}
+  .rd div:nth-child(3){display:none}
+  .sw button{padding:8px 11px;font-size:8.5px;letter-spacing:.22em}
+  .bar span:nth-child(3),.bar a:nth-child(3),.bar span:nth-child(4),.bar a:nth-child(4){display:none}
+  .bar{gap:18px}
+  .mic{width:40px;height:40px}
+  .enter{height:40px;padding:0 20px;font-size:8.5px;letter-spacing:.26em}
+  .enter i{width:14px}
+  .mic small{display:none}
+}
+@media (max-height:640px){
+  .say{display:none}
+  .console{gap:11px;padding-top:92px}
+  .mic small{display:none}
+}
+@media (max-height:520px){
+  .mic{display:none}
+  .id p{display:none}
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="amb"></div><div class="vig"></div>
+
+<div class="ui">
+  <div class="corner c1"></div><div class="corner c2"></div><div class="corner c3"></div><div class="corner c4"></div>
+
+  <div class="mark"><b>ASGARD</b><i></i></div>
+  <div class="id" id="idBlock"><h1 id="pName">THOR</h1><p id="pRole">Primary · Command &amp; Response</p></div>
+
+  <div class="plates" id="plateGrid"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+  <div class="st">
+    <div class="row"><i class="dot" id="dot"></i><span class="v" id="stv">IDLE</span></div>
+    <div class="track"><b id="trk"></b></div>
+  </div>
+
+  <div class="rd">
+    <div><span class="k" id="k1">Coherence</span><span class="num" id="m1">92.0%</span></div>
+    <div><span class="k" id="k2">Plates</span><span class="num" id="m2">0</span></div>
+    <div><span class="k" id="k3">Latency</span><span class="num" id="m3">0.0 ms</span></div>
+  </div>
+
+  <div class="lft">
+    <div><span class="k">Points</span><span class="num" id="pts">0</span></div>
+    <div><span class="k">Seam</span><span class="num" id="sem">0.00</span></div>
+    <div><span class="k">Voice</span><span class="num" id="vox">—</span></div>
+  </div>
+
+  <div class="console" id="console">
+
+    <div class="say" id="sayLine">Try saying &mdash; <em>&ldquo;Thor, what needs me first?&rdquo;</em></div>
+
+    <div class="sw" id="switch">
+      <button data-p="thor" class="on">Thor</button><span class="sep"></span>
+      <button data-p="loki">Loki</button><span class="sep"></span>
+      <button data-p="odin">Odin</button>
+    </div>
+
+    <div class="ctl">
+      <button class="mic hit" id="mic" aria-label="Speak">
+        <span class="ring"></span>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="9" y="3" width="6" height="11" rx="3"></rect>
+          <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"></path>
+          <path d="M12 18v3"></path>
+        </svg>
+        <small id="micLabel">Speak</small>
+      </button>
+      <a class="enter hit" id="enterLink" href="#"><i></i><span id="enterText">Enter Thor</span></a>
+    </div>
+
+    <div class="bar" id="bar"></div>
+    <div class="hint">1 &middot; 2 &middot; 3 to switch &nbsp;&middot;&nbsp; M to speak</div>
+    <div class="brand">ASGARD // WARDEN CORE</div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================================
+   ===== DATA — everything the page displays lives here. Wire the backend
+   ===== to these values (or use the window.ASGARD methods at the bottom).
+   ========================================================================= */
+var DATA = {
+
+  active: 'thor',            // which persona the page opens on
+
+  personas: {
+
+    thor: {
+      name:  'THOR',
+      role:  'Primary · Command & Response',
+      href:  '/thor/',                    // <-- the hall this persona opens
+      enter: 'Enter Thor',
+      tempo: 1.00,                        // motion speed multiplier
+      agit:  1.00,                        // how restless the armour is
+      /* blue / white — cold, steady, high contrast, gold rims */
+      pal: {
+        bg:   [0.016,0.027,0.059],        // #04070F
+        deep: [0.050,0.170,0.540],
+        mid:  [0.115,0.410,0.900],
+        main: [0.310,0.765,1.000],        // #4FC3FF
+        hot:  [0.760,0.945,1.000],        // #BFEFFF
+        rim:  [1.000,0.790,0.470],        // #FFD08A  gold seam rims
+        amb1: [0.086,0.282,0.549,0.15],
+        amb2: [0.549,0.376,0.118,0.07]
+      },
+      labels: ['Coherence','Plates','Latency'],
+      lines: [
+        'Thor, what needs me first?',
+        'Thor, hold the line on this.',
+        'Thor, weigh both approaches.',
+        'The line holds. Nothing came through.'
+      ]
+    },
+
+    loki: {
+      name:  'LOKI',
+      role:  'Signals · Briefs & Timing',
+      href:  '/loki/',
+      enter: 'Enter Loki',
+      tempo: 1.22,                        // quicker, more restless
+      agit:  1.30,
+      /* green / black — low, venomous, acid-lime rims */
+      pal: {
+        bg:   [0.012,0.031,0.020],        // #030805
+        deep: [0.020,0.110,0.065],
+        mid:  [0.071,0.314,0.227],        // #12503A
+        main: [0.247,0.851,0.541],        // #3FD98A
+        hot:  [0.722,1.000,0.847],        // #B8FFD8
+        rim:  [0.780,1.000,0.310],        // acid lime seam rims
+        amb1: [0.055,0.310,0.180,0.14],
+        amb2: [0.400,0.620,0.120,0.06]
+      },
+      labels: ['Certainty','Threads','Latency'],
+      lines: [
+        'Loki, what did I miss?',
+        'Loki, move that to the morning.',
+        'Loki, find the angle nobody took.',
+        'Three things moved. Two of them matter.'
+      ]
+    },
+
+    odin: {
+      name:  'ODIN',
+      role:  'Counsel · Revenue & Strategy',
+      href:  '/odin/',
+      enter: 'Enter Odin',
+      tempo: 0.82,                        // slower, heavier, deliberate
+      agit:  0.78,
+      /* white / gold — inverted: warm body, cold white rims */
+      pal: {
+        bg:   [0.039,0.031,0.020],        // #0A0805
+        deep: [0.180,0.120,0.045],
+        mid:  [0.420,0.306,0.122],        // #6B4E1F
+        main: [0.910,0.784,0.471],        // #E8C878
+        hot:  [1.000,0.957,0.839],        // #FFF4D6
+        rim:  [0.965,0.988,1.000],        // cold white seam rims
+        amb1: [0.470,0.360,0.140,0.15],
+        amb2: [0.780,0.720,0.620,0.05]
+      },
+      labels: ['Conviction','Positions','Latency'],
+      lines: [
+        'Odin, where is the money actually going?',
+        'Odin, hold. Show me the downside first.',
+        'Odin, run it out twelve months.',
+        'One position is carrying the others. Watch it.'
+      ]
+    }
+  },
+
+  /* the four states the form moves through, and how it looks in each */
+  states: {
+    idle:      {label:'IDLE'     ,dur:7.2,coh:0.920,agit:0.34,lift:0.030,core:1.00,bright:0.96,breath:0.0095,line:0},
+    listening: {label:'LISTENING',dur:6.4,coh:0.978,agit:0.20,lift:0.014,core:1.60,bright:1.03,breath:0.0060,line:1},
+    thinking:  {label:'THINKING' ,dur:6.8,coh:0.700,agit:0.92,lift:0.062,core:0.86,bright:0.99,breath:0.0060,line:2},
+    speaking:  {label:'SPEAKING' ,dur:7.0,coh:0.935,agit:0.52,lift:0.040,core:2.05,bright:1.12,breath:0.0165,line:3}
+  },
+  cycle: ['idle','listening','thinking','speaking'],
+
+  /* the three numbers top-right. Replace these from the backend. */
+  metrics: { m1:'92.0%', m2:'54', m3:'0.0 ms' },
+
+  /* the bottom bar. Set href on any of them to make it a link. */
+  bar: [
+    {label:'Talk',     on:false},
+    {label:'Type',     on:false},
+    {label:'Tools',    on:false},
+    {label:'Guide',    on:false},
+    {label:'Controls', on:true }
+  ],
+
+  crossfade: 900   // ms — how long a persona change takes
+};
+/* ===== end DATA ========================================================= */
+
+
+var TAU=Math.PI*2;
+var REDUCED=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* on small or weak machines, build fewer points — the Chromebook has to run this */
+var SMALL = Math.min(window.innerWidth,window.innerHeight) < 620;
+var WEAK  = (navigator.hardwareConcurrency||4) <= 4;
+var DENS  = SMALL ? 0.50 : (WEAK && (navigator.deviceMemory||8) < 4 ? 0.72 : 1.0);
+
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+var rnd=mulberry32(0x7A2D19);
+function hs(i){var t=Math.imul(i^0x9E3779B9,0x85EBCA6B);t^=t>>>13;t=Math.imul(t,0xC2B2AE35);return((t^t>>>16)>>>0)/4294967296*2-1;}
+function nz(x){var i=Math.floor(x),f=x-i,u=f*f*(3-2*f);return hs(i)*(1-u)+hs(i+1)*u;}
+function gauss(){var u=1-rnd(),v=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(TAU*v);}
+function cl(v,a,b){return v<a?a:(v>b?b:v);}
+function ss(a,b,x){var t=cl((x-a)/(b-a),0,1);return t*t*(3-2*t);}
+function lerp(a,b,t){return a+(b-a)*t;}
+
+var CAP=Math.ceil(74000*DENS)+200,STRIDE=13,n=0;
+var A=new Float32Array(CAP*STRIDE);
+function put(x,y,z,nx,ny,nzz,k,t,s,edge){
+  if(n>=CAP)return;var i=n*STRIDE;
+  A[i]=x;A[i+1]=y;A[i+2]=z;A[i+3]=nx;A[i+4]=ny;A[i+5]=nzz;
+  A[i+6]=rnd();A[i+7]=rnd();A[i+8]=rnd();
+  A[i+9]=k;A[i+10]=t;A[i+11]=s;A[i+12]=edge||0;n++;
+}
+function cr(a,b,c,d,t){var t2=t*t,t3=t2*t;return 0.5*((2*b)+(-a+c)*t+(2*a-5*b+4*c-d)*t2+(-a+3*b-3*c+d)*t3);}
+var FIELDS=['y','w','d','cz','p'];
+function profile(keys){return function(u){u=cl(u,0,1);var i=0;while(i<keys.length-2&&keys[i+1].u<u)i++;
+  var a=keys[Math.max(0,i-1)],b=keys[i],c=keys[i+1],d=keys[Math.min(keys.length-1,i+2)];
+  var t=(u-b.u)/Math.max(1e-6,(c.u-b.u));var o={};
+  for(var f=0;f<FIELDS.length;f++){var K=FIELDS[f];o[K]=cr(a[K],b[K],c[K],d[K],t);}return o;};}
+function revolve(keys){var pf=profile(keys);return function(u,v){
+  var k=pf(u),a=v*TAU,ca=Math.cos(a),sa=Math.sin(a),np=Math.max(2,k.p);
+  var m=Math.pow(Math.pow(Math.abs(ca),np)+Math.pow(Math.abs(sa),np),-1/np);
+  return [k.w*ca*m,k.y,k.d*sa*m+k.cz,0,k.y,k.cz];};}
+function yoke(halfSpan,drop,base,rBase,rDelt,rTrap){return function(u,v){
+  var s=u*2-1,as=Math.abs(s);
+  var ax=halfSpan*s, ay=base-drop*Math.pow(as,1.55), az=-0.014-0.085*s*s;
+  var r=rBase+rDelt*ss(0.24,0.95,as)+rTrap*Math.exp(-Math.pow(s/0.26,2));
+  r*=Math.pow(Math.max(1e-4,1-Math.pow(as,8)),0.30);
+  var a=v*TAU;
+  return [ax,ay+r*Math.cos(a),az+r*Math.sin(a)*1.14,ax,ay,az];};}
+function evalS(F,u,v){
+  var e=7e-4,p=F(u,v);
+  var back=(u>1-e),pu=back?F(u-e,v):F(u+e,v),sg=back?-1:1,pv=F(u,v+e);
+  var dux=(pu[0]-p[0])/e*sg,duy=(pu[1]-p[1])/e*sg,duz=(pu[2]-p[2])/e*sg;
+  var dvx=(pv[0]-p[0])/e,dvy=(pv[1]-p[1])/e,dvz=(pv[2]-p[2])/e;
+  var nx=duy*dvz-duz*dvy,ny=duz*dvx-dux*dvz,nzz=dux*dvy-duy*dvx;
+  var ar=Math.sqrt(nx*nx+ny*ny+nzz*nzz)||1e-6;nx/=ar;ny/=ar;nzz/=ar;
+  var ox=p[0]-p[3],oy=p[1]-p[4],oz=p[2]-p[5];
+  if(nx*ox+ny*oy+nzz*oz<0){nx=-nx;ny=-ny;nzz=-nzz;}
+  return {p:p,n:[nx,ny,nzz],lu:Math.sqrt(dux*dux+duy*duy+duz*duz),lv:Math.sqrt(dvx*dvx+dvy*dvy+dvz*dvz),area:ar};
+}
+function areaMax(F){var m=0;for(var i=0;i<=20;i++)for(var j=0;j<=20;j++){var a=evalS(F,i/20,j/20).area;if(a>m)m=a;}return m||1;}
+
+/* ------------------------------------------------------- the heavy body */
+var HEAD=revolve([
+  {u:0.00,y:0.760,w:0.118,d:0.132,cz: 0.030,p:2.60},
+  {u:0.16,y:0.862,w:0.206,d:0.216,cz: 0.016,p:2.70},
+  {u:0.34,y:0.976,w:0.262,d:0.262,cz: 0.002,p:2.80},
+  {u:0.54,y:1.102,w:0.292,d:0.288,cz:-0.014,p:2.90},
+  {u:0.72,y:1.232,w:0.292,d:0.286,cz:-0.034,p:2.90},
+  {u:0.88,y:1.352,w:0.260,d:0.256,cz:-0.052,p:2.78},
+  {u:1.00,y:1.442,w:0.148,d:0.150,cz:-0.064,p:2.58}
+]);
+var NECK=revolve([
+  {u:0.00,y:0.580,w:0.252,d:0.238,cz:-0.030,p:2.60},
+  {u:0.50,y:0.700,w:0.196,d:0.196,cz:-0.018,p:2.40},
+  {u:1.00,y:0.820,w:0.216,d:0.216,cz: 0.000,p:2.40}
+]);
+var YOKE=yoke(1.055,0.240,0.585,0.156,0.166,0.062);
+var TORSO=revolve([
+  {u:0.00,y: 0.620,w:0.516,d:0.234,cz:0.000,p:3.00},
+  {u:0.30,y: 0.330,w:0.558,d:0.272,cz:0.000,p:2.92},
+  {u:0.62,y: 0.020,w:0.518,d:0.256,cz:0.000,p:2.82},
+  {u:1.00,y:-0.340,w:0.452,d:0.232,cz:0.000,p:2.70}
+]);
+var SURFS=[HEAD,NECK,YOKE,TORSO];
+
+/* ---- plate seeds: farthest-point sampling so the cells are evenly spread */
+var NPLATE=54, seeds=[];
+(function(){
+  var cand=[];
+  for(var si=0;si<SURFS.length;si++){
+    var F=SURFS[si],am=areaMax(F),got=0,guard=0;
+    var want=[70,26,110,96][si];
+    while(got<want&&guard<want*40){
+      guard++;
+      var u=0.02+rnd()*0.96,v=rnd(),E=evalS(F,u,v);
+      if(rnd()*am>E.area)continue;
+      got++; cand.push({p:E.p.slice(0,3),n:E.n});
+    }
+  }
+  function d2(a,b){var x=a.p[0]-b.p[0],y=a.p[1]-b.p[1],z=a.p[2]-b.p[2];return x*x+y*y+z*z;}
+  seeds.push(cand[0]);
+  var mind=new Float64Array(cand.length);
+  for(var i=0;i<cand.length;i++) mind[i]=d2(cand[i],seeds[0]);
+  while(seeds.length<NPLATE){
+    var bi=0,bd=-1;
+    for(var j=0;j<cand.length;j++) if(mind[j]>bd){bd=mind[j];bi=j;}
+    var s=cand[bi]; s.r=rnd(); seeds.push(s);
+    for(var q=0;q<cand.length;q++){var dd=d2(cand[q],s); if(dd<mind[q]) mind[q]=dd;}
+  }
+  seeds[0].r=rnd();
+})();
+var SX=new Float64Array(NPLATE),SY=new Float64Array(NPLATE),SZ=new Float64Array(NPLATE),
+    SNX=new Float64Array(NPLATE),SNY=new Float64Array(NPLATE),SNZ=new Float64Array(NPLATE),SR=new Float64Array(NPLATE);
+for(var q=0;q<NPLATE;q++){var s=seeds[q];SX[q]=s.p[0];SY[q]=s.p[1];SZ[q]=s.p[2];
+  SNX[q]=s.n[0];SNY[q]=s.n[1];SNZ[q]=s.n[2];SR[q]=s.r;}
+
+var GAPW=0.042, FLAT=0.48, LIFT0=0.014, LIFT1=0.030;
+/* every surface point is claimed by its nearest plate, flattened onto that plate's
+   plane and lifted clear of the body; points near a cell boundary are dropped, which
+   is what carves the dark seams */
+function emitPlate(x,y,z,nx,ny,nzz,k,t,s){
+  var b1=1e9,b2=1e9,i1=0;
+  for(var i=0;i<NPLATE;i++){
+    var dx=x-SX[i],dy=y-SY[i],dz=z-SZ[i];
+    var d=dx*dx+dy*dy+dz*dz;
+    if(d<b1){b2=b1;b1=d;i1=i;} else if(d<b2){b2=d;}
+  }
+  b1=Math.sqrt(b1); b2=Math.sqrt(b2);
+  var gap=b2-b1;
+  if(gap<GAPW) return;
+  var edge=1-ss(GAPW,GAPW*3.1,gap);
+  var pnx=SNX[i1],pny=SNY[i1],pnz=SNZ[i1];
+  var dp=cl((x-SX[i1])*pnx+(y-SY[i1])*pny+(z-SZ[i1])*pnz,-0.11,0.11);
+  var lift=LIFT0+LIFT1*SR[i1];
+  put(x-FLAT*dp*pnx+pnx*lift, y-FLAT*dp*pny+pny*lift, z-FLAT*dp*pnz+pnz*lift,
+      pnx,pny,pnz,k,t,s,edge);
+}
+function weave(F,o){
+  var am=areaMax(F),guard=0,made=0,em=o.emit||put;
+  var want=Math.max(24,Math.round(o.count*DENS));
+  while(made<want&&guard<want*40){
+    guard++;
+    var u=0.01+rnd()*0.98,v=rnd(),E=evalS(F,u,v);
+    if(rnd()*am>E.area)continue;
+    if(o.dens&&rnd()>o.dens(E.p))continue;
+    made++;
+    var ang=o.bias+(rnd()*2-1)*o.spread,sd=rnd()*900,st=o.smin+Math.floor(rnd()*(o.smax-o.smin+1));
+    for(var s=0;s<st;s++){
+      var Q=evalS(F,u,v);
+      em(Q.p[0],Q.p[1],Q.p[2],Q.n[0],Q.n[1],Q.n[2],o.kind,st>1?s/(st-1):0.5,o.size*(0.70+0.58*rnd()));
+      u+=Math.cos(ang)*o.len/Math.max(Q.lu,1e-3);
+      v+=Math.sin(ang)*o.len/Math.max(Q.lv,1e-3);
+      ang+=nz(sd+s*0.31)*o.curl;
+      if(u<0.01){u=0.01;ang=Math.PI-ang;}
+      if(u>0.99){u=0.99;ang=Math.PI-ang;}
+      v=((v%1)+1)%1;
+    }
+  }
+}
+function densTorso(p){return cl(ss(-0.34,0.16,p[1])*0.60+0.40,0,1);}
+
+weave(HEAD ,{count: 660,smin:24,smax:48,len:0.0034,size:0.00840,kind:0,bias:0.0,spread:0.95,curl:0.155,emit:emitPlate});
+weave(NECK ,{count: 115,smin:20,smax:38,len:0.0034,size:0.00800,kind:0,bias:0.0,spread:0.95,curl:0.155,emit:emitPlate});
+weave(YOKE ,{count: 830,smin:26,smax:52,len:0.0034,size:0.00920,kind:0,bias:0.0,spread:0.95,curl:0.165,emit:emitPlate});
+weave(TORSO,{count: 660,smin:24,smax:48,len:0.0034,size:0.00880,kind:0,bias:0.0,spread:0.95,curl:0.170,emit:emitPlate,dens:densTorso});
+
+/* the visor — one wide bar of white across the brow. This is the part that
+   answers the voice: kind 1 and 2 both scale with uCore and uVoice. */
+(function(){
+  var N=Math.round(1850*DENS);
+  for(var i=0;i<N;i++){
+    var x=(rnd()*2-1)*0.168;
+    var fall=Math.exp(-Math.pow(x/0.128,6));
+    if(rnd()>fall) continue;
+    var y=1.104+gauss()*0.0118;
+    var z=0.286-0.62*x*x+gauss()*0.010;
+    put(x,y,z,0,0,1,1,rnd(),0.0041+0.0034*rnd(),0);
+  }
+  var H=Math.round(300*DENS);
+  for(var h=0;h<H;h++){
+    put(gauss()*0.098,1.104+gauss()*0.032,0.268+gauss()*0.028,0,0,1,2,rnd(),0.041+0.049*rnd(),0);
+  }
+})();
+
+/* slow motes drifting in the armour's own light */
+(function(){
+  var F=YOKE,am=areaMax(F),got=0,guard=0,want=Math.round(1500*DENS);
+  while(got<want&&guard<40000){
+    guard++;
+    var u=0.02+rnd()*0.96,v=rnd(),E=evalS(F,u,v);
+    if(rnd()*am>E.area)continue;
+    got++;
+    var d=0.04+0.26*Math.pow(rnd(),1.7);
+    put(E.p[0]+E.n[0]*d+gauss()*0.05,E.p[1]+E.n[1]*d+gauss()*0.05,E.p[2]+E.n[2]*d+gauss()*0.05,
+        E.n[0],E.n[1],E.n[2],3,rnd(),0.00380+0.00250*rnd(),0);
+  }
+})();
+
+var COUNT=n;
+
+/* ------------------------------------------------------- gl */
+var cv=document.getElementById('c');
+var gl=cv.getContext('webgl',{alpha:false,antialias:false,depth:false,stencil:false,premultipliedAlpha:false,powerPreference:'high-performance'})
+     ||cv.getContext('experimental-webgl',{alpha:false,antialias:false,depth:false});
+
+/* The five palette colours are uniforms, not constants — that is the whole
+   trick behind the persona crossfade. The armour never rebuilds. It just
+   changes temperature. */
+var VS=[
+'precision highp float;',
+'attribute vec3 aPos; attribute vec3 aNrm; attribute vec3 aRnd; attribute vec4 aMeta;',
+'uniform mat3 uR; uniform vec3 uPivot; uniform float uDist;',
+'uniform vec2 uProj; uniform vec2 uPZ; uniform float uYOff;',
+'uniform float uT,uForm,uAgit,uCoh,uBreath,uCore,uBright,uPS,uMaxPS,uLift,uVoice;',
+'uniform vec3 uCDeep,uCMid,uCMain,uCHot,uCRim;',
+'varying vec3 vCol; varying float vA;',
+'vec3 flow(vec3 p,float t){',
+'  return vec3(sin(p.y*2.60+t*0.42)+0.55*sin(p.z*4.30-t*0.29),',
+'              sin(p.z*2.30+t*0.37)+0.55*sin(p.x*4.10+t*0.33),',
+'              sin(p.x*2.80+t*0.47)+0.55*sin(p.y*4.70-t*0.26));}',
+'void main(){',
+'  float kind=aMeta.x, tt=aMeta.y, sz=aMeta.z, edge=aMeta.w;',
+'  vec3 base=aPos; vec3 rel=base-uPivot;',
+'  vec3 p=uPivot+rel*(1.0+uBreath);',
+'  // each plate rides on its own slow phase, so the seams open and close',
+'  float pph=fract(sin(dot(aNrm,vec3(12.9898,78.233,45.164)))*43758.5453);',
+'  float plate=step(kind,0.5);',
+'  // the voice pushes the plates open — a held note lifts the whole shell',
+'  float lift=(uLift+uVoice*0.030)*(0.30+0.70*pph)*(0.5+0.5*sin(uT*0.34+pph*6.2832));',
+'  p += aNrm*lift*plate;',
+'  vec3 tb=flow(base*3.0+aRnd*5.0, uT*0.55+aRnd.z*6.28);',
+'  p += tb*((uAgit+uVoice*0.55)*(0.004+0.010*aRnd.x));',
+'  p += aNrm*((1.0-uCoh)*(0.020+0.075*aRnd.y))*(0.55+0.45*sin(uT*0.55+aRnd.z*9.4));',
+'  float d=clamp(uForm*1.42-aRnd.z*0.40,0.0,1.0); float e=d*d*(3.0-2.0*d);',
+'  vec3 far=uPivot+rel*(1.0+1.05*aRnd.x)+aNrm*(0.30+0.95*aRnd.y)+tb*0.25;',
+'  p=mix(far,p,e);',
+'  vec3 mv=uR*(p-uPivot); mv.z-=uDist;',
+'  float w=-mv.z;',
+'  gl_Position=vec4(mv.x*uProj.x, mv.y*uProj.y + uYOff*w, uPZ.x*mv.z+uPZ.y, w);',
+'  vec3 nv=normalize(uR*aNrm); vec3 vd=normalize(-mv);',
+'  float fres=1.0-abs(dot(nv,vd));',
+'  float face=abs(dot(nv,vd));',
+'  float near=clamp((uDist+0.55-w)/1.10,0.0,1.0);',
+'  vec3 col=mix(uCDeep,uCMid,smoothstep(0.0,0.50,near));',
+'  col=mix(col,uCMain,smoothstep(0.28,1.0,near)*0.80);',
+'  float tap=pow(max(sin(3.14159*tt),0.0),0.36);',
+'  float a; float s=sz;',
+'  if(kind<0.5){',
+'    // solid: plates hold brightness even face-on, unlike the airy designs',
+'    a=0.660*(0.62+0.55*pow(fres,1.35))*tap;',
+'    // plate faces catch a hard specular sheen when they turn to camera',
+'    col=mix(col,uCHot,pow(face,7.0)*(0.55+0.30*uVoice));',
+'    // rims burn',
+'    col=mix(col,uCRim,edge*0.80);',
+'    a*=1.0+1.15*edge;',
+'    a*=1.0+0.46*uVoice*edge;',
+'    s*=1.0+0.30*edge;',
+'  } else if(kind<1.5){',
+'    // the visor bar — this is the part that answers the voice',
+'    a=0.300*uCore*(1.0+1.05*uVoice); col=mix(vec3(1.0),uCRim,0.10); s*=1.0+0.24*uCore+0.30*uVoice;',
+'  } else if(kind<2.5){',
+'    a=0.0215*uCore*(1.0+1.60*uVoice); col=mix(uCMain,vec3(1.0),0.50);',
+'  } else {',
+'    a=0.100*(0.35+0.75*aRnd.y)*(1.0+0.55*uVoice); col=mix(uCDeep,uCMain,0.30+0.55*near);',
+'  }',
+'  vA=a*uBright*e;',
+'  vCol=col;',
+'  gl_PointSize=clamp(s*uPS/max(w,0.05),0.60,uMaxPS);',
+'}'].join('\n');
+
+var FS=[
+'precision mediump float;',
+'varying vec3 vCol; varying float vA;',
+'void main(){',
+'  vec2 q=gl_PointCoord-0.5; float r2=dot(q,q)*4.0;',
+'  if(r2>1.0) discard;',
+'  float g=exp(-r2*3.0), k=exp(-r2*19.0);',
+'  gl_FragColor=vec4(vCol*vA, g*0.94+k*0.55);',
+'}'].join('\n');
+
+var prog=null,loc={},uMaxPS=64;
+function sh2(t,src){var s=gl.createShader(t);gl.shaderSource(s,src);gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){console.warn(gl.getShaderInfoLog(s));return null;}return s;}
+function initGL(){
+  if(!gl) return false;
+  var vs=sh2(gl.VERTEX_SHADER,VS),fs=sh2(gl.FRAGMENT_SHADER,FS);
+  if(!vs||!fs)return false;
+  prog=gl.createProgram();gl.attachShader(prog,vs);gl.attachShader(prog,fs);gl.linkProgram(prog);
+  if(!gl.getProgramParameter(prog,gl.LINK_STATUS)){console.warn(gl.getProgramInfoLog(prog));return false;}
+  gl.useProgram(prog);
+  var buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+  gl.bufferData(gl.ARRAY_BUFFER,A.subarray(0,COUNT*STRIDE),gl.STATIC_DRAW);
+  var spec=[['aPos',3,0],['aNrm',3,3],['aRnd',3,6],['aMeta',4,9]];
+  for(var i=0;i<spec.length;i++){
+    var l=gl.getAttribLocation(prog,spec[i][0]);
+    gl.enableVertexAttribArray(l);
+    gl.vertexAttribPointer(l,spec[i][1],gl.FLOAT,false,STRIDE*4,spec[i][2]*4);
+  }
+  ['uR','uPivot','uDist','uProj','uPZ','uT','uForm','uAgit','uCoh','uBreath','uCore','uBright',
+   'uPS','uMaxPS','uLift','uVoice','uYOff','uCDeep','uCMid','uCMain','uCHot','uCRim']
+    .forEach(function(k){loc[k]=gl.getUniformLocation(prog,k);});
+  var rg=gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE);
+  uMaxPS=Math.max(16,Math.min(150,(rg&&rg[1])||64));
+  gl.disable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
+  return true;
+}
+
+var FOV=36*Math.PI/180,TW=2.62,TH=1.56;
+var PIVX=0,PIVY=0.965,PIVZ=-0.02;
+var W=1,H=1,DPR=1,dist=2.4,px=1,py=1,yoff=0.04;
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,SMALL?1.35:1.6);
+  W=cv.clientWidth||window.innerWidth;H=cv.clientHeight||window.innerHeight;
+  cv.width=Math.max(2,Math.round(W*DPR));cv.height=Math.max(2,Math.round(H*DPR));
+  if(gl)gl.viewport(0,0,cv.width,cv.height);
+  var asp=W/H,tf=Math.tan(FOV/2);
+  /* on a narrow screen, crop into the form rather than backing the camera off */
+  var portrait=asp<0.86;
+  var crop=portrait?0.34:Math.max(0.42,Math.min(1,asp/1.45));
+  var tw=TW*crop;
+  dist=Math.max((TH/2)/tf,(tw/2)/(tf*asp));
+  /* the console eats the bottom fifth of a phone screen — lift the bust out of it */
+  yoff=portrait?0.19:(asp<1.35?0.10:0.04);
+  px=(1/tf)/asp;py=1/tf;
+}
+window.addEventListener('resize',resize);
+window.addEventListener('orientationchange',function(){setTimeout(resize,120);});
+resize();
+
+/* =========================================================================
+   persona — the crossfade. Nothing rebuilds; the palette and the tempo move.
+   ========================================================================= */
+var KEYS=['deep','mid','main','hot','rim','bg'];
+function copyPal(p){var o={};for(var i=0;i<KEYS.length;i++)o[KEYS[i]]=p[KEYS[i]].slice();
+  o.amb1=p.amb1.slice();o.amb2=p.amb2.slice();return o;}
+function mixPal(a,b,t){
+  var o={};
+  for(var i=0;i<KEYS.length;i++){
+    var A1=a[KEYS[i]],B1=b[KEYS[i]],r=[];
+    for(var j=0;j<A1.length;j++) r.push(lerp(A1[j],B1[j],t));
+    o[KEYS[i]]=r;
+  }
+  o.amb1=[lerp(a.amb1[0],b.amb1[0],t),lerp(a.amb1[1],b.amb1[1],t),lerp(a.amb1[2],b.amb1[2],t),lerp(a.amb1[3],b.amb1[3],t)];
+  o.amb2=[lerp(a.amb2[0],b.amb2[0],t),lerp(a.amb2[1],b.amb2[1],t),lerp(a.amb2[2],b.amb2[2],t),lerp(a.amb2[3],b.amb2[3],t)];
+  return o;
+}
+function hex(c){
+  function h(v){var s=Math.round(cl(v,0,1)*255).toString(16);return s.length<2?'0'+s:s;}
+  return '#'+h(c[0])+h(c[1])+h(c[2]);
+}
+function rgba(c){return 'rgba('+Math.round(c[0]*255)+','+Math.round(c[1]*255)+','+Math.round(c[2]*255)+','+c[3].toFixed(3)+')';}
+
+var PID=DATA.active in DATA.personas ? DATA.active : 'thor';
+var P=DATA.personas[PID];
+var palFrom=copyPal(P.pal), palTo=copyPal(P.pal), palNow=copyPal(P.pal);
+var palT=1, palDur=DATA.crossfade/1000;
+var tempoFrom=P.tempo, tempoTo=P.tempo, tempoNow=P.tempo;
+var agitFrom=P.agit,  agitTo=P.agit,  agitNow=P.agit;
+
+var root=document.documentElement;
+var ambEl=document.querySelector('.amb');
+var consoleEl=document.getElementById('console');
+ambEl.style.transition='none';
+var themeMeta=document.querySelector('meta[name="theme-color"]');
+
+function paint(p){
+  root.style.setProperty('--bg',hex(p.bg));
+  root.style.setProperty('--cy',hex(p.main));
+  root.style.setProperty('--hot',hex(p.hot));
+  root.style.setProperty('--rim',hex(p.rim));
+  ambEl.style.background=
+    'radial-gradient(100% 74% at 50% 44%, '+rgba(p.amb1)+', rgba(0,0,0,0) 62%),'+
+    'radial-gradient(60% 40% at 50% 34%, '+rgba(p.amb2)+', rgba(0,0,0,0) 70%)';
+  if(themeMeta) themeMeta.setAttribute('content',hex(p.bg));
+  if(consoleEl){
+    var b=p.bg;
+    var s0='rgba('+Math.round(b[0]*255)+','+Math.round(b[1]*255)+','+Math.round(b[2]*255)+',';
+    consoleEl.style.background='linear-gradient(0deg,'+s0+'0.985) 0%,'+s0+'0.965) 40%,'+s0+'0.88) 62%,'+s0+'0.52) 80%,'+s0+'0) 100%)';
+  }
+}
+
+var E={
+  name:document.getElementById('pName'), role:document.getElementById('pRole'),
+  idBlock:document.getElementById('idBlock'),
+  stv:document.getElementById('stv'), trk:document.getElementById('trk'), dot:document.getElementById('dot'),
+  k1:document.getElementById('k1'), k2:document.getElementById('k2'), k3:document.getElementById('k3'),
+  m1:document.getElementById('m1'), m2:document.getElementById('m2'), m3:document.getElementById('m3'),
+  pts:document.getElementById('pts'), sem:document.getElementById('sem'), vox:document.getElementById('vox'),
+  say:document.getElementById('sayLine'), sw:document.getElementById('switch'),
+  enter:document.getElementById('enterLink'), enterTxt:document.getElementById('enterText'),
+  mic:document.getElementById('mic'), micLabel:document.getElementById('micLabel'),
+  bar:document.getElementById('bar')
+};
+
+E.pts.textContent=String(COUNT).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+E.m2.textContent=String(NPLATE);
+
+/* the bottom bar comes from DATA */
+(function(){
+  E.bar.innerHTML='';
+  DATA.bar.forEach(function(b){
+    var el=document.createElement(b.href?'a':'span');
+    el.textContent=b.label;
+    if(b.on) el.className='on';
+    if(b.href){el.href=b.href;el.style.textDecoration='none';el.className=(el.className+' hit').trim();}
+    E.bar.appendChild(el);
+  });
+})();
+
+var overrides={};                       // metrics the backend has taken over
+function writeMetrics(){
+  E.k1.textContent=P.labels[0];E.k2.textContent=P.labels[1];E.k3.textContent=P.labels[2];
+}
+
+var sayIndex=0;
+function writeSay(txt){
+  E.say.classList.add('swap');
+  setTimeout(function(){
+    E.say.innerHTML='Try saying — <em>&ldquo;'+String(txt).replace(/[<>&]/g,'')+'&rdquo;</em>';
+    E.say.classList.remove('swap');
+  },300);
+}
+
+function setPersona(id,silent){
+  if(!(id in DATA.personas)) return;
+  if(id===PID && !silent) return;
+  PID=id; P=DATA.personas[id];
+
+  palFrom=copyPal(palNow); palTo=copyPal(P.pal); palT=0;
+  tempoFrom=tempoNow; tempoTo=P.tempo;
+  agitFrom=agitNow;   agitTo=P.agit;
+
+  Array.prototype.forEach.call(E.sw.querySelectorAll('button'),function(b){
+    b.classList.toggle('on', b.getAttribute('data-p')===id);
+  });
+
+  E.idBlock.classList.add('swap');
+  setTimeout(function(){
+    E.name.textContent=P.name; E.role.textContent=P.role;
+    E.idBlock.classList.remove('swap');
+  },300);
+
+  E.enter.href=P.href; E.enterTxt.textContent=P.enter;
+  writeMetrics();
+  writeSay(P.lines[sayIndex]||P.lines[0]);
+  document.title='ASGARD · '+P.name;
+  if(typeof API.onPersona==='function'){try{API.onPersona(id);}catch(e){}}
+}
+
+E.sw.addEventListener('click',function(e){
+  var b=e.target.closest('button'); if(!b) return;
+  setPersona(b.getAttribute('data-p'));
+});
+window.addEventListener('keydown',function(e){
+  if(e.key==='1')setPersona('thor'); else if(e.key==='2')setPersona('loki'); else if(e.key==='3')setPersona('odin');
+  else if(e.key==='m'||e.key==='M')toggleMic();
+});
+
+/* =========================================================================
+   voice — the mic drives the glow. Denied or unsupported, the page just
+   keeps breathing on its own timer and never mentions it again.
+   ========================================================================= */
+var voice=0, voiceTarget=0, micOn=false, analyser=null, actx=null, stream=null, tdata=null;
+var external=-1;               // >=0 when ASGARD.level() is driving instead of the mic
+var lastLoud=0;
+
+function toggleMic(){ micOn ? stopMic() : startMic(); }
+
+function startMic(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ E.micLabel.textContent='No mic'; return; }
+  navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}).then(function(s){
+    stream=s;
+    var AC=window.AudioContext||window.webkitAudioContext;
+    actx=new AC(); if(actx.state==='suspended') actx.resume();
+    var src=actx.createMediaStreamSource(s);
+    analyser=actx.createAnalyser(); analyser.fftSize=1024; analyser.smoothingTimeConstant=0.55;
+    tdata=new Uint8Array(analyser.fftSize);
+    src.connect(analyser);
+    micOn=true; E.mic.classList.add('live'); E.micLabel.textContent='Listening';
+    mode='live';
+    if(typeof API.onMic==='function'){try{API.onMic(true);}catch(e){}}
+  }).catch(function(){
+    E.micLabel.textContent='Mic off';
+    setTimeout(function(){E.micLabel.textContent='Speak';},2400);
+  });
+}
+function stopMic(){
+  micOn=false; E.mic.classList.remove('live'); E.micLabel.textContent='Speak';
+  if(stream){stream.getTracks().forEach(function(t){t.stop();});stream=null;}
+  if(actx){try{actx.close();}catch(e){} actx=null;}
+  analyser=null; voiceTarget=0;
+  if(external<0) mode='auto';
+  if(typeof API.onMic==='function'){try{API.onMic(false);}catch(e){}}
+}
+E.mic.addEventListener('click',toggleMic);
+
+function readMic(){
+  if(!analyser) return 0;
+  analyser.getByteTimeDomainData(tdata);
+  var sum=0;
+  for(var i=0;i<tdata.length;i+=2){var v=(tdata[i]-128)/128;sum+=v*v;}
+  var rms=Math.sqrt(sum/(tdata.length/2));
+  /* floor out room noise, then curve it so normal speech fills the range */
+  return cl((rms-0.012)/0.16,0,1);
+}
+
+/* =========================================================================
+   state — either the slow auto cycle, or whatever the backend/mic says
+   ========================================================================= */
+var ORDER=DATA.cycle;
+var CYCLE=ORDER.reduce(function(a,k){return a+DATA.states[k].dur;},0);
+var mode='auto';                  // 'auto' = timed cycle, 'live' = driven
+var liveState='idle';
+var S0=DATA.states.idle;
+var cur={coh:S0.coh,agit:S0.agit,lift:S0.lift,core:S0.core,br:S0.bright,bre:S0.breath};
+var stKey='', stFrac=0;
+
+var API = {
+  persona:function(id){setPersona(id);return API;},
+  state:function(k){
+    if(!(k in DATA.states)) return API;
+    liveState=k; mode='live';
+    return API;
+  },
+  level:function(v){
+    external=cl(Number(v)||0,0,1); mode='live';
+    return API;
+  },
+  auto:function(){external=-1; if(!micOn) mode='auto'; return API;},
+  say:function(t){writeSay(t);return API;},
+  metric:function(id,val){overrides[id]=String(val);var el=E[id];if(el)el.textContent=String(val);return API;},
+  data:DATA,
+  onPersona:null,
+  onMic:null,
+  get current(){return PID;}
+};
+window.ASGARD=API;
+
+/* pointer parallax — the guardian tracks you, slowly */
+var mx=0,my=0,tmx=0,tmy=0;
+window.addEventListener('mousemove',function(e){tmx=(e.clientX/W)*2-1;tmy=(e.clientY/H)*2-1;},{passive:true});
+window.addEventListener('touchmove',function(e){if(e.touches[0]){tmx=(e.touches[0].clientX/W)*2-1;tmy=(e.touches[0].clientY/H)*2-1;}},{passive:true});
+
+var lat=0,lastUI=0,lastAmb=0;
+paint(palNow);
+setPersona(PID,true);
+
+/* ------------------------------------------------------- 2d fallback */
+function fallback(){
+  var nc=document.createElement('canvas');
+  nc.id='c'; if(cv.parentNode) cv.parentNode.replaceChild(nc,cv); cv=nc;
+  var ctx=cv.getContext('2d'); if(!ctx) return;
+  var step=Math.max(1,Math.floor(COUNT/7000)),t0=performance.now();
+  function f(now){
+    var t=(now-t0)/1000;
+    if(palT<1){palT=cl(palT+0.016/palDur,0,1);palNow=mixPal(palFrom,palTo,ss(0,1,palT));paint(palNow);}
+    cv.width=W;cv.height=H;
+    ctx.fillStyle=hex(palNow.bg);ctx.fillRect(0,0,W,H);
+    ctx.globalCompositeOperation='lighter';
+    var yaw=0.11*Math.sin(t*0.09)+mx*0.30,c1=Math.cos(yaw),s1=Math.sin(yaw);
+    var tf=Math.tan(FOV/2),f2=(H*0.5)/tf;
+    var cMain=palNow.main,cRim=palNow.rim,cHot=palNow.hot;
+    var sMain='rgb('+(cMain[0]*255|0)+','+(cMain[1]*255|0)+','+(cMain[2]*255|0)+',';
+    var sRim ='rgb('+(cRim[0]*255|0)+','+(cRim[1]*255|0)+','+(cRim[2]*255|0)+',';
+    var sHot ='rgb('+(cHot[0]*255|0)+','+(cHot[1]*255|0)+','+(cHot[2]*255|0)+',';
+    for(var i=0;i<COUNT;i+=step){
+      var o=i*STRIDE,X=A[o]-PIVX,Y=A[o+1]-PIVY,Z=A[o+2]-PIVZ;
+      var rx=c1*X+s1*Z,rz=-s1*X+c1*Z-dist,w=-rz;if(w<0.05)continue;
+      var sx=W*0.5+rx*f2/w,sy=H*0.5-Y*f2/w-yoff*H*0.5,k=A[o+9],ed=A[o+12];
+      var a=(k>0.5&&k<1.5)?0.5:0.14*(1+1.6*ed);
+      ctx.fillStyle=(k>0.5&&k<1.5)?sHot+a+')':(ed>0.45?sRim+a+')':sMain+a+')');
+      var s=Math.max(1,A[o+11]*f2/w);
+      ctx.fillRect(sx-s*0.5,sy-s*0.5,s,s);
+    }
+    ctx.globalCompositeOperation='source-over';
+    requestAnimationFrame(f);
+  }
+  requestAnimationFrame(f);
+}
+
+/* ------------------------------------------------------- the loop */
+if(!initGL()){ fallback(); }
+else{
+  var t0=performance.now(),prev=t0,Rm=new Float32Array(9),clock=0;
+  function frame(now){
+    var dt=Math.min(0.06,(now-prev)/1000);prev=now;
+    lat=lat*0.9+dt*100;
+    clock+=dt*tempoNow;
+
+    /* --- palette + temperament crossfade --------------------------------- */
+    if(palT<1){
+      palT=cl(palT+dt/palDur,0,1);
+      var pe=ss(0,1,palT);
+      palNow=mixPal(palFrom,palTo,pe);
+      tempoNow=lerp(tempoFrom,tempoTo,pe);
+      agitNow=lerp(agitFrom,agitTo,pe);
+      if(now-lastAmb>45){lastAmb=now;paint(palNow);}
+      if(palT>=1) paint(palNow);
+    }
+
+    /* --- voice ----------------------------------------------------------- */
+    if(external>=0)      voiceTarget=external;
+    else if(micOn)       voiceTarget=readMic();
+    else                 voiceTarget=0;
+    /* fast attack, slow release — a word lands hard and decays */
+    var vk = voiceTarget>voice ? Math.min(1,dt*14) : Math.min(1,dt*3.2);
+    voice += (voiceTarget-voice)*vk;
+    if(voice>0.14) lastLoud=now;
+
+    /* --- which state are we in ------------------------------------------- */
+    var key,S;
+    if(mode==='live'){
+      if(micOn && external<0) key = (now-lastLoud<900) ? 'listening' : 'idle';
+      else                    key = liveState;
+      S=DATA.states[key]||DATA.states.idle;
+      stFrac=voice;
+    }else{
+      var ct=(REDUCED?2.4:clock)%CYCLE,acc=0,idx=0;
+      for(var i=0;i<ORDER.length;i++){
+        var dd=DATA.states[ORDER[i]].dur;
+        if(ct<acc+dd){idx=i;stFrac=(ct-acc)/dd;break;}
+        acc+=dd;
+      }
+      key=ORDER[idx];S=DATA.states[key];
+    }
+    if(stKey!==key){
+      stKey=key;
+      E.stv.textContent=S.label;
+      sayIndex=S.line||0;
+      writeSay(P.lines[sayIndex]||P.lines[0]);
+    }
+
+    /* --- ease toward it --------------------------------------------------- */
+    var k=1-Math.exp(-dt*(REDUCED?6:1.15));
+    cur.coh+=(S.coh-cur.coh)*k;
+    cur.agit+=(S.agit*agitNow-cur.agit)*k;
+    cur.lift+=(S.lift-cur.lift)*k;
+    cur.core+=(S.core-cur.core)*k;
+    cur.br+=(S.bright-cur.br)*k;
+    cur.bre+=(S.breath-cur.bre)*k;
+
+    var motion=(REDUCED?0.18:1.0)*tempoNow;
+    var t=clock;
+    mx+=(tmx-mx)*Math.min(1,dt*2.1);my+=(tmy-my)*Math.min(1,dt*2.1);
+    var yaw=(0.098*Math.sin(t*0.093)+0.052*Math.sin(t*0.041))*(REDUCED?0.18:1)+mx*0.30;
+    var pit=-0.032+0.024*Math.sin(t*0.071)*(REDUCED?0.18:1)+my*0.13;
+    var cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pit),sp=Math.sin(pit);
+    Rm[0]=cy;Rm[1]=sp*sy;Rm[2]=-cp*sy;Rm[3]=0;Rm[4]=cp;Rm[5]=sp;Rm[6]=sy;Rm[7]=-sp*cy;Rm[8]=cp*cy;
+
+    var speak=(key==='speaking')?1:0;
+    var breath=cur.bre*Math.sin(t*0.52)+speak*0.0075*Math.sin(t*1.85)+voice*0.0090*Math.sin(t*2.35);
+    var core=cur.core*(1+speak*0.22*Math.sin(t*2.05)+0.06*Math.sin(t*0.74))+voice*0.85;
+    var form=REDUCED?1:(1-Math.pow(1-cl((now-t0)/2100,0,1),3));
+
+    gl.clearColor(palNow.bg[0],palNow.bg[1],palNow.bg[2],1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.uniformMatrix3fv(loc.uR,false,Rm);
+    gl.uniform3f(loc.uPivot,PIVX,PIVY,PIVZ);
+    gl.uniform1f(loc.uDist,dist);
+    gl.uniform2f(loc.uProj,px,py);
+    gl.uniform2f(loc.uPZ,60.1/(0.1-60),2*60*0.1/(0.1-60));
+    gl.uniform1f(loc.uT,t);
+    gl.uniform1f(loc.uForm,form);
+    gl.uniform1f(loc.uAgit,cur.agit*(REDUCED?0.30:1));
+    gl.uniform1f(loc.uCoh,REDUCED?Math.max(cur.coh,0.92):cur.coh);
+    gl.uniform1f(loc.uBreath,breath);
+    gl.uniform1f(loc.uCore,core);
+    gl.uniform1f(loc.uBright,cur.br);
+    gl.uniform1f(loc.uPS,(cv.height*0.5)/Math.tan(FOV/2));
+    gl.uniform1f(loc.uMaxPS,uMaxPS);
+    gl.uniform1f(loc.uLift,cur.lift*(REDUCED?0.45:1));
+    gl.uniform1f(loc.uVoice,voice);
+    gl.uniform1f(loc.uYOff,yoff);
+    gl.uniform3f(loc.uCDeep,palNow.deep[0],palNow.deep[1],palNow.deep[2]);
+    gl.uniform3f(loc.uCMid ,palNow.mid[0] ,palNow.mid[1] ,palNow.mid[2]);
+    gl.uniform3f(loc.uCMain,palNow.main[0],palNow.main[1],palNow.main[2]);
+    gl.uniform3f(loc.uCHot ,palNow.hot[0] ,palNow.hot[1] ,palNow.hot[2]);
+    gl.uniform3f(loc.uCRim ,palNow.rim[0] ,palNow.rim[1] ,palNow.rim[2]);
+    gl.drawArrays(gl.POINTS,0,COUNT);
+
+    if(now-lastUI>240){
+      lastUI=now;
+      if(!overrides.m1) E.m1.textContent=(cur.coh*100).toFixed(1)+'%';
+      if(!overrides.m3) E.m3.textContent=lat.toFixed(1)+' ms';
+      E.sem.textContent=cur.lift.toFixed(3);
+      E.vox.textContent= micOn||external>=0 ? (voice*100).toFixed(0)+'%' : '—';
+      E.trk.style.width=(cl(stFrac,0,1)*100).toFixed(1)+'%';
+      E.dot.style.opacity=(0.55+0.45*Math.sin(t*1.5)).toFixed(2);
+      E.mic.style.boxShadow= voice>0.05 ? '0 0 '+(10+34*voice).toFixed(0)+'px '+(1+4*voice).toFixed(0)+'px '+rgba(palNow.rim.concat([0.30+0.45*voice])) : 'none';
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+})();
+</script>
+</body>
+</html>

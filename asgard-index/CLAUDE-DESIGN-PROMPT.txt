@@ -1,0 +1,81 @@
+================================================================================
+ASGARD INDEX — DESIGN BRIEF
+Paste this whole thing into Claude Design. Attach ui/index.html with it.
+================================================================================
+
+WHAT EXISTS
+
+You are given a finished, working page: a single self-contained HTML file with no
+libraries and no build step. It renders an armoured humanoid bust out of 64,477 points
+in raw WebGL — the body is cut into 54 plates, each flattened onto its own plane, lifted
+clear of the form and rimmed in light, with dark seams carved between them. One body
+carries three personas. Switching persona does not rebuild the figure; the five palette
+colours are shader uniforms, so it crossfades temperature over 900ms and changes tempo.
+
+  THOR   blue / white,  gold rims        ground #04070F   tempo 1.00  steady
+  LOKI   green / black, acid-lime rims   ground #030805   tempo 1.22  restless
+  ODIN   white / gold,  cold-white rims  ground #0A0805   tempo 0.82  slow, heavy
+
+It reacts to the microphone (visor bar, plate lift, rim burn, turbulence — fast attack,
+slow release), to the pointer, and to four states: IDLE, LISTENING, THINKING, SPEAKING.
+
+THE RULE THAT MATTERS MOST
+
+Do not touch the particle engine. Not the geometry, not the plate sampling, not the
+shaders, not the state machine, not the palettes. That figure is approved and final.
+Everything you change lives in the CSS and the chrome markup — the type, the layout,
+the readouts, the controls, the way information sits around the form.
+
+If you touch the shader at all, know this: `out`, `in`, `sample`, `filter`, `input` and
+`output` are reserved words in GLSL. One of them used as a variable name compiles to
+nothing and the page renders black with no error. That has already happened once.
+
+WHAT I WANT FROM YOU
+
+Three complete design directions for the chrome. Three separate full HTML files, each
+one the whole working page — never a snippet, never a diff, never "replace this block".
+I cannot merge code by hand.
+
+Each direction must be a genuinely different answer to the same question, not a restyle:
+
+  01  INSTRUMENT — the page reads like a precision instrument the figure is mounted in.
+      Dense, small, technical, tabular numbers, hairline rules, everything justified to
+      an invisible grid. Cold and exact.
+
+  02  MONUMENT — almost nothing on screen. Enormous confident type, vast negative space,
+      one line of text and one way in. The figure carries the whole page.
+
+  03  THRESHOLD — the chrome behaves like a door being opened. The interface is quiet at
+      rest and assembles itself around the figure as you engage with it — on hover, on
+      voice, on persona change. Motion is the design.
+
+CONSTRAINTS, ALL OF THEM NON-NEGOTIABLE
+
+- One file each. Self-contained. No React, no Tailwind, no bundler, no npm.
+  A Google font link is allowed and must degrade to a real system fallback stack.
+- No localStorage, no sessionStorage, no network calls, no third-party script.
+- The bright shoulders of the figure fill the bottom third of the frame. Any text placed
+  there needs its own scrim or it is unreadable. Check it, do not assume it.
+- Works at 1600x900, 900x700 and 390x844. Nothing overflows sideways at any width.
+  At 390 wide the primary action must still be reachable with a thumb.
+- Honour `prefers-reduced-motion`.
+- Keep the whole public API working exactly as it is: `ASGARD.persona()`, `.state()`,
+  `.level()`, `.auto()`, `.say()`, `.metric()`, `.onPersona`, `.onMic`, and the `DATA`
+  object that every displayed value already comes from. The backend wires to those.
+- Keep the 2D canvas fallback working for machines with no WebGL.
+- No character likenesses, no logos, no brand marks, no trademarked wordmarks. The names
+  Thor, Loki and Odin are the Norse figures, nothing else.
+
+WHAT I DO NOT WANT
+
+An orb in the middle of the screen with a chat panel down the right-hand side. I have
+been shown that layout thirty-nine times and it is dead. Do not send it back to me again.
+No stock dashboard cards. No glassmorphism. No emoji anywhere.
+
+DELIVER
+
+Three files. For each one, three sentences on what the idea is and what it costs.
+Then tell me plainly which of the three you would actually ship, and why.
+
+The HUD — the in-conversation interface inside each hall — is a separate job and is not
+part of this brief. Design the door, not the room.
