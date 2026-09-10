@@ -1,3 +1,4 @@
+import { activeIdentity, safeError } from './lib/chat-diagnostics.js';
 // ASGARD backend — Cloudflare Worker entrypoint. HTTP router plus the main
 // chat-handling logic; all integrations live in ./lib/*.js. Three personas
 // (THOR/LOKI/ODIN — see lib/personas.js) share this one brain: same worker,
@@ -376,7 +377,7 @@ async function handleChatTurn(env, ctx, opts) {
   // with anyone who is not Rayan (Rule 15). The bit persists in meta.
   tickTaint(meta);   // one turn older: a taint clears once its turns have rolled out of the window
   const convo = { meta, channel: isTelegram ? (isGroupChat ? 'telegram-group' : 'telegram') : 'web', sender: senderTag };
-  const result = await callClaudeWithTools(env, persona.systemPrompt, channelContext, longTermMemoryBlock, claudeMessages, !isWakeTrigger, wakeCodeCheckContext, personaId, channelStartsTainted(isTelegram, telegramChatType, senderTag === 'Rayan'), convo);
+  const result = await callClaudeWithTools(env, activeIdentity(persona), channelContext, longTermMemoryBlock, claudeMessages, !isWakeTrigger, wakeCodeCheckContext, personaId, channelStartsTainted(isTelegram, telegramChatType, senderTag === 'Rayan'), convo);
 
   if (!smoke) ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
 
@@ -1547,7 +1548,8 @@ How to speak on a phone call:
       }
       return json({ reply: result.reply, persona: personaId }, corsHeaders);
     } catch (err) {
-      return json({ error: err.message }, corsHeaders, 500);
+      console.error('CHAT_FAILURE', { name: err?.name || 'Error', reason: safeError(err) });
+      return json({ error: safeError(err) }, corsHeaders, 500);
     }
   },
 
