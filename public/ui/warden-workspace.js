@@ -1,3 +1,4 @@
+import {createCouncilOrbit} from './council-orbit.js';
 import {createArsenal} from './arsenal.js';
 import {createRequestLedger,formatReply,replyText,parseReplyPayload,requestErrorMessage,restoreDraft,nearTranscriptEnd} from './state.js';
 import {readChatReply} from './event-stream.js';
@@ -5,6 +6,7 @@ import {readChatReply} from './event-stream.js';
 const $=id=>document.getElementById(id),figure=window.ASGARD;
 const names={thor:'Thor',loki:'Loki',odin:'Odin'},requests=createRequestLedger();
 const rooms=Object.fromEntries(Object.keys(names).map(id=>[id,{messages:[],draft:'',loaded:false,loading:false,error:'',revision:0}]));
+let orbit;
 let persona=figure.current,arsenal,recognition=null,micStream=null,audioContext=null,analyser=null,levelFrame=0;
 let audio=null,audioURL=null,voiceAbort=null,voiceTimer=0,voiceToken=0,micToken=0,listening=false,starting=false,speaking=false,preparing=false;
 const saved=(key,fallback)=>{try{return localStorage.getItem(key)??fallback;}catch{return fallback;}};
@@ -15,7 +17,7 @@ figure.reduced($('still-motion').checked).state('idle').level(0);
 function update(){
   const busy=!!requests.get(persona),room=rooms[persona];
   const state=busy?'thinking':listening?'listening':speaking?'speaking':'idle';
-  figure.state(state);
+  figure.state(state);orbit?.state(state);
   const status=busy?'Working on your request…':starting?'Waiting for microphone permission…':listening?'Listening — finish speaking to send.':preparing?'Preparing spoken reply…':speaking?'Speaking. Press Stop to interrupt.':room.error|| (room.loading?'Loading your conversation…':'Ready. Type a message or turn your mic on.');
   $('connection-status').textContent=status;figure.say(status);
   $('send').disabled=busy;$('stop').hidden=!(busy||listening||starting||speaking||preparing);
@@ -58,10 +60,12 @@ function select(id){
   $('chat-name').textContent=names[id];$('message').placeholder='Ask '+names[id]+' anything…';$('message').value=rooms[id].draft;
   const url=new URL(location.href);url.searchParams.set('persona',id);url.hash='';history.replaceState(null,'',url);
   document.documentElement.style.setProperty('--acc',id==='loki'?'#adf6c7':id==='odin'?'#e6caff':'#a9dfff');
-  arsenal?.switchPersona();render();update();loadHistory(id);
+  arsenal?.switchPersona();orbit?.render();render();update();loadHistory(id);
 }
 figure.onPersona=select;
 arsenal=createArsenal({getPersona:()=>persona,getDraft:()=>$('message').value,setDraft,resetView:()=>{figure.level(0).reduced($('still-motion').checked);update();}});
+orbit=createCouncilOrbit({getPersona:()=>persona,openAgent:id=>arsenal.openAgent(id)});
+orbit.reduced($('still-motion').checked);
 $('message').addEventListener('input',()=>{rooms[persona].draft=$('message').value;});
 $('message').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('composer').requestSubmit();}});
 $('composer').addEventListener('submit',e=>{e.preventDefault();send();});
@@ -91,10 +95,10 @@ async function send(){
     if(id===persona){render();update();if(outcome==='complete'&&$('voice-output').checked)speak(answer.text,id);}
   }
 }
-function stopLevels(){cancelAnimationFrame(levelFrame);levelFrame=0;analyser=null;if(audioContext){audioContext.close().catch(()=>{});audioContext=null;}figure.level(0);}
+function stopLevels(){cancelAnimationFrame(levelFrame);levelFrame=0;analyser=null;if(audioContext){audioContext.close().catch(()=>{});audioContext=null;}figure.level(0);orbit?.level(0);}
 function levels(source,context,output=false){
   audioContext=context;analyser=context.createAnalyser();analyser.fftSize=512;const samples=new Uint8Array(analyser.fftSize);source.connect(analyser);if(output)analyser.connect(context.destination);
-  const tick=()=>{if(!analyser)return;analyser.getByteTimeDomainData(samples);let power=0;for(const value of samples)power+=((value-128)/128)**2;figure.level(Math.min(1,Math.max(0,(Math.sqrt(power/samples.length)-.008)*8)));levelFrame=requestAnimationFrame(tick);};tick();
+  const tick=()=>{if(!analyser)return;analyser.getByteTimeDomainData(samples);let power=0;for(const value of samples)power+=((value-128)/128)**2;const level=Math.min(1,Math.max(0,(Math.sqrt(power/samples.length)-.008)*8));figure.level(level);orbit?.level(level);levelFrame=requestAnimationFrame(tick);};tick();
 }
 function stopMic(){
   ++micToken;const old=recognition;recognition=null;if(old){old.onresult=old.onend=old.onerror=null;try{old.abort();}catch{}}
@@ -155,7 +159,7 @@ async function speak(text,id){
 $('stop').addEventListener('click',()=>{requests.get(persona)?.controller.abort();stopMic();stopVoice();});
 $('settings').addEventListener('click',()=>$('settings-dialog').showModal());
 $('voice-output').addEventListener('change',()=>{save('asgard:voice-output',$('voice-output').checked?'1':'0');if(!$('voice-output').checked)stopVoice();});
-$('still-motion').addEventListener('change',()=>{save('asgardfx:still',$('still-motion').checked?'1':'0');figure.reduced($('still-motion').checked);});
+$('still-motion').addEventListener('change',()=>{save('asgardfx:still',$('still-motion').checked?'1':'0');figure.reduced($('still-motion').checked);orbit?.reduced($('still-motion').checked);});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){stopMic();stopVoice();}});
 window.addEventListener('pagehide',()=>{stopMic();stopVoice();for(const id of Object.keys(names))requests.get(id)?.controller.abort();});
 select(persona);

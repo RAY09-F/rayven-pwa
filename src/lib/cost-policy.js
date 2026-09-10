@@ -18,7 +18,7 @@ export function stableRequest(system,tools,messages){
   if(Array.isArray(cleanSystem)&&cleanSystem[0]?.type==='text')cleanSystem[0].cache_control={...CACHE};
   return {system:cleanSystem,tools:cleanTools,messages:messages.map(message=>({...message,content:cleanContent(message.content)}))};
 }
-export function modelRoundLimit(value){const n=Number(value);return Number.isFinite(n)&&n>0?Math.min(MAX_MODEL_ROUNDS,Math.floor(n)):MAX_MODEL_ROUNDS;}
+export function modelRoundLimit(value){const n=Number(value);return Number.isFinite(n)&&n>0?Math.max(1,Math.min(MAX_MODEL_ROUNDS,Math.floor(n))):MAX_MODEL_ROUNDS;}
 export function boundedToolResult(value,max=12000){
   if(Array.isArray(value))return value.map(block=>block?.type==='text'?{...block,text:boundedToolResult(block.text,max)}:block);
   const text=typeof value==='string'?value:JSON.stringify(value??'');
