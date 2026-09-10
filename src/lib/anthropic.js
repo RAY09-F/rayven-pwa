@@ -1,3 +1,4 @@
+import {stableRequest} from './cost-policy.js';
 import {logUsage} from './usage-log.js';
 // Thin wrapper around the Anthropic Messages API with one retry on transient
 // errors. Ported unchanged from worker.js. Used by the main chat loop and by
@@ -5,7 +6,7 @@ import {logUsage} from './usage-log.js';
 // relevance filter, email classification, day-planning briefing).
 import { MODELS } from './models.js';
 
-export async function callAnthropic(env, systemBlocks, tools, messages, maxTokens, model) {
+export async function callAnthropic(env, systemBlocks, tools, messages, maxTokens, model, opts = {}) {
   for (let attempt = 0; attempt < 2; attempt++) {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -21,9 +22,8 @@ export async function callAnthropic(env, systemBlocks, tools, messages, maxToken
         // two being sent together, and we send neither.
         model: model || MODELS.sonnet,
         max_tokens: maxTokens || 1400,   // 900 was clipping longer answers mid-thought
-        system: systemBlocks,
-        tools: tools,
-        messages: messages
+        ...stableRequest(systemBlocks,tools,messages),
+        ...(opts.toolChoiceNone ? {tool_choice:{type:'none'}} : {})
       })
     });
 
