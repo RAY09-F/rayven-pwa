@@ -1,3 +1,4 @@
+import {logUsage} from './usage-log.js';
 // Agent-to-agent protocol with JARVIS (Jay's assistant) and KEVOS (Kevin's
 // assistant): outbound calls (askSiblingAgent / askAgentForCheckIn) and the
 // inbound HMAC-authenticated endpoint (handleAgentQuery). Ported unchanged.
@@ -124,6 +125,7 @@ Rules:
     });
 
     const data = await response.json();
+    logUsage(MODELS.sonnet,data.usage,'sibling-agents',{persist:true});
     let resultPayload = { answer: "Couldn't process that right now.", refused: true };
 
     if (response.ok) {

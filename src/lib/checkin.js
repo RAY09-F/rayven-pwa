@@ -1,3 +1,4 @@
+import {logUsage} from './usage-log.js';
 // Two existing scheduled jobs, ported unchanged: the daily proactive Telegram
 // check-in, and the daily self-code-check against RAYVEN's own GitHub source.
 // Both were already written as scheduled()-invoked functions in worker.js — they
@@ -84,6 +85,7 @@ You do NOT have calendar or meeting access — never claim to check his schedule
       break;
     }
     const data = await res.json();
+    logUsage(MODELS.sonnet,data.usage,'checkin',{persist:true});
 
     if (data.stop_reason === 'tool_use') {
       const toolUse = data.content.find(b => b.type === 'tool_use');
@@ -228,6 +230,7 @@ You do NOT have calendar or meeting access — never claim to check his schedule
       break;
     }
     const data = await res.json();
+    logUsage(MODELS.sonnet,data.usage,'checkin',{persist:true});
 
     if (data.stop_reason === 'tool_use') {
       const toolUse = data.content.find(b => b.type === 'tool_use');
@@ -342,6 +345,7 @@ ${workerSource}`;
   }
 
   const data = await res.json();
+    logUsage(MODELS.sonnet,data.usage,'checkin',{persist:true});
   const textBlock = data.content && data.content.find(b => b.type === 'text');
   if (!textBlock) {
     return { ok: false, step: 'claude_parse', reason: 'No text content in Claude response.' };

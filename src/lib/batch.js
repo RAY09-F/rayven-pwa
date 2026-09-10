@@ -1,3 +1,4 @@
+import {logUsage} from './usage-log.js';
 // THE MESSAGE BATCHES WRAPPER (asgard-upgrade Phase 6.2, first used by Phase 4.3).
 //
 // Work that is not time-sensitive goes off the live bill: submit a batch of
@@ -44,7 +45,7 @@ export async function batchResults(env, resultsUrl) {
       try {
         const j = JSON.parse(line);
         const r = j.result || {};
-        if (r.type === 'succeeded') { const blk = r.message && r.message.content && r.message.content.find(b => b.type === 'text'); out.push({ custom_id: j.custom_id, text: blk ? blk.text : '', error: null, usage: (r.message && r.message.usage) || null }); }
+        if (r.type === 'succeeded') { logUsage(r.message?.model,r.message?.usage,'batch'); const blk = r.message && r.message.content && r.message.content.find(b => b.type === 'text'); out.push({ custom_id: j.custom_id, text: blk ? blk.text : '', error: null, usage: (r.message && r.message.usage) || null }); }
         else out.push({ custom_id: j.custom_id, text: null, error: r.type === 'errored' ? JSON.stringify(r.error).slice(0, 200) : r.type });
       } catch (e) { out.push({ custom_id: null, text: null, error: 'unparseable line' }); }
     }

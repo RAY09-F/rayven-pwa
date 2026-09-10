@@ -1,3 +1,4 @@
+import {logUsage} from './usage-log.js';
 // Thin wrapper around the Anthropic Messages API with one retry on transient
 // errors. Ported unchanged from worker.js. Used by the main chat loop and by
 // every background subsystem that needs a Claude call (code check, monitoring
@@ -26,7 +27,7 @@ export async function callAnthropic(env, systemBlocks, tools, messages, maxToken
       })
     });
 
-    if (response.ok) return { ok: true, data: await response.json() };
+    if (response.ok) { const data=await response.json();logUsage(model || MODELS.sonnet,data.usage,'tool-loop');return {ok:true,data}; }
 
     const isTransient = response.status === 429 || response.status === 500 || response.status === 503 || response.status === 529;
     if (isTransient && attempt === 0) {
@@ -65,6 +66,7 @@ export async function callAnthropicSimple(env, systemPrompt, userText, maxTokens
     });
     if (!res.ok) return { ok: false, error: `Anthropic API returned status ${res.status}: ${await res.text().catch(() => '(no body)')}` };
     const data = await res.json();
+    logUsage(model || MODELS.sonnet,data.usage,'single-shot',{persist:true});
     const textBlock = data.content && data.content.find(b => b.type === 'text');
     if (!textBlock) return { ok: false, error: 'No text content in Claude response.' };
     return { ok: true, text: textBlock.text, usage: data.usage || null, model: model || MODELS.sonnet };
