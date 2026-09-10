@@ -1,3 +1,4 @@
+import { MODELS } from './models.js';
 // ⟦PROJECT-H:BEGIN⟧
 // ===========================================================================
 // HELA — LOCK IN.
@@ -183,7 +184,7 @@ Write him a brief. Rules:
 - Your register: calm, cold, unhurried, faintly amused. Never breathless.
 Respond with ONLY a JSON object, no fences: {"title":"six words or fewer","body":"the brief","worthTelling":true or false}`;
 
-  const res = await callAnthropicSimple(env, 'You are HELA. Reply with only the JSON object.', prompt, 700);
+  const res = await callAnthropicSimple(env, 'You are HELA. Reply with only the JSON object.', prompt, 700, MODELS.haiku);
   if (!res.ok) return { ok: false, topic, error: res.error };
 
   let parsed;
@@ -225,7 +226,7 @@ Assemble them into ONE short daily brief for him. Rules:
 - Your register: calm, cold, unhurried. You are not a newsletter.
 Respond with ONLY the brief text, nothing else.`;
 
-  const res = await callAnthropicSimple(env, 'You are HELA.', prompt, 600);
+  const res = await callAnthropicSimple(env, 'You are HELA.', prompt, 600, MODELS.haiku);
   if (!res.ok) return null;
   const body = res.text.trim();
   await helaBriefAdd(env, { title: 'Daily', body, topic: 'daily' });
@@ -515,7 +516,7 @@ Prefer something in YOUR lane: ${lane}. Rayan runs a three-assistant system on C
 Respond with ONLY a JSON object, no fences:
 {"worthAdding":true or false,"name":"snake_case_name","purpose":"one line, what it lets you do","method":"GET","url":"https://...{placeholder}...","note":"how to call it, and what it returns"}`;
 
-  const res = await callAnthropicSimple(env, `You are ${who}. Reply with only the JSON object.`, prompt, 700);
+  const res = await callAnthropicSimple(env, `You are ${who}. Reply with only the JSON object.`, prompt, 700, MODELS.haiku);
   if (!res.ok) return { ok: false, error: res.error };
 
   let parsed;

@@ -3,9 +3,9 @@
 // No GPU, live backend or browser paint is claimed by these checks.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as THREE from '../public/ui/vendor/three.module.min.js';
-import {createHologramPersona} from '../public/ui/hologram-persona.js';
-import {createParticleProjection} from '../public/ui/hologram-projection.js';
+import * as THREE from '../public/ui/prism-v1/vendor/three.module.min.js';
+import {createHologramPersona} from '../public/ui/prism-v1/hologram-persona.js';
+import {createParticleProjection} from '../public/ui/prism-v1/hologram-projection.js';
 
 function resources(root){
   const result=new Set();
@@ -177,40 +177,24 @@ test('assembly completes once and never restarts when time is reset or motion re
   still.update(0,false);still.update(.1,true);assert.deepEqual(still.points.geometry.attributes.position.array,positions,'still mode completes assembly permanently');still.dispose();
 });
 
-test('scene owns one canvas and loop, pauses hidden rendering, and settles still mode',async()=>{
-  const saved=new Map(),queue=new Map(),documentListeners=new Map(),mediaListeners=new Map();let nextFrame=0;
-  const replace=(key,value)=>{saved.set(key,Object.getOwnPropertyDescriptor(globalThis,key));Object.defineProperty(globalThis,key,{configurable:true,writable:true,value});};
-  const canvases=[],host={dataset:{},append(c){canvases.push(c);},getBoundingClientRect(){return {width:900,height:650};}};
-  const media={matches:false,addEventListener(k,fn){mediaListeners.set(k,fn);},removeEventListener(k){mediaListeners.delete(k);}};
-  replace('matchMedia',()=>media);replace('devicePixelRatio',2);replace('location',{search:'?renderer=canvas'});
-  replace('requestAnimationFrame',fn=>{queue.set(++nextFrame,fn);return nextFrame;});replace('cancelAnimationFrame',id=>queue.delete(id));
-  replace('ResizeObserver',class{observe(){}disconnect(){}});
-  const doc={hidden:false,addEventListener(k,fn){documentListeners.set(k,fn);},removeEventListener(k){documentListeners.delete(k);},createElement(){const c=recordingCanvas();c.setAttribute=()=>{};c.addEventListener=()=>{};c.removeEventListener=()=>{};c.remove=()=>{const i=canvases.indexOf(c);if(i>=0)canvases.splice(i,1);};return c;}};replace('document',doc);
-  const flush=now=>{const callbacks=[...queue.values()];queue.clear();callbacks.forEach(fn=>fn(now));};
-  let presence;
-  try{
-    const {createPresence}=await import('../public/ui/scene.js');const labels=[];
-    presence=await createPresence(host,{still:true,onStatus:label=>labels.push(label)});
-    assert.equal(canvases.length,1);assert.equal(queue.size,1);flush(100);
-    assert.equal(queue.size,0,'still rendering sleeps after its requested frame');
-    assert.equal(presence.status().renderMode,'canvas');assert.ok(labels.includes('Software 3D projection'));
-    const initial=presence.status();
-    for(let i=0;i<12;i++)await presence.setPersona(['thor','loki','odin'][i%3]);
-    assert.equal(canvases.length,1);assert.equal(queue.size,1,'rapid selection cannot duplicate the frame owner');
-    await presence.setPersona('thor');assert.equal(presence.status().geometries,initial.geometries);
-    flush(200);presence.setStill(false);flush(240);assert.equal(queue.size,1);
-    doc.hidden=true;documentListeners.get('visibilitychange')();assert.equal(queue.size,0);const hiddenFrames=presence.status().frames;
-    doc.hidden=false;documentListeners.get('visibilitychange')();flush(5000);assert.equal(presence.status().frames,hiddenFrames+1);
-    media.matches=true;mediaListeners.get('change')();flush(5100);assert.equal(queue.size,0,'reduced motion also settles');
-    assert.equal(presence.status().animated,false);
-    presence.dispose();presence.dispose();assert.equal(canvases.length,0);assert.equal(queue.size,0);assert.equal(documentListeners.size,0);assert.equal(mediaListeners.size,0);
-  }finally{presence?.dispose();for(const [key,descriptor]of saved){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else delete globalThis[key];}}
+test('unavailable WebGL keeps conversation fallback honest and releases owned DOM/listeners',async()=>{
+ const saved=new Map(),documentListeners=new Map(),mediaListeners=new Map(),children=[];
+ const replace=(key,value)=>{saved.set(key,Object.getOwnPropertyDescriptor(globalThis,key));Object.defineProperty(globalThis,key,{configurable:true,writable:true,value});};
+ const node=()=>({dataset:{},style:{},setAttribute(){},addEventListener(){},removeEventListener(){},remove(){const i=children.indexOf(this);if(i>=0)children.splice(i,1);}});
+ const controls={...node(),querySelector:()=>node(),querySelectorAll:()=>[]};
+ const host={...node(),parentElement:{querySelector:()=>controls},append:n=>children.push(n),prepend:n=>children.unshift(n),getBoundingClientRect:()=>({width:900,height:650})};
+ replace('window',node());replace('matchMedia',()=>({matches:false,addEventListener:(k,f)=>mediaListeners.set(k,f),removeEventListener:k=>mediaListeners.delete(k)}));
+ replace('location',{search:'?renderer=fallback'});replace('requestAnimationFrame',()=>{throw Error('No frame should run without WebGL');});replace('cancelAnimationFrame',()=>{});replace('ResizeObserver',class{observe(){}disconnect(){}});
+ replace('document',{hidden:false,createElement:node,addEventListener:(k,f)=>documentListeners.set(k,f),removeEventListener:k=>documentListeners.delete(k)});
+ let presence;
+ try{const {createPresence}=await import('../public/ui/prism-v1/scene.js');const labels=[];presence=await createPresence(host,{onStatus:s=>labels.push(s)});assert.equal(presence.status().ready,false);assert.equal(presence.status().renderMode,'fallback');assert.equal(presence.status().frames,0);assert.ok(labels.some(s=>s.includes('conversation')));assert.equal(children.length,2);assert.equal(children[0].hidden,true);presence.dispose();presence.dispose();assert.equal(children.length,0);assert.equal(documentListeners.size,0);assert.equal(mediaListeners.size,0);}
+ finally{presence?.dispose();for(const [key,descriptor]of saved){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else delete globalThis[key];}}
 });
 
-test('r185 surface shader preserves standard depth/lighting and adds material-local bands',()=>{
+test('r184 surface shader preserves standard depth/lighting and adds material-local bands',()=>{
   const model=createHologramPersona(THREE,new THREE.Scene(),'thor');
   const face=model.root.getObjectByName('faceted-face'),shader={uniforms:{},vertexShader:THREE.ShaderLib.standard.vertexShader,fragmentShader:THREE.ShaderLib.standard.fragmentShader};
-  assert.equal(THREE.REVISION,'185','shader contract is pinned to the locally vendored renderer');
+  assert.equal(THREE.REVISION,'184','shader contract is pinned to the locally vendored renderer');
   face.material.onBeforeCompile(shader);
   assert.ok(shader.vertexShader.includes('vBifrostPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;'));
   assert.ok(shader.fragmentShader.includes('float bifrostRim ='));

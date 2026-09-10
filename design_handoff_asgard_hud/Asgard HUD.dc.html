@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Cormorant+Garamond:wght@300;400;600&family=IBM+Plex+Mono:wght@300;400;500&display=swap" />
+<style>
+:root{--acc:#e8c06a;--acc2:#f6e3a1;--ink:#f2e8d5;--dim:rgba(242,232,213,.64);--bg:#07060a;--panel:rgba(24,19,13,.55);--line:rgba(232,192,106,.20);--glow:rgba(232,192,106,.30);--display:'Cinzel',serif;--anim:running}
+body{margin:0;background:#000;color:#f2e8d5;font-family:'IBM Plex Mono',ui-monospace,monospace;-webkit-font-smoothing:antialiased}
+a{color:var(--acc);text-decoration:none}a:hover{color:var(--acc2)}
+@keyframes hudSpin{to{transform:rotate(360deg)}}
+@keyframes hudSpinR{to{transform:rotate(-360deg)}}
+@keyframes hudPulse{0%,100%{opacity:.3}50%{opacity:.95}}
+@keyframes hudFlick{0%,100%{opacity:1}46%{opacity:.65}48%{opacity:.15}50%{opacity:.9}}
+@keyframes hudScan{0%{transform:translateY(-120px)}100%{transform:translateY(920px)}}
+@keyframes hudDrift{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes hudSplit{0%,100%{transform:translate(0,0)}50%{transform:translate(3px,-2px)}}
+@keyframes hudBar{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}
+@keyframes hudTicker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+@keyframes hudOrbit{to{transform:rotate(360deg)}}
+@keyframes hudTwinkle{0%,100%{opacity:.12}50%{opacity:.85}}
+@keyframes hudBreathe{0%,100%{opacity:.22;transform:scale(1)}50%{opacity:.6;transform:scale(1.04)}}
+@keyframes hudTrace{0%{stroke-dashoffset:600}100%{stroke-dashoffset:0}}
+@keyframes hudSlideY{0%{transform:translateY(0)}100%{transform:translateY(-50%)}}
+</style>
+</helmet>
+<div ref="{{ rootRef }}" style="position:relative;width:100%;overflow:hidden;background:#000">
+<div ref="{{ artRef }}" style="width:1600px;height:900px;transform-origin:0 0;position:relative;background:var(--bg);color:var(--ink);display:grid;grid-template-rows:58px minmax(0,1fr) 26px 70px;overflow:hidden;font-family:'IBM Plex Mono',monospace">
+
+  <div style="position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 90% at 50% 0%,rgba(255,255,255,.05),transparent 60%),radial-gradient(90% 70% at 50% 110%,var(--glow),transparent 65%);opacity:.5"></div>
+  <div style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(transparent 0 39px,var(--line) 39px 40px),linear-gradient(90deg,transparent 0 39px,var(--line) 39px 40px);background-size:40px 40px;opacity:.16"></div>
+  <sc-if value="{{ scanlines }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;inset:0;pointer-events:none;z-index:9;background:repeating-linear-gradient(rgba(255,255,255,.030) 0 1px,transparent 1px 3px);mix-blend-mode:overlay"></div>
+    <div style="position:absolute;left:0;right:0;height:120px;pointer-events:none;z-index:9;background:linear-gradient(transparent,var(--glow),transparent);opacity:.35;animation:hudScan 7.5s linear infinite;animation-play-state:var(--anim)"></div>
+  </sc-if>
+  <div style="position:absolute;inset:0;pointer-events:none;opacity:.5;background:linear-gradient(180deg,transparent 55%,var(--glow) 100%),repeating-linear-gradient(90deg,transparent 0 78px,var(--line) 78px 79px);-webkit-mask-image:linear-gradient(180deg,transparent 62%,#000);mask-image:linear-gradient(180deg,transparent 62%,#000)"></div>
+  <div style="position:absolute;left:50%;top:44%;width:1180px;height:1180px;margin:-590px 0 0 -590px;pointer-events:none;border-radius:50%;border:1px solid var(--line);opacity:.35;animation:hudSpin 220s linear infinite;animation-play-state:var(--anim)">
+    <div style="position:absolute;inset:60px;border-radius:50%;border:1px dashed var(--line)"></div>
+    <div style="position:absolute;inset:150px;border-radius:50%;border:1px solid var(--line);opacity:.6"></div>
+  </div>
+  <div style="position:absolute;inset:0;pointer-events:none">
+    <div style="position:absolute;left:14%;top:18%;width:2px;height:2px;background:var(--acc);animation:hudTwinkle 4s ease-in-out infinite;animation-play-state:var(--anim)"></div>
+    <div style="position:absolute;left:22%;top:64%;width:2px;height:2px;background:var(--acc2);animation:hudTwinkle 6.5s ease-in-out infinite;animation-play-state:var(--anim)"></div>
+    <div style="position:absolute;left:41%;top:12%;width:2px;height:2px;background:var(--acc);animation:hudTwinkle 5.2s ease-in-out infinite .8s;animation-play-state:var(--anim)"></div>
+    <div style="position:absolute;left:58%;top:74%;width:2px;height:2px;background:var(--acc);animation:hudTwinkle 3.6s ease-in-out infinite .4s;animation-play-state:var(--anim)"></div>
+    <div style="position:absolute;left:69%;top:26%;width:2px;height:2px;background:var(--acc2);animation:hudTwinkle 7s ease-in-out infinite;animation-play-state:var(--anim)"></div>
+    <div style="position:absolute;left:80%;top:58%;width:2px;height:2px;background:var(--acc);animation:hudTwinkle 4.8s ease-in-out infinite 1.2s;animation-play-state:var(--anim)"></div>
+  </div>
+  <div style="position:absolute;left:0;top:58px;bottom:70px;width:14px;pointer-events:none;z-index:4;background:repeating-linear-gradient(180deg,var(--line) 0 1px,transparent 1px 26px);opacity:.7"></div>
+  <div style="position:absolute;right:0;top:58px;bottom:70px;width:14px;pointer-events:none;z-index:4;background:repeating-linear-gradient(180deg,var(--line) 0 1px,transparent 1px 26px);opacity:.7"></div>
+  <div style="position:absolute;inset:0;pointer-events:none;z-index:10;box-shadow:inset 0 0 200px rgba(0,0,0,.85)"></div>
+
+  <div style="position:relative;z-index:3;display:flex;align-items:center;gap:20px;padding:0 24px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(0,0,0,.7),rgba(0,0,0,.25))">
+    <div style="font-family:var(--display);font-size:19px;letter-spacing:.42em;color:var(--ink)">ASGARD</div>
+    <div style="width:1px;height:22px;background:var(--line)"></div>
+    <div style="font-family:var(--display);font-size:16px;letter-spacing:.34em;color:var(--acc);text-shadow:0 0 18px var(--glow)">{{ realmName }}</div>
+    <div style="font-size:10px;letter-spacing:.26em;color:var(--dim)">{{ realm }}</div>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:16px;font-size:9.5px;letter-spacing:.2em;color:var(--dim);white-space:nowrap">
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="width:5px;height:5px;border-radius:50%;background:var(--acc);box-shadow:0 0 10px var(--acc);animation:hudPulse 2.2s ease-in-out infinite;animation-play-state:var(--anim)"></div>
+        <div style="color:var(--ink)">LINK STABLE</div>
+      </div>
+      <div style="white-space:nowrap">SESSION <span style="color:var(--acc)">{{ session }}</span></div>
+      <div style="white-space:nowrap">LAT <span style="color:var(--acc)">{{ latency }}</span></div>
+      <div style="display:flex;align-items:flex-end;gap:2px;height:12px">
+        <div style="width:2px;height:12px;background:var(--acc);opacity:.8;transform-origin:bottom;animation:hudBar 1.4s ease-in-out infinite;animation-play-state:var(--anim)"></div>
+        <div style="width:2px;height:12px;background:var(--acc);opacity:.8;transform-origin:bottom;animation:hudBar 1.9s ease-in-out infinite .2s;animation-play-state:var(--anim)"></div>
+        <div style="width:2px;height:12px;background:var(--acc);opacity:.8;transform-origin:bottom;animation:hudBar 1.1s ease-in-out infinite .5s;animation-play-state:var(--anim)"></div>
+        <div style="width:2px;height:12px;background:var(--acc);opacity:.8;transform-origin:bottom;animation:hudBar 2.3s ease-in-out infinite .1s;animation-play-state:var(--anim)"></div>
+        <div style="width:2px;height:12px;background:var(--acc);opacity:.8;transform-origin:bottom;animation:hudBar 1.6s ease-in-out infinite .7s;animation-play-state:var(--anim)"></div>
+      </div>
+    </div>
+    <div style="width:1px;height:22px;background:var(--line)"></div>
+    <div style="display:flex;align-items:center;gap:26px;font-size:11px;letter-spacing:.2em">
+      <div style="position:relative;color:var(--ink)">COUNCIL
+        <div style="position:absolute;left:50%;bottom:-9px;width:4px;height:4px;margin-left:-2px;transform:rotate(45deg);background:var(--acc);box-shadow:0 0 10px var(--acc)"></div>
+      </div>
+      <div style="color:var(--dim)" style-hover="color:var(--ink)">CHANNEL</div>
+      <div style="color:var(--dim)" style-hover="color:var(--ink)">SYSTEM</div>
+    </div>
+    <div style="width:1px;height:22px;background:var(--line)"></div>
+    <div style="display:flex;align-items:center;gap:12px;font-size:10px;letter-spacing:.2em;color:var(--dim)">
+      <div style="display:flex;align-items:flex-end;gap:2px;height:11px">
+        <div style="width:2px;height:5px;background:var(--acc);opacity:.7"></div>
+        <div style="width:2px;height:9px;background:var(--acc)"></div>
+        <div style="width:2px;height:3px;background:var(--acc);opacity:.5"></div>
+      </div>
+      <div>VOICE ON</div>
+      <div style="padding:4px 8px;border:1px solid var(--line);color:var(--ink)">⌘K</div>
+    </div>
+  </div>
+
+  <div style="position:relative;z-index:3;display:grid;grid-template-columns:300px minmax(0,1fr) 400px;min-height:0">
+
+    <div style="border-right:1px solid var(--line);padding:16px 20px 14px;display:flex;flex-direction:column;gap:12px;min-height:0;background:linear-gradient(90deg,rgba(0,0,0,.45),transparent)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:11px;letter-spacing:.3em;color:var(--ink)">COUNCIL</div>
+        <div style="flex:1;height:1px;background:var(--line)"></div>
+        <div style="width:4px;height:4px;transform:rotate(45deg);background:var(--acc)"></div>
+      </div>
+      <div style="font-size:10px;line-height:1.7;letter-spacing:.24em;color:var(--dim)">
+        <div style="white-space:nowrap">{{ leftTagA }}</div>
+        <div style="white-space:nowrap">{{ leftTagB }}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ council }}" as="m" hint-placeholder-count="5">
+          <div style="display:flex;align-items:center;gap:12px;padding:6px 10px;border:1px solid var(--line);background:var(--panel)" style-hover="border-color:var(--acc)">
+            <div style="font-size:9.5px;color:var(--dim);width:14px">0{{ m.n }}</div>
+            <div style="width:11px;height:11px;transform:rotate(45deg);background:{{ m.hue }};box-shadow:0 0 14px {{ m.hue }}"></div>
+            <div style="min-width:0">
+              <div style="font-size:11px;letter-spacing:.24em;color:{{ m.hue }}">{{ m.name }}</div>
+              <div style="font-size:9.5px;letter-spacing:.16em;color:var(--dim);margin-top:3px">{{ m.domain }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="flex:1"></div>
+      <div style="display:flex;flex-direction:column;gap:9px;padding:11px 12px;border:1px solid var(--line);background:var(--panel)">
+        <div style="display:flex;align-items:center;gap:9px">
+          <div style="width:5px;height:5px;transform:rotate(45deg);background:var(--acc);box-shadow:0 0 10px var(--acc)"></div>
+          <div style="font-size:10.5px;letter-spacing:.26em;color:var(--ink);white-space:nowrap">{{ deskTitle }}</div>
+          <div style="flex:1;height:1px;background:var(--line)"></div>
+          <div style="font-size:9.5px;letter-spacing:.16em;color:var(--dim);white-space:nowrap">{{ deskMeta }}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">
+          <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+            <div style="padding:6px 9px;border:1px solid var(--line);background:rgba(0,0,0,.35)">
+              <div style="font-size:9.5px;letter-spacing:.16em;color:var(--dim)">{{ s.k }}</div>
+              <div style="font-family:var(--display);font-size:18px;line-height:1.2;letter-spacing:.04em;margin-top:2px;white-space:nowrap;color:{{ s.c }}">{{ s.v }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <sc-for list="{{ deskRows }}" as="r" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:8px;font-size:9.5px;letter-spacing:.14em">
+              <div style="color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.k }}</div>
+              <div style="flex:1;height:1px;background:var(--line)"></div>
+              <div style="color:{{ r.c }};white-space:nowrap">{{ r.v }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;gap:3px">
+          <div style="flex:1;height:1px;background:var(--line)"></div>
+          <div style="flex:1;height:1px;background:var(--acc);opacity:.6"></div>
+          <div style="flex:1;height:1px;background:var(--line)"></div>
+        </div>
+        <div style="font-size:9.5px;line-height:1.7;letter-spacing:.22em;color:var(--dim);white-space:nowrap">
+          <div>{{ footA }}</div>
+          <div>{{ footB }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;min-width:0">
+      <div style="position:absolute;top:18px;left:18px;width:44px;height:44px;border-left:1px solid var(--acc);border-top:1px solid var(--acc);opacity:.55"></div>
+      <div style="position:absolute;top:18px;right:18px;width:44px;height:44px;border-right:1px solid var(--acc);border-top:1px solid var(--acc);opacity:.55"></div>
+      <div style="position:absolute;bottom:18px;left:18px;width:44px;height:44px;border-left:1px solid var(--acc);border-bottom:1px solid var(--acc);opacity:.55"></div>
+      <div style="position:absolute;bottom:18px;right:18px;width:44px;height:44px;border-right:1px solid var(--acc);border-bottom:1px solid var(--acc);opacity:.55"></div>
+      <div style="position:absolute;left:34px;top:50%;transform:translateY(-50%);writing-mode:vertical-rl;font-size:9.5px;letter-spacing:.44em;color:var(--dim)">THE THREE REALMS</div>
+
+      <sc-if value="{{ telemetry }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;top:30px;left:74px;display:flex;flex-direction:column;gap:7px">
+          <sc-for list="{{ telemetryLeft }}" as="t" hint-placeholder-count="2">
+            <div style="display:flex;gap:8px;font-size:9.5px;letter-spacing:.2em">
+              <div style="color:var(--dim)">{{ t.k }}</div>
+              <div style="color:var(--acc)">{{ t.v }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="position:absolute;top:30px;right:74px;display:flex;flex-direction:column;gap:7px;text-align:right">
+          <sc-for list="{{ telemetryRight }}" as="t" hint-placeholder-count="2">
+            <div style="display:flex;gap:8px;justify-content:flex-end;font-size:9.5px;letter-spacing:.2em">
+              <div style="color:var(--dim)">{{ t.k }}</div>
+              <div style="color:var(--acc)">{{ t.v }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <div style="position:absolute;bottom:34px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;font-size:9.5px;letter-spacing:.3em;color:var(--dim)">
+        <div style="width:34px;height:1px;background:var(--line)"></div>
+        <div>{{ stageLabel }}</div>
+        <div style="width:34px;height:1px;background:var(--line)"></div>
+      </div>
+
+      <div style="position:relative;width:640px;height:430px;display:flex;align-items:center;justify-content:center">
+
+        <sc-if value="{{ isThor }}">
+          <div style="position:absolute;width:420px;height:420px;border-radius:50%;border:1px solid var(--line)"></div>
+          <div style="position:absolute;width:520px;height:520px;border-radius:50%;border:1px dashed var(--line);animation:hudSpin 90s linear infinite;animation-play-state:var(--anim)"></div>
+          <div style="position:absolute;width:520px;height:520px;border-radius:50%;background:conic-gradient(from 0deg,var(--glow),transparent 28%);opacity:.5;animation:hudSpin 9s linear infinite;animation-play-state:var(--anim)"></div>
+          <div style="position:absolute;width:640px;height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)"></div>
+          <div style="position:absolute;width:1px;height:430px;background:linear-gradient(180deg,transparent,var(--line),transparent)"></div>
+        </sc-if>
+
+        <sc-if value="{{ isLoki }}">
+          <div style="position:absolute;width:470px;height:470px;border-radius:50%;border:1px solid var(--acc);opacity:.28;animation:hudSpin 40s linear infinite;animation-play-state:var(--anim)"></div>
+          <div style="position:absolute;width:430px;height:430px;border-radius:50%;border:1px solid var(--acc2);opacity:.26;animation:hudSpinR 26s linear infinite;animation-play-state:var(--anim)"></div>
+          <div style="position:absolute;width:380px;height:380px;border:1px solid var(--acc);opacity:.16;transform:rotate(45deg);animation:hudSpin 60s linear infinite;animation-play-state:var(--anim)"></div>
+          <div style="position:absolute;width:300px;height:300px;background:conic-gradient(from 200deg,var(--acc),transparent 30%,var(--acc2),transparent 70%);opacity:.14;filter:blur(18px);animation:hudSpinR 18s linear infinite;animation-play-state:var(--anim)"></div>
+        </sc-if>
+
+        <sc-if value="{{ isOdin }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;width:560px;height:560px;border-radius:50%;background:conic-gradient(from 0deg,transparent,var(--glow),transparent 26%,var(--glow),transparent 52%,var(--glow),transparent 78%);opacity:.45;animation:hudSpin 70s linear infinite;animation-play-state:var(--anim)"></div>
+          <div style="position:absolute;width:420px;height:420px;border-radius:50%;border:1px solid var(--acc);opacity:.3"></div>
+          <div style="position:absolute;width:340px;height:340px;border-radius:50%;border:1px solid var(--acc);opacity:.18"></div>
+          <div style="position:absolute;width:200px;height:200px;border-radius:50%;background:conic-gradient(var(--acc),#3a2b10,var(--acc2),#3a2b10,var(--acc));opacity:.22;filter:blur(6px);animation:hudSpin 34s linear infinite;animation-play-state:var(--anim)"></div>
+        </sc-if>
+
+        <div style="position:absolute;width:600px;height:600px;border-radius:50%;background:repeating-conic-gradient(from 0deg,var(--acc) 0 .35deg,transparent .35deg 5deg);opacity:.5;-webkit-mask-image:radial-gradient(circle,transparent 0 289px,#000 289px 300px,transparent 300px);mask-image:radial-gradient(circle,transparent 0 289px,#000 289px 300px,transparent 300px);animation:hudSpinR 160s linear infinite;animation-play-state:var(--anim)"></div>
+        <div style="position:absolute;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,var(--glow),transparent 70%);animation:hudBreathe 6s ease-in-out infinite;animation-play-state:var(--anim)"></div>
+        <div style="position:absolute;width:600px;height:600px;animation:hudOrbit 24s linear infinite;animation-play-state:var(--anim)">
+          <div style="position:absolute;left:50%;top:-4px;width:8px;height:8px;margin-left:-4px;transform:rotate(45deg);background:var(--acc);box-shadow:0 0 16px var(--acc)"></div>
+        </div>
+        <div style="position:absolute;width:520px;height:520px;animation:hudOrbit 17s linear infinite reverse;animation-play-state:var(--anim)">
+          <div style="position:absolute;left:50%;top:-3px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--acc2);box-shadow:0 0 14px var(--acc2)"></div>
+        </div>
+        <div style="position:absolute;width:440px;height:440px;animation:hudOrbit 31s linear infinite;animation-play-state:var(--anim)">
+          <div style="position:absolute;left:50%;top:-2px;width:5px;height:5px;margin-left:-2px;border-radius:50%;background:var(--ink);opacity:.7;box-shadow:0 0 12px var(--acc)"></div>
+        </div>
+
+        <div style="position:absolute;left:22px;top:38px;display:flex;align-items:center;gap:8px">
+          <div style="padding:5px 9px;border:1px solid var(--acc);background:rgba(0,0,0,.6);font-size:9.5px;letter-spacing:.22em;color:var(--acc)">{{ tagA }}</div>
+          <div style="width:52px;height:1px;background:var(--acc);opacity:.6"></div>
+          <div style="width:5px;height:5px;transform:rotate(45deg);border:1px solid var(--acc)"></div>
+        </div>
+        <div style="position:absolute;right:22px;bottom:44px;display:flex;align-items:center;gap:8px">
+          <div style="width:5px;height:5px;transform:rotate(45deg);border:1px solid var(--acc)"></div>
+          <div style="width:52px;height:1px;background:var(--acc);opacity:.6"></div>
+          <div style="padding:5px 9px;border:1px solid var(--acc);background:rgba(0,0,0,.6);font-size:9.5px;letter-spacing:.22em;color:var(--acc)">{{ tagB }}</div>
+        </div>
+
+        <div style="position:absolute;width:560px;height:340px;pointer-events:none">
+          <div style="position:absolute;left:0;top:0;width:26px;height:26px;border-left:1px solid var(--acc);border-top:1px solid var(--acc);animation:hudPulse 3s ease-in-out infinite;animation-play-state:var(--anim)"></div>
+          <div style="position:absolute;right:0;top:0;width:26px;height:26px;border-right:1px solid var(--acc);border-top:1px solid var(--acc);animation:hudPulse 3s ease-in-out infinite .4s;animation-play-state:var(--anim)"></div>
+          <div style="position:absolute;left:0;bottom:0;width:26px;height:26px;border-left:1px solid var(--acc);border-bottom:1px solid var(--acc);animation:hudPulse 3s ease-in-out infinite .8s;animation-play-state:var(--anim)"></div>
+          <div style="position:absolute;right:0;bottom:0;width:26px;height:26px;border-right:1px solid var(--acc);border-bottom:1px solid var(--acc);animation:hudPulse 3s ease-in-out infinite 1.2s;animation-play-state:var(--anim)"></div>
+        </div>
+
+        <div style="position:relative;width:520px;height:300px;border:1px solid var(--line);background:repeating-linear-gradient(135deg,rgba(255,255,255,.04) 0 2px,transparent 2px 10px),rgba(0,0,0,.5);clip-path:polygon(26px 0,calc(100% - 26px) 0,100% 26px,100% calc(100% - 26px),calc(100% - 26px) 100%,26px 100%,0 calc(100% - 26px),0 26px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;animation:hudDrift 12s ease-in-out infinite;animation-play-state:var(--anim)">
+          <div style="width:22px;height:22px;border:1px solid var(--acc);transform:rotate(45deg);opacity:.7"></div>
+          <div style="font-size:10px;letter-spacing:.3em;color:var(--dim)">COUNCIL RENDER · 3D STAGE</div>
+          <div style="font-size:9.5px;letter-spacing:.22em;color:var(--dim);opacity:.7">DROP THE REALM SCENE HERE</div>
+        </div>
+      </div>
+
+      <sc-if value="{{ isThor }}">
+        <div style="position:relative;text-align:center">
+          <div style="font-family:var(--display);font-weight:300;font-size:62px;line-height:1;letter-spacing:.16em;color:var(--ink);text-shadow:0 0 40px var(--glow)">THOR</div>
+          <div style="display:flex;align-items:center;gap:12px;justify-content:center;margin-top:14px">
+            <div style="width:70px;height:1px;background:linear-gradient(90deg,transparent,var(--acc))"></div>
+            <div style="font-size:9.5px;letter-spacing:.34em;color:var(--acc)">PRINCE OF ASGARD · THE NORTH VOICE</div>
+            <div style="width:70px;height:1px;background:linear-gradient(270deg,transparent,var(--acc))"></div>
+          </div>
+          <div style="display:flex;gap:5px;justify-content:center;margin-top:12px">
+            <div style="width:1px;height:9px;background:var(--acc)"></div>
+            <div style="width:1px;height:5px;background:var(--line)"></div>
+            <div style="width:1px;height:5px;background:var(--line)"></div>
+            <div style="width:1px;height:12px;background:var(--acc)"></div>
+            <div style="width:1px;height:5px;background:var(--line)"></div>
+            <div style="width:1px;height:5px;background:var(--line)"></div>
+            <div style="width:1px;height:9px;background:var(--acc)"></div>
+          </div>
+          <div style="font-size:10px;letter-spacing:.26em;color:var(--dim);margin-top:10px">MAP THE NEXT STEP.</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isLoki }}">
+        <div style="position:relative;text-align:center">
+          <div style="position:absolute;inset:0;font-family:var(--display);font-weight:300;font-size:62px;line-height:1;letter-spacing:.16em;color:var(--acc2);opacity:.5;animation:hudSplit 5s ease-in-out infinite;animation-play-state:var(--anim)">LOKI</div>
+          <div style="position:relative;font-family:var(--display);font-weight:300;font-size:62px;line-height:1;letter-spacing:.16em;color:var(--ink);text-shadow:0 0 40px var(--glow);animation:hudFlick 7s steps(1,end) infinite;animation-play-state:var(--anim)">LOKI</div>
+          <div style="display:flex;align-items:center;gap:10px;justify-content:center;margin-top:14px">
+            <div style="width:9px;height:9px;transform:rotate(45deg);border:1px solid var(--acc)"></div>
+            <div style="font-size:9.5px;letter-spacing:.34em;color:var(--acc)">GOD OF MISCHIEF · THE ONE WHO MAKES</div>
+            <div style="width:9px;height:9px;transform:rotate(45deg);border:1px solid var(--acc2)"></div>
+          </div>
+          <div style="font-size:10px;letter-spacing:.26em;color:var(--dim);margin-top:12px;margin-left:26px">GIVE POSSIBILITY A SHAPE.</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isOdin }}" hint-placeholder-val="{{ true }}">
+        <div style="text-align:center">
+          <div style="display:flex;flex-direction:column;gap:3px;align-items:center;margin-bottom:16px">
+            <div style="width:260px;height:1px;background:linear-gradient(90deg,transparent,var(--acc),transparent)"></div>
+            <div style="width:180px;height:1px;background:linear-gradient(90deg,transparent,var(--acc),transparent);opacity:.5"></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:22px;justify-content:center">
+            <div style="width:8px;height:8px;transform:rotate(45deg);background:var(--acc);box-shadow:0 0 14px var(--acc)"></div>
+            <div style="font-family:var(--display);font-weight:600;font-size:58px;line-height:1;letter-spacing:.2em;color:var(--acc2);text-shadow:0 0 46px var(--glow)">ODIN</div>
+            <div style="width:8px;height:8px;transform:rotate(45deg);background:var(--acc);box-shadow:0 0 14px var(--acc)"></div>
+          </div>
+          <div style="font-size:9.5px;letter-spacing:.4em;color:var(--acc);margin-top:16px">ALL FATHER · THE SOURCE</div>
+          <div style="display:flex;flex-direction:column;gap:3px;align-items:center;margin-top:14px">
+            <div style="width:180px;height:1px;background:linear-gradient(90deg,transparent,var(--acc),transparent);opacity:.5"></div>
+            <div style="width:260px;height:1px;background:linear-gradient(90deg,transparent,var(--acc),transparent)"></div>
+          </div>
+          <div style="font-size:10px;letter-spacing:.26em;color:var(--dim);margin-top:14px">PAPER / SIM · FIVE PERSPECTIVES</div>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="border-left:1px solid var(--line);padding:22px 20px 20px;display:flex;flex-direction:column;gap:16px;min-height:0;background:linear-gradient(270deg,rgba(0,0,0,.45),transparent)">
+      <div style="display:flex;align-items:baseline;gap:10px">
+        <div style="font-size:11px;letter-spacing:.3em;color:var(--ink)">CONVERSATION</div>
+        <div style="flex:1;height:1px;background:var(--line)"></div>
+        <div style="font-size:9.5px;letter-spacing:.2em;color:var(--dim);white-space:nowrap">{{ microTag }}</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <sc-for list="{{ msgs }}" as="m" hint-placeholder-count="3">
+          <sc-if value="{{ m.bot }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;gap:11px;align-items:flex-start">
+              <div style="width:26px;height:26px;flex:none;border-radius:50%;border:1px solid var(--acc);display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5)">
+                <div style="width:7px;height:7px;transform:rotate(45deg);background:var(--acc);box-shadow:0 0 10px var(--acc);animation:hudPulse 3.4s ease-in-out infinite;animation-play-state:var(--anim)"></div>
+              </div>
+              <div style="min-width:0">
+                <div style="font-size:9.5px;letter-spacing:.26em;color:var(--acc);margin-bottom:6px">{{ realmName }}</div>
+                <div style="padding:11px 13px;border:1px solid var(--line);background:var(--panel);font-size:12px;line-height:1.65;color:var(--ink);text-wrap:pretty">{{ m.text }}</div>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ m.user }}">
+            <div style="display:flex;justify-content:flex-end">
+              <div style="max-width:78%;padding:11px 13px;border:1px solid var(--acc);background:var(--glow);font-size:12px;line-height:1.65;color:var(--ink)">{{ m.text }}</div>
+            </div>
+          </sc-if>
+        </sc-for>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:11px">
+        <div style="width:26px;height:26px;flex:none;border-radius:50%;border:1px solid var(--line)"></div>
+        <div style="display:flex;align-items:flex-end;gap:2px;height:22px;flex:1;padding:0 2px">
+          <sc-for list="{{ wave }}" as="w" hint-placeholder-count="26">
+            <div style="flex:1;height:22px;transform-origin:bottom;background:var(--acc);opacity:.6;animation:hudBar {{ w.dur }} ease-in-out infinite {{ w.delay }};animation-play-state:var(--anim)"></div>
+          </sc-for>
+        </div>
+        <div style="font-size:9.5px;letter-spacing:.2em;color:var(--dim)">LISTENING</div>
+      </div>
+
+      <div style="display:flex;align-items:baseline;gap:10px;margin-top:4px">
+        <div style="font-size:11px;letter-spacing:.3em;color:var(--ink)">COUNSEL</div>
+        <div style="flex:1;height:1px;background:var(--line)"></div>
+        <div style="font-size:9.5px;letter-spacing:.2em;color:var(--dim);white-space:nowrap">{{ counselTag }}</div>
+      </div>
+
+      <div style="display:flex;gap:13px;align-items:flex-start;padding:14px;border:1px solid var(--line);background:var(--panel)" style-hover="border-color:var(--acc)">
+        <div style="width:14px;height:14px;flex:none;transform:rotate(45deg);margin-top:3px;background:{{ counselHue }};box-shadow:0 0 16px {{ counselHue }}"></div>
+        <div style="min-width:0;flex:1">
+          <div style="font-size:11px;letter-spacing:.26em;color:{{ counselHue }}">{{ counselName }}</div>
+          <div style="font-size:11.5px;line-height:1.7;color:var(--dim);margin-top:7px;text-wrap:pretty">{{ counselLine }}</div>
+        </div>
+        <div style="color:var(--dim);font-size:14px">›</div>
+      </div>
+
+      <div style="flex:1"></div>
+
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);background:rgba(0,0,0,.45)">
+        <div style="flex:1;font-size:11.5px;letter-spacing:.06em;color:var(--dim)">{{ inputHint }}</div>
+        <div style="width:32px;height:32px;border-radius:50%;border:1px solid var(--line);display:flex;align-items:center;justify-content:center" style-hover="border-color:var(--acc)">
+          <div style="width:8px;height:12px;border-radius:4px;background:var(--dim)"></div>
+        </div>
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--acc);display:flex;align-items:center;justify-content:center;color:#0b0803;font-size:13px;box-shadow:0 0 22px var(--glow)">➤</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:9.5px;letter-spacing:.2em;color:var(--dim)">
+        <div>ENTER TO SEND</div>
+        <div>{{ realm }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="position:relative;z-index:3;display:flex;align-items:center;overflow:hidden;border-top:1px solid var(--line);background:rgba(0,0,0,.5)">
+    <div style="display:flex;flex:none;white-space:nowrap;font-size:9.5px;letter-spacing:.3em;color:var(--dim);animation:hudTicker 46s linear infinite;animation-play-state:var(--anim)">
+      <div style="padding:0 24px">COUNCIL SYNCED · FIVE PERSPECTIVES ONLINE · BIFROST LINK STABLE · YGGDRASIL INDEX 0.997 · MEMORY WRITTEN 14:02 · RAVENS DISPATCHED · WELLS DEEP · GATES OPEN · COUNCIL SYNCED · FIVE PERSPECTIVES ONLINE · BIFROST LINK STABLE · YGGDRASIL INDEX 0.997 · MEMORY WRITTEN 14:02 · RAVENS DISPATCHED · WELLS DEEP · GATES OPEN ·</div>
+      <div style="padding:0 24px">COUNCIL SYNCED · FIVE PERSPECTIVES ONLINE · BIFROST LINK STABLE · YGGDRASIL INDEX 0.997 · MEMORY WRITTEN 14:02 · RAVENS DISPATCHED · WELLS DEEP · GATES OPEN · COUNCIL SYNCED · FIVE PERSPECTIVES ONLINE · BIFROST LINK STABLE · YGGDRASIL INDEX 0.997 · MEMORY WRITTEN 14:02 · RAVENS DISPATCHED · WELLS DEEP · GATES OPEN ·</div>
+    </div>
+  </div>
+
+  <div style="position:relative;z-index:3;display:flex;align-items:center;gap:22px;padding:0 24px;border-top:1px solid var(--line);background:linear-gradient(0deg,rgba(0,0,0,.75),rgba(0,0,0,.2))">
+    <div style="width:34px;height:34px;border-radius:50%;border:1px solid var(--acc);display:flex;align-items:center;justify-content:center">
+      <div style="width:11px;height:11px;transform:rotate(45deg);border:1px solid var(--acc2)"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;width:240px">
+      <div style="display:flex;justify-content:space-between;font-size:9.5px;letter-spacing:.2em;color:var(--dim)">
+        <div>COUNCIL LOAD</div>
+        <div style="color:var(--acc)">{{ signal }}</div>
+      </div>
+      <div style="display:flex;gap:3px">
+        <div style="flex:1;height:4px;background:var(--acc);box-shadow:0 0 10px var(--glow)"></div>
+        <div style="flex:1;height:4px;background:var(--acc);box-shadow:0 0 10px var(--glow)"></div>
+        <div style="flex:1;height:4px;background:var(--acc);box-shadow:0 0 10px var(--glow)"></div>
+        <div style="flex:1;height:4px;background:var(--acc);opacity:.55;animation:hudPulse 2.6s ease-in-out infinite;animation-play-state:var(--anim)"></div>
+        <div style="flex:1;height:4px;background:var(--line)"></div>
+        <div style="flex:1;height:4px;background:var(--line)"></div>
+      </div>
+    </div>
+    <div style="flex:1"></div>
+
+    <div style="display:flex;gap:14px">
+      <div onClick="{{ pickThor }}" style="position:relative;padding:11px 40px;border:1px solid var(--line);font-size:10.5px;letter-spacing:.34em;color:var(--dim);cursor:pointer" style-hover="color:var(--ink)">THOR
+        <sc-if value="{{ isThor }}"><div style="position:absolute;inset:-1px;border:1px solid var(--acc);box-shadow:0 0 26px var(--glow),inset 0 0 22px var(--glow)"></div></sc-if>
+      </div>
+      <div onClick="{{ pickLoki }}" style="position:relative;padding:11px 40px;border:1px solid var(--line);font-size:10.5px;letter-spacing:.34em;color:var(--dim);cursor:pointer" style-hover="color:var(--ink)">LOKI
+        <sc-if value="{{ isLoki }}"><div style="position:absolute;inset:-1px;border:1px solid var(--acc);box-shadow:0 0 26px var(--glow),inset 0 0 22px var(--glow)"></div></sc-if>
+      </div>
+      <div onClick="{{ pickOdin }}" style="position:relative;padding:11px 40px;border:1px solid var(--line);font-size:10.5px;letter-spacing:.34em;color:var(--dim);cursor:pointer" style-hover="color:var(--ink)">ODIN
+        <sc-if value="{{ isOdin }}" hint-placeholder-val="{{ true }}"><div style="position:absolute;inset:-1px;border:1px solid var(--acc);box-shadow:0 0 26px var(--glow),inset 0 0 22px var(--glow)"></div></sc-if>
+      </div>
+    </div>
+
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 15px;border:1px solid var(--line);border-radius:22px;font-size:10px;letter-spacing:.22em;color:var(--ink)">
+      <div style="display:flex;align-items:flex-end;gap:2px;height:12px">
+        <div style="width:2px;height:6px;background:var(--acc)"></div>
+        <div style="width:2px;height:12px;background:var(--acc)"></div>
+        <div style="width:2px;height:8px;background:var(--acc)"></div>
+        <div style="width:2px;height:4px;background:var(--acc)"></div>
+      </div>
+      <div>VOICE</div>
+      <div style="color:var(--dim)">⌄</div>
+    </div>
+    <div style="font-size:9.5px;line-height:1.9;letter-spacing:.24em;color:var(--dim);text-align:right;white-space:nowrap">
+      <div>{{ bottomA }}</div>
+      <div>{{ bottomB }}</div>
+      <div>{{ bottomC }}</div>
+    </div>
+  </div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1600,&quot;height&quot;:900},&quot;god&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;thor&quot;,&quot;loki&quot;,&quot;odin&quot;],&quot;default&quot;:&quot;odin&quot;,&quot;tsType&quot;:&quot;'thor'|'loki'|'odin'&quot;,&quot;section&quot;:&quot;Realm&quot;},&quot;scanlines&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;HUD&quot;},&quot;telemetry&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;HUD&quot;},&quot;motion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;HUD&quot;}}">
+class Component extends DCLogic {
+  static HUES = { violet:'#b98cff', crimson:'#ff6b6b', gold:'#f4d17a', azure:'#6ea8ff', jade:'#4ade80' };
+  static THEMES = {
+    thor: {
+      vars:{'--acc':'#7bb0ff','--acc2':'#b79cff','--ink':'#dfeaff','--dim':'rgba(210,227,255,.66)','--bg':'#050a16','--panel':'rgba(12,22,46,.5)','--line':'rgba(123,176,255,.20)','--glow':'rgba(123,176,255,.20)','--display':"'Cormorant Garamond',serif"},
+      realm:'07 / THE ASTRAL CARTOGRAPHER', stageLabel:'CHART / SECTOR IV',
+      signal:'ON TRACK 74%',
+      desk:{title:'CAMPAIGN', meta:'PLANS', chart:'MOMENTUM 14D',
+        stats:[{k:'ACTIVE PLANS',v:'5'},{k:'STEPS DONE',v:'23/31'},{k:'ON TRACK',v:'74%',t:'up'},{k:'NEXT GATE',v:'2D 06H'}],
+        rows:[{k:'LAUNCH ROUTE · SIF',v:'ON TRACK',t:'up'},{k:'HIRING LEG · MODI',v:'AT RISK',t:'down'},{k:'CAPITAL RUN · TYR',v:'CLEAR',t:'up'}]},
+      tagA:'NODE 03 / LOCKED', tagB:'VECTOR / +0.42',
+      leftTag:['FIVE BEARINGS.','ONE HEADING.'], foot:['THE MAP IS NOT THE STORM.','WALK IT ANYWAY.'],
+      bottom:['CHART IT.','HOLD THE LINE.','STRIKE ONCE.'],
+      microTag:'STEADIER HANDS. TRUER LINES.', counselTag:'FIVE BEARINGS. ONE HEADING.',
+      telemetry:[{k:'BEARING',v:'041.6°'},{k:'ALTITUDE',v:'12 400'},{k:'DRIFT',v:'0.03'},{k:'WIND',v:'7 KT'}],
+      council:[
+        {name:'SIF',domain:'STRATEGY · TERRAIN / MAPPING',hue:'violet'},
+        {name:'TYR',domain:'DECISIONS · RISK / RESOLVE',hue:'crimson'},
+        {name:'BALDR',domain:'CLARITY · SIGNAL / LIGHT',hue:'gold'},
+        {name:'VALKYRIE',domain:'ROUTES · MOMENTUM / SPEED',hue:'azure'},
+        {name:'MODI',domain:'FORCE · EXECUTION / DRIVE',hue:'jade'}],
+      msgs:[{bot:true,text:'The chart is live. Where are we going?'},{user:true,text:'Turn this idea into a plan.'},{bot:true,text:"Give me the goal. I'll lay the route — five bearings, one heading."}],
+      counsel:{name:'VALKYRIE',hue:'azure',line:'The fastest route is not the surest. Two waypoints cost you a day and save you a week.'}
+    },
+    loki: {
+      vars:{'--acc':'#3ddc84','--acc2':'#e9c46a','--ink':'#d8f6e6','--dim':'rgba(200,240,218,.66)','--bg':'#04100a','--panel':'rgba(8,26,18,.5)','--line':'rgba(61,220,132,.20)','--glow':'rgba(61,220,132,.18)','--display':"'Cormorant Garamond',serif"},
+      realm:'09 / THE BIFROST PRISM FOUNDRY', stageLabel:'FORGE / PRISM 03',
+      signal:'3 DUE TODAY',
+      desk:{title:'DAY BOARD', meta:'TODAY', chart:'LOAD BY HOUR',
+        stats:[{k:'MEETINGS',v:'4'},{k:'REMINDERS',v:'9'},{k:'DUE TODAY',v:'3',t:'down'},{k:'FREE BLOCK',v:'2H 40M',t:'up'}],
+        rows:[{k:'10:30 · STANDUP',v:'25M'},{k:'14:00 · DESIGN REVIEW',v:'1H'},{k:'REMIND · CALL BACK KARI',v:'18:00',t:'down'}]},
+      tagA:'FACET 07 / SPLIT', tagB:'VARIANT / 12',
+      leftTag:['FIVE MIRRORS.','ONE WAY THROUGH.'], foot:['NOTHING IS FIXED.','THAT IS THE GOOD NEWS.'],
+      bottom:['TWIST IT.','TEST IT.','TAKE IT.'],
+      microTag:'STRANGER ANGLES. BETTER ODDS.', counselTag:'FIVE MIRRORS. ONE WAY THROUGH.',
+      telemetry:[{k:'PHASE',v:'0.618'},{k:'FACETS',v:'07'},{k:'VARIANTS',v:'12'},{k:'SEED',v:'4A9'}],
+      council:[
+        {name:'SIGYN',domain:'LOYALTY · CONSTRAINT / TRUTH',hue:'violet'},
+        {name:'FENRIR',domain:'APPETITE · SCALE / BREAK',hue:'crimson'},
+        {name:'ANGRBODA',domain:'WILD IDEAS · CHANCE / SEED',hue:'gold'},
+        {name:'JORMUNGANDR',domain:'LOOPS · SYSTEMS / RECURSION',hue:'azure'},
+        {name:'HEL',domain:'ENDINGS · CLEANUP / COST',hue:'jade'}],
+      msgs:[{bot:true,text:"What's on your mind?"},{user:true,text:'Show me another way through this.'},{bot:true,text:'Every shape holds another. Let me find the one no one expected.'}],
+      counsel:{name:'JORMUNGANDR',hue:'azure',line:'You have solved this before. The loop is the lesson — break it or ride it.'}
+    },
+    odin: {
+      vars:{'--acc':'#e8c06a','--acc2':'#f6e3a1','--ink':'#f2e8d5','--dim':'rgba(242,232,213,.64)','--bg':'#07060a','--panel':'rgba(24,19,13,.55)','--line':'rgba(232,192,106,.20)','--glow':'rgba(232,192,106,.16)','--display':"'Cinzel',serif"},
+      realm:'13 / THE SOLAR THRONE', stageLabel:'THRONE / SOLAR RING',
+      signal:'WIN RATE 68%',
+      desk:{title:'PAPER DESK', meta:'SIM', chart:'EQUITY 30D',
+        stats:[{k:'TRADES OPEN',v:'7'},{k:'CLOSED TODAY',v:'12'},{k:'WIN / LOSS',v:'68 / 32',t:'up'},{k:'NET P/L',v:'+$4,182',t:'up'}],
+        rows:[{k:'ETH LONG · FRIGGA',v:'+$612',t:'up'},{k:'BTC SHORT · FANDRAL',v:'-$188',t:'down'},{k:'GOLD LONG · HEIMDALL',v:'+$1,204',t:'up'}]},
+      tagA:'RING 09 / SEALED', tagB:'AURUM / 1.000',
+      leftTag:['FIVE PERSPECTIVES.','A CLEARER TOMORROW.'], foot:['DIFFERENT PERSPECTIVES.','A STRONGER YOU.'],
+      bottom:['THINK DEEPER.','SEE FURTHER.','MOVE WISER.'],
+      microTag:'CLEARER THINKING. BRIGHTER MOVES.', counselTag:'FIVE PERSPECTIVES. ONE DIRECTION.',
+      telemetry:[{k:'AURUM',v:'1.000'},{k:'COUNCIL',v:'5/5'},{k:'DEPTH',v:'IX'},{k:'RING',v:'09'}],
+      council:[
+        {name:'FRIGGA',domain:'FORESIGHT · TRENDS / MOMENTUM',hue:'violet'},
+        {name:'VOLSTAGG',domain:'SUPPLY · GROWTH / PEOPLE',hue:'crimson'},
+        {name:'HEIMDALL',domain:'WATCH · GEO / ALERTS',hue:'gold'},
+        {name:'HOGUN',domain:'MACRO · FLOW / DISCIPLINE',hue:'azure'},
+        {name:'FANDRAL',domain:'RISK · EXECUTION / NERVE',hue:'jade'}],
+      msgs:[{bot:true,text:'Ready when you are.'},{user:true,text:'Help me shape the next step.'},{bot:true,text:"Let's look at this with all five perspectives and find the clearest path forward."}],
+      counsel:{name:'VOLSTAGG',hue:'crimson',line:'Consider where supply, growth, and people dynamics align for the next step.'}
+    }
+  };
+
+  static seq(n, lo, hi){
+    const out = [];
+    for (let i = 0; i < n; i++){
+      const f = (Math.sin(i * 12.9898) + 1) / 2;
+      out.push({ dur: (lo + f * (hi - lo)).toFixed(2) + 's', delay: ((i % 7) * 0.13).toFixed(2) + 's' });
+    }
+    return out;
+  }
+
+  state = { god: null };
+  rootRef = React.createRef();
+  artRef = React.createRef();
+
+  god(){ return this.state.god || this.props.god || 'odin'; }
+  theme(){ return Component.THEMES[this.god()] || Component.THEMES.odin; }
+
+  componentDidMount(){
+    this.apply();
+    this.fit();
+    if (typeof ResizeObserver !== 'undefined' && this.rootRef.current){
+      this.ro = new ResizeObserver(() => this.fit());
+      this.ro.observe(this.rootRef.current);
+    }
+    window.addEventListener('resize', this.onResize = () => this.fit());
+  }
+  componentDidUpdate(){ this.apply(); }
+  componentWillUnmount(){ if (this.ro) this.ro.disconnect(); window.removeEventListener('resize', this.onResize); }
+
+  apply(){
+    const el = this.rootRef.current; if (!el) return;
+    const vars = this.theme().vars;
+    Object.keys(vars).forEach(k => el.style.setProperty(k, vars[k]));
+    el.style.setProperty('--anim', (this.props.motion ?? true) ? 'running' : 'paused');
+  }
+  fit(){
+    const host = this.rootRef.current, art = this.artRef.current;
+    if (!host || !art) return;
+    const w = host.clientWidth || 1600;
+    const s = Math.min(w / 1600, 1.35);
+    art.style.transform = 'scale(' + s + ')';
+    host.style.height = Math.round(900 * s) + 'px';
+  }
+
+  renderVals(){
+    const t = this.theme(), g = this.god(), H = Component.HUES;
+    const c = t.counsel;
+    return {
+      rootRef: this.rootRef, artRef: this.artRef,
+      isThor: g === 'thor', isLoki: g === 'loki', isOdin: g === 'odin',
+      realmName: g.toUpperCase(), realm: t.realm, stageLabel: t.stageLabel,
+      leftTagA: t.leftTag[0], leftTagB: t.leftTag[1],
+      footA: t.foot[0], footB: t.foot[1],
+      bottomA: t.bottom[0], bottomB: t.bottom[1], bottomC: t.bottom[2],
+      microTag: t.microTag, counselTag: t.counselTag,
+      council: t.council.map((m, i) => ({ ...m, n: i + 1, hue: H[m.hue] })),
+      session: 'ASG-441', latency: '18 MS',
+      signal: t.signal,
+      deskTitle: t.desk.title, deskMeta: t.desk.meta, deskChart: t.desk.chart,
+      stats: t.desk.stats.map(s => ({ ...s, c: s.t === 'up' ? '#4ade80' : s.t === 'down' ? '#ff8a7a' : 'var(--ink)' })),
+      deskRows: t.desk.rows.map(r => ({ ...r, c: r.t === 'up' ? '#4ade80' : r.t === 'down' ? '#ff8a7a' : 'var(--ink)' })),
+      tagA: t.tagA, tagB: t.tagB,
+      bars: Component.seq(18, 0.9, 2.4), wave: Component.seq(26, 0.6, 1.7),
+      telemetry: this.props.telemetry ?? true,
+      telemetryLeft: t.telemetry.slice(0, 2), telemetryRight: t.telemetry.slice(2),
+      msgs: t.msgs,
+      counselName: c.name, counselHue: H[c.hue], counselLine: c.line,
+      inputHint: 'Speak to ' + g.charAt(0).toUpperCase() + g.slice(1) + '…',
+      scanlines: this.props.scanlines ?? true,
+      pickThor: () => this.setState({ god: 'thor' }),
+      pickLoki: () => this.setState({ god: 'loki' }),
+      pickOdin: () => this.setState({ god: 'odin' })
+    };
+  }
+}
+</script>
+</body>
+</html>

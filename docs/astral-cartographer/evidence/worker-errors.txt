@@ -1,0 +1,1 @@
+Independent Worker error tail remained active through both canaries and final verification; 0 bytes / no observed error events.

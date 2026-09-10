@@ -1,0 +1,17 @@
+### Result
+{"loki":{"scene":"prism-foundry","green":"rgb(32, 175, 115)","canvases":1,"labels":6,"flashes":0},"thor":{"scene":"astral-cartographer","canvases":1,"labels":6,"flashes":1},"errors":[]}
+### Ran Playwright code
+```js
+await (async page => {
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.evaluate(()=>{document.querySelector('[data-go=odin]').click();document.querySelector('[data-go=thor]').click();document.querySelector('[data-go=loki]').click();});
+ await page.waitForFunction(()=>AsgardUI.status().render?.scene==='prism-foundry'&&AsgardUI.status().render?.frames>0,{},{timeout:90000});
+ const loki=await page.evaluate(()=>({scene:AsgardUI.status().render.scene,green:getComputedStyle(document.querySelector('.prism-core b')).color,canvases:document.querySelectorAll('#presence-scene > canvas').length,labels:document.querySelectorAll('.prism-label').length,flashes:document.querySelectorAll('.council-flash').length}));
+ if(loki.green!=='rgb(32, 175, 115)'||loki.canvases!==1||loki.labels!==6||loki.flashes!==0)throw Error('Loki regression or stale scene DOM');
+ await page.evaluate(()=>document.querySelector('[data-go=thor]').click());
+ await page.waitForFunction(()=>AsgardUI.status().render?.scene==='astral-cartographer'&&AsgardUI.status().render?.frames>0,{},{timeout:90000});
+ const thor=await page.evaluate(()=>({scene:AsgardUI.status().render.scene,canvases:document.querySelectorAll('#presence-scene > canvas').length,labels:document.querySelectorAll('.prism-label').length,flashes:document.querySelectorAll('.council-flash').length}));
+ if(thor.canvases!==1||thor.labels!==6||thor.flashes!==1||errors.length)throw Error(JSON.stringify({thor,errors}));return {loki,thor,errors};
+}
+)(page);
+```

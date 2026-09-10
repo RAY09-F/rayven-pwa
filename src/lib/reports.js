@@ -1,3 +1,4 @@
+import { MODELS } from './models.js';
 // Scheduled persona deliverables: LOKI's daily brief and ODIN's recurring
 // business report. Both follow the house cron pattern (checkin.js): the 5-minute
 // tick calls the *IfDue functions, each checks its own KV config + "last run"
@@ -71,7 +72,7 @@ WATCHLIST: ${Array.isArray(watches) && watches.length ? watches.map(w => `${w.la
 
   const result = await callClaudeWithTools(env, persona.systemPrompt,
     'Scheduled brief being composed for delivery — not a live conversation turn.',
-    memoryBlock, [{ role: 'user', content: task }], true, null, 'loki');
+    memoryBlock, [{ role: 'user', content: task }], true, null, 'loki', false, null, {model:MODELS.haiku});
   if (!result.ok) return { ok: false, reason: 'Claude call failed.', details: result.data };
   const textBlock = result.data.content.find(b => b.type === 'text');
   const brief = textBlock ? textBlock.text : null;
@@ -125,7 +126,7 @@ CONTENT IDEAS QUEUED: ${ideas.length}`;
 
   const result = await callClaudeWithTools(env, persona.systemPrompt,
     'Scheduled report being composed for delivery — not a live conversation turn.',
-    memoryBlock, [{ role: 'user', content: task }], true, null, 'odin');
+    memoryBlock, [{ role: 'user', content: task }], true, null, 'odin', false, null, {model:MODELS.haiku});
   if (!result.ok) return { ok: false, reason: 'Claude call failed.', details: result.data };
   const textBlock = result.data.content.find(b => b.type === 'text');
   const report = textBlock ? textBlock.text : null;

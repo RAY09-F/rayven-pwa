@@ -36,7 +36,7 @@ async function speakTurn(env, personaId, otherId, transcript, topic, phase) {
     { type: 'text', text: `ROUNDTABLE MODE: Rayan has called you and ${other.name} to the table together on: "${topic}". You both see every turn. ${phaseNote} Never speak for ${other.name}, never pad, never do assistant pleasantries — this is a working argument between siblings.` }
   ];
   const kickoff = `The table is open. Topic: ${topic}`;
-  const result = await callAnthropic(env, system, [], messagesFor(personaId, transcript, topic, kickoff), 400);
+  const result = await callAnthropic(env, system, [], messagesFor(personaId, transcript, topic, kickoff), 400, undefined, {usageContext:{source:'roundtable',persist:true,persona:personaId}});
   if (!result.ok) throw new Error(`Roundtable call failed for ${persona.name}: ${JSON.stringify(result.data).slice(0, 200)}`);
   const textBlock = result.data.content.find(b => b.type === 'text');
   return textBlock ? textBlock.text.trim() : '(silence)';

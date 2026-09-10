@@ -1,0 +1,289 @@
+/* ASGARD three-realm council HUD. Every colour, font and play-state comes from a
+   custom property set on [data-realm]; no rule hard-codes a realm's palette. */
+
+:root[data-realm]{--anim:running}
+:root[data-realm="thor"]{--acc:#7bb0ff;--acc2:#b79cff;--ink:#dfeaff;--dim:rgba(210,227,255,.66);--bg:#050a16;--panel:rgba(12,22,46,.5);--line:rgba(123,176,255,.20);--glow:rgba(123,176,255,.20);--display:'Cormorant Garamond',serif}
+:root[data-realm="loki"]{--acc:#3ddc84;--acc2:#e9c46a;--ink:#d8f6e6;--dim:rgba(200,240,218,.66);--bg:#04100a;--panel:rgba(8,26,18,.5);--line:rgba(61,220,132,.20);--glow:rgba(61,220,132,.18);--display:'Cormorant Garamond',serif}
+:root[data-realm="odin"]{--acc:#e8c06a;--acc2:#f6e3a1;--ink:#f2e8d5;--dim:rgba(242,232,213,.64);--bg:#07060a;--panel:rgba(24,19,13,.55);--line:rgba(232,192,106,.20);--glow:rgba(232,192,106,.16);--display:'Cinzel',serif}
+:root[data-motion="off"]{--anim:paused}
+/* Reduced motion wins over the toggle, so it carries a third attribute to beat
+   the realm rule's specificity -- a media query adds none of its own. */
+@media (prefers-reduced-motion:reduce){:root[data-realm][data-motion]{--anim:paused}}
+
+*{box-sizing:border-box}
+body{margin:0;background:#000;color:var(--ink);font-family:'IBM Plex Mono',ui-monospace,monospace;-webkit-font-smoothing:antialiased}
+
+
+@keyframes hudSpin{to{transform:rotate(360deg)}}
+@keyframes hudSpinR{to{transform:rotate(-360deg)}}
+@keyframes hudPulse{0%,100%{opacity:.3}50%{opacity:.95}}
+@keyframes hudFlick{0%,100%{opacity:1}46%{opacity:.65}48%{opacity:.15}50%{opacity:.9}}
+@keyframes hudScan{0%{transform:translateY(-120px)}100%{transform:translateY(920px)}}
+@keyframes hudDrift{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes hudSplit{0%,100%{transform:translate(0,0)}50%{transform:translate(3px,-2px)}}
+@keyframes hudBar{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}
+@keyframes hudTicker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+@keyframes hudOrbit{to{transform:rotate(360deg)}}
+@keyframes hudTwinkle{0%,100%{opacity:.12}50%{opacity:.85}}
+@keyframes hudBreathe{0%,100%{opacity:.22;transform:scale(1)}50%{opacity:.6;transform:scale(1.04)}}
+
+/* ---- artboard ---------------------------------------------------------- */
+.hud-host{position:relative;width:100%;overflow:hidden;background:#000}
+.hud-art{width:1600px;height:900px;transform-origin:0 0;position:relative;background:var(--bg);color:var(--ink);
+ display:grid;grid-template-rows:58px minmax(0,1fr) 26px 70px;overflow:hidden;font-family:'IBM Plex Mono',ui-monospace,monospace}
+
+/* ---- global overlays --------------------------------------------------- */
+.ov{position:absolute;inset:0;pointer-events:none}
+.ov-vignette{background:radial-gradient(120% 90% at 50% 0%,rgba(255,255,255,.05),transparent 60%),radial-gradient(90% 70% at 50% 110%,var(--glow),transparent 65%);opacity:.5}
+.ov-grid{background:linear-gradient(transparent 0 39px,var(--line) 39px 40px),linear-gradient(90deg,transparent 0 39px,var(--line) 39px 40px);background-size:40px 40px;opacity:.16}
+.ov-scanlines{z-index:9;background:repeating-linear-gradient(rgba(255,255,255,.030) 0 1px,transparent 1px 3px);mix-blend-mode:overlay}
+.ov-scanband{position:absolute;left:0;right:0;height:120px;pointer-events:none;z-index:9;background:linear-gradient(transparent,var(--glow),transparent);opacity:.35;animation:hudScan 7.5s linear infinite}
+.ov-floor{opacity:.5;background:linear-gradient(180deg,transparent 55%,var(--glow) 100%),repeating-linear-gradient(90deg,transparent 0 78px,var(--line) 78px 79px);
+ -webkit-mask-image:linear-gradient(180deg,transparent 62%,#000);mask-image:linear-gradient(180deg,transparent 62%,#000)}
+.ov-runes{position:absolute;left:50%;top:44%;width:1180px;height:1180px;margin:-590px 0 0 -590px;pointer-events:none;border-radius:50%;border:1px solid var(--line);opacity:.35;animation:hudSpin 220s linear infinite}
+.ov-runes i{position:absolute;inset:60px;border-radius:50%;border:1px dashed var(--line)}
+.ov-runes b{position:absolute;inset:150px;border-radius:50%;border:1px solid var(--line);opacity:.6}
+.ov-star{position:absolute;width:2px;height:2px;background:var(--acc);animation:hudTwinkle 4s ease-in-out infinite}
+.ov-tick{position:absolute;top:58px;bottom:70px;width:14px;pointer-events:none;z-index:4;background:repeating-linear-gradient(180deg,var(--line) 0 1px,transparent 1px 26px);opacity:.7}
+.ov-shade{z-index:10;box-shadow:inset 0 0 200px rgba(0,0,0,.85)}
+
+/* ---- shared primitives ------------------------------------------------- */
+.row{display:flex;align-items:center}
+.rule{flex:1;height:1px;background:var(--line)}
+.dia{transform:rotate(45deg)}
+.nw{white-space:nowrap}
+.spacer{flex:1}
+.micro{font-size:9.5px;letter-spacing:.2em;color:var(--dim);white-space:nowrap}
+.heading{font-size:11px;letter-spacing:.3em;color:var(--ink)}
+.bar{transform-origin:bottom;background:var(--acc);animation:hudBar 1.4s ease-in-out infinite}
+
+/* ---- top rail ---------------------------------------------------------- */
+.rail-top{position:relative;z-index:3;display:flex;align-items:center;gap:20px;padding:0 24px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(0,0,0,.7),rgba(0,0,0,.25))}
+.wordmark{font-family:var(--display);font-size:19px;letter-spacing:.42em;color:var(--ink)}
+.vdiv{width:1px;height:22px;background:var(--line);flex:none}
+.realm-name{font-family:var(--display);font-size:16px;letter-spacing:.34em;color:var(--acc);text-shadow:0 0 18px var(--glow)}
+.realm-index{font-size:10px;letter-spacing:.26em;color:var(--dim);white-space:nowrap}
+.status{display:flex;align-items:center;gap:16px;font-size:9.5px;letter-spacing:.2em;color:var(--dim);white-space:nowrap}
+.status b{font-weight:400;color:var(--ink)}
+.status span{color:var(--acc)}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--acc);box-shadow:0 0 10px var(--acc);animation:hudPulse 2.2s ease-in-out infinite}
+.eq{display:flex;align-items:flex-end;gap:2px;height:12px}
+.eq i{width:2px;height:12px;background:var(--acc);opacity:.8;transform-origin:bottom;animation:hudBar 1.4s ease-in-out infinite}
+.nav{display:flex;align-items:center;gap:26px;font-size:11px;letter-spacing:.2em}
+.nav a{color:var(--dim);cursor:pointer;position:relative}
+.nav a:hover{color:var(--ink)}
+.nav a.on{color:var(--ink)}
+.nav a.on::after{content:"";position:absolute;left:50%;bottom:-9px;width:4px;height:4px;margin-left:-2px;transform:rotate(45deg);background:var(--acc);box-shadow:0 0 10px var(--acc)}
+.voice-top{display:flex;align-items:center;gap:12px;font-size:10px;letter-spacing:.2em;color:var(--dim)}
+.voice-top .m{display:flex;align-items:flex-end;gap:2px;height:11px}
+.voice-top .m i{width:2px;background:var(--acc)}
+.kbd{padding:4px 8px;border:1px solid var(--line);color:var(--ink)}
+
+/* ---- body -------------------------------------------------------------- */
+.body{position:relative;z-index:3;display:grid;grid-template-columns:300px minmax(0,1fr) 400px;min-height:0}
+
+/* ---- left column ------------------------------------------------------- */
+.col-left{border-right:1px solid var(--line);padding:16px 20px 14px;display:flex;flex-direction:column;gap:12px;min-height:0;background:linear-gradient(90deg,rgba(0,0,0,.45),transparent)}
+.left-tag{font-size:10px;line-height:1.7;letter-spacing:.24em;color:var(--dim)}
+.left-tag div{white-space:nowrap}
+.roster{display:flex;flex-direction:column;gap:8px}
+.member{display:flex;align-items:center;gap:12px;padding:6px 10px;border:1px solid var(--line);background:var(--panel)}
+.member:hover{border-color:var(--acc)}
+.member .n{font-size:9.5px;color:var(--dim);width:14px}
+.member .gem{width:11px;height:11px;transform:rotate(45deg);flex:none}
+.member .name{font-size:11px;letter-spacing:.24em}
+.member .domain{font-size:9.5px;letter-spacing:.16em;color:var(--dim);margin-top:3px}
+.desk{display:flex;flex-direction:column;gap:9px;padding:11px 12px;border:1px solid var(--line);background:var(--panel)}
+.desk-head{display:flex;align-items:center;gap:9px}
+.desk-head .d{width:5px;height:5px;transform:rotate(45deg);background:var(--acc);box-shadow:0 0 10px var(--acc);flex:none}
+.desk-title{font-size:10.5px;letter-spacing:.26em;color:var(--ink);white-space:nowrap}
+.desk-meta{font-size:9.5px;letter-spacing:.16em;color:var(--dim);white-space:nowrap}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.stat{padding:6px 9px;border:1px solid var(--line);background:rgba(0,0,0,.35)}
+.stat .k{font-size:9.5px;letter-spacing:.16em;color:var(--dim);white-space:nowrap}
+.stat .v{font-family:var(--display);font-size:18px;line-height:1.2;letter-spacing:.04em;margin-top:2px;white-space:nowrap}
+.desk-rows{display:flex;flex-direction:column;gap:7px}
+.desk-row{display:flex;align-items:center;gap:8px;font-size:9.5px;letter-spacing:.14em}
+.desk-row .k{color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.desk-row .v{white-space:nowrap}
+.left-foot{display:flex;flex-direction:column;gap:8px}
+.seg{display:flex;gap:3px}
+.seg i{flex:1;height:1px;background:var(--line)}
+.seg i:nth-child(2){background:var(--acc);opacity:.6}
+.foot-lines{font-size:9.5px;line-height:1.7;letter-spacing:.22em;color:var(--dim);white-space:nowrap}
+
+/* ---- centre stage ------------------------------------------------------ */
+.stage{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;min-width:0}
+.bracket{position:absolute;width:44px;height:44px;opacity:.55}
+.bracket.tl{top:18px;left:18px;border-left:1px solid var(--acc);border-top:1px solid var(--acc)}
+.bracket.tr{top:18px;right:18px;border-right:1px solid var(--acc);border-top:1px solid var(--acc)}
+.bracket.bl{bottom:18px;left:18px;border-left:1px solid var(--acc);border-bottom:1px solid var(--acc)}
+.bracket.br{bottom:18px;right:18px;border-right:1px solid var(--acc);border-bottom:1px solid var(--acc)}
+.stage-side{position:absolute;left:34px;top:50%;transform:translateY(-50%);writing-mode:vertical-rl;font-size:9.5px;letter-spacing:.44em;color:var(--dim);white-space:nowrap}
+.tel{position:absolute;top:30px;display:flex;flex-direction:column;gap:7px}
+.tel.left{left:74px}
+.tel.right{right:74px;text-align:right}
+.tel .t{display:flex;gap:8px;font-size:9.5px;letter-spacing:.2em;white-space:nowrap}
+.tel.right .t{justify-content:flex-end}
+.tel .t .k{color:var(--dim)}
+.tel .t .v{color:var(--acc)}
+.stage-label{position:absolute;bottom:34px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;font-size:9.5px;letter-spacing:.3em;color:var(--dim);white-space:nowrap}
+.stage-label i{width:34px;height:1px;background:var(--line)}
+.ring{position:relative;width:640px;height:430px;display:flex;align-items:center;justify-content:center}
+.ring>*{position:absolute}
+.ticks{width:600px;height:600px;border-radius:50%;background:repeating-conic-gradient(from 0deg,var(--acc) 0 .35deg,transparent .35deg 5deg);opacity:.5;
+ -webkit-mask-image:radial-gradient(circle,transparent 0 289px,#000 289px 300px,transparent 300px);mask-image:radial-gradient(circle,transparent 0 289px,#000 289px 300px,transparent 300px);animation:hudSpinR 160s linear infinite}
+.halo{width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,var(--glow),transparent 70%);animation:hudBreathe 6s ease-in-out infinite}
+.orbit{border-radius:50%}
+.orbit.o1{width:600px;height:600px;animation:hudOrbit 24s linear infinite}
+.orbit.o2{width:520px;height:520px;animation:hudOrbit 17s linear infinite reverse}
+.orbit.o3{width:440px;height:440px;animation:hudOrbit 31s linear infinite}
+.orbit i{position:absolute;left:50%}
+.orbit.o1 i{top:-4px;width:8px;height:8px;margin-left:-4px;transform:rotate(45deg);background:var(--acc);box-shadow:0 0 16px var(--acc)}
+.orbit.o2 i{top:-3px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--acc2);box-shadow:0 0 14px var(--acc2)}
+.orbit.o3 i{top:-2px;width:5px;height:5px;margin-left:-2px;border-radius:50%;background:var(--ink);opacity:.7;box-shadow:0 0 12px var(--acc)}
+.callout{display:flex;align-items:center;gap:8px}
+.callout.a{left:22px;top:38px}
+.callout.b{right:22px;bottom:44px}
+.callout .tag{padding:5px 9px;border:1px solid var(--acc);background:rgba(0,0,0,.6);font-size:9.5px;letter-spacing:.22em;color:var(--acc);white-space:nowrap}
+.callout .line{width:52px;height:1px;background:var(--acc);opacity:.6}
+.callout .d{width:5px;height:5px;transform:rotate(45deg);border:1px solid var(--acc);flex:none}
+.target{width:560px;height:340px;pointer-events:none}
+.target i{position:absolute;width:26px;height:26px;animation:hudPulse 3s ease-in-out infinite}
+.target i:nth-child(1){left:0;top:0;border-left:1px solid var(--acc);border-top:1px solid var(--acc)}
+.target i:nth-child(2){right:0;top:0;border-right:1px solid var(--acc);border-top:1px solid var(--acc);animation-delay:.4s}
+.target i:nth-child(3){left:0;bottom:0;border-left:1px solid var(--acc);border-bottom:1px solid var(--acc);animation-delay:.8s}
+.target i:nth-child(4){right:0;bottom:0;border-right:1px solid var(--acc);border-bottom:1px solid var(--acc);animation-delay:1.2s}
+/* The live three.js council mounts here; the octagon clip and drift are kept. */
+.render{position:relative;width:520px;height:300px;border:1px solid var(--line);background:repeating-linear-gradient(135deg,rgba(255,255,255,.04) 0 2px,transparent 2px 10px),rgba(0,0,0,.5);
+ clip-path:polygon(26px 0,calc(100% - 26px) 0,100% 26px,100% calc(100% - 26px),calc(100% - 26px) 100%,26px 100%,0 calc(100% - 26px),0 26px);
+ display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;animation:hudDrift 12s ease-in-out infinite}
+.render canvas{position:absolute;inset:0;width:100%!important;height:100%!important;touch-action:none}
+.render-fallback{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+.render[data-live="1"] .render-fallback{display:none}
+.render-fallback .d{width:22px;height:22px;border:1px solid var(--acc);transform:rotate(45deg);opacity:.7}
+.render-fallback .a{font-size:10px;letter-spacing:.3em;color:var(--dim);white-space:nowrap}
+.render-fallback .b{font-size:9.5px;letter-spacing:.22em;color:var(--dim);opacity:.7;white-space:nowrap}
+
+/* ---- realm motifs ------------------------------------------------------ */
+.motif{position:absolute;border-radius:50%}
+.motif.sq{border-radius:0}
+.m-thor-1{width:420px;height:420px;border:1px solid var(--line)}
+.m-thor-2{width:520px;height:520px;border:1px dashed var(--line);animation:hudSpin 90s linear infinite}
+.m-thor-3{width:520px;height:520px;background:conic-gradient(from 0deg,var(--glow),transparent 28%);opacity:.5;animation:hudSpin 9s linear infinite}
+.m-thor-h{width:640px;height:1px;border-radius:0;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+.m-thor-v{width:1px;height:430px;border-radius:0;background:linear-gradient(180deg,transparent,var(--line),transparent)}
+.m-loki-1{width:470px;height:470px;border:1px solid var(--acc);opacity:.28;animation:hudSpin 40s linear infinite}
+.m-loki-2{width:430px;height:430px;border:1px solid var(--acc2);opacity:.26;animation:hudSpinR 26s linear infinite}
+.m-loki-3{width:380px;height:380px;border:1px solid var(--acc);opacity:.16;border-radius:0;transform:rotate(45deg);animation:hudSpin 60s linear infinite}
+.m-loki-4{width:300px;height:300px;border-radius:0;background:conic-gradient(from 200deg,var(--acc),transparent 30%,var(--acc2),transparent 70%);opacity:.14;filter:blur(18px);animation:hudSpinR 18s linear infinite}
+.m-odin-1{width:560px;height:560px;background:conic-gradient(from 0deg,transparent,var(--glow),transparent 26%,var(--glow),transparent 52%,var(--glow),transparent 78%);opacity:.45;animation:hudSpin 70s linear infinite}
+.m-odin-2{width:420px;height:420px;border:1px solid var(--acc);opacity:.3}
+.m-odin-3{width:340px;height:340px;border:1px solid var(--acc);opacity:.18}
+.m-odin-4{width:200px;height:200px;background:conic-gradient(var(--acc),#3a2b10,var(--acc2),#3a2b10,var(--acc));opacity:.22;filter:blur(6px);animation:hudSpin 34s linear infinite}
+
+/* ---- nameplates -------------------------------------------------------- */
+.plate{position:relative;text-align:center}
+.plate .word{font-family:var(--display);font-weight:300;font-size:62px;line-height:1;letter-spacing:.16em;color:var(--ink);text-shadow:0 0 40px var(--glow)}
+.plate .rule-row{display:flex;align-items:center;gap:12px;justify-content:center;margin-top:14px}
+.plate .rule-row .g{width:70px;height:1px;background:linear-gradient(90deg,transparent,var(--acc))}
+.plate .rule-row .g2{width:70px;height:1px;background:linear-gradient(270deg,transparent,var(--acc))}
+.plate .rule-txt{font-size:9.5px;letter-spacing:.34em;color:var(--acc);white-space:nowrap}
+.plate .sub{font-size:10px;letter-spacing:.26em;color:var(--dim);margin-top:10px;white-space:nowrap}
+.ruler{display:flex;gap:5px;justify-content:center;margin-top:12px}
+.ruler i{width:1px;background:var(--line)}
+.ruler i.a{background:var(--acc)}
+.plate-loki .ghost{position:absolute;inset:0;font-family:var(--display);font-weight:300;font-size:62px;line-height:1;letter-spacing:.16em;color:var(--acc2);opacity:.5;animation:hudSplit 5s ease-in-out infinite}
+.plate-loki .word{position:relative;animation:hudFlick 7s steps(1,end) infinite}
+.plate-loki .rule-row{gap:10px}
+.plate-loki .rule-row .d{width:9px;height:9px;transform:rotate(45deg);border:1px solid var(--acc)}
+.plate-loki .rule-row .d2{width:9px;height:9px;transform:rotate(45deg);border:1px solid var(--acc2)}
+.plate-loki .sub{margin-top:12px;margin-left:26px}
+.plate-odin .rules{display:flex;flex-direction:column;gap:3px;align-items:center}
+.plate-odin .rules.up{margin-bottom:16px}
+.plate-odin .rules.down{margin-top:14px}
+.plate-odin .rules i{height:1px;background:linear-gradient(90deg,transparent,var(--acc),transparent)}
+.plate-odin .rules i.w260{width:260px}
+.plate-odin .rules i.w180{width:180px;opacity:.5}
+.plate-odin .word-row{display:flex;align-items:center;gap:22px;justify-content:center}
+.plate-odin .word-row .d{width:8px;height:8px;transform:rotate(45deg);background:var(--acc);box-shadow:0 0 14px var(--acc)}
+.plate-odin .word{font-family:var(--display);font-weight:600;font-size:58px;line-height:1;letter-spacing:.2em;color:var(--acc2);text-shadow:0 0 46px var(--glow)}
+.plate-odin .rule-txt{letter-spacing:.4em;margin-top:16px}
+.plate-odin .sub{margin-top:14px}
+
+/* ---- right column ------------------------------------------------------ */
+.col-right{border-left:1px solid var(--line);padding:22px 20px 20px;display:flex;flex-direction:column;gap:16px;min-height:0;background:linear-gradient(270deg,rgba(0,0,0,.45),transparent)}
+.head-row{display:flex;align-items:baseline;gap:10px}
+.msgs{display:flex;flex-direction:column;gap:12px}
+.msg-bot{display:flex;gap:11px;align-items:flex-start}
+.avatar{width:26px;height:26px;flex:none;border-radius:50%;border:1px solid var(--acc);display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5)}
+.avatar i{width:7px;height:7px;transform:rotate(45deg);background:var(--acc);box-shadow:0 0 10px var(--acc);animation:hudPulse 3.4s ease-in-out infinite}
+.msg-who{font-size:9.5px;letter-spacing:.26em;color:var(--acc);margin-bottom:6px}
+.bubble{padding:11px 13px;border:1px solid var(--line);background:var(--panel);font-size:12px;line-height:1.65;color:var(--ink);text-wrap:pretty}
+.msg-user{display:flex;justify-content:flex-end}
+.msg-user .bubble{max-width:78%;border:1px solid var(--acc);background:var(--glow)}
+.listen{display:flex;align-items:center;gap:11px}
+.listen .o{width:26px;height:26px;flex:none;border-radius:50%;border:1px solid var(--line)}
+.wave{display:flex;align-items:flex-end;gap:2px;height:22px;flex:1;padding:0 2px}
+.wave i{flex:1;height:22px;transform-origin:bottom;background:var(--acc);opacity:.6;animation:hudBar 1s ease-in-out infinite}
+.counsel{display:flex;gap:13px;align-items:flex-start;padding:14px;border:1px solid var(--line);background:var(--panel)}
+.counsel:hover{border-color:var(--acc)}
+.counsel .gem{width:14px;height:14px;flex:none;transform:rotate(45deg);margin-top:3px}
+.counsel .name{font-size:11px;letter-spacing:.26em}
+.counsel .line{font-size:11.5px;line-height:1.7;color:var(--dim);margin-top:7px;text-wrap:pretty}
+.counsel .chev{color:var(--dim);font-size:14px}
+.composer{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);background:rgba(0,0,0,.45)}
+.composer .hint{flex:1;font-size:11.5px;letter-spacing:.06em;color:var(--dim)}
+.mic{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
+.mic:hover{border-color:var(--acc)}
+.mic i{width:8px;height:12px;border-radius:0;background:var(--dim)}
+.send{width:32px;height:32px;border-radius:50%;background:var(--acc);display:flex;align-items:center;justify-content:center;color:#0b0803;font-size:13px;box-shadow:0 0 22px var(--glow)}
+.send-row{display:flex;justify-content:space-between;font-size:9.5px;letter-spacing:.2em;color:var(--dim);white-space:nowrap}
+
+/* ---- ticker ------------------------------------------------------------ */
+.rail-ticker{position:relative;z-index:3;display:flex;align-items:center;overflow:hidden;border-top:1px solid var(--line);background:rgba(0,0,0,.5)}
+.ticker-track{display:flex;flex:none;white-space:nowrap;font-size:9.5px;letter-spacing:.3em;color:var(--dim);animation:hudTicker 46s linear infinite}
+.ticker-track div{padding:0 24px}
+
+/* ---- bottom rail ------------------------------------------------------- */
+.rail-bottom{position:relative;z-index:3;display:flex;align-items:center;gap:22px;padding:0 24px;border-top:1px solid var(--line);background:linear-gradient(0deg,rgba(0,0,0,.75),rgba(0,0,0,.2))}
+.sigil{width:34px;height:34px;border-radius:50%;border:1px solid var(--acc);display:flex;align-items:center;justify-content:center;flex:none}
+.sigil i{width:11px;height:11px;transform:rotate(45deg);border:1px solid var(--acc2)}
+.load{display:flex;flex-direction:column;gap:6px;width:240px}
+.load .lbl{display:flex;justify-content:space-between;font-size:9.5px;letter-spacing:.2em;color:var(--dim);white-space:nowrap}
+.load .lbl span{color:var(--acc)}
+.load .segs{display:flex;gap:3px}
+.load .segs i{flex:1;height:4px;background:var(--acc);box-shadow:0 0 10px var(--glow)}
+.load .segs i:nth-child(4){opacity:.55;animation:hudPulse 2.6s ease-in-out infinite;box-shadow:none}
+.load .segs i:nth-child(5),.load .segs i:nth-child(6){background:var(--line);box-shadow:none}
+.switcher{display:flex;gap:14px}
+.pill{position:relative;padding:11px 40px;border:1px solid var(--line);font-size:10.5px;letter-spacing:.34em;color:var(--dim);cursor:pointer;background:none;font-family:inherit}
+.pill:hover{color:var(--ink)}
+.pill[aria-pressed="true"]{color:var(--ink)}
+.pill[aria-pressed="true"]::after{content:"";position:absolute;inset:-1px;border:1px solid var(--acc);box-shadow:0 0 26px var(--glow),inset 0 0 22px var(--glow);pointer-events:none}
+.pill:focus-visible{outline:1px solid var(--acc);outline-offset:3px}
+.voice-pill{display:flex;align-items:center;gap:10px;padding:9px 15px;border:1px solid var(--line);border-radius:22px;font-size:10px;letter-spacing:.22em;color:var(--ink)}
+.voice-pill .m{display:flex;align-items:flex-end;gap:2px;height:12px}
+.voice-pill .m i{width:2px;background:var(--acc)}
+.voice-pill .c{color:var(--dim)}
+.bottom-tag{font-size:9.5px;line-height:1.9;letter-spacing:.24em;color:var(--dim);text-align:right;white-space:nowrap}
+
+/* ---- the mounted council scene ---------------------------------------- */
+/* The HUD already names the council in its own roster and nameplate, so the
+   scene's projected labels would only duplicate them and spill past the clip. */
+.render .prism-labels{display:none}
+/* The scene's click flash is viewport-fixed on its own page; here it belongs
+   to the octagon, not to the whole HUD. */
+.render .council-flash{position:absolute}
+
+/* One shared play-state, declared last and marked important on purpose. Every
+   rule below sets animations with the `animation` shorthand, which resets
+   animation-play-state to `running`; without !important a single shorthand
+   would silently opt its element out of the freeze. This is the one toggle
+   that stops the whole HUD, so nothing may override it. */
+.hud-art,.hud-art *{animation-play-state:var(--anim)!important}
+
+/* Micro-labels stay on one line on the fixed artboard. */
+.member .domain,.member .name,.member .n,.voice-top,.heading{white-space:nowrap}
+.member .domain{overflow:hidden;text-overflow:ellipsis}
+.plate .sub{font-size:9.5px}

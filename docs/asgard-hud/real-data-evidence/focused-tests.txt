@@ -1,0 +1,70 @@
+TAP version 13
+# Subtest: theme tokens match the handoff table exactly, in config and in CSS
+ok 1 - theme tokens match the handoff table exactly, in config and in CSS
+  ---
+  duration_ms: 29.194315
+  type: 'test'
+  ...
+# Subtest: every keyframe from the motion inventory exists with the handoff timing
+ok 2 - every keyframe from the motion inventory exists with the handoff timing
+  ---
+  duration_ms: 3.758874
+  type: 'test'
+  ...
+# Subtest: each realm config carries the full shape the HUD reads
+ok 3 - each realm config carries the full shape the HUD reads
+  ---
+  duration_ms: 1.636286
+  type: 'test'
+  ...
+# Subtest: bar timings are deterministic and inside their band
+ok 4 - bar timings are deterministic and inside their band
+  ---
+  duration_ms: 1.588788
+  type: 'test'
+  ...
+# Subtest: live values replace desk numbers but never the labels, and missing feeds stay unavailable
+ok 5 - live values replace desk numbers but never the labels, and missing feeds stay unavailable
+  ---
+  duration_ms: 2.333041
+  type: 'test'
+  ...
+# Subtest: the ticker uses real events when there are any and an honest empty state when quiet
+ok 6 - the ticker uses real events when there are any and an honest empty state when quiet
+  ---
+  duration_ms: 1.220044
+  type: 'test'
+  ...
+# Subtest: calendar, timers and paper snapshots use their actual sources
+ok 7 - calendar, timers and paper snapshots use their actual sources
+  ---
+  duration_ms: 24.389951
+  type: 'test'
+  ...
+# Subtest: a failing subsystem is unavailable instead of showing examples
+ok 8 - a failing subsystem is unavailable instead of showing examples
+  ---
+  duration_ms: 2.043545
+  type: 'test'
+  ...
+# Subtest: all realms suppress example conversations, advice and unmeasured telemetry
+ok 9 - all realms suppress example conversations, advice and unmeasured telemetry
+  ---
+  duration_ms: 1.71596
+  type: 'test'
+  ...
+# Subtest: empty and failed data are distinct, with no invented market marks
+ok 10 - empty and failed data are distinct, with no invented market marks
+  ---
+  duration_ms: 2.353829
+  type: 'test'
+  ...
+1..10
+# tests 10
+# suites 0
+# pass 10
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 415.547174

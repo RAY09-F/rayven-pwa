@@ -1,0 +1,16 @@
+
+ ⛅️ wrangler 4.122.0
+────────────────────
+Created:     2026-09-08T10:38:00.059Z
+Author:      rayanfahil2@gmail.com
+Source:      Unknown (deployment)
+Message:     Loki green HUD: color-only 10% canary
+Version(s):  (90%) 806a7e9b-e716-4544-bfdd-3f9420d9e25d
+                 Created:  2026-09-08T09:54:06.679Z
+                     Tag:  prism-index
+                 Message:  Prism Foundry index; running backend preserved
+
+             (10%) 614ed300-86a9-4479-917f-0ff396dce0c4
+                 Created:  2026-09-08T10:37:04.678Z
+                     Tag:  loki-green
+                 Message:  Loki green HUD and name only; model and backend unchanged

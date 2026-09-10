@@ -1,0 +1,13 @@
+### Result
+{"animationTime":75.93029999999999,"hasDragged":true,"autoRotate":false,"animated":false}
+### Ran Playwright code
+```js
+await (async page => {
+ await page.evaluate(()=>{const b=document.querySelector('[data-motion-toggle]');if(b.textContent==='Pause motion')b.click();});
+ const s=await page.evaluate(()=>AsgardUI.status().render);
+ if(s.animationTime<=0||!s.hasDragged||s.autoRotate)throw Error('Animation/drag failed');
+ await page.screenshot({path:'output/astral/animated-desktop.png',timeout:90000});
+ return {animationTime:s.animationTime,hasDragged:s.hasDragged,autoRotate:s.autoRotate,animated:s.animated};
+}
+)(page);
+```

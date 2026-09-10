@@ -1,0 +1,30 @@
+### Result
+{"colors":[{"selector":".presence-heading h1","color":"rgb(32, 175, 115)","background":"rgba(0, 0, 0, 0)"},{"selector":".prism-core b","color":"rgb(32, 175, 115)","background":"rgba(0, 0, 0, 0)"},{"selector":".brand-mark","color":"rgb(32, 175, 115)","background":"rgba(0, 0, 0, 0)"},{"selector":".persona[aria-pressed=true]","color":"rgb(32, 175, 115)","background":"rgba(0, 0, 0, 0)"},{"selector":"#hall-loki .sendbtn","color":"rgb(8, 23, 33)","background":"rgb(32, 175, 115)"}],"layoutUnchanged":true,"other":{"thor":"#87dcff","odin":"#edc78b"},"scene":"prism-foundry"}
+### Ran Playwright code
+```js
+await (async page => {
+ await page.addInitScript(()=>localStorage.setItem('asgardfx:still','1'));
+ await page.reload({waitUntil:'domcontentloaded'});
+ await page.waitForFunction(()=>window.AsgardUI?.status().render?.frames>0,{},{timeout:90000});
+ const result=await page.evaluate(()=>{
+  const root=document.documentElement,selectors=['.presence-heading h1','.prism-core b','.brand-mark','.persona[aria-pressed=true]','#hall-loki .sendbtn'];
+  const colors=selectors.map(s=>{const e=document.querySelector(s),style=getComputedStyle(e);return {selector:s,color:style.color,background:style.backgroundColor};});
+  const original=[...document.querySelectorAll('.presence,.scene-controls,.conversation,.prism-label')].map(e=>e.getBoundingClientRect().toJSON());
+  root.style.setProperty('--accent','#ffe078');root.style.setProperty('--halo','#aa97391b');
+  const before=[...document.querySelectorAll('.presence,.scene-controls,.conversation,.prism-label')].map(e=>e.getBoundingClientRect().toJSON());
+  root.style.removeProperty('--accent');root.style.removeProperty('--halo');
+  const other={};for(const p of ['thor','odin']){root.dataset.persona=p;other[p]=getComputedStyle(root).getPropertyValue('--accent').trim();}root.dataset.persona='loki';
+  return {colors,layoutUnchanged:JSON.stringify(original)===JSON.stringify(before),other,scene:AsgardUI.status().render.scene};
+ });
+ if(!result.layoutUnchanged||result.other.thor!=='#87dcff'||result.other.odin!=='#edc78b')throw Error('Unrelated styling changed');
+ if(result.colors.slice(0,4).some(c=>c.color!=='rgb(32, 175, 115)')||result.colors[4].background!=='rgb(32, 175, 115)')throw Error('Green theme mismatch');
+ await page.screenshot({path:'/tmp/loki-green-desktop.png',timeout:90000});return result;
+}
+)(page);
+```
+### Page
+- Page URL: http://127.0.0.1:4179/?fixture=1#loki
+- Page Title: ASGARD — The Floating Realms
+- Console: 1 errors, 1 warnings
+### Events
+- New console entries: .playwright-cli/console-2026-09-08T10-33-28-937Z.log#L1-L4

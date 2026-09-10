@@ -217,7 +217,7 @@ export async function runRoutine(env, routine, event, execute, resume = null) {
         res = { text: r.summary, summary: `${COUNCIL[cid].name}: ${r.summary.slice(0, 60)}`, ok: r.ok };
         if (!r.ok) throw new Error(r.summary);
       } else if (s.compose) {
-        const model = s.compose.tier === 'cheap' ? MODELS.haiku : MODELS.sonnet;
+        const model = MODELS.haiku;
         const system = getPersona(owner).systemPrompt;
         const user = `[ROUTINE "${routine.name}" — you are composing, not chatting. Everything below is real data from your own tools; do not invent anything beyond it. Plain text only, no markdown. If there is genuinely nothing worth saying, reply with exactly NOTHING.]\n\n${s.compose.instruction}\n\nRESULTS SO FAR:\n${ctx.steps.map((st, k) => `[step ${k}] ${String(st.text).slice(0, 2500)}`).join('\n\n')}`;
         if (s.compose.batch) {
@@ -232,7 +232,7 @@ export async function runRoutine(env, routine, event, execute, resume = null) {
         }
         const r = await callAnthropicSimple(env, system, user, s.compose.maxTokens || 700, model);
         if (!r.ok) throw new Error(r.error);
-        if (r.usage) tickLog('cost', costLine({ persona: owner, councillor: null, model, usage: r.usage, source: `routine:${routine.id}` }));   // Phase 6.6
+
         res = { text: r.text.trim(), summary: `composed ${r.text.trim().slice(0, 60)}` };
       } else if (s.read) {
         res = await readStep(env, s, owner, ctx);

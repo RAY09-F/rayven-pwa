@@ -1,3 +1,4 @@
+import {modelRoundLimit, boundedToolResult} from './cost-policy.js';
 // The tool schema array Claude sees, the executeTool dispatcher, and the
 // tool-use loop (callClaudeWithTools). This is the most-imported module — it wires
 // together every integration module into what RAYVEN can actually do. Ported
@@ -939,11 +940,13 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
   // ceiling and its own token budget; anyone who does not stays on the house
   // defaults, so the three upstairs are completely unaffected by this.
   const _p = getPersona(personaId);
-  const maxIter = opts.maxIter || _p.toolIterations || 14;
+  const maxIter = modelRoundLimit(opts.maxIter || _p.toolIterations);
   const maxTok = opts.maxTokens || _p.maxTokens || undefined;
   for (let iteration = 0; iteration < maxIter; iteration++) {
     if (iteration > 0) toolsForThisCall = toolsForCall();   // find_tools may have opened groups since the last call
-    const result = await callAnthropic(env, systemBlocks, toolsForThisCall, messages, maxTok, opts.model);
+    const finalRound=iteration===maxIter-1;
+    if(finalRound&&iteration>0){console.log('TOOL_ROUND_LIMIT',{persona:personaId,rounds:maxIter});messages.push({role:'user',content:'Answer now using only results already obtained. Clearly state any unfinished work. Do not request more tools.'});}
+    const result = await callAnthropic(env, systemBlocks, toolsForThisCall, messages, maxTok, opts.model, {toolChoiceNone:finalRound});
     lastResult = result;
     // Phase 6.6: every call's usage becomes a cost line -- in the conversation's spool on the
     // reply path, in the tick buffer for cron -- rolled up by the tick, never a write here.
@@ -955,6 +958,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
     if (!result.ok) { record(trace, 'error', 'anthropic', { note: `HTTP ${result.status || '?'}`, ok: false }); await commitTrace(env, trace, convo ? meta : null); return result; }
 
     const data = result.data;
+    if (data.stop_reason === 'tool_use' && finalRound) return {ok:false,data:{error:{message:'The model requested another tool after the six-round limit. No further action was run.'}},actions};
     if (data.stop_reason === 'tool_use') {
       // EVERY tool_use block, not just the first. Claude can ask for several
       // tools in one turn, and the old code found only content.find(...) — it
@@ -1036,7 +1040,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
             }
           }
         }
-        toolResults.push({ type: 'tool_result', tool_use_id: blk.id, content: String(toolResult == null ? '' : toolResult) });
+        toolResults.push({ type: 'tool_result', tool_use_id: blk.id, content: boundedToolResult(toolResult) });
       }
 
       messages.push({ role: 'assistant', content: data.content });

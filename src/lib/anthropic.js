@@ -1,10 +1,12 @@
+import {stableRequest} from './cost-policy.js';
+import {logUsage} from './usage-log.js';
 // Thin wrapper around the Anthropic Messages API with one retry on transient
 // errors. Ported unchanged from worker.js. Used by the main chat loop and by
 // every background subsystem that needs a Claude call (code check, monitoring
 // relevance filter, email classification, day-planning briefing).
 import { MODELS } from './models.js';
 
-export async function callAnthropic(env, systemBlocks, tools, messages, maxTokens, model) {
+export async function callAnthropic(env, systemBlocks, tools, messages, maxTokens, model, opts = {}) {
   for (let attempt = 0; attempt < 2; attempt++) {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -20,13 +22,12 @@ export async function callAnthropic(env, systemBlocks, tools, messages, maxToken
         // two being sent together, and we send neither.
         model: model || MODELS.sonnet,
         max_tokens: maxTokens || 1400,   // 900 was clipping longer answers mid-thought
-        system: systemBlocks,
-        tools: tools,
-        messages: messages
+        ...stableRequest(systemBlocks,tools,messages),
+        ...(opts.toolChoiceNone ? {tool_choice:{type:'none'}} : {})
       })
     });
 
-    if (response.ok) return { ok: true, data: await response.json() };
+    if (response.ok) { const data=await response.json();logUsage(model || MODELS.sonnet,data.usage,opts.usageContext?.source || 'tool-loop',opts.usageContext || {});return {ok:true,data}; }
 
     const isTransient = response.status === 429 || response.status === 500 || response.status === 503 || response.status === 529;
     if (isTransient && attempt === 0) {
@@ -51,7 +52,7 @@ export async function callAnthropic(env, systemBlocks, tools, messages, maxToken
 // classification/judgement result (monitoring relevance filter, email importance
 // classification). No retry loop: these run on a 5-min cron tick, so a transient
 // failure just gets picked up again next tick rather than retried in-request.
-export async function callAnthropicSimple(env, systemPrompt, userText, maxTokens, model) {
+export async function callAnthropicSimple(env, systemPrompt, userText, maxTokens, model, schema, usageContext = {}) {
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -65,6 +66,7 @@ export async function callAnthropicSimple(env, systemPrompt, userText, maxTokens
     });
     if (!res.ok) return { ok: false, error: `Anthropic API returned status ${res.status}: ${await res.text().catch(() => '(no body)')}` };
     const data = await res.json();
+    logUsage(model || MODELS.sonnet,data.usage,usageContext.source || 'single-shot',{persist:true,...usageContext});
     const textBlock = data.content && data.content.find(b => b.type === 'text');
     if (!textBlock) return { ok: false, error: 'No text content in Claude response.' };
     return { ok: true, text: textBlock.text, usage: data.usage || null, model: model || MODELS.sonnet };

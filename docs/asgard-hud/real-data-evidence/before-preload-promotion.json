@@ -1,0 +1,21 @@
+{
+  "id": "86ccdf6d-4ea6-47a9-81bd-39255615a164",
+  "source": "wrangler",
+  "strategy": "percentage",
+  "author_email": "rayanfahil2@gmail.com",
+  "annotations": {
+    "workers/message": "Real data HUD: 10% compatibility preload canary",
+    "workers/triggered_by": "deployment"
+  },
+  "versions": [
+    {
+      "version_id": "ca4425cf-7e0a-40c6-a754-8f4c5f5ba8e7",
+      "percentage": 90
+    },
+    {
+      "version_id": "9572fac7-3a3f-4203-b5fa-a7ea47513299",
+      "percentage": 10
+    }
+  ],
+  "created_on": "2026-09-09T01:31:00.769846Z"
+}

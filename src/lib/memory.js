@@ -211,7 +211,7 @@ export async function extractAndSaveFacts(env, text, personaId = DEFAULT_PERSONA
   const message = String(text || '').trim();
   if (!message) return { saved: 0 };
 
-  const res = await callAnthropicSimple(env, EXTRACTION_PROMPT, message, 300);
+  const res = await callAnthropicSimple(env, EXTRACTION_PROMPT, message, 300, MODELS.haiku);
   if (!res.ok) {
     console.error('Auto-memory extraction call failed:', res.error);
     return { saved: 0 };

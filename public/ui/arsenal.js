@@ -92,10 +92,19 @@ export function createArsenal({getPersona,getDraft,setDraft,onSelect=()=>{},rese
   }
   function openMissions(){const body=shell('Mission briefs','Sixteen useful starting points, powered by existing tools.'),grid=node('div','tool-grid');
     for(const m of MISSIONS){const b=button('',()=>prepare(m.prompt),'mission-card');b.append(node('span','tool-category',m.group),node('strong','',m.title),node('p','',m.detail),node('span','tool-arrow','↗'));grid.append(b);}body.append(grid);}
-  function openAgent(id){const p=CAST[id];if(!p||p.hall!==getPersona())return;onSelect(id);const body=shell(p.name,p.title);body.append(node('p','agent-role',p.role));
+  function openAgent(id){const activity=node('p','tool-truth','Loading recorded council activity…');const p=CAST[id];if(!p||p.hall!==getPersona())return;onSelect(id);const body=shell(p.name,p.title);body.append(node('p','agent-role',p.role));
     for(const [title,text]of [['What they do',p.does],['What they look for',p.watch],['Standing duties',p.duties.map(d=>d.description).join(' ')]] ){body.append(node('h3','',title),node('p','',text));}
     if(p.hall==='odin')body.append(node('p','tool-truth','Paper simulation only. '+p.market+(p.backendId?' · paper-agent id: '+p.backendId:'')));
-    body.append(node('p','tool-truth','Council activity: unknown. These are assigned responsibilities; no live activity data is available in this panel.'),button('Prepare delegation',()=>prepare(`Use delegate to ask ${p.id==='hunter_b15'?'hunter_b15':p.id} (${p.name}) for help with: `),'primary-action'),button('Ask for current status',()=>prepare(`Tell me what ${p.name} is currently working on. Read actual council status where available; do not infer activity from the visual model.`)));
+    readAgentActivity(p,activity);
+    body.append(activity,button('Prepare delegation',()=>prepare(`Use delegate to ask ${p.id==='hunter_b15'?'hunter_b15':p.id} (${p.name}) for help with: `),'primary-action'),button('Ask for current status',()=>prepare(`Tell me what ${p.name} is currently working on. Read actual council status where available; do not infer activity from the visual model.`)));
+  }
+  async function readAgentActivity(p,activity){
+    try{const response=await fetch('/council/status',{cache:'no-store',signal:AbortSignal.timeout(10000)});if(!response.ok)throw Error('status');const data=await response.json();
+      const list=data.councils?.[p.hall]||[];
+      const entry=p.hall==='odin'?list.find(x=>x.paperAgentId===p.backendId):list.find(x=>x.id===p.id);
+      if(!entry)throw Error('missing');
+      activity.textContent=(p.hall==='odin'?'PAPER / SIM · ':'')+(entry.lastRun?'Last recorded run: '+new Date(entry.lastRun).toLocaleString()+' · '+(entry.lastSummary||'No summary recorded'):'No run recorded yet.')+' · '+(Number(entry.runs)||0)+' recorded runs. This is the last recorded activity, not a live progress indicator.';
+    }catch{activity.textContent='Recorded activity is unavailable. You can still prepare a question for this agent.';}
   }
   function renderCouncil(){const bar=document.getElementById('council-dock');bar.replaceChildren();for(const id of CAST[getPersona()].councillors){const p=CAST[id],b=button('',()=>openAgent(id),'council-member');b.dataset.advisor=id;b.style.setProperty('--member',p.color);b.append(node('span','council-diamond','◇'),node('span','',p.name));b.setAttribute('aria-label',p.name+' — council dossier');bar.append(b);}}
   function openActivity(){const body=shell('Session activity','Actual chat requests in this page. This is not a live backend tool trace.');

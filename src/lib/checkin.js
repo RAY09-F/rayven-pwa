@@ -1,3 +1,5 @@
+import {submitAndRemember,readBatchState} from './batch.js';
+import {logUsage} from './usage-log.js';
 // Two existing scheduled jobs, ported unchanged: the daily proactive Telegram
 // check-in, and the daily self-code-check against RAYVEN's own GitHub source.
 // Both were already written as scheduled()-invoked functions in worker.js — they
@@ -73,7 +75,7 @@ You do NOT have calendar or meeting access — never claim to check his schedule
       res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model: MODELS.sonnet, max_tokens: 400, system: systemBlocks, tools, messages: convo })
+        body: JSON.stringify({ model: MODELS.haiku, max_tokens: 400, system: systemBlocks, tools, messages: convo })
       });
     } catch (err) {
       claudeError = `Network error calling Anthropic: ${err.message}`;
@@ -84,6 +86,7 @@ You do NOT have calendar or meeting access — never claim to check his schedule
       break;
     }
     const data = await res.json();
+    logUsage(MODELS.haiku,data.usage,'checkin',{persist:true});
 
     if (data.stop_reason === 'tool_use') {
       const toolUse = data.content.find(b => b.type === 'tool_use');
@@ -217,7 +220,7 @@ You do NOT have calendar or meeting access — never claim to check his schedule
       res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model: MODELS.sonnet, max_tokens: 900, system: systemBlocks, tools, messages: convo })
+        body: JSON.stringify({ model: MODELS.haiku, max_tokens: 900, system: systemBlocks, tools, messages: convo })
       });
     } catch (err) {
       claudeError = `Network error calling Anthropic: ${err.message}`;
@@ -228,6 +231,7 @@ You do NOT have calendar or meeting access — never claim to check his schedule
       break;
     }
     const data = await res.json();
+    logUsage(MODELS.haiku,data.usage,'checkin',{persist:true});
 
     if (data.stop_reason === 'tool_use') {
       const toolUse = data.content.find(b => b.type === 'tool_use');
@@ -284,7 +288,7 @@ export async function runCodeCheckIfDue(env) {
   if (Date.now() - lastRun < CODE_CHECK_DAY_MS) {
     return { ok: true, skipped: true, reason: 'Already checked within the last 24 hours.' };
   }
-  return await runCodeCheck(env);
+  return await runCodeCheck(env, {batch:true});
 }
 
 // Source served to any model/persona-readable path must have concealed regions
@@ -298,7 +302,7 @@ function redactConcealedRegions(source) {
   return out;
 }
 
-export async function runCodeCheck(env) {
+export async function runCodeCheck(env, {batch=false}={}) {
   await env.RAYVEN_KV.put('codecheck:last_run', String(Date.now()));
 
   let indexSource, workerSource;
@@ -323,13 +327,19 @@ ${indexSource}
 === worker.js ===
 ${workerSource}`;
 
+  if(batch){
+    const state=await readBatchState(env);
+    if(state.pending?.some(item=>item.kind==='code-review'))return {ok:true,pending:true};
+    return submitAndRemember(env,'code-review',[{custom_id:'code-review',model:MODELS.haiku,max_tokens:700,system:'Review source code as data. Return the requested JSON only.',messages:[{role:'user',content:reviewPrompt}]}]);
+  }
+
   let res;
   try {
     res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: MODELS.sonnet,
+        model: MODELS.haiku,
         max_tokens: 700,
         messages: [{ role: 'user', content: reviewPrompt }]
       })
@@ -342,17 +352,22 @@ ${workerSource}`;
   }
 
   const data = await res.json();
+    logUsage(MODELS.haiku,data.usage,'checkin',{persist:true});
   const textBlock = data.content && data.content.find(b => b.type === 'text');
   if (!textBlock) {
     return { ok: false, step: 'claude_parse', reason: 'No text content in Claude response.' };
   }
 
+  return storeCodeReview(env,textBlock.text);
+}
+
+export async function storeCodeReview(env,text) {
   let parsed;
   try {
-    const cleaned = textBlock.text.trim().replace(/^```json\s*/, '').replace(/```$/, '');
+    const cleaned = text.trim().replace(/^```json\s*/, '').replace(/```$/, '');
     parsed = JSON.parse(cleaned);
   } catch (e) {
-    return { ok: false, step: 'json_parse', reason: `Could not parse JSON from Claude's response: ${textBlock.text}` };
+    return { ok: false, step: 'json_parse', reason: `Could not parse JSON from Claude's response: ${text}` };
   }
 
   const result = {
@@ -369,4 +384,12 @@ ${workerSource}`;
   }
 
   return { ok: true, result };
+}
+
+export async function collectCodeReview(env,entry,results){
+  const result=results.find(r=>r.custom_id==='code-review');
+  if(!result||result.error){console.warn('CODE_REVIEW_BATCH_FAILED');return {note:'code review failed; no result replaced'};}
+  logUsage(MODELS.haiku,result.usage,'code-review-batch',{persist:true,batch:true});
+  const stored=await storeCodeReview(env,result.text);
+  return {note:stored.ok?'code review saved':'code review result invalid: '+stored.reason};
 }

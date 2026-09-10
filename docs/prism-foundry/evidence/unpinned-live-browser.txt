@@ -1,0 +1,16 @@
+### Result
+{"url":"https://asgrard-backend.rayanfahil2.workers.dev/#loki","release":"floating-5c8b8ac7e037","scene":"prism-foundry","renderer":"webgl","advisors":["miss_minutes","hunter_b15","mobius","sylvie","kang"],"script":"/ui/prism-v1/app.js?v=prism-1"}
+### Ran Playwright code
+```js
+await (async page => {
+ await page.unrouteAll({behavior:'ignoreErrors'});
+ await page.goto('https://asgrard-backend.rayanfahil2.workers.dev/?hall=loki',{waitUntil:'domcontentloaded',timeout:90000});
+ await page.waitForFunction(()=>window.AsgardUI?.status().render?.scene==='prism-foundry'&&AsgardUI.status().render.frames>0,{},{timeout:90000});
+ const result=await page.evaluate(async()=>({url:location.href,release:(await(await fetch('/ui/release.json',{cache:'no-store'})).json()).id,scene:AsgardUI.status().render.scene,renderer:AsgardUI.status().render.renderMode,advisors:AsgardUI.status().render.advisors,script:document.querySelector('script[type=module]').getAttribute('src')}));
+ if(result.release!=='floating-5c8b8ac7e037')throw Error('Live browser received stale release');
+ return result;
+}
+)(page);
+```
+### Events
+- New console entries: .playwright-cli/console-2026-09-08T09-47-54-694Z.log#L8

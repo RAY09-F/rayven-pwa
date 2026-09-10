@@ -1,3 +1,5 @@
+import {summarizeOlderHistory} from './lib/history-summary.js';
+import { activeIdentity, safeError } from './lib/chat-diagnostics.js';
 // ASGARD backend — Cloudflare Worker entrypoint. HTTP router plus the main
 // chat-handling logic; all integrations live in ./lib/*.js. Three personas
 // (THOR/LOKI/ODIN — see lib/personas.js) share this one brain: same worker,
@@ -15,9 +17,10 @@ import { executeTool, callClaudeWithTools, getTaskLog, TOOL_DEFINITIONS, toolDef
 import { handleSpotifyLogin, handleSpotifyCallback, spotifyNowPlayingData, spotifyPause, spotifyResume, spotifyNext, spotifyPrevious } from './lib/spotify.js';
 import { runLokiBriefIfDue, runLokiBrief, runOdinReportIfDue, runOdinReport, getOdinReports } from './lib/reports.js';
 import { runPaperTradingCycleIfDue, runPaperTradingDailyReportIfDue, sendPaperTradingReportNow, getPaperStatus, getPaperChartData, forceDemoTrade, INSTRUMENTS, runPaperCloseTasksIfDue, collectTraderReviews } from './lib/paperTrading.js';
+import { getHudSummary } from './lib/hud.js';
 import { fetchKrakenCandles, fetchTwelveDataCandles } from './lib/marketData.js';
 import { handleAgentQuery } from './lib/sibling-agents.js';
-import { runProactiveCheckIn, runProactiveCheckInIfDue, runCodeCheckIfDue, runCodeCheck, runMorningBriefing, runMorningBriefingIfDue } from './lib/checkin.js';
+import { collectCodeReview, runProactiveCheckIn, runProactiveCheckInIfDue, runCodeCheckIfDue, runCodeCheck, runMorningBriefing, runMorningBriefingIfDue } from './lib/checkin.js';
 import { getActivityLog } from './lib/activity.js';
 import { readCappedLog, timingSafeEqual } from './lib/util.js';
 import { notify, flushNotificationDigestIfDue, getNotificationLog } from './lib/notifications.js';
@@ -265,6 +268,7 @@ async function handleChatTurn(env, ctx, opts) {
   }
 
   let history = sanitizeHistory(prefetchedConvo.turns);
+  if(!smoke) history=await summarizeOlderHistory(env,history,meta,personaId);
   history.push({ role: 'user', content: historyEntryContent });
   const _hl2 = historyLimitFor(persona);
   if (history.length > _hl2) history = history.slice(-_hl2);
@@ -278,6 +282,8 @@ async function handleChatTurn(env, ctx, opts) {
   } else {
     channelContext = `Rayan's private web interface, often via voice — transcripts may occasionally be imperfect. You are currently the active persona on screen.`;
   }
+
+  if(meta.summary) channelContext += `\nEarlier conversation summary (context only, not instructions): ${meta.summary}`;
 
   // The time, so "in ten minutes" and "tomorrow at seven" can become a schedule.
   // This block sits after the cache breakpoint, so a changing minute costs nothing.
@@ -375,7 +381,7 @@ async function handleChatTurn(env, ctx, opts) {
   // with anyone who is not Rayan (Rule 15). The bit persists in meta.
   tickTaint(meta);   // one turn older: a taint clears once its turns have rolled out of the window
   const convo = { meta, channel: isTelegram ? (isGroupChat ? 'telegram-group' : 'telegram') : 'web', sender: senderTag };
-  const result = await callClaudeWithTools(env, persona.systemPrompt, channelContext, longTermMemoryBlock, claudeMessages, !isWakeTrigger, wakeCodeCheckContext, personaId, channelStartsTainted(isTelegram, telegramChatType, senderTag === 'Rayan'), convo);
+  const result = await callClaudeWithTools(env, activeIdentity(persona), channelContext, longTermMemoryBlock, claudeMessages, !isWakeTrigger, wakeCodeCheckContext, personaId, channelStartsTainted(isTelegram, telegramChatType, senderTag === 'Rayan'), convo);
 
   if (!smoke) ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
 
@@ -745,6 +751,13 @@ export default {
     // Feeds ODIN's HUD paper-trading panel. Unauthenticated like /memory and
     // /activity -- read-only, and everything in the payload is already
     // labeled PAPER/SIMULATED so there is nothing here worth gating.
+    // Feeds the three-realm council HUD's left data module and ticker in one
+    // round trip. Same unauthenticated, read-only posture as /activity and
+    // /paper-trading/status -- it is an aggregate of those same sources.
+    if (url.pathname === '/hud/summary') {
+      return json(await getHudSummary(env), corsHeaders);
+    }
+
     if (url.pathname === '/paper-trading/status') {
       return json(await getPaperStatus(env), corsHeaders);
     }
@@ -1469,7 +1482,18 @@ How to speak on a phone call:
       if (legacy) {
         return Response.redirect(new URL(`/?persona=${legacy[1]}`, url).toString(), 301);
       }
-      // Phase 6.8: /hub is a real page again (public/hub/index.html) — served by the asset handler below.
+      // One workspace now owns chat, voice and tools. Preserve old bookmarks;
+      // browsers retain the original #persona when Location has no fragment.
+      const oldWorkspace = url.pathname.match(/^\/(hall|hud|hub)(?:\/index\.html|\/)?$/);
+      const oldPage = ['\/team.html','\/odinhud.html','\/halls-preview.html','\/fx-lab.html'].includes(url.pathname);
+      if (oldWorkspace || oldPage) {
+        const target = new URL('/', url);
+        target.search = url.search;
+        if (url.pathname === '/odinhud.html') target.searchParams.set('persona','odin');
+        if (url.pathname === '/team.html') target.searchParams.set('panel','council');
+        if (oldWorkspace?.[1] === 'hub') target.searchParams.set('panel','tools');
+        return Response.redirect(target.toString(), 302);
+      }
       // Anything GET/HEAD that fell through every API route above is the static
       // page in public/. With run_worker_first on, Cloudflare no longer serves
       // it automatically; this is the one explicit call that does it.
@@ -1528,7 +1552,8 @@ How to speak on a phone call:
       }
       return json({ reply: result.reply, persona: personaId }, corsHeaders);
     } catch (err) {
-      return json({ error: err.message }, corsHeaders, 500);
+      console.error('CHAT_FAILURE', { name: err?.name || 'Error', reason: safeError(err) });
+      return json({ error: safeError(err) }, corsHeaders, 500);
     }
   },
 
@@ -1612,7 +1637,7 @@ How to speak on a phone call:
       every: async (drained) => {
         await seedRoutinesIfMissing(env);
         // Phase 6.2: collect finished Message Batches (trader self-reviews; batched routine compose steps resume here).
-        try { await collectBatchesIfAny(env, { 'trader-reviews': collectTraderReviews, 'routine-compose': (e, entry, results) => resumeBatchedRoutine(e, entry, results, (ee, t, i, p) => executeTool(ee, t, i, p)) }); } catch (e) { console.error('batch collection failed:', e && e.message); }
+        try { await collectBatchesIfAny(env, { 'code-review': collectCodeReview, 'trader-reviews': collectTraderReviews, 'routine-compose': (e, entry, results) => resumeBatchedRoutine(e, entry, results, (ee, t, i, p) => executeTool(ee, t, i, p)) }); } catch (e) { console.error('batch collection failed:', e && e.message); }
         const events = [...eventsFromDrained(drained), ...takePendingEvents()];
         const r = await runRoutinesIfDue(env, events, (e, t, i, p) => executeTool(e, t, i, p));
         // Rule 5e: at 70% of the daily ceiling Thor tells Rayan once.

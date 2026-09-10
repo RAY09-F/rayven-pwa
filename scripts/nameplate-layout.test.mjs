@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as T from '../public/ui/vendor/three.module.min.js';
-import {placeNameplate} from '../public/ui/nameplate-layout.js';
+import * as T from '../public/ui/prism-v1/vendor/three.module.min.js';
+import {placeNameplate} from '../public/ui/prism-v1/nameplate-layout.js';
 
 function assertClear(rect,placed){
  for(const other of placed)assert.ok(

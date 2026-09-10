@@ -1,8 +1,8 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import * as T from '../public/ui/vendor/three.module.min.js';
-import {dragObjectPosition,COUNCIL_POSITIONS} from '../public/ui/realm-controls.js';
-import {createRealm} from '../public/ui/realm-architecture.js';
-import {createHolographicField} from '../public/ui/holographic-field.js';
+import * as T from '../public/ui/prism-v1/vendor/three.module.min.js';
+import {dragObjectPosition,COUNCIL_POSITIONS} from '../public/ui/prism-v1/realm-controls.js';
+import {createRealm} from '../public/ui/prism-v1/realm-architecture.js';
+import {createHolographicField} from '../public/ui/prism-v1/holographic-field.js';
 for(const persona of ['thor','loki','odin']){
  test(persona+' floating council has visible displacement and freezes on reduced motion',()=>{
   const r=createRealm(T,new T.Scene(),persona);r.update(0,true,'idle');const first=r.gems.map(g=>g.position.y);r.update(1,true,'idle');assert.ok(r.gems.some((g,i)=>Math.abs(g.position.y-first[i])>.08));const pose=r.gems.map(g=>g.position.toArray());r.update(20,false,'thinking');assert.deepEqual(r.gems.map(g=>g.position.toArray()),pose);r.dispose();

@@ -1,0 +1,11 @@
+
+ ⛅️ wrangler 4.122.0 (update available 4.129.1)
+───────────────────────────────────────────────
+Created:     2026-09-08T09:52:27.852Z
+Author:      rayanfahil2@gmail.com
+Source:      Unknown (deployment)
+Message:     Prism assets preload passed five-minute canary
+Version(s):  (100%) 7993b681-c976-4e09-aa36-fc6d963ed459
+                 Created:  2026-09-08T09:44:59.341Z
+                     Tag:  prism-assets
+                 Message:  Prism assets preload; existing index and backend preserved

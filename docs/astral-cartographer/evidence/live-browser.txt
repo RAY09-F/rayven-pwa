@@ -1,0 +1,31 @@
+### Result
+{"state":{"ready":true,"renderMode":"webgl","persona":"thor","scene":"astral-cartographer","state":"idle","frames":3,"animationTime":0,"animated":false,"hidden":false,"rafActive":false,"width":975.140625,"height":508,"threeRevision":"184","renderScale":1,"rendererResources":{"geometries":246,"textures":6},"advisors":["jane_foster","valkyrie","hulk","korg","darcy"],"hover":null,"selected":null,"autoRotate":false,"hasDragged":false,"cameraPosition":[4.273615411209966,5.2351049192817865,7.770209838563573],"quality":"balanced","shadowMapSize":1024,"objects":[{"id":"core","x":487.5703125,"y":215.2467400872345},{"id":"ruby","x":413.82496204635606,"y":338.22640577420924},{"id":"sapphire","x":589.0121443197266,"y":325.2052767264037},{"id":"rose","x":594.5492494269956,"y":253.88607914819815},{"id":"gold","x":474.1847730934214,"y":236.2278444143916},{"id":"amethyst","x":366.5408008654687,"y":267.8290113517169}]},"release":"floating-c5ccb5e8f103","advisor":"Valkyrie","errors":[]}
+### Ran Playwright code
+```js
+await (async page => {
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.setViewportSize({width:1440,height:900});
+ await page.unrouteAll({behavior:'ignoreErrors'});
+ await page.route('https://asgrard-backend.rayanfahil2.workers.dev/**',async route=>{
+  if(route.request().method()==='POST')throw Error('No live POST allowed in this visual check');
+  const raw=route.request().url();await route.continue({url:raw+(raw.includes('?')?'&':'?')+'verify='+Date.now(),headers:{...route.request().headers(),'Cloudflare-Workers-Version-Overrides':'asgrard-backend="46f1a08b-a239-4a8a-a688-3fafceef488f"'}});
+ });
+ await page.addInitScript(()=>{try{localStorage.setItem('asgardfx:still','1')}catch{}});
+ await page.goto('https://asgrard-backend.rayanfahil2.workers.dev/?hall=thor',{waitUntil:'domcontentloaded',timeout:90000});
+ await page.waitForFunction(()=>window.AsgardUI?.status().render?.scene==='astral-cartographer'&&AsgardUI.status().render.frames>0,{},{timeout:90000});
+ const state=await page.evaluate(()=>AsgardUI.status().render);
+ await page.screenshot({path:'/tmp/astral-live-desktop.png',timeout:90000});
+ const box=await page.locator('#presence-scene').boundingBox(),bolt=state.objects.find(o=>o.id==='sapphire');
+ await page.mouse.click(box.x+bolt.x,box.y+bolt.y);
+ await page.waitForFunction(()=>AsgardUI.status().render.selected==='sapphire',{},{timeout:90000});
+ const dialog=await page.locator('dialog[open]').textContent();if(!dialog.includes('Valkyrie'))throw Error('Live advisor mismatch');await page.keyboard.press('Escape');
+ const release=await page.evaluate(()=>fetch('/ui/release.json').then(r=>r.json()).then(r=>r.id));
+ if(errors.length)throw Error(errors.join('; '));return {state,release,advisor:'Valkyrie',errors};
+}
+)(page);
+```
+### Page
+- Page URL: https://asgrard-backend.rayanfahil2.workers.dev/#thor
+- Page Title: ASGARD — The Floating Realms
+### Events
+- New console entries: .playwright-cli/console-2026-09-08T11-18-05-073Z.log#L10-L12

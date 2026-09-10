@@ -1,0 +1,61 @@
+{
+  "version": "7993b681-c976-4e09-aa36-fc6d963ed459",
+  "started": "2026-09-08T09:46:34.790Z",
+  "samples": [
+    {
+      "at": "2026-09-08T09:46:34.790Z",
+      "elapsedSeconds": 0,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T09:47:05.654Z",
+      "elapsedSeconds": 31,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T09:47:36.377Z",
+      "elapsedSeconds": 62,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T09:48:08.191Z",
+      "elapsedSeconds": 93,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T09:48:43.184Z",
+      "elapsedSeconds": 128,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T09:49:14.822Z",
+      "elapsedSeconds": 160,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T09:49:46.779Z",
+      "elapsedSeconds": 192,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T09:50:17.573Z",
+      "elapsedSeconds": 223,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T09:50:48.492Z",
+      "elapsedSeconds": 254,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T09:51:19.291Z",
+      "elapsedSeconds": 285,
+      "ok": true
+    },
+    {
+      "at": "2026-09-08T09:51:50.144Z",
+      "elapsedSeconds": 315,
+      "ok": true
+    }
+  ]
+}

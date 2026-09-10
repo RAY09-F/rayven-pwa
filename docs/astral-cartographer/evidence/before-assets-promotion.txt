@@ -1,0 +1,16 @@
+
+ ⛅️ wrangler 4.122.0 (update available 4.129.1)
+───────────────────────────────────────────────
+Created:     2026-09-08T11:28:00.012Z
+Author:      rayanfahil2@gmail.com
+Source:      Unknown (deployment)
+Message:     Astral assets preload: 10% canary, existing index unchanged
+Version(s):  (90%) 614ed300-86a9-4479-917f-0ff396dce0c4
+                 Created:  2026-09-08T10:37:04.678Z
+                     Tag:  loki-green
+                 Message:  Loki green HUD and name only; model and backend unchanged
+
+             (10%) af42d41e-ac84-4fad-8be7-5d4a37c9a43f
+                 Created:  2026-09-08T11:26:59.221Z
+                     Tag:  astral-assets
+                 Message:  Astral council assets preload; current index and backend preserved

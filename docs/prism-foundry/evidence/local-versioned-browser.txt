@@ -1,0 +1,21 @@
+### Result
+{"status":{"ready":true,"renderMode":"webgl","persona":"loki","scene":"prism-foundry","state":"idle","frames":13,"animationTime":33.19859999999999,"animated":false,"hidden":false,"rafActive":false,"width":860.84375,"height":486,"threeRevision":"184","renderScale":1,"rendererResources":{"geometries":146,"textures":6},"advisors":["miss_minutes","hunter_b15","mobius","sylvie","kang"],"hover":null,"selected":null,"autoRotate":false,"hasDragged":false,"cameraPosition":[-4.371936801400931,5.2351049192817865,-7.715317117448748],"quality":"balanced","shadowMapSize":1024,"objects":[{"id":"core","x":430.4218749999999,"y":200.55328275504135},{"id":"amber","x":482.0291831933275,"y":226.6844254497759},{"id":"sapphire","x":358.2335742202889,"y":232.7851314679846},{"id":"copper","x":310.3351565591456,"y":296.0230329424748},{"id":"emerald","x":447.3533402208987,"y":332.76056600077186},{"id":"violet","x":554.0924057831988,"y":284.32864277635935}]},"reply":"Deployment preview check\nLOKI\n\nLet’s make it manageable.\n\nChoose one useful outcome.\nMake the first step small.\n\nYour message reached the loki fixture.\n\nconst nextStep = \"Begin\";\n\nReference\n\nCopy reply\nLoki · Reply received · 2:49 AM","module":"/ui/prism-v1/app.js?v=prism-1"}
+### Ran Playwright code
+```js
+await (async page => {
+ await page.waitForFunction(()=>window.AsgardUI?.status().render?.ready,{},{timeout:90000});
+ await page.evaluate(()=>{const s=document.querySelector('#still-setting');s.checked=true;s.dispatchEvent(new Event('change'));const o=document.querySelector('#output-setting');o.checked=false;o.dispatchEvent(new Event('change'));});
+ await page.waitForFunction(()=>!AsgardUI.status().render.rafActive,{},{timeout:60000});
+ const status=await page.evaluate(()=>AsgardUI.status().render);if(status.scene!=='prism-foundry'||status.threeRevision!=='184')throw Error('Wrong scene');
+ await page.locator('#in-loki').fill('Deployment preview check');await page.locator('#in-loki').press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#tx-loki').textContent.includes('Your message reached'),{},{timeout:30000});
+ return {status,reply:await page.locator('#tx-loki').innerText(),module:await page.locator('script[type=module]').getAttribute('src')};
+}
+)(page);
+```
+### Page
+- Page URL: http://127.0.0.1:4178/?fixture=1#loki
+- Page Title: ASGARD — The Floating Realms
+- Console: 1 errors, 5 warnings
+### Events
+- New console entries: .playwright-cli/console-2026-09-08T09-47-54-694Z.log#L1-L6
