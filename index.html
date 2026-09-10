@@ -25,6 +25,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#04070F">
 <title>ASGARD</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2216%22%20fill%3D%22%2304070f%22%2F%3E%3Cpath%20d%3D%22M14%2049L32%2012L50%2049M23%2034H41%22%20fill%3D%22none%22%20stroke%3D%22%23bfefff%22%20stroke-width%3D%224%22%2F%3E%3Cpath%20d%3D%22M10%2053H54%22%20stroke%3D%22%23ffd08a%22%20stroke-width%3D%222%22%2F%3E%3C%2Fsvg%3E">
 <meta name="description" content="Choose Thor, Loki or Odin and enter your ASGARD hall. An animated Warden welcomes you; conversations happen inside.">
 <style>
 :root{
@@ -158,6 +159,7 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;background:
 
 /* --- responsive ---------------------------------------------------------- */
 @media (max-width:1000px){
+  .hint{display:none}
   :root{--pad:18px}
   .id h1{font-size:19px;letter-spacing:.40em}
   .plates{display:none}
@@ -250,7 +252,7 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;background:
     </div>
 
     <div class="bar" id="bar"></div>
-    <div class="hint">1 &middot; 2 &middot; 3 to switch &nbsp;&middot;&nbsp; M for mic glow</div>
+    <div class="hint">Click figure to charge &nbsp;&middot;&nbsp; 1 / 2 / 3 &nbsp;&middot;&nbsp; M for mic</div>
     <div class="brand">ASGARD // WARDEN PREVIEW</div>
   </div>
 
@@ -568,6 +570,16 @@ weave(TORSO,{count: 660,smin:24,smax:48,len:0.0034,size:0.00880,kind:0,bias:0.0,
   }
 })();
 
+/* Broken orbital filaments: low-density points around the existing silhouette. */
+(function(){
+  var total=Math.round(1800*DENS);
+  for(var i=0;i<total;i++){
+    var ring=i%3,a=(i/total)*TAU*7,rad=ring===0?.53:ring===1?.77:1.14;
+    var yy=ring===0?1.08:ring===1?.68:.28;
+    put(Math.cos(a)*rad,yy+Math.sin(a)*(.12+ring*.045),Math.sin(a)*rad*.44-.09,
+        0,1,0,4,ring,.003+Math.pow(rnd(),5)*.009,0);
+  }
+})();
 var COUNT=n;
 
 /* ------------------------------------------------------- gl */
@@ -584,6 +596,7 @@ var VS=[
 'uniform mat3 uR; uniform vec3 uPivot; uniform float uDist;',
 'uniform vec2 uProj; uniform vec2 uPZ; uniform float uYOff;',
 'uniform float uT,uForm,uAgit,uCoh,uBreath,uCore,uBright,uPS,uMaxPS,uLift,uVoice;',
+'uniform float uListen,uSpeak,uPass,uMotion,uBurst;',
 'uniform vec3 uCDeep,uCMid,uCMain,uCHot,uCRim;',
 'varying vec3 vCol; varying float vA;',
 'vec3 flow(vec3 p,float t){',
@@ -602,6 +615,28 @@ var VS=[
 '  p += aNrm*lift*plate;',
 '  vec3 tb=flow(base*3.0+aRnd*5.0, uT*0.55+aRnd.z*6.28);',
 '  p += tb*((uAgit+uVoice*0.55)*(0.004+0.010*aRnd.x));',
+'  // Every body point follows a bounded current along its own surface.',
+'  vec3 axis=abs(aNrm.y)<0.9?vec3(0.0,1.0,0.0):vec3(1.0,0.0,0.0);',
+'  vec3 tangent=normalize(cross(aNrm,axis));',
+'  vec3 bitangent=cross(aNrm,tangent);',
+'  float phase=uT*(1.1+aRnd.y*0.7)+aRnd.x*6.2832+base.y*5.0;',
+'  float energy=clamp(uListen*0.65+uSpeak+uVoice*0.7+uBurst*0.65,0.0,1.7);',
+'  float sweep=pow(0.5+0.5*sin(base.y*9.0-uT*2.4+base.x*1.8),12.0);',
+'  float current=(0.016+0.021*aRnd.z+energy*0.014)*uMotion;',
+'  p += (tangent*sin(phase)+bitangent*cos(phase*0.83+base.x*3.0))*current*plate;',
+'  p += aNrm*sin(phase*1.27)*(0.008+0.020*energy+0.018*sweep)*uMotion*plate;',
+'  p += aNrm*uBurst*(0.035+0.045*sweep)*uMotion*plate;',
+'  if(kind>2.5&&kind<3.5){',
+'    float orbit=uT*(0.22+aRnd.y*0.23);',
+'    p.xz=mat2(cos(orbit),-sin(orbit),sin(orbit),cos(orbit))*p.xz;',
+'    p.y+=sin(uT*0.75+aRnd.x*6.2832)*0.10*uMotion;',
+'  }',
+'  if(kind>3.5){',
+'    float orbit=uT*(0.22+tt*0.12)*(tt<0.5?1.0:-1.0);',
+'    p.xz=mat2(cos(orbit),-sin(orbit),sin(orbit),cos(orbit))*p.xz;',
+'    p.y+=sin(uT*0.65+aRnd.x*0.6+tt)*0.035*uMotion;',
+'    p.xz*=1.0+uBurst*0.2;',
+'  }',
 '  p += aNrm*((1.0-uCoh)*(0.020+0.075*aRnd.y))*(0.55+0.45*sin(uT*0.55+aRnd.z*9.4));',
 '  float d=clamp(uForm*1.42-aRnd.z*0.40,0.0,1.0); float e=d*d*(3.0-2.0*d);',
 '  vec3 far=uPivot+rel*(1.0+1.05*aRnd.x)+aNrm*(0.30+0.95*aRnd.y)+tb*0.25;',
@@ -627,15 +662,26 @@ var VS=[
 '    a*=1.0+1.15*edge;',
 '    a*=1.0+0.46*uVoice*edge;',
 '    s*=1.0+0.30*edge;',
+'    float whitePoint=max(pow(face,9.0),edge*0.8);',
+'    float charge=energy*(0.48+0.52*sweep);',
+'    col=mix(col,vec3(0.93,0.98,1.0),clamp(charge*whitePoint,0.0,0.92));',
+'    a*=1.0+charge*0.85*whitePoint+sweep*0.36;',
+'    s*=1.0+charge*0.16;',
 '  } else if(kind<1.5){',
 '    // the visor bar — this is the part that answers the voice',
 '    a=0.300*uCore*(1.0+1.05*uVoice); col=mix(vec3(1.0),uCRim,0.10); s*=1.0+0.24*uCore+0.30*uVoice;',
 '  } else if(kind<2.5){',
 '    a=0.0215*uCore*(1.0+1.60*uVoice); col=mix(uCMain,vec3(1.0),0.50);',
-'  } else {',
+'  } else if(kind<3.5){',
 '    a=0.100*(0.35+0.75*aRnd.y)*(1.0+0.55*uVoice); col=mix(uCDeep,uCMain,0.30+0.55*near);',
+'    a*=1.3+energy; s*=1.0+energy*0.3;',
+'  } else {',
+'    float runner=pow(0.5+0.5*sin(atan(aPos.z+0.09,aPos.x)*2.0-uT*1.2+tt*2.0),10.0);',
+'    a=(0.085+runner*0.38)*(0.7+energy*0.7);',
+'    col=mix(uCMain,vec3(0.94,0.98,1.0),runner);s*=1.0+runner*0.7;',
 '  }',
-'  vA=a*uBright*e;',
+'  s*=mix(1.0,3.4,uPass);',
+'  vA=a*uBright*e*mix(1.0,0.020+energy*0.006,uPass);',
 '  vCol=col;',
 '  gl_PointSize=clamp(s*uPS/max(w,0.05),0.60,uMaxPS);',
 '}'].join('\n');
@@ -669,7 +715,7 @@ function initGL(){
     gl.vertexAttribPointer(l,spec[i][1],gl.FLOAT,false,STRIDE*4,spec[i][2]*4);
   }
   ['uR','uPivot','uDist','uProj','uPZ','uT','uForm','uAgit','uCoh','uBreath','uCore','uBright',
-   'uPS','uMaxPS','uLift','uVoice','uYOff','uCDeep','uCMid','uCMain','uCHot','uCRim']
+   'uPS','uMaxPS','uLift','uVoice','uYOff','uCDeep','uCMid','uCMain','uCHot','uCRim','uListen','uSpeak','uPass','uMotion','uBurst']
     .forEach(function(k){loc[k]=gl.getUniformLocation(prog,k);});
   var rg=gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE);
   uMaxPS=Math.max(16,Math.min(150,(rg&&rg[1])||64));
@@ -903,7 +949,8 @@ var mode='auto';                  // 'auto' = timed cycle, 'live' = driven
 var liveState='idle';
 var S0=DATA.states.idle;
 var cur={coh:S0.coh,agit:S0.agit,lift:S0.lift,core:S0.core,br:S0.bright,bre:S0.breath};
-var stKey='', stFrac=0;
+var stKey='', stFrac=0,listenEnergy=0,speakEnergy=0,burstAt=-10000;
+window.addEventListener('pointerdown',function(e){if(e.target.tagName==='CANVAS')burstAt=performance.now();});
 
 var API = {
   persona:function(id){setPersona(id);return API;},
@@ -1048,6 +1095,9 @@ else{
     Rm[0]=cy;Rm[1]=sp*sy;Rm[2]=-cp*sy;Rm[3]=0;Rm[4]=cp;Rm[5]=sp;Rm[6]=sy;Rm[7]=-sp*cy;Rm[8]=cp*cy;
 
     var speak=(key==='speaking')?1:0;
+    listenEnergy+=((key==='listening'?1:0)-listenEnergy)*Math.min(1,dt*3.5);
+    speakEnergy+=(speak-speakEnergy)*Math.min(1,dt*3.5);
+    var speakingPulse=speakEnergy*(0.68+0.18*Math.sin(t*7.1)+0.14*Math.sin(t*11.3));
     var breath=cur.bre*Math.sin(t*0.52)+speak*0.0075*Math.sin(t*1.85)+voice*0.0090*Math.sin(t*2.35);
     var core=cur.core*(1+speak*0.22*Math.sin(t*2.05)+0.06*Math.sin(t*0.74))+voice*0.85;
     var form=REDUCED?1:(1-Math.pow(1-cl((now-t0)/2100,0,1),3));
@@ -1070,12 +1120,20 @@ else{
     gl.uniform1f(loc.uMaxPS,uMaxPS);
     gl.uniform1f(loc.uLift,cur.lift*(REDUCED?0.45:1));
     gl.uniform1f(loc.uVoice,voice);
+    gl.uniform1f(loc.uListen,listenEnergy);
+    gl.uniform1f(loc.uSpeak,speakingPulse);
+    gl.uniform1f(loc.uMotion,REDUCED?0:1);
+    gl.uniform1f(loc.uBurst,REDUCED?0:Math.sin(Math.PI*cl((now-burstAt)/2100,0,1)));
     gl.uniform1f(loc.uYOff,yoff);
     gl.uniform3f(loc.uCDeep,palNow.deep[0],palNow.deep[1],palNow.deep[2]);
     gl.uniform3f(loc.uCMid ,palNow.mid[0] ,palNow.mid[1] ,palNow.mid[2]);
     gl.uniform3f(loc.uCMain,palNow.main[0],palNow.main[1],palNow.main[2]);
     gl.uniform3f(loc.uCHot ,palNow.hot[0] ,palNow.hot[1] ,palNow.hot[2]);
     gl.uniform3f(loc.uCRim ,palNow.rim[0] ,palNow.rim[1] ,palNow.rim[2]);
+    // A soft halo pass followed by crisp points keeps the face readable.
+    gl.uniform1f(loc.uPass,1);
+    gl.drawArrays(gl.POINTS,0,COUNT);
+    gl.uniform1f(loc.uPass,0);
     gl.drawArrays(gl.POINTS,0,COUNT);
 
     if(now-lastUI>240){
