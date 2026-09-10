@@ -1,3 +1,4 @@
+import { MODELS } from './models.js';
 // Per-persona autonomy — each persona does real work on a schedule, capped
 // (~3/day each), writing to a visible log ('agent:autonomy:log', same capped-KV
 // pattern as agent:log/activity:log). Also owns the live status strip data
@@ -150,7 +151,7 @@ async function runOdinPulse(env) {
   const res = await callAnthropicSimple(env,
     PERSONAS.odin.systemPrompt,
     `Autonomous strategy pulse (no one asked — this is your scheduled counsel). Content idea queue:\n${ideaText}\n\nYour recent memory:\n${memBlock}\n\nGive ONE concrete, non-obvious strategic observation or move for Rayan's clipping business, in your own register, 2-3 sentences. If there is genuinely nothing worth saying, reply exactly: HOLD.`,
-    300);
+    300, MODELS.haiku);
   if (!res.ok) { await logAutonomy(env, 'odin', `Strategy pulse failed: ${res.error}`); return res.error; }
   const counsel = res.text.trim();
   if (counsel === 'HOLD' || counsel.startsWith('HOLD')) {
@@ -176,7 +177,7 @@ export async function runThorSelfCheck(env) {
 
   // Anthropic — a real 1-token message call.
   try {
-    const res = await callAnthropicSimple(env, 'Reply with the single word OK.', 'ping', 5);
+    const res = await callAnthropicSimple(env, 'Reply with the single word OK.', 'ping', 5, MODELS.haiku);
     probes.push({ name: 'Anthropic', ok: res.ok, detail: res.ok ? 'live' : res.error });
   } catch (e) { probes.push({ name: 'Anthropic', ok: false, detail: e.message }); }
 

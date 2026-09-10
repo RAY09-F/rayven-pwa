@@ -1,3 +1,4 @@
+import {ledger,ledgerBackend} from './ledger.js';
 // THE COST TRACKER (asgard-upgrade Phase 6.6).
 //
 // Every Anthropic call reports its token usage. On the reply path the numbers
@@ -19,7 +20,8 @@ export function usd(model, usage, { batch = false } = {}) {
   const p = PRICES[model] || PRICES[MODELS.sonnet];
   const u = usage || {};
   const inTok = Number(u.input_tokens) || 0, outTok = Number(u.output_tokens) || 0, cr = Number(u.cache_read_input_tokens) || 0, cw = Number(u.cache_creation_input_tokens) || 0;
-  let dollars = (inTok * p.in + outTok * p.out + cr * p.in * 0.1 + cw * p.in * 1.25) / 1e6;
+  const hourWrites = Math.min(cw, Number(u.cache_creation?.ephemeral_1h_input_tokens) || 0);
+  let dollars = (inTok * p.in + outTok * p.out + cr * p.in * 0.1 + (cw-hourWrites)*p.in*1.25 + hourWrites*p.in*2) / 1e6;
   if (batch) dollars *= 0.5;
   return dollars;
 }
@@ -44,21 +46,24 @@ export function addCost(total, line) {
 
 const money = v => `$${(Number(v) || 0).toFixed(2)}`;
 export async function costReportText(env, days = 7) {
-  let last = {}; try { const raw = await env.RAYVEN_KV.get('tick:last'); last = raw ? JSON.parse(raw) : {}; } catch (e) {}
+  let last = {}; const durable=ledgerBackend(env)==='do';
+  try { if(durable)last=await ledger.get(env,'tick:last')||{};else {const raw=await env.RAYVEN_KV.get('tick:last');last=raw?JSON.parse(raw):{};} } catch {return 'Cost tracking is temporarily unavailable; no zero-spend estimate was substituted.';}
   const today = new Date().toISOString().slice(0, 10);
   const running = last.day === today && last.costToday ? last.costToday : emptyCost(today);
   const keys = []; for (let i = 1; i <= days; i++) keys.push(`cost:${new Date(Date.now() - i * 86400000).toISOString().slice(0, 10)}`);
-  const raws = await Promise.all(keys.map(k => env.RAYVEN_KV.get(k).catch(() => null)));
-  const past = raws.map(r => { try { return r ? JSON.parse(r) : null; } catch (e) { return null; } }).filter(Boolean);
+  const raws = durable ? [] : await Promise.all(keys.map(k => env.RAYVEN_KV.get(k).catch(() => null)));
+  let past = raws.map(r => { try { return r ? JSON.parse(r) : null; } catch (e) { return null; } }).filter(Boolean);
+  if(durable){try{past=(await ledger.costDays(env,days)).filter(row=>row.day!==today);}catch{return 'Historical cost tracking is temporarily unavailable.';}}
   const week = past.reduce((s, d) => s + (d.usd || 0), running.usd || 0);
   const personas = {}; const tiers = {};
   for (const d of [running, ...past]) { for (const [k, v] of Object.entries(d.byPersona || {})) personas[k] = (personas[k] || 0) + v.usd; for (const [k, v] of Object.entries(d.byTier || {})) tiers[k] = (tiers[k] || 0) + v.usd; }
   const lines = [
-    `Model spend, estimated from list prices (cache reads at 10%, batches at 50%). Tracking started 2026-09-05, so days before that read as zero.`,
+    `Model spend, estimated from list prices (cache reads at 10%, batches at 50%). Tracking started 2026-09-05; missing days are unmeasured.`,
     `Today so far (UTC ${today}): ${money(running.usd)} over ${running.calls} call(s), ${running.in + running.cacheRead} tokens in / ${running.out} out.`,
     `Last ${days} day(s) plus today: ${money(week)} (${past.length} day summar${past.length === 1 ? 'y' : 'ies'} on record).`,
     Object.keys(personas).length ? `By persona: ${Object.entries(personas).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${money(v)}`).join(' · ')}.` : null,
     Object.keys(tiers).length ? `By tier: ${Object.entries(tiers).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${money(v)}`).join(' · ')}.` : null,
+    `Cache tokens today: ${running.cacheRead || 0} read / ${running.cacheWrite || 0} written.`,
     `Not counted: Workers AI free-tier calls (the councils' free tier, the critic), ElevenLabs speech, search APIs.`
   ].filter(Boolean);
   return lines.join('\n');
