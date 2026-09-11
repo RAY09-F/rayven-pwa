@@ -1,3 +1,4 @@
+import {createCommandIdentity} from './command-identity.js';
 import {createOrbitalDashboard} from './orbital-dashboard.js';
 import {createCouncilOrbit} from './council-orbit.js';
 import {createArsenal} from './arsenal.js';
@@ -7,7 +8,7 @@ import {readChatReply} from './event-stream.js';
 const $=id=>document.getElementById(id),figure=window.ASGARD;
 const names={thor:'Thor',loki:'Loki',odin:'Odin'},requests=createRequestLedger();
 const rooms=Object.fromEntries(Object.keys(names).map(id=>[id,{messages:[],draft:'',loaded:false,loading:false,error:'',revision:0}]));
-let orbit,dashboard;
+let orbit,dashboard,identity;
 let persona=figure.current,arsenal,recognition=null,micStream=null,audioContext=null,analyser=null,levelFrame=0;
 let audio=null,audioURL=null,voiceAbort=null,voiceTimer=0,voiceToken=0,micToken=0,listening=false,starting=false,speaking=false,preparing=false;
 const saved=(key,fallback)=>{try{return localStorage.getItem(key)??fallback;}catch{return fallback;}};
@@ -61,11 +62,12 @@ function select(id){
   $('chat-name').textContent=names[id];$('message').placeholder='Ask '+names[id]+' anything…';$('message').value=rooms[id].draft;
   const url=new URL(location.href);url.searchParams.set('persona',id);url.hash='';history.replaceState(null,'',url);
   document.documentElement.style.setProperty('--acc',id==='loki'?'#adf6c7':id==='odin'?'#e6caff':'#a9dfff');
-  arsenal?.switchPersona();orbit?.render();dashboard?.select(id);render();update();loadHistory(id);
+  arsenal?.switchPersona();orbit?.render();dashboard?.select(id);identity?.select(id);render();update();loadHistory(id);
 }
 figure.onPersona=select;
 arsenal=createArsenal({getPersona:()=>persona,getDraft:()=>$('message').value,setDraft,resetView:()=>{figure.level(0).reduced($('still-motion').checked);update();}});
 dashboard=createOrbitalDashboard({getPersona:()=>persona,setDraft,openAgent:id=>arsenal.openAgent(id)});
+identity=createCommandIdentity({figure});
 orbit=createCouncilOrbit({getPersona:()=>persona,openAgent:id=>arsenal.openAgent(id)});
 orbit.reduced($('still-motion').checked);
 $('message').addEventListener('input',()=>{rooms[persona].draft=$('message').value;});
@@ -73,6 +75,7 @@ $('message').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.
 $('composer').addEventListener('submit',e=>{e.preventDefault();send();});
 async function send(){
   const id=persona,room=rooms[id],text=$('message').value.trim();if(!text||requests.get(id))return;
+  identity?.command(text,id);
   dispatchEvent(new Event('asgard:conversation'));
   stopVoice();stopMic();room.error='';room.revision++;room.draft='';$('message').value='';
   const req=requests.begin(id,text),journal=arsenal.startRequest(id);let outcome='error',timedOut=false;
