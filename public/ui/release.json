@@ -1,10 +1,10 @@
 {
   "name": "ASGARD Workspace",
-  "id": "workspace-b1cd9f49a77b",
-  "sourceBase": "881e2a9bb16686421aadf012e627b023c8a8ef05",
-  "fingerprint": "b1cd9f49a77b81af8978505d84c7cf750c776866a0f4334ffd60ac68f1137caf",
+  "id": "workspace-0c16ddd59669",
+  "sourceBase": "b38c728f9050654df12f638df172c2e9dfd39adf",
+  "fingerprint": "0c16ddd59669b7f1487b279ca4ce607bd69e78d5c052767a3a1edda0134d41c5",
   "assets": {
-    "/index.html": "98d91273866ed5a3afe83c7495db592f105d72a80e45291bf5d6f7d356b9cda8",
+    "/index.html": "d79662eb7fc928d9ac8b7b205eebd3df7719279abdb2a64c28dfe4de1b4c10b8",
     "/ui/app.js": "047d531bf9016569dc7f37235d6b90a2f7952dea3b5de04551243c359af01d9a",
     "/ui/arsenal.js": "d7fdb9a3d79ebe56598db3bde8eb2f512821c19f8889527fa0a30f4758460206",
     "/ui/astral-cartographer-model.js": "f80d19a2c9fc101b4bed6cbc5d8084bdf5219fe6a4e292d685f261bcfd280df6",
@@ -124,7 +124,7 @@
     "/ui/local-tools.js": "2fb0bc78ad5618f1d48a5af44effe61bdc836bb18ba10fd8e83d9723c9167888",
     "/ui/nameplate-layout.js": "524ebd0e6c6c7e7ad2ad7f6ce2e34e36c5f0e152440269dbd484682abb391f1f",
     "/ui/orbital-base.css": "e8debc619f6740ad3939141da23ef6e344ef6980fabdb19528a4a307fde71b0e",
-    "/ui/orbital-dashboard.js": "8f37edb5561988b64481488a872f75cb18e7f48dce7e60d9a9820793d24ccda2",
+    "/ui/orbital-dashboard.js": "6463bedbe160c0a24d754d8899c4cc97bfc6a39fce744a9b8d5f44d3ce49a138",
     "/ui/orbital-data.js": "695936f961dd8a752abb33cfd12a9ecf5980c611d1a7fbdcd4ef2e1be58d0003",
     "/ui/orbital-live.css": "1aa87a5b89b63f6367528af80e94ea4a79e99e882da8a221303e14fb20c61f34",
     "/ui/prism-foundry-model.js": "4d629a645d48f36d8dd8167697a36f20532e3440b17ec96cf800653fc5f64906",
@@ -174,6 +174,7 @@
     "/ui/vendor/three.module.min.js": "36a60b0120335f89a80a0dab70292292b0ec414b3d05e83cd09a3ea428c6712a",
     "/ui/voice-stream.js": "75b017210ab86cc3ce22f2cbe58be4661206f2f36708ad3578f38734970cca9d",
     "/ui/warden-workspace.css": "2c1db3929de774bb849c2ce94fd0de05080ee36ab1a244d055d818655d340b4e",
-    "/ui/warden-workspace.js": "8ec6399055653f03084d121c11d27c13e0ff3ff31049325536b2d3cc7290930f"
+    "/ui/warden-workspace.js": "8ec6399055653f03084d121c11d27c13e0ff3ff31049325536b2d3cc7290930f",
+    "/ui/zenith.css": "55a25b4a529918b88f6ca9fb3a37d3707ad651747eb82d500be220ce0581f393"
   }
 }
