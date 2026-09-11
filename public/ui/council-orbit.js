@@ -8,7 +8,7 @@ export const councilId = (hall, member) => hall === 'odin'
 export function createCouncilOrbit({getPersona,openAgent}) {
   const ring=document.createElement('nav');ring.className='council-orbit';
   ring.setAttribute('aria-label','Your five council agents');(document.querySelector('.stage')||document.body).append(ring);
-  const positions=[[50,16],[84,43],[75,77],[25,77],[16,43]];
+  const positions=[[50,9],[84,43],[75,77],[25,77],[16,43]];
   function render(){
     const hall=getPersona();ring.replaceChildren();ring.dataset.persona=hall;
     GODS[hall].council.forEach((member,i)=>{
