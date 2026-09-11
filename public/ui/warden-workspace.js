@@ -73,6 +73,7 @@ $('message').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.
 $('composer').addEventListener('submit',e=>{e.preventDefault();send();});
 async function send(){
   const id=persona,room=rooms[id],text=$('message').value.trim();if(!text||requests.get(id))return;
+  dispatchEvent(new Event('asgard:conversation'));
   stopVoice();stopMic();room.error='';room.revision++;room.draft='';$('message').value='';
   const req=requests.begin(id,text),journal=arsenal.startRequest(id);let outcome='error',timedOut=false;
   const timer=setTimeout(()=>{timedOut=true;req.controller.abort();},180000);
