@@ -569,7 +569,7 @@ var VS=[
 'uniform mat3 uR; uniform vec3 uPivot; uniform float uDist;',
 'uniform vec2 uProj; uniform vec2 uPZ; uniform float uYOff;',
 'uniform float uT,uForm,uAgit,uCoh,uBreath,uCore,uBright,uPS,uMaxPS,uLift,uVoice;',
-'uniform float uListen,uSpeak,uPass,uMotion,uBurst,uEyeGold,uLockPulse;',
+'uniform float uListen,uSpeak,uPass,uMotion,uBurst,uEyeGold,uLockPulse,uSwitchPulse;',
 'uniform vec3 uCDeep,uCMid,uCMain,uCHot,uCRim;',
 'varying vec3 vCol; varying float vA;',
 'vec3 flow(vec3 p,float t){',
@@ -614,7 +614,11 @@ var VS=[
 '  float d=clamp(uForm*1.42-aRnd.z*0.40,0.0,1.0); float e=d*d*(3.0-2.0*d);',
 '  vec3 far=uPivot+rel*(1.0+1.05*aRnd.x)+aNrm*(0.30+0.95*aRnd.y)+tb*0.25;',
 '  p=mix(far,p,e);',
-'  float surge=uLockPulse*uMotion;',
+'  float scatter=uSwitchPulse*uMotion;',
+'  vec3 scatterDir=normalize(rel+(aRnd-0.5)*0.3+vec3(0.001));',
+'  p+=scatterDir*scatter*(0.22+0.45*aRnd.x);',
+'  p+=vec3(sin(aRnd.y*6.2832),cos(aRnd.x*6.2832),sin(aRnd.z*6.2832))*scatter*0.09;',
+'  float surge=uLockPulse*uMotion*(1.0-uSwitchPulse);',
 '  float spiral=surge*(0.28+0.24*aRnd.x);',
 '  p.xz=mat2(cos(spiral),-sin(spiral),sin(spiral),cos(spiral))*p.xz;',
 '  p+=normalize(rel+vec3(0.001,0.02,0.001))*surge*(0.12+0.22*aRnd.y);',
@@ -692,7 +696,7 @@ function initGL(){
     gl.vertexAttribPointer(l,spec[i][1],gl.FLOAT,false,STRIDE*4,spec[i][2]*4);
   }
   ['uR','uPivot','uDist','uProj','uPZ','uT','uForm','uAgit','uCoh','uBreath','uCore','uBright',
-   'uPS','uMaxPS','uLift','uVoice','uYOff','uCDeep','uCMid','uCMain','uCHot','uCRim','uListen','uSpeak','uPass','uMotion','uBurst','uEyeGold','uLockPulse']
+   'uPS','uMaxPS','uLift','uVoice','uYOff','uCDeep','uCMid','uCMain','uCHot','uCRim','uListen','uSpeak','uPass','uMotion','uBurst','uEyeGold','uLockPulse','uSwitchPulse']
     .forEach(function(k){loc[k]=gl.getUniformLocation(prog,k);});
   var rg=gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE);
   uMaxPS=Math.max(16,Math.min(150,(rg&&rg[1])||64));
@@ -802,6 +806,7 @@ function writeSay(txt){ E.say.textContent=String(txt); }
 function setPersona(id,silent){
   if(!hasPersona(id)) return;
   if(id===PID && !silent) return;
+  if(!silent && id!==PID){switchFrom=switchAmount(performance.now());switchAt=performance.now();}
   PID=id; P=DATA.personas[id];
 
   palFrom=copyPal(palNow); palTo=copyPal(P.pal); palT=0;
@@ -863,7 +868,12 @@ var mode='live';                  // 'auto' = timed cycle, 'live' = driven
 var liveState='idle';
 var S0=DATA.states.idle;
 var cur={coh:S0.coh,agit:S0.agit,lift:S0.lift,core:S0.core,br:S0.bright,bre:S0.breath};
-var stKey='', stFrac=0,listenEnergy=0,speakEnergy=0,burstAt=-10000,lockBurstAt=-10000,eyeGold=0;
+var stKey='', stFrac=0,listenEnergy=0,speakEnergy=0,burstAt=-10000,lockBurstAt=-10000,eyeGold=0,switchAt=-10000,switchFrom=0;
+function switchAmount(now){
+  if(REDUCED)return 0;
+  var p=cl((now-switchAt)/1900,0,1);
+  return p<0.4?switchFrom+(1-switchFrom)*ss(0,0.4,p):1-ss(0.4,1,p);
+}
 window.addEventListener('pointerdown',function(e){if(e.target.tagName==='CANVAS')burstAt=performance.now();});
 
 var API = {
@@ -881,7 +891,7 @@ var API = {
     return API;
   },
   auto:function(){external=0;liveState='idle';mode='live';return API;},
-  reduced:function(value){REDUCED=!!value;return API;},
+  reduced:function(value){REDUCED=!!value;if(REDUCED){switchAt=-10000;switchFrom=0;}return API;},
   say:function(t){writeSay(t);return API;},
   metric:function(id,val){overrides[id]=String(val);var el=E[id==='latency'?'m3':id];if(id==='latency')overrides.m3=String(val);if(el)el.textContent=String(val);return API;},
   data:DATA,
@@ -1043,6 +1053,7 @@ else{
     gl.uniform1f(loc.uMotion,REDUCED?0:1);
     gl.uniform1f(loc.uBurst,REDUCED?0:Math.sin(Math.PI*cl((now-burstAt)/2100,0,1)));
     gl.uniform1f(loc.uEyeGold,eyeGold);
+    gl.uniform1f(loc.uSwitchPulse,switchAmount(now));
     gl.uniform1f(loc.uLockPulse,REDUCED?0:Math.sin(Math.PI*cl((now-lockBurstAt)/2400,0,1)));
     gl.uniform1f(loc.uYOff,yoff);
     gl.uniform3f(loc.uCDeep,palNow.deep[0],palNow.deep[1],palNow.deep[2]);

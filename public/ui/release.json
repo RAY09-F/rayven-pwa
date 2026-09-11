@@ -1,10 +1,10 @@
 {
   "name": "ASGARD Workspace",
-  "id": "workspace-39ba5c91df7f",
-  "sourceBase": "46c6a190c97190fb8fb6e603187be2195656944a",
-  "fingerprint": "39ba5c91df7f009a91fee49e1de2440ba398a7a6ccaed38da8a74e5b5ebfa943",
+  "id": "workspace-12ed81de28ff",
+  "sourceBase": "ca82b2f7ded5bd52fde92914f3cf7ede344392e7",
+  "fingerprint": "12ed81de28ff2ed6eb92d53c2b0b93b2c39f2da69782c98862ed6853383f23f1",
   "assets": {
-    "/index.html": "db6564ecf83c954050b638837c51200f858a06de2a4c22d79bd86b7607890648",
+    "/index.html": "21fefd0016ddad75ba0b516e1808d73e931f9f69ab4ba16df49cc26a403a800d",
     "/ui/app.js": "047d531bf9016569dc7f37235d6b90a2f7952dea3b5de04551243c359af01d9a",
     "/ui/arsenal.js": "d7fdb9a3d79ebe56598db3bde8eb2f512821c19f8889527fa0a30f4758460206",
     "/ui/astral-cartographer-model.js": "f80d19a2c9fc101b4bed6cbc5d8084bdf5219fe6a4e292d685f261bcfd280df6",
