@@ -1,3 +1,4 @@
+import {workspaceSnapshot} from './lib/workspace-snapshot.js';
 import {summarizeOlderHistory} from './lib/history-summary.js';
 import { activeIdentity, safeError } from './lib/chat-diagnostics.js';
 // ASGARD backend — Cloudflare Worker entrypoint. HTTP router plus the main
@@ -754,6 +755,9 @@ export default {
     // Feeds the three-realm council HUD's left data module and ticker in one
     // round trip. Same unauthenticated, read-only posture as /activity and
     // /paper-trading/status -- it is an aggregate of those same sources.
+    if (url.pathname === '/workspace/snapshot' && request.method === 'GET') {
+      return json(await workspaceSnapshot(env), {...corsHeaders,'Cache-Control':'no-store'});
+    }
     if (url.pathname === '/hud/summary') {
       return json(await getHudSummary(env), corsHeaders);
     }

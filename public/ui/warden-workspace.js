@@ -1,3 +1,4 @@
+import {createOrbitalDashboard} from './orbital-dashboard.js';
 import {createCouncilOrbit} from './council-orbit.js';
 import {createArsenal} from './arsenal.js';
 import {createRequestLedger,formatReply,replyText,parseReplyPayload,requestErrorMessage,restoreDraft,nearTranscriptEnd} from './state.js';
@@ -6,7 +7,7 @@ import {readChatReply} from './event-stream.js';
 const $=id=>document.getElementById(id),figure=window.ASGARD;
 const names={thor:'Thor',loki:'Loki',odin:'Odin'},requests=createRequestLedger();
 const rooms=Object.fromEntries(Object.keys(names).map(id=>[id,{messages:[],draft:'',loaded:false,loading:false,error:'',revision:0}]));
-let orbit;
+let orbit,dashboard;
 let persona=figure.current,arsenal,recognition=null,micStream=null,audioContext=null,analyser=null,levelFrame=0;
 let audio=null,audioURL=null,voiceAbort=null,voiceTimer=0,voiceToken=0,micToken=0,listening=false,starting=false,speaking=false,preparing=false;
 const saved=(key,fallback)=>{try{return localStorage.getItem(key)??fallback;}catch{return fallback;}};
@@ -17,7 +18,7 @@ figure.reduced($('still-motion').checked).state('idle').level(0);
 function update(){
   const busy=!!requests.get(persona),room=rooms[persona];
   const state=busy?'thinking':listening?'listening':speaking?'speaking':'idle';
-  figure.state(state);orbit?.state(state);
+  figure.state(state);orbit?.state(state);dashboard?.state(state);
   const status=busy?'Working on your request…':starting?'Waiting for microphone permission…':listening?'Listening — finish speaking to send.':preparing?'Preparing spoken reply…':speaking?'Speaking. Press Stop to interrupt.':room.error|| (room.loading?'Loading your conversation…':'Ready. Type a message or turn your mic on.');
   $('connection-status').textContent=status;figure.say(status);
   $('send').disabled=busy;$('stop').hidden=!(busy||listening||starting||speaking||preparing);
@@ -60,10 +61,11 @@ function select(id){
   $('chat-name').textContent=names[id];$('message').placeholder='Ask '+names[id]+' anything…';$('message').value=rooms[id].draft;
   const url=new URL(location.href);url.searchParams.set('persona',id);url.hash='';history.replaceState(null,'',url);
   document.documentElement.style.setProperty('--acc',id==='loki'?'#adf6c7':id==='odin'?'#e6caff':'#a9dfff');
-  arsenal?.switchPersona();orbit?.render();render();update();loadHistory(id);
+  arsenal?.switchPersona();orbit?.render();dashboard?.select(id);render();update();loadHistory(id);
 }
 figure.onPersona=select;
 arsenal=createArsenal({getPersona:()=>persona,getDraft:()=>$('message').value,setDraft,resetView:()=>{figure.level(0).reduced($('still-motion').checked);update();}});
+dashboard=createOrbitalDashboard({getPersona:()=>persona,setDraft,openAgent:id=>arsenal.openAgent(id)});
 orbit=createCouncilOrbit({getPersona:()=>persona,openAgent:id=>arsenal.openAgent(id)});
 orbit.reduced($('still-motion').checked);
 $('message').addEventListener('input',()=>{rooms[persona].draft=$('message').value;});
@@ -91,7 +93,7 @@ async function send(){
     answer.text=cancelled?(timedOut?'The request timed out.':'Stopped waiting.')+' Server work may continue; check results before retrying an action.':error.message||'The reply failed. Please try again.';
     room.error=answer.text;room.draft=restoreDraft(id===persona?$('message').value:room.draft,text);if(id===persona)$('message').value=room.draft;
   }finally{
-    clearTimeout(timer);requests.finish(req);arsenal.finishRequest(journal,outcome);
+    clearTimeout(timer);requests.finish(req);arsenal.finishRequest(journal,outcome);if(outcome==='complete')dashboard?.refresh();
     if(id===persona){render();update();if(outcome==='complete'&&$('voice-output').checked)speak(answer.text,id);}
   }
 }

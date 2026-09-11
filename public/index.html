@@ -181,12 +181,26 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;background:
 </style>
 <link rel="stylesheet" href="/ui/warden-workspace.css">
 <link rel="stylesheet" href="/ui/council-orbit.css">
-</head>
-<body>
-<canvas id="c"></canvas>
-<div class="amb"></div><div class="vig"></div>
-
-<div class="ui">
+<link rel="stylesheet" href="/ui/orbital-base.css"><link rel="stylesheet" href="/ui/orbital-live.css"></head><body data-design="orbit" data-persona="thor">
+<header class="topbar"><a class="wordmark" href="/">◈ ASGARD<span>ORBITAL COUNCIL</span></a><nav id="switch" class="personas" aria-label="Main AI"><button data-p="thor">Thor</button><button data-p="loki">Loki</button><button data-p="odin">Odin</button></nav><div class="top-actions"><span id="snapshot-status" class="demo">Connecting…</span><button id="focus">Focus</button><button id="orbital-settings">Settings</button></div></header>
+<main class="shell">
+<section class="intro"><div class="eyebrow">YOUR PERSONAL INTELLIGENCE</div><h1 id="greeting">A clearer way<br>through the day.</h1><p id="subhead"></p><div class="intro-foot"><span class="signal"></span><span id="mode-caption">Preview environment · no live connection</span></div></section>
+<section class="stage" aria-label="Existing reactive humanoid"><canvas id="c"></canvas><div class="amb"></div><div class="vig"></div><div class="stage-title"><span id="hall-name">THOR</span><small id="hall-sub">THE STORM COUNCIL</small></div><div class="stage-status"><span class="signal"></span><span id="figure-state">IDLE</span></div><div class="stage-bottom"><span>FIVE AGENTS. ONE PURPOSE.</span><span id="stage-mode">YOUR WORKSPACE</span></div></section>
+<section class="work panel"><div class="section-head"><div><div class="eyebrow">YOUR WORKSPACE</div><h2>Make room for what matters.</h2></div><button id="capture" aria-label="Prepare a task">＋</button></div><nav class="tabs" aria-label="Workspace views"><button data-tab="tasks" aria-pressed="true">Tasks <span>3</span></button><button data-tab="schedule" aria-pressed="false">Schedule</button><button data-tab="performance" aria-pressed="false">Performance</button></nav><div id="work-content"></div></section>
+<section class="metrics panel"><div class="section-head"><h2 id="metrics-title">At a glance</h2><span class="eyebrow" id="metrics-period">TODAY / DEMO</span></div><div id="metric-grid"></div><div id="chart"></div></section>
+<section class="agenda panel"><div class="section-head"><h2 id="agenda-title">Up next</h2><span class="eyebrow">LOS ANGELES</span></div><div id="agenda-content"></div></section>
+<section class="activity panel"><div class="section-head"><h2>Needs you</h2><span class="count">01</span></div><div id="attention"></div><button class="text-button" id="review">Review details ↗</button></section>
+<section class="workspace-panel conversation" aria-label="Assistant workspace">
+  <header class="workspace-head"><div><span class="workspace-kicker">DIRECT CONNECTION</span><h2 id="chat-name">Thor</h2></div><button id="settings" type="button" aria-label="Open settings">Settings</button></header>
+  <nav class="workspace-tools" aria-label="Workspace tools"><button data-open-arsenal="">Tools <small id="arsenal-count">Loading…</small></button><button data-open-missions>Missions</button><button data-open-activity>Activity</button></nav>
+  <details class="council-strip"><summary>Council advisors</summary><div id="council-dock"></div></details>
+  <div id="transcript" role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions text" tabindex="0"></div>
+  <div id="connection-status" role="status">Loading your conversation…</div>
+  <form id="composer"><label class="sr-only" for="message">Message your assistant</label><textarea id="message" rows="2" maxlength="16000" placeholder="Ask Thor anything…"></textarea><div class="composer-actions"><button type="button" id="mic" aria-label="Turn microphone on" aria-pressed="false" title="Turn your microphone on to speak to the selected assistant"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/><path class="mic-slash" d="m3 3 18 18"/></svg><span id="micLabel">Mic off</span></button><button type="button" id="stop" hidden>Stop</button><button type="submit" id="send">Send ↗</button></div></form>
+  <div class="workspace-foot">Enter to send · Shift + Enter for a new line · Ctrl + K for tools</div>
+</section>
+</main><footer class="page-foot"><span>ASGARD / ORBITAL COUNCIL</span><span>THOUGHTFULLY CONNECTED.</span><button id="expand">Expand workspace ↑</button></footer>
+<dialog id="drawer"><div class="drawer-head"><span class="eyebrow">ASGARD / INSPECT</span><button id="close-dialog" aria-label="Close details">✕</button></div><div id="drawer-body"></div></dialog><div class="ui">
   <div class="corner c1"></div><div class="corner c2"></div><div class="corner c3"></div><div class="corner c4"></div>
 
   <div class="mark"><b>ASGARD</b><i></i></div>
@@ -215,11 +229,7 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;background:
 
     <div class="say" id="sayLine">Try saying &mdash; <em>&ldquo;Thor, what needs me first?&rdquo;</em></div>
 
-    <div class="sw" id="switch">
-      <button data-p="thor" class="on">Thor</button><span class="sep"></span>
-      <button data-p="loki">Loki</button><span class="sep"></span>
-      <button data-p="odin">Odin</button>
-    </div>
+
 
     <div class="hint">Click figure to charge · 1 / 2 / 3 to switch</div>
     <div class="brand">ASGARD // YOUR WORKSPACE</div>
@@ -227,19 +237,7 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;background:
 
 </div>
 
-<main class="workspace-panel" aria-label="Assistant workspace">
-  <header class="workspace-head"><div><span class="workspace-kicker">DIRECT CONNECTION</span><h2 id="chat-name">Thor</h2></div><button id="settings" type="button" aria-label="Open settings">Settings</button></header>
-  <nav class="workspace-tools" aria-label="Workspace tools"><button data-open-arsenal="">Tools <small id="arsenal-count">Loading…</small></button><button data-open-missions>Missions</button><button data-open-activity>Activity</button></nav>
-  <details class="council-strip"><summary>Council advisors</summary><div id="council-dock"></div></details>
-  <div id="transcript" role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions text" tabindex="0"></div>
-  <div id="connection-status" role="status">Loading your conversation…</div>
-  <form id="composer"><label class="sr-only" for="message">Message your assistant</label><textarea id="message" rows="2" maxlength="16000" placeholder="Ask Thor anything…"></textarea><div class="composer-actions"><button type="button" id="mic" aria-label="Turn microphone on" aria-pressed="false" title="Turn your microphone on to speak to the selected assistant"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/><path class="mic-slash" d="m3 3 18 18"/></svg><span id="micLabel">Mic off</span></button><button type="button" id="stop" hidden>Stop</button><button type="submit" id="send">Send ↗</button></div></form>
-  <div class="workspace-foot">Enter to send · Shift + Enter for a new line · Ctrl + K for tools</div>
-</main>
-<dialog id="settings-dialog"><form method="dialog"><h2>Your workspace</h2><label><input id="voice-output" type="checkbox"> Read replies aloud</label><label><input id="still-motion" type="checkbox"> Reduce motion</label><p>Voice uses your microphone when you press Talk. Speech recognition may use your browser’s speech service.</p><button type="button" data-reset-view>Reset figure</button><button>Done</button></form></dialog>
-<noscript><p class="no-script">ASGARD needs JavaScript enabled for chat and voice.</p></noscript>
-
-<script>
+<dialog id="settings-dialog"><form method="dialog"><h2>Your workspace</h2><label><input id="voice-output" type="checkbox"> Read replies aloud</label><label><input id="still-motion" type="checkbox"> Reduce motion</label><p>Voice uses your microphone when you press Talk. Speech recognition may use your browser’s speech service.</p><button type="button" data-reset-view>Reset figure</button><button>Done</button></form></dialog><script>
 (function(){
 "use strict";
 
@@ -1064,7 +1062,4 @@ else{
   requestAnimationFrame(frame);
 }
 })();
-</script>
-<script type="module" src="/ui/warden-workspace.js"></script>
-</body>
-</html>
+</script><script type="module" src="/ui/warden-workspace.js"></script></body></html>

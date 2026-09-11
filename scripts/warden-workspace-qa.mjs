@@ -35,7 +35,7 @@ await p.locator('[data-open-missions]').click();await p.locator('.mission-card')
 await p.locator('.council-strip summary').click();assert.equal(await p.locator('.council-member').count(),5);await p.locator('.council-member').first().click();assert.ok((await p.locator('#arsenal-dialog').innerText()).includes('Prepare delegation'));await p.locator('.arsenal-close').click();await p.locator('.council-strip summary').click();
 await p.locator('#settings').click();await p.locator('#still-motion').check();await p.getByRole('button',{name:'Done',exact:true}).click();results.push('Council and settings');
 for(const size of [{width:1500,height:940},{width:390,height:844},{width:320,height:640}]){
- await p.setViewportSize(size);await p.waitForTimeout(600);assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));const send=await p.locator('#send').boundingBox();assert.ok(send.y+send.height<=size.height&&send.x+send.width<=size.width);await p.screenshot({path:'output/warden-workspace/'+size.width+'.png'});
+ await p.setViewportSize(size);await p.waitForTimeout(600);assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await p.locator('#send').scrollIntoViewIfNeeded();const send=await p.locator('#send').boundingBox();assert.ok(send.y+send.height<=size.height&&send.x+send.width<=size.width);await p.screenshot({path:'output/warden-workspace/'+size.width+'.png'});
 }
 results.push('Desktop and two phone sizes fit');
 // Speech recognition fixture: test the real controller callbacks, not a live mic.
