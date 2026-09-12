@@ -1,0 +1,29 @@
+/* Phone-only layout. Desktop selectors and scene rendering remain untouched. */
+@media(max-width:600px){
+ html,body{width:100%;min-height:100%;overflow-x:clip!important}
+ body .topbar{display:grid;grid-template-columns:1fr auto;gap:10px 8px;min-height:0;height:auto;padding:calc(12px + env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) 8px max(14px,env(safe-area-inset-left))}
+ .topbar .wordmark{font-size:13px;letter-spacing:.22em}.topbar .wordmark span{display:none}
+ body .top-actions{grid-column:2;grid-row:1;gap:6px}.top-actions #snapshot-status,.top-actions #focus{display:none}
+ body .top-actions button{min-height:44px;padding:8px 13px;font-size:11px}
+ body .personas{grid-column:1/-1;grid-row:2;width:100%;max-width:none;margin:0;display:flex;gap:4px;padding:3px}
+ body .personas button{min-height:44px;flex:1;min-width:0;font-size:13px}
+ body .shell,body.focus-mode .shell{grid-template-columns:minmax(0,1fr)!important;grid-template-areas:'stage' 'conversation' 'intro' 'collections' 'work' 'metrics' 'agenda' 'activity'!important;grid-template-rows:auto!important;padding:0 max(12px,env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))!important;gap:12px!important}
+ body .shell .stage,body.focus-mode .shell .stage{height:clamp(320px,46svh,450px)!important;min-height:320px!important;max-width:100%;margin:0!important;overflow:hidden}
+ body .stage .council-orbit{width:100%;height:100%}body .stage .orbit-agent{min-width:44px;max-width:24%;width:78px;min-height:62px;padding:4px 0;gap:3px}
+ body .stage .orbit-glyph{width:30px;height:30px}body .stage .orbit-agent strong{font-size:8px;letter-spacing:.02em;line-height:1.25}body .stage .orbit-agent small{font-size:7px;line-height:1.2}
+ body .stage-title{bottom:8px}body .stage-title span{font-size:10px;letter-spacing:.35em}body .stage-status{top:2px;font-size:8px;padding:5px 9px}
+ body .shell .workspace-panel.conversation{width:100%;min-width:0;border-radius:18px;margin:0!important;overflow:hidden}
+ body .conversation #composer{display:flex;flex-wrap:wrap;gap:8px;margin:0!important;padding:10px!important}
+ body .conversation #message{width:100%;flex:1 0 100%;font-size:16px!important;min-height:48px;height:48px;max-height:150px;padding:12px!important;line-height:1.4;border-radius:10px}
+ body .conversation .composer-actions{display:flex;width:100%;gap:8px;justify-content:space-between}
+ body .conversation .composer-actions button{min-height:44px;font-size:13px;padding:9px 16px}body .conversation #mic{flex:1}body .conversation #send{flex:1}
+ body .conversation .workspace-tools{display:flex;flex-wrap:wrap;gap:4px!important;padding:8px 10px!important;justify-content:center}
+ body .conversation .workspace-tools button{min-height:44px;padding:8px;font-size:11px;flex:0 1 auto}
+ body .conversation #connection-status{padding:6px 12px;font-size:10px!important}body .conversation #transcript{max-height:40svh;overflow:auto;overscroll-behavior:contain;padding-inline:14px}.conversation .message{overflow-wrap:anywhere}
+ body .intro{padding:24px 12px 12px!important;margin:0!important;text-align:left}body .intro h1{font-size:32px!important}body #identity-description{font-size:12px;line-height:1.7}body #identity-list li{font-size:10px}body #lock-in{min-height:44px}body #lock-note{max-width:100%;margin:8px 0;display:block}
+ body .collections{padding:10px 0!important}body .collection-grid{gap:8px!important}.collection-link span{font-size:11px!important}body .panel{padding:16px;border-radius:14px}
+ body .page-foot{padding:10px 16px calc(16px + env(safe-area-inset-bottom));font-size:8px}
+ dialog{max-width:calc(100vw - 20px)!important;max-height:calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom))!important;overflow:auto}input,select,textarea{font-size:16px}
+}
+@media(max-width:600px){body .shell .workspace-panel.conversation{min-height:0!important;height:auto!important}body .conversation #message{min-height:48px!important;height:48px!important}body .conversation #mic,body .conversation #send{min-height:44px!important;height:44px!important}}
+@media(max-width:600px){body:not(.chat-open) .conversation #transcript{max-height:0;padding:0;min-height:0}body.chat-open .conversation #transcript{max-height:40svh;padding:14px}}
