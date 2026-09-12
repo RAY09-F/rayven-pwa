@@ -53,6 +53,7 @@
       "group": "search",
       "personas": [
         "thor",
+        "loki",
         "odin"
       ],
       "schema": {
@@ -74,6 +75,7 @@
       "group": "search",
       "personas": [
         "thor",
+        "loki",
         "odin"
       ],
       "schema": {
@@ -734,7 +736,9 @@
       "description": "List the actual form fields and buttons on the current page, with their placeholders, names and labels. Use this instead of browser_read_page when you need to fill in or submit a form -- read_page returns visible text only and a modern web app renders form fields with no text at all.",
       "group": "browser",
       "personas": [
-        "thor"
+        "thor",
+        "loki",
+        "odin"
       ],
       "schema": {
         "type": "object",
@@ -1175,7 +1179,9 @@
       "description": "Send a real SMS text message from THOR's own phone number to any phone number.",
       "group": "comms",
       "personas": [
-        "thor"
+        "thor",
+        "loki",
+        "odin"
       ],
       "schema": {
         "type": "object",
@@ -1200,7 +1206,9 @@
       "description": "Place a real phone call and HOLD THE CONVERSATION in your own voice — not a recorded message. Use this to book a table, a barber, an appointment, or to ask a business a question. Always requires Rayan's confirmation first. Write `message` as the natural opening line you will say when someone picks up, and `purpose` as what you are trying to achieve, because you will keep talking to them until it is done.",
       "group": "comms",
       "personas": [
-        "thor"
+        "thor",
+        "loki",
+        "odin"
       ],
       "schema": {
         "type": "object",
@@ -1384,7 +1392,9 @@
       "description": "Open a specific URL/website in Rayan's actual laptop browser.",
       "group": "browser",
       "personas": [
-        "thor"
+        "thor",
+        "loki",
+        "odin"
       ],
       "schema": {
         "type": "object",
@@ -1404,7 +1414,9 @@
       "description": "Click something in Rayan's actual browser by its visible text/label.",
       "group": "browser",
       "personas": [
-        "thor"
+        "thor",
+        "loki",
+        "odin"
       ],
       "schema": {
         "type": "object",
@@ -1424,7 +1436,9 @@
       "description": "Type text into a field on the current webpage in Rayan's actual browser.",
       "group": "browser",
       "personas": [
-        "thor"
+        "thor",
+        "loki",
+        "odin"
       ],
       "schema": {
         "type": "object",
@@ -1447,7 +1461,9 @@
       "description": "Read the visible text content of the current webpage in Rayan's actual browser.",
       "group": "browser",
       "personas": [
-        "thor"
+        "thor",
+        "loki",
+        "odin"
       ],
       "schema": {
         "type": "object",
@@ -1460,7 +1476,9 @@
       "description": "Scroll the current webpage up or down in Rayan's actual browser.",
       "group": "browser",
       "personas": [
-        "thor"
+        "thor",
+        "loki",
+        "odin"
       ],
       "schema": {
         "type": "object",
@@ -1484,7 +1502,9 @@
       "description": "Take a screenshot of whatever tab is currently visible/active in Rayan's browser, so you can actually see what's on screen. Always call this before browser_click_coords or browser_type_coords so you know exactly where things are. Limitation: this only sees inside Chrome itself (tabs/windows) — it cannot see the rest of Rayan's screen, other applications, or minimized/background windows.",
       "group": "browser",
       "personas": [
-        "thor"
+        "thor",
+        "loki",
+        "odin"
       ],
       "schema": {
         "type": "object",
@@ -1497,7 +1517,9 @@
       "description": "Click at an exact pixel coordinate on the current webpage, the way a human would click with a mouse — use this for anything browser_click (text-matching) can't find. Coordinates MUST match the pixel positions shown in the most recent browser_screenshot image, so always screenshot first.",
       "group": "browser",
       "personas": [
-        "thor"
+        "thor",
+        "loki",
+        "odin"
       ],
       "schema": {
         "type": "object",
@@ -1521,7 +1543,9 @@
       "description": "Click at an exact pixel coordinate to focus a field, then type text there character by character, the way a human would type. Coordinates MUST match the most recent browser_screenshot image — screenshot first. Omit x/y to type into whatever is already focused.",
       "group": "browser",
       "personas": [
-        "thor"
+        "thor",
+        "loki",
+        "odin"
       ],
       "schema": {
         "type": "object",

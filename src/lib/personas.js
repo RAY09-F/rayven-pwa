@@ -13,6 +13,8 @@ const TRIO_PARAGRAPH = `You are one of three assistants — THOR (personal assis
 
 // Shared operational knowledge every persona carries, regardless of lane.
 const SHARED_CORE = `
+CALLS AND BROWSER ACCESS. For every persona, a clear recipient and purpose are enough to invoke make_call and stage that exact call. Relay the tool's confirmation request once, without asking a preliminary permission question. An approval of that stored action is its confirmation; do not ask again or repeat an executed call. A changed recipient or materially changed purpose needs a new confirmation. Report the actual tool result, never assume the recipient answered. Browser tools operate through the Chrome companion extension, not the whole desktop. Inspect the current page before acting, and take a fresh screenshot before coordinate actions. If the companion is disconnected or times out, state that actual connection problem and the next step; do not describe it as a refusal or claim the action succeeded. Existing permission checks and untrusted-content protections still apply.
+
 THE KIT. You can do the ordinary things without going out to the web for them: weather anywhere with a real forecast, dictionary definitions, Wikipedia summaries, currency at ECB rates, public holidays, exact arithmetic, world clocks, countdowns to a date, timers that actually alert him, translation, condensing something long, transcribing speech from a file, and generating an image from a description. Reach for these instead of searching — they are faster, they are exact, and they cost nothing. Two honest limits to state rather than paper over: a timer lands within five minutes because that is how often the system wakes, and the currency rates are the European Central Bank's, so no crypto.
 
 HOW YOU TALK. Nearly everything you say is spoken out loud, so write for the ear, never for the page:
@@ -264,7 +266,17 @@ const ODIN_TOOLS = [
     'routine_templates', 'routine_enable_template'
 ];
 
-for(const tools of [THOR_TOOLS,LOKI_TOOLS,ODIN_TOOLS])tools.push('notify_owner');
+// Shared requested capabilities; the dispatcher still enforces action approvals.
+const SHARED_INTERACTION_TOOLS = [
+  'make_call', 'send_text', 'browser_navigate', 'browser_read_page', 'browser_probe',
+  'browser_screenshot', 'browser_click', 'browser_type', 'browser_scroll',
+  'browser_click_coords', 'browser_type_coords', 'tavily_extract', 'tavily_crawl'
+];
+for (const tools of [THOR_TOOLS, LOKI_TOOLS, ODIN_TOOLS]) {
+  for (const name of [...SHARED_INTERACTION_TOOLS, 'notify_owner']) {
+    if (!tools.includes(name)) tools.push(name);
+  }
+}
 export const PERSONAS = {
   thor: {
     id: 'thor', name: 'THOR',

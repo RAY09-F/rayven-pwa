@@ -48,7 +48,7 @@ export async function setToolPermission(env, toolName, level) {
 
 export async function getToolPermissionsText(env) {
   const perms = await getPermissions(env);
-  return GATEABLE_TOOLS.map(t => `${t}: ${perms[t] || DEFAULT_PERMISSION_LEVELS[t] || 'auto'}`).join('\n');
+  return GATEABLE_TOOLS.map(t => `${t}: ${HARD_CONFIRM_TOOLS.includes(t) ? (perms[t] === 'off' ? 'off' : 'confirm') : (perms[t] || DEFAULT_PERMISSION_LEVELS[t] || 'auto')}`).join('\n');
 }
 
 export async function checkPermission(env, toolName) {
