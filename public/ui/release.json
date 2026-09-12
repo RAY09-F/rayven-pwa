@@ -1,8 +1,8 @@
 {
   "name": "ASGARD Workspace",
-  "id": "workspace-12ed81de28ff",
-  "sourceBase": "ca82b2f7ded5bd52fde92914f3cf7ede344392e7",
-  "fingerprint": "12ed81de28ff2ed6eb92d53c2b0b93b2c39f2da69782c98862ed6853383f23f1",
+  "id": "workspace-3fb0952e991d",
+  "sourceBase": "2410c2e4a2298a9968e9b4d31f3414251c635d3e",
+  "fingerprint": "3fb0952e991d1ace1c3b1253669a223331caad82fc0e100208f6a8a1eeda1e15",
   "assets": {
     "/index.html": "21fefd0016ddad75ba0b516e1808d73e931f9f69ab4ba16df49cc26a403a800d",
     "/ui/app.js": "047d531bf9016569dc7f37235d6b90a2f7952dea3b5de04551243c359af01d9a",
@@ -131,6 +131,7 @@
     "/ui/orbital-dashboard.js": "fff4746d662d0b3daadc2739c4d67357d73708e28d8814438d1bcadb76413233",
     "/ui/orbital-data.js": "695936f961dd8a752abb33cfd12a9ecf5980c611d1a7fbdcd4ef2e1be58d0003",
     "/ui/orbital-live.css": "1aa87a5b89b63f6367528af80e94ea4a79e99e882da8a221303e14fb20c61f34",
+    "/ui/pc-lights.js": "b0fc3ceab657a7802b40de7065c464d439843075ec0bf2b3f4e2c00f1345a294",
     "/ui/prism-foundry-model.js": "4d629a645d48f36d8dd8167697a36f20532e3440b17ec96cf800653fc5f64906",
     "/ui/prism-foundry.js": "a68cf88cfde1ed3f0a79b2828cfaa1dc30d93b02e7658770ab793421368f7728",
     "/ui/prism-v1/app.js": "ab2108576e65ae280dd4fe9f7be508d6425b21d374ac7e7760d3e8ef1b18d72a",
@@ -178,7 +179,7 @@
     "/ui/vendor/three.module.min.js": "36a60b0120335f89a80a0dab70292292b0ec414b3d05e83cd09a3ea428c6712a",
     "/ui/voice-stream.js": "75b017210ab86cc3ce22f2cbe58be4661206f2f36708ad3578f38734970cca9d",
     "/ui/warden-workspace.css": "2c1db3929de774bb849c2ce94fd0de05080ee36ab1a244d055d818655d340b4e",
-    "/ui/warden-workspace.js": "369ede9a02eeaf0a0f5bbfaaf28e7e4ee817623f70274f44d4941f5bfa4119b5",
+    "/ui/warden-workspace.js": "b9c3a6bb31049ba49b543bcf7243939156b4bf87f022542877e20b19534c4f91",
     "/ui/zenith.css": "55a25b4a529918b88f6ca9fb3a37d3707ad651747eb82d500be220ce0581f393"
   }
 }

@@ -1,4 +1,5 @@
 import {createCommandIdentity} from './command-identity.js';
+import {connectPCLights} from './pc-lights.js';
 import {createOrbitalDashboard} from './orbital-dashboard.js';
 import {createCouncilOrbit} from './council-orbit.js';
 import {createArsenal} from './arsenal.js';
@@ -68,6 +69,7 @@ figure.onPersona=select;
 arsenal=createArsenal({getPersona:()=>persona,getDraft:()=>$('message').value,setDraft,resetView:()=>{figure.level(0).reduced($('still-motion').checked);update();}});
 dashboard=createOrbitalDashboard({getPersona:()=>persona,setDraft,openAgent:id=>arsenal.openAgent(id)});
 identity=createCommandIdentity({figure});
+connectPCLights();
 orbit=createCouncilOrbit({getPersona:()=>persona,openAgent:id=>arsenal.openAgent(id)});
 orbit.reduced($('still-motion').checked);
 $('message').addEventListener('input',()=>{rooms[persona].draft=$('message').value;});
