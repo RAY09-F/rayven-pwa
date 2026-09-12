@@ -25,7 +25,8 @@ export const TRADING_HALT_KEY = 'config:trading:halt';          // the kill swit
 // slippage is applied against the trader (buy higher, sell lower), and the
 // commission is charged per fill. Stated in every report that quotes a fill.
 export const FILL_MODEL = {
-  kraken: { slippageBps: 10, commissionPct: 0.26, note: 'crypto: 0.10% slippage + Kraken taker fee 0.26% per fill' },
+  kraken: { slippageBps: 10, commissionPct: 0.80, note: 'PAPER assumption verified 2026-09-12: 0.10% slippage + 0.80% Tier 1 taker fee per fill; not an account-specific quote' },
+  kraken_meme: { slippageBps: 50, commissionPct: 0.80, note: 'PAPER meme stress assumption: 0.50% slippage + 0.80% taker fee per fill; actual liquidity may be worse' },
   twelvedata: { slippageBps: 5, commissionPct: 0, note: 'ETFs: 0.05% slippage, $0 commission (commission-free brokerage assumption)' }
 };
 export function fillModelFor(provider) { return FILL_MODEL[provider] || { slippageBps: 5, commissionPct: 0, note: 'default: 0.05% slippage, no commission' }; }

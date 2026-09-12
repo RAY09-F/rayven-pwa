@@ -36,6 +36,7 @@ import { submitAndRemember } from './batch.js';
 import { tickLog } from './tick.js';
 import { costLine } from './cost.js';
 import { MODELS } from './models.js';
+import { closedPaperCandles, paperSegments } from './paperAnalytics.js';
 import { minutesToNyseClose, nyseCalendarLastYear, nyseCloseMinutes, NYSE_HOLIDAYS } from './marketData.js';
 
 // Phase 4.2 -- risk caps that apply to PAPER too, so the record is honest.
@@ -84,6 +85,8 @@ const MAX_SIZE_FRACTION = 0.25;
 // cross-check before this shipped). btc and btcFast are the same pair at two
 // real, independently-fetched, natively clock-aligned granularities instead.
 export const INSTRUMENTS = {
+  doge: {id:'doge',label:'Dogecoin',category:'memes',provider:'kraken',krakenPair:'XDGUSD',krakenInterval:5,hoursNote:'24/7 PAPER meme-coin experiment; not a real-money recommendation.'},
+  shib: {id:'shib',label:'Shiba Inu',category:'memes',provider:'kraken',krakenPair:'SHIBUSD',krakenInterval:5,hoursNote:'24/7 PAPER meme-coin experiment; not a real-money recommendation.'},
   btc: {
     id: 'btc', label: 'Bitcoin', provider: 'kraken', krakenPair: 'XBTUSD', krakenInterval: 60,
     hoursNote: 'Real 24/7 market.'
@@ -160,6 +163,11 @@ export const AGENTS = {
     theme: 'Sees all nine realms from the Bifrost. Watches gold in silence and moves before the breakout is news.'
   }
 };
+
+// Additive experiments preserve existing agent identities and their history.
+// New markets are explicitly allow-listed, never arbitrary tokens from a page.
+AGENTS.dogeMomentum = {id:'dogeMomentum',name:'SKOLL',label:'DOGE — SKOLL',instrumentId:'doge',resampleFactor:null,strategy:'momentum'};
+AGENTS.shibMomentum = {id:'shibMomentum',name:'HATI',label:'SHIB — HATI',instrumentId:'shib',resampleFactor:null,strategy:'momentum'};
 
 // SPY and QQQ move together closely enough that a second simulated long on
 // top of the first isn't real diversification — it's the same bet twice.
@@ -389,6 +397,8 @@ async function logTrade(env, agentDef, position, exitPrice, exitTime, exitReason
     agentName: agentDef.name,
     market: agentDef.label,
     strategy: agentDef.strategy,
+    category: INSTRUMENTS[agentDef.instrumentId].category || (INSTRUMENTS[agentDef.instrumentId].provider === 'kraken' ? 'crypto' : 'stocks'),
+    manual: !!position.manual,
     side: 'long',
     entryTime: new Date(position.entryTime).toISOString(),
     entryPrice: position.entryPrice,
@@ -413,7 +423,7 @@ function brokerFor(env, portfolio, instrumentCache) {
   for (const [instrumentId, raw] of instrumentCache.entries()) if (raw && raw.ok && raw.candles && raw.candles.length) quotes.set(instrumentId, raw.candles[raw.candles.length - 1]);
   return getBroker(env, portfolio, {
     quotes,
-    providerOf: agentOrInstrument => { const a = AGENTS[agentOrInstrument]; const instr = INSTRUMENTS[a ? a.instrumentId : agentOrInstrument]; return instr ? instr.provider : 'twelvedata'; },
+    providerOf: agentOrInstrument => { const a = AGENTS[agentOrInstrument]; const instr = INSTRUMENTS[a ? a.instrumentId : agentOrInstrument]; return instr?.category==='memes' ? 'kraken_meme' : instr ? instr.provider : 'twelvedata'; },
     hooks: { onClose: (agentId, position, exitPrice, exitTime, reason, fees) => logTrade(env, AGENTS[agentId], position, exitPrice, exitTime, reason, fees) }
   });
 }
@@ -440,7 +450,7 @@ async function fetchInstrumentCandles(env, instrumentId) {
 // instrumentCache is populated once per tick per instrument (not per agent),
 // so two agents sharing an instrument (btc: original+TYR, spy: original+BALDR,
 // etc.) only ever cost one real fetch each.
-async function processAgent(env, agentId, portfolio, instrumentCache, broker, risk) {
+export async function processAgent(env, agentId, portfolio, instrumentCache, broker, risk) {
   const a = AGENTS[agentId];
   const instr = INSTRUMENTS[a.instrumentId];
   const sessionOpen = instr.provider === 'kraken' ? true : isNyseSessionOpen();
@@ -452,13 +462,30 @@ async function processAgent(env, agentId, portfolio, instrumentCache, broker, ri
   const raw = instrumentCache.get(a.instrumentId);
   if (!raw.ok) return { agentId, error: raw.error };
 
-  const candles = a.resampleFactor ? resampleSequential(raw.candles, a.resampleFactor) : raw.candles;
+  const intervalMinutes = instr.krakenInterval || parseInt(instr.baseInterval, 10);
+  const closed = closedPaperCandles(raw.candles, intervalMinutes);
+  const candles = a.resampleFactor ? resampleSequential(closed, a.resampleFactor) : closed;
   if (!candles.length) return { agentId, error: 'no candles returned' };
+
+  if (instr.provider === 'kraken' && Date.now() - candles.at(-1).time > intervalMinutes * 60000 * 3) {
+    return {agentId,error:'stale market feed; no simulated fill made'};
+  }
+
+  // Stops remain checked every cycle even when a strategy candle was already
+  // processed. Never use a low that happened before the position opened.
+  const activePosition = portfolio.positions[agentId];
+  const stopBar = activePosition && raw.candles.find(c=>c.time >= activePosition.entryTime && c.low <= activePosition.stopPrice);
+  if (stopBar) {
+    const stopFill = Math.min(activePosition.stopPrice, stopBar.open);
+    const closedStop = await broker.closePosition(agentId,{price:stopFill,time:Date.now(),reason:'PAPER stop hit; gap-aware fill approximation'});
+    await env.RAYVEN_KV.put(`paper:lastCandle:${agentId}`,String(candles.at(-1).time));
+    return closedStop.ok ? {agentId,action:'stopped_out',price:closedStop.fill.price} : {agentId,error:closedStop.error};
+  }
 
   const lastCandle = candles[candles.length - 1];
   const lastProcessedKey = `paper:lastCandle:${agentId}`;
   const lastProcessedRaw = await env.RAYVEN_KV.get(lastProcessedKey);
-  if (lastProcessedRaw && parseInt(lastProcessedRaw, 10) === lastCandle.time) {
+  if (lastProcessedRaw && parseInt(lastProcessedRaw, 10) >= lastCandle.time) {
     return { agentId, skipped: 'already processed this candle' };
   }
 
@@ -477,13 +504,13 @@ async function processAgent(env, agentId, portfolio, instrumentCache, broker, ri
 
   // HARD STOP LOSS — checked before any strategy logic, no exceptions. Exits
   // are never blocked by the halt or the caps: a halt stops NEW orders only.
-  if (position && lastCandle.low <= position.stopPrice) {
+  if (position && lastCandle.time >= position.entryTime && lastCandle.low <= position.stopPrice) {
     const c = await broker.closePosition(agentId, { price: position.stopPrice, time: lastCandle.time, reason: `ATR-based stop hit (${((position.stopFraction || STOP_LOSS_PCT) * 100).toFixed(2)}% below entry) — no exceptions` });
     outcome = c.ok ? { agentId, action: 'stopped_out', price: c.fill.price, quoted: position.stopPrice } : { agentId, error: c.error };
   } else {
     const signal = SIGNAL_FNS[a.strategy](candles, !!position);
     if (position && signal.action === 'exit') {
-      const c = await broker.closePosition(agentId, { price: lastCandle.close, time: lastCandle.time, reason: signal.reason });
+      const c = await broker.closePosition(agentId, { price: lastCandle.close, time: Date.now(), reason: signal.reason });
       outcome = c.ok ? { agentId, action: 'closed', reason: signal.reason, price: c.fill.price, quoted: lastCandle.close } : { agentId, error: c.error };
     } else if (!position && signal.action === 'enter') {
       const pairId = CORRELATED_PAIR[agentId];
@@ -498,10 +525,14 @@ async function processAgent(env, agentId, portfolio, instrumentCache, broker, ri
       } else {
         const vol = computeVolatility(candles);
         const sizeFraction = sizeFractionForVolatility(vol);
-        const spend = Math.min(portfolio.cash * sizeFraction, POSITION_CAP_FRACTION * portfolio.startingBalance);   // per-councillor position cap
-        const qty = spend / lastCandle.close;
+        const memeExposure = Object.entries(portfolio.positions).filter(([id])=>INSTRUMENTS[AGENTS[id]?.instrumentId]?.category==='memes').reduce((sum,[,p])=>sum+p.qty*p.entryPrice,0);
+        const categoryCapacity = instr.category==='memes' ? Math.max(0,portfolio.startingBalance*0.10-memeExposure) : Infinity;
+        const spend = Math.min(portfolio.cash * sizeFraction, POSITION_CAP_FRACTION * portfolio.startingBalance, categoryCapacity);
+        const fillProvider = instr.category==='memes' ? 'kraken_meme' : instr.provider;
+        const fillCosts = fillModelFor(fillProvider);
+        const qty = spend / (lastCandle.close * (1+fillCosts.slippageBps/10000) * (1+fillCosts.commissionPct/100));
         const stopFraction = stopDistanceFraction(candles, lastCandle.close);
-        const o = await broker.placeOrder({ agentId, symbol: a.instrumentId, side: 'buy', qty, price: lastCandle.close, time: lastCandle.time, stop: lastCandle.close * (1 - stopFraction), reason: signal.reason, provider: instr.provider, meta: { strategy: a.strategy, sizeFraction, volatilityAtEntry: vol, stopFraction } });
+        const o = await broker.placeOrder({ agentId, symbol: a.instrumentId, side: 'buy', qty, price: lastCandle.close, time: Date.now(), stop: lastCandle.close * (1 - stopFraction), reason: signal.reason, provider: fillProvider, meta: { strategy: a.strategy, sizeFraction, volatilityAtEntry: vol, stopFraction } });
         outcome = o.ok
           ? { agentId, action: 'entered', reason: signal.reason, qty, price: o.fill.price, quoted: lastCandle.close, sizeFraction, stopFraction, fees: o.fill.commission }
           : { agentId, action: 'skipped_no_cash', reason: o.error };
@@ -576,6 +607,8 @@ export async function runPaperTradingCycleIfDue(env) {
       const outcome = await processAgent(env, agentId, portfolio, instrumentCache, broker, risk);
       results.push(outcome);
       if (outcome && PORTFOLIO_MUTATING_ACTIONS.has(outcome.action)) mutated = true;
+      // A loss earlier in this tick must block later entries in the same tick.
+      if (outcome && ['closed','stopped_out'].includes(outcome.action)) Object.assign(risk,await riskStateFor(env,portfolio));
     } catch (err) {
       console.error(`Paper trading: ${agentId} cycle failed:`, err.message);
       results.push({ agentId, error: err.message });
@@ -635,6 +668,7 @@ export async function getPaperStatus(env) {
   );
   return {
     label: 'PAPER / SIMULATED — no real money',
+    segments: paperSegments(trades, AGENTS, INSTRUMENTS),
     startingBalance: portfolio.startingBalance,
     currentCash: portfolio.cash,
     openPositions,
@@ -726,6 +760,11 @@ export async function getPaperSummaryText(env, period) {
     `${windowLabel[0].toUpperCase()}${windowLabel.slice(1)}: ${windowPnl >= 0 ? '+' : '-'}$${Math.abs(windowPnl).toFixed(2)} paper · ${windowTrades.length} trade${windowTrades.length === 1 ? '' : 's'} · ${wins}W/${losses}L${windowTrades.length ? ` · ${((wins / windowTrades.length) * 100).toFixed(0)}% win rate` : ''}`,
     `Running total since start: ${allTimePnl >= 0 ? '+' : '-'}$${Math.abs(allTimePnl).toFixed(2)} paper over ${trades.length} trade${trades.length === 1 ? '' : 's'}. Current simulated cash: $${portfolio.cash.toFixed(2)} (started at $${portfolio.startingBalance.toFixed(2)}).`
   ];
+
+  for (const [group, metrics] of Object.entries(paperSegments(windowTrades,AGENTS,INSTRUMENTS).groups)) {
+    lines.push(`${group}: ${metrics.trades} closed automatic PAPER trades, win rate ${metrics.winRatePct===null?'not available yet':metrics.winRatePct.toFixed(1)+'%'}, net realized P/L $${metrics.pnl.toFixed(2)} after modeled costs. ${metrics.sampleStatus}.`);
+  }
+  lines.push('Meme coins are a separate results category in the shared simulated portfolio. Win rates are historical, not targets or promises; manual demo trades are excluded from category results.');
 
   // Phase 4.3: one line from each trader's own journal (their after-close self-review), when there is one.
   try {
