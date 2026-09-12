@@ -1,4 +1,5 @@
 import {workspaceSnapshot} from './lib/workspace-snapshot.js';
+import {handlePhoneRequest,runPhoneUpdates} from './lib/phone-updates.js';
 import {summarizeOlderHistory} from './lib/history-summary.js';
 import { activeIdentity, safeError } from './lib/chat-diagnostics.js';
 // ASGARD backend — Cloudflare Worker entrypoint. HTTP router plus the main
@@ -629,6 +630,11 @@ export default {
       if (!expected || !(await timingSafeEqual(provided, expected))) {
         return new Response('Unauthorized.', { status: 401, headers: corsHeaders });
       }
+    }
+
+    if (url.pathname.startsWith('/phone-api/')) {
+      try { return await handlePhoneRequest(request,env); }
+      catch { return Response.json({error:'Phone request failed'}, {status:400,headers:{'Cache-Control':'no-store'}}); }
     }
 
     // ---- ADMIN ROUTE GATE (asgard-upgrade Phase 0) ---------------------
@@ -1569,6 +1575,7 @@ How to speak on a phone call:
     // (asgard-upgrade Phase 1.4, Rule 5b) -- only if there is anything to write.
     const job = (fn) => fn(env).catch(err => console.error('cron job failed:', err && err.message));
     const jobs = [
+      job(runPhoneUpdates),
       job(runProactiveCheckInIfDue),
       job(runMorningBriefingIfDue),
       job(runCodeCheckIfDue),

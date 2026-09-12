@@ -7,6 +7,7 @@
 // LEDGER_BACKEND = 'kv' | 'do' through src/lib/ledger.js; every method here is
 // plain request/response so the accessor can call it over the stub.
 import { DurableObject } from 'cloudflare:workers';
+import {phoneTransition} from './lib/phone-state.js';
 
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS tick (key TEXT PRIMARY KEY, at TEXT NOT NULL, body TEXT NOT NULL)`,
@@ -38,6 +39,12 @@ export class AsgardLedger extends DurableObject {
   async op(b) {
     const now = Date.now();
     switch (b.op) {
+      case 'phone': {
+        const row=this.rows(this.sql.exec('SELECT value FROM kv WHERE key = ?', 'phone:state'))[0];
+        const next=phoneTransition(row?JSON.parse(row.value):null,b.action,now);
+        this.sql.exec('INSERT OR REPLACE INTO kv (key,value,updated_at) VALUES (?,?,?)','phone:state',JSON.stringify(next.state),now);
+        return next.result;
+      }
       case 'ping': { const t = this.rows(this.sql.exec(`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`)); return { tables: t.map(r => r.name), at: now }; }
       case 'putTick': this.sql.exec(`INSERT OR REPLACE INTO tick (key, at, body) VALUES (?, ?, ?)`, b.key, b.at || new Date(now).toISOString(), JSON.stringify(b.body)); return { written: 1 };
       case 'recentTicks': return this.rows(this.sql.exec(`SELECT body FROM tick ORDER BY key DESC LIMIT ?`, Math.max(1, Math.min(200, Number(b.n) || 12)))).map(r => JSON.parse(r.body));

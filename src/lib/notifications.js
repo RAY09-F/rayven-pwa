@@ -16,6 +16,7 @@
 //   cooldownMinutes — override the default per-priority cooldown for this call.
 import { appendCappedLog, readCappedLog, sha256Hex } from './util.js';
 import { sendTelegramMessage, getRayanPrivateChatId } from './telegram.js';
+import {queuePhoneUpdate} from './phone-updates.js';
 
 const NOTIF_LOG_KEY = 'notif:log';
 const NOTIF_LOG_CAP = 500;
@@ -56,6 +57,9 @@ export async function notify(env, { source, priority, title, body, dedupeKey, gr
     }
   }
 
+  // Owner-approved phone delivery is independent of Telegram availability.
+  // The dedicated queue restricts destination, presence, duplicates and spending.
+  await queuePhoneUpdate(env,record).catch(()=>{});
   const chatId = await getRayanPrivateChatId(env);
   if (!chatId) {
     record.status = 'suppressed_no_chat';
