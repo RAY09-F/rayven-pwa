@@ -245,10 +245,16 @@ async function handleChatTurn(env, ctx, opts) {
   const rayanPrivate = !isTelegram || (telegramChatType === 'private' && senderTag === 'Rayan');
 
   // APPROVE 1234 / REJECT 1234 (Phase 1.5) -- honoured only from Rayan on his
-  // private surfaces, resolved without a model call, never saved to history.
+  // private surfaces, resolved without a model call. Keep the outcome in history
+  // so the next turn cannot mistake the old pending request for unfinished work.
   const approvalReply = matchApprovalReply(userMessage);
   if (approvalReply && rayanPrivate) {
     const r = await resolveApproval(env, approvalReply.id, approvalReply.decision, (e, t, i, p) => executeTool(e, t, i, p));
+    if (!smoke) {
+      const approvalHistory = sanitizeHistory(prefetchedConvo.turns);
+      approvalHistory.push({role:'user',content:historyEntryContent},{role:'assistant',content:r.text});
+      await saveConversation(env,memoryKey,approvalHistory.slice(-historyLimitFor(persona)),meta);
+    }
     if (!smoke) ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
     return { reply: await sendReply(r.text) };
   }

@@ -1000,7 +1000,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
             const prov = 'derived from ' + (taintProvenance(meta) || taintSources.join(', ') || 'untrusted content');
             const ap = await createApproval(env, { persona: personaId, tool: blk.name, input: blk.input, tainted, sources: taintSources, provenance: prov, channel });
             record(trace, 'policy', blk.name, { note: ap.ok ? `queued as approval ${ap.id}` : `approval refused: ${ap.error}`, tainted, cause: taintCause, ok: false });
-            if (ap.ok) spoolPush(meta, 'approval', { id: ap.id, tool: blk.name, persona: personaId, writes: 1 });
+            if (ap.ok && !ap.reused) spoolPush(meta, 'approval', { id: ap.id, tool: blk.name, persona: personaId, writes: ap.writes });
             toolResult = ap.ok
               ? `HELD FOR RAYAN'S APPROVAL (#${ap.id}). This session has read content written by someone else (${prov}), so ${blk.name} was queued instead of run. Rayan has the exact details on Telegram and can reply APPROVE ${ap.id} or REJECT ${ap.id}. Tell him it is waiting on him; never say it happened.`
               : `Could not queue that for approval: ${ap.error}. Nothing was done.`;
