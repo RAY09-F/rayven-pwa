@@ -42,7 +42,7 @@ export async function sendTextMessage(env, toNumber, message) {
 // ---------------------------------------------------------------------------
 const CALL_AUDIO_TTL = 900;   // seconds; Twilio fetches within moments
 
-export async function synthCallAudio(env, text, personaId = 'thor') {
+export async function synthCallAudio(env, text, personaId = 'thor', {fast=false} = {}) {
   const { getPersonaVoiceId, getPersonaVoiceSettings } = await import('./personas.js');
   const voiceId = getPersonaVoiceId(env, personaId);
   if (!env.ELEVENLABS_API_KEY || !voiceId) return null;
@@ -51,7 +51,7 @@ export async function synthCallAudio(env, text, personaId = 'thor') {
     headers: { 'xi-api-key': env.ELEVENLABS_API_KEY, 'content-type': 'application/json', accept: 'audio/mpeg' },
     body: JSON.stringify({
       text,
-      model_id: 'eleven_turbo_v2_5',
+      model_id: fast ? 'eleven_flash_v2_5' : 'eleven_turbo_v2_5',
       voice_settings: getPersonaVoiceSettings(personaId)
     })
   });

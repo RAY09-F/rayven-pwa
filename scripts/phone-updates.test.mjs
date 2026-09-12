@@ -93,3 +93,47 @@ test('phone turns are claimed once, ordered and cached for duplicate webhooks',(
   assert.equal(m.go({kind:'claimTurn',id:'call',turn:0}).cached,'<Response/>');
   assert.equal(m.state.calls[0].transcript.length,2);
 });
+
+test('phone listening has no announcer and allows a natural pause',async()=>{
+  const {listen}=await import('../src/lib/phone-updates.js');
+  const xml=listen('call',1);assert.doesNotMatch(xml,/<Say|<Play/);assert.match(xml,/speechTimeout="1"/);assert.match(xml,/timeout="15"/);
+});
+test('phone tool execution runs a requested local task and rejects tools outside phone scope',async()=>{
+  const {answerPhone,phoneTools}=await import('../src/lib/phone-agent.js');
+  assert.ok(phoneTools('loki').some(t=>t.name==='add_todo'));
+  assert.ok(!phoneTools('thor').some(t=>t.name==='set_tool_permission'));
+  const old=globalThis.fetch,kv=new Map();let round=0;
+  const env={ANTHROPIC_API_KEY:'test',RAYVEN_KV:{get:async k=>kv.get(k)||null,put:async(k,v)=>kv.set(k,v)}};
+  try{
+    globalThis.fetch=async(url,init)=>{
+      if(!String(url).includes('api.anthropic.com'))throw Error('Unexpected external tool request');
+      const req=JSON.parse(init.body);
+      if(round++===0)return Response.json({stop_reason:'tool_use',content:[{type:'tool_use',id:'t1',name:'add_todo',input:{text:'Call the dentist'}},{type:'tool_use',id:'t2',name:'set_tool_permission',input:{toolName:'browser_click',level:'auto'}}]});
+      assert.match(JSON.stringify(req.messages),/blocked|outside your lane/i);
+      return Response.json({stop_reason:'end_turn',content:[{type:'text',text:'I added your task.'}]});
+    };
+    assert.equal(await answerPhone(env,{persona:'loki',opening:'Update',transcript:[]},'Add a task to call the dentist'),'I added your task.');
+    assert.ok([...kv.values()].some(v=>v.includes('Call the dentist')));
+    assert.equal(kv.has('permissions'),false);
+  }finally{globalThis.fetch=old;}
+});
+
+test('signed speech callbacks enqueue once and polling retrieves the same completed answer',async()=>{
+  const m=machine();m.go({kind:'configure',config:{enabled:true,to:'+15555550123'}});m.go({kind:'reserve',id:'call',test:true});m.go({kind:'result',id:'call',result:{sid:'CA_test',opening:'Hello',persona:'loki'}});
+  const oldFetch=globalThis.fetch,oldNow=Date.now;Date.now=()=>now;
+  let rounds=0;const kv=new Map(),jobs=[];
+  const env={ANTHROPIC_API_KEY:'test',TWILIO_ACCOUNT_SID:'AC_test',TWILIO_AUTH_TOKEN:'secret',RAYVEN_KV:{get:async k=>kv.get(k)||null,put:async(k,v)=>kv.set(k,v)},LEDGER:{idFromName:()=>0,get:()=>({fetch:async(u,init)=>Response.json({ok:true,result:m.go(JSON.parse(init.body).action)})})}};
+  const send=async(poll=false)=>{
+    const url='https://site/phone-api/turn?id=call&turn=0'+(poll?'&poll=1':''),form=new URLSearchParams({AccountSid:'AC_test',CallSid:'CA_test',...(poll?{}:{SpeechResult:'Add a task to call the dentist'})});
+    let raw=url;for(const key of [...form.keys()].sort())raw+=key+form.get(key);
+    const key=await crypto.subtle.importKey('raw',new TextEncoder().encode('secret'),{name:'HMAC',hash:'SHA-1'},false,['sign']);
+    const sig=Buffer.from(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(raw))).toString('base64');
+    return (await handlePhoneRequest(new Request(url,{method:'POST',headers:{'x-twilio-signature':sig},body:form}),env,{waitUntil:p=>jobs.push(p)})).text();
+  };
+  try{
+    globalThis.fetch=async()=>Response.json(rounds++===0?{stop_reason:'tool_use',content:[{type:'tool_use',id:'task',name:'add_todo',input:{text:'Call the dentist'}}]}:{stop_reason:'end_turn',content:[{type:'text',text:'I added that task.'}]});
+    assert.match(await send(),/<Redirect/);await send();assert.equal(jobs.length,1);
+    await Promise.all(jobs);const result=await send(true);assert.match(result,/I added that task/);assert.doesNotMatch(result,/You can reply/);
+    assert.equal(await send(),result);assert.equal(rounds,2);assert.equal(JSON.parse(kv.get('todos')).length,1);
+  }finally{globalThis.fetch=oldFetch;Date.now=oldNow;}
+});

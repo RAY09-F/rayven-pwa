@@ -76,7 +76,7 @@ export function phoneTransition(state,action,now=Date.now()){
       call.turns??={};
       if(call.turns[action.turn]){result={cached:call.turns[action.turn].xml||null,busy:!call.turns[action.turn].xml};break;}
       if(action.turn!==Object.keys(call.turns).length){result={denied:true};break;}
-      call.turns[action.turn]={pending:true};result={call};break;
+      call.turns[action.turn]={pending:true,at:now};result={call};break;
     }
     case 'finishTurn': {
       const call=s.calls.find(x=>x.id===action.id);

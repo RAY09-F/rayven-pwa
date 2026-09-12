@@ -982,7 +982,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
       let anyUntrusted = false;
       for (const blk of toolUseBlocks) {
         let toolResult;
-        if (!personaAllowsTool(personaId, blk.name) && !isCatalogTool(blk.name)) {
+        if ((opts.toolsOverride && !opts.toolsOverride.some(t=>t.name===blk.name)) || (!personaAllowsTool(personaId, blk.name) && !isCatalogTool(blk.name))) {
           toolResult = `Tool blocked: ${blk.name} is outside your lane. That belongs to ${toolOwnerName(blk.name)} — tell Rayan to switch personas instead of answering as if you ran it.`;
         } else {
           let permLevel = await checkPermission(env, blk.name);

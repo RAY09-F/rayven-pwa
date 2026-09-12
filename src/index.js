@@ -633,7 +633,7 @@ export default {
     }
 
     if (url.pathname.startsWith('/phone-api/')) {
-      try { return await handlePhoneRequest(request,env); }
+      try { return await handlePhoneRequest(request,env,ctx); }
       catch { return Response.json({error:'Phone request failed'}, {status:400,headers:{'Cache-Control':'no-store'}}); }
     }
 

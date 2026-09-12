@@ -12,7 +12,7 @@ Central notifications, meaningful activity, pending approvals, background job fa
 
 Existing SQLite ledger reservations prevent concurrent ticks from duplicating calls. Calls last at most three minutes, with no automatic redial after missed calls or uncertain submission failures. Signed Twilio callbacks record outcomes; queued does not mean answered.
 
-ElevenLabs supplies persona speech when available; Twilio speech is the fallback. Speech replies are handled in up to eight ordered turns, and duplicate webhooks reuse saved responses. Phone replies are conversational: they do not execute tools, approve pending actions, or grant system access. Other-person make_call and send_text still require their existing confirmations.
+ElevenLabs supplies persona speech when available; replies use Flash v2.5 and the Haiku response model for lower latency. Twilio speech is the fallback. There are no separate turn-taking announcements. Listening waits up to 15 seconds to begin speaking and uses a one-second end-of-speech pause. Speech replies are handled in up to eight ordered turns, and duplicate webhooks reuse saved responses. Phone replies can use an explicit role-filtered set of task, calendar, timer, note, monitoring, status, research, and music tools through the existing permission-aware dispatcher. They cannot change permissions or approve pending actions. Historical updates and tool content retain untrusted-content protection. Other-person make_call and send_text still require their existing confirmations.
 
 ## Controls and secrets
 
@@ -22,8 +22,10 @@ Optional /phone/ mobile controls require a ten-minute single-use pairing link. R
 
 ## Verification and recovery
 
-Release checks: 129 unit tests passed; mobile fixture checks passed; all 179 live assets match workspace-dbb085853898. Production version: 6018310e-57cd-4166-bd48-3c644075fbaf. A completed real test call and two recorded replies verify the two-way provider connection.
+Release checks: 129 unit tests passed; mobile fixture checks passed; all 179 live assets match workspace-dbb085853898. Production version: ec41f301-1a22-4073-abea-bbc1b37008ef. Previous version 6018310e-57cd-4166-bd48-3c644075fbaf is the rollback for this conversation update. A completed real test call and two recorded replies verify the two-way provider connection.
 
 phone-updates.test.mjs covers authorization, atomic reservations, deduplication, limits, quiet hours, stale presence, pairing, signed callbacks, provider requests, persona tools, and ordered speech turns. phone-browser-qa.mjs verifies mobile controls using fixtures.
 
 Pause before rollback if calling must stop. Pre-feature Worker version 1a5d4e5c-6992-4415-9c93-1be3b04f6af3 retains the setup secret and stops this scheduler; ledger data remains. Do not use the earlier phone-enabled implementation as a quiet-hours rollback because its scheduling rules differ.
+
+Conversation upgrade verification: mocked signed callbacks verify asynchronous completion, one execution on repeated callbacks, and result retrieval. Tool tests verify task creation and rejection of out-of-scope tools. Long responses run behind signed polling callbacks to avoid holding a Twilio speech webhook open. Polling stops after 28 seconds without a completed result; no automatic action retry. Live conversational latency still depends on the providers and the requested tool.
