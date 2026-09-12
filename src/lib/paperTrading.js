@@ -946,17 +946,17 @@ export async function paperBacktest(env, agentQuery, days) {
   if (dayset.size < 5) return { ok: false, text: `Insufficient cached history for ${a.name || a.label}: only ${dayset.size} trading day(s) of candles are cached (${candles.length} bars). The backtest replays cached candles only — it never spends a market-data call.` };
   const wantDays = Math.max(1, Math.min(Number(days) || dayset.size, dayset.size));
   const keepDays = new Set([...dayset].sort().slice(-wantDays)); const cs = candles.filter(c => keepDays.has(nyDateString(c.time)));
-  const fm = fillModelFor(INSTRUMENTS[a.instrumentId].provider);
+  const fm = fillModelFor(INSTRUMENTS[a.instrumentId].category==='memes'?'kraken_meme':INSTRUMENTS[a.instrumentId].provider);
   let cash = DEFAULT_STARTING_BALANCE, pos = null; const trades = [];
-  const close = (price, time, reason) => { const fill = price * (1 - fm.slippageBps / 10000), proceeds = pos.qty * fill, comm = proceeds * fm.commissionPct / 100; trades.push({ agent: a.id, pnl: (fill - pos.entryPrice) * pos.qty - comm - pos.entryCommission, pnlPct: (fill - pos.entryPrice) / pos.entryPrice, exitTime: new Date(time).toISOString(), reason }); cash += proceeds - comm; pos = null; };
+  const close = (price, time, reason) => { const fill = price * (1 - fm.slippageBps / 10000), proceeds = pos.qty * fill, comm = proceeds * fm.commissionPct / 100; trades.push({ agent: a.id, pnl: (fill - pos.entryPrice) * pos.qty - comm - pos.entryCommission, pnlPct: (fill - pos.entryPrice) / pos.entryPrice, exitTime: new Date(time).toISOString(), fees:{commissions:comm+pos.entryCommission}, reason }); cash += proceeds - comm; pos = null; };
   for (let i = LOOKBACK + 1; i < cs.length; i++) {
     const w = cs.slice(0, i + 1), last = w[w.length - 1];
-    if (pos && last.low <= pos.stopPrice) { close(pos.stopPrice, last.time, 'stop'); continue; }
+    if (pos && last.low <= pos.stopPrice) { close(Math.min(pos.stopPrice,last.open), last.time, 'gap-aware stop'); continue; }
     const sig = SIGNAL_FNS[a.strategy](w, !!pos);
     if (pos && sig.action === 'exit') close(last.close, last.time, sig.reason);
     else if (!pos && sig.action === 'enter') {
       const vol = computeVolatility(w), frac = sizeFractionForVolatility(vol), spend = Math.min(cash * frac, POSITION_CAP_FRACTION * DEFAULT_STARTING_BALANCE);
-      const fill = last.close * (1 + fm.slippageBps / 10000), qty = spend / fill, comm = qty * fill * fm.commissionPct / 100;
+      const fill = last.close * (1 + fm.slippageBps / 10000), qty = spend / (fill*(1+fm.commissionPct/100)), comm = qty * fill * fm.commissionPct / 100;
       if (qty > 0 && qty * fill + comm <= cash) { cash -= qty * fill + comm; pos = { qty, entryPrice: fill, entryCommission: comm, stopPrice: last.close * (1 - stopDistanceFraction(w, last.close)) }; }
     }
   }

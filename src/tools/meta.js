@@ -59,6 +59,7 @@ for(const names of Object.values(CORE_NAMES))names.push('notify_owner');
 // First-message keyword rules: no model call, groups open before the first
 // reply so today's requests keep working in one turn.
 export const KEYWORD_RULES = [
+  [/\b(business|break.?even|unit economics|fps|benchmark|frame time|expectancy|liquidity|meme|doge|shib)\b/i, ['markets','math']],
   [/\b(play|pause|skip|next song|song|music|spotify|playlist|volume|now playing)\b/i, ['music']],
   [/\b(youtube|browse|browser|click|type into|website|web ?page|screenshot|scroll|open\s+\S+\.(com|org|net|io|gov|edu|app|co|tv))\b/i, ['browser', 'music']],
   [/\b(text|sms|call|phone|dial|message (?:jay|kevin)|jarvis|kevos|translate)\b/i, ['comms']],

@@ -17,6 +17,7 @@ import { TOOLS as AI } from './catalog-ai.js';
 import { TOOLS as SELF } from './catalog-self.js';
 import { TOOLS as COMMS } from './catalog-comms.js';
 import { TOOLS as JOBS } from './catalog-jobs.js';
+import { TOOLS as LAB } from './catalog-lab.js';
 
 export const DROPPED = new Set([   // failed their live test; the reason is in docs/TOOL_TESTS.md
   /* reddit.com answers 403 to Cloudflare's edge addresses (expected; noted in the spec) */ 'reddit_read',
@@ -37,7 +38,7 @@ export const DROPPED = new Set([   // failed their live test; the reason is in d
   /* musicbrainz.org: timeout, then 503 'server busy' */ 'musicbrainz',
 ]);   // names removed after a failed live test (reason in docs/TOOL_TESTS.md)
 
-const ALL = [...RESEARCH, ...MARKETS, ...WORLD, ...LIFE, ...DEV, ...MEDIA, ...AI, ...SELF, ...COMMS, ...JOBS].filter(t => !DROPPED.has(t.name));
+const ALL = [...RESEARCH, ...MARKETS, ...WORLD, ...LIFE, ...DEV, ...MEDIA, ...AI, ...SELF, ...COMMS, ...JOBS, ...LAB].filter(t => !DROPPED.has(t.name));
 export const CATALOG = Object.fromEntries(ALL.map(t => [t.name, t]));
 export const CATALOG_DEFS = ALL.map(t => ({ name: t.name, description: t.description, input_schema: t.input_schema || { type: 'object', properties: {} } }));
 export const CATALOG_NAMES = ALL.map(t => t.name);

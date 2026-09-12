@@ -5773,6 +5773,251 @@
           "name"
         ]
       }
+    },
+    {
+      "id": "paper_category_report",
+      "title": "paper category report",
+      "description": "Read PAPER win rates, net P/L and sample counts separately for regular markets, stocks, crypto and meme coins. Excludes manual demos.",
+      "group": "markets",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "paper_risk_snapshot",
+      "title": "paper risk snapshot",
+      "description": "Read open PAPER exposure at entry prices and modeled loss to stops. Does not claim current equity or maximum loss.",
+      "group": "markets",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "paper_agent_review",
+      "title": "paper agent review",
+      "description": "Read each PAPER agent’s historical net results and sample size, excluding demo trades. No strategy tuning or real trade advice.",
+      "group": "markets",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "paper_cost_sensitivity",
+      "title": "paper cost sensitivity",
+      "description": "Stress recorded PAPER outcomes by adding extra cost in basis points on both entry and exit. Never changes the portfolio.",
+      "group": "markets",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "extra_bps": {
+            "type": "number",
+            "description": "Extra basis points per side, 0–1000"
+          }
+        },
+        "required": [
+          "extra_bps"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "paper_feed_health",
+      "title": "paper feed health",
+      "description": "Inspect cached candle timestamps for every PAPER agent. Distinguishes exchange closure, stale cache and missing history. Does not fetch quotes or claim scheduler health.",
+      "group": "markets",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "crypto_orderbook_snapshot",
+      "title": "crypto orderbook snapshot",
+      "description": "Read Kraken top-20 bid/ask levels, spread and displayed depth for BTC, ETH, DOGE or SHIB. No orders, no wallet, no safety guarantee.",
+      "group": "markets",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "enum": [
+              "BTC",
+              "ETH",
+              "DOGE",
+              "SHIB"
+            ]
+          }
+        },
+        "required": [
+          "symbol"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "market_session_clock",
+      "title": "market session clock",
+      "description": "Read current regular US exchange-session status and minutes to close using the installed holiday calendar. Crypto is 24/7 subject to exchange outages.",
+      "group": "markets",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "business_unit_economics",
+      "title": "business unit economics",
+      "description": "Calculate contribution margin, break-even customers and scenario operating profit from supplied costs. No invented revenue forecasts.",
+      "group": "math",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "price": {
+            "type": "number",
+            "description": "Price per customer per period"
+          },
+          "variable_cost": {
+            "type": "number",
+            "description": "Cost per customer per period"
+          },
+          "fixed_cost": {
+            "type": "number",
+            "description": "Fixed cost per period"
+          },
+          "customers": {
+            "type": "number",
+            "description": "Whole number of customers"
+          }
+        },
+        "required": [
+          "price",
+          "variable_cost",
+          "fixed_cost",
+          "customers"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "benchmark_compare",
+      "title": "benchmark compare",
+      "description": "Compare two user-supplied FPS measurements and frame times. Does not scan or alter the PC.",
+      "group": "math",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "before_fps": {
+            "type": "number",
+            "description": "Measured FPS before change"
+          },
+          "after_fps": {
+            "type": "number",
+            "description": "Measured FPS after change"
+          }
+        },
+        "required": [
+          "before_fps",
+          "after_fps"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "trade_expectancy_calculator",
+      "title": "trade expectancy calculator",
+      "description": "Calculate hypothetical net expectancy and break-even win rate from supplied average wins, losses and costs. No predicted results or trades.",
+      "group": "markets",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "win_rate_pct": {
+            "type": "number",
+            "description": "Hypothetical win rate 0–100"
+          },
+          "average_win": {
+            "type": "number",
+            "description": "Positive gross average win"
+          },
+          "average_loss": {
+            "type": "number",
+            "description": "Positive gross average loss"
+          },
+          "cost_per_trade": {
+            "type": "number",
+            "description": "Costs per round trip"
+          }
+        },
+        "required": [
+          "win_rate_pct",
+          "average_win",
+          "average_loss",
+          "cost_per_trade"
+        ],
+        "additionalProperties": false
+      }
     }
   ]
 }
