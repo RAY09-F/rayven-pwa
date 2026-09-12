@@ -3,6 +3,32 @@
   "source": "Repository tool definitions; service availability is checked on use.",
   "tools": [
     {
+      "id": "notify_owner",
+      "title": "notify owner",
+      "description": "Proactively queue an update, useful idea, error report, or question for Rayan’s own phone, spoken by your persona. Uses only his configured number and calling hours; no arbitrary recipient. No extra confirmation needed for this owner-approved channel. Never include credentials. Does not approve or execute any pending action. Identical updates are deduplicated; queued does not mean answered.",
+      "group": "misc",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string",
+            "description": "The concise spoken update or question for Rayan"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      }
+    },
+    {
       "id": "util_context",
       "title": "util context",
       "description": "Read one current snapshot of Pacific time, configured home location, Spotify playback, calendar, to-dos and browser extension connection. Partial failures are labeled.",

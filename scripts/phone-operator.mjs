@@ -15,4 +15,6 @@ const path={provider:'provider',status:'status',configure:'configure',pair:'pair
 if(!path)throw Error('Use provider, status, configure, pair or test');
 const body=command==='configure'?JSON.parse(readFileSync(process.argv[3],'utf8')):command==='test'?{persona:process.argv[3]||'thor'}:command==='pair'?{}:undefined;
 const r=await fetch(base+'/phone-api/'+path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json','X-Asgard-Phone-Setup':token,...(process.env.ASGARD_QA_VERSION?{'Cloudflare-Workers-Version-Overrides':`asgrard-backend="${process.env.ASGARD_QA_VERSION}"`}:{})},body:body===undefined?undefined:JSON.stringify(body)});
-const data=await r.json();console.log(JSON.stringify({http:r.status,...data},null,2));if(!r.ok)process.exit(1);
+const data=await r.json();
+if(command==='status'&&Array.isArray(data.calls))data.calls=data.calls.map(c=>({id:c.id,persona:c.persona,at:c.at,status:c.status,duration:c.duration,voice:c.voice,errorCode:c.errorCode,reason:c.reason,replyCount:(c.transcript||[]).filter(t=>t.role==='user').length}));
+console.log(JSON.stringify({http:r.status,...data},null,2));if(!r.ok)process.exit(1);

@@ -47,6 +47,8 @@ export async function notify(env, { source, priority, title, body, dedupeKey, gr
   };
 
   // Dedup / cooldown — skip if we already notified about this exact thing recently.
+  // Phone delivery has its own content-aware dedupe and must not inherit Telegram's cooldown.
+  await queuePhoneUpdate(env,record).catch(()=>{});
   const cooldownKvKey = `notif:cooldown:${await sha256Hex(effectiveDedupeKey)}`;
   if (cooldownMin > 0) {
     const cooldownHit = await env.RAYVEN_KV.get(cooldownKvKey);
@@ -57,9 +59,6 @@ export async function notify(env, { source, priority, title, body, dedupeKey, gr
     }
   }
 
-  // Owner-approved phone delivery is independent of Telegram availability.
-  // The dedicated queue restricts destination, presence, duplicates and spending.
-  await queuePhoneUpdate(env,record).catch(()=>{});
   const chatId = await getRayanPrivateChatId(env);
   if (!chatId) {
     record.status = 'suppressed_no_chat';

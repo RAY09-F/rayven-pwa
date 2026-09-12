@@ -54,6 +54,7 @@ export const CORE_NAMES = {
     'remember_this', 'search_memory', 'add_todo', 'list_todos', 'delegate', 'routine_create', 'routine_list', 'routine_run_now',
     'approvals_list', 'approve', 'reject', 'cost_report', 'list_my_tools', 'find_tools']
 };
+for(const names of Object.values(CORE_NAMES))names.push('notify_owner');
 
 // First-message keyword rules: no model call, groups open before the first
 // reply so today's requests keep working in one turn.

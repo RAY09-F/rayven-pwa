@@ -1,5 +1,5 @@
 import {workspaceSnapshot} from './lib/workspace-snapshot.js';
-import {handlePhoneRequest,runPhoneUpdates} from './lib/phone-updates.js';
+import {handlePhoneRequest,runPhoneUpdates,queuePhoneEvents,queuePhoneUpdate} from './lib/phone-updates.js';
 import {summarizeOlderHistory} from './lib/history-summary.js';
 import { activeIdentity, safeError } from './lib/chat-diagnostics.js';
 // ASGARD backend — Cloudflare Worker entrypoint. HTTP router plus the main
@@ -1573,7 +1573,10 @@ How to speak on a phone call:
     // one failing never blocks the others. The TICK runs last, after every
     // job has settled, and writes one key with everything the tick produced
     // (asgard-upgrade Phase 1.4, Rule 5b) -- only if there is anything to write.
-    const job = (fn) => fn(env).catch(err => console.error('cron job failed:', err && err.message));
+    const job = (fn) => fn(env).catch(async err => {
+      console.error('cron job failed:', err && err.message);
+      if(fn!==runPhoneUpdates)await queuePhoneUpdate(env,{source:'thor',priority:'high',title:'Background task problem',body:`${fn.name||'Background task'}: ${safeError(err)}`,dedupeKey:'job-error:'+(fn.name||'background')}).catch(()=>{});
+    });
     const jobs = [
       job(runPhoneUpdates),
       job(runProactiveCheckInIfDue),
@@ -1650,7 +1653,9 @@ How to speak on a phone call:
         // Phase 6.2: collect finished Message Batches (trader self-reviews; batched routine compose steps resume here).
         try { await collectBatchesIfAny(env, { 'code-review': collectCodeReview, 'trader-reviews': collectTraderReviews, 'routine-compose': (e, entry, results) => resumeBatchedRoutine(e, entry, results, (ee, t, i, p) => executeTool(ee, t, i, p)) }); } catch (e) { console.error('batch collection failed:', e && e.message); }
         const events = [...eventsFromDrained(drained), ...takePendingEvents()];
+        await queuePhoneEvents(env,events).catch(()=>{});
         const r = await runRoutinesIfDue(env, events, (e, t, i, p) => executeTool(e, t, i, p));
+        await runPhoneUpdates(env).catch(()=>{});
         // Rule 5e: at 70% of the daily ceiling Thor tells Rayan once.
         const last = await readTickLast(env);
         const today = new Date().toISOString().slice(0, 10);

@@ -1,32 +1,29 @@
 # Proactive phone updates
 
-ASGARD has an owner-only call channel, separate from the existing confirmation-gated `make_call` tool. This integration does not change permission to contact other people or grant agents new system-modification tools.
+## Live state — September 12, 2026
 
-## Current activation state
+Enabled for the configured owner number ending 6680, using the verified existing Twilio number ending 2581. Thor's real test call completed (36 seconds), with two spoken replies recorded and persona audio used. No additional phone number was purchased.
 
-Deployed with calling disabled and no receiving number configured. The user still needs to provide their receiving number, daily time/time zone, and pair their phone. No real outbound test call has been placed. Live Twilio credentials authenticate and the account owns exactly one voice-capable number, ending in 2581; the new owner-call channel selects that verified number. All 126 unit checks passed, mobile fixture checks passed, and 179 live assets matched the release manifest.
+Current policy: all recorded updates, questions, ideas, and problems may trigger a role-selected Thor, Loki, or Odin call, whether Home, Away, or Unknown. Calling hours are 11:00 AM through 3:00 AM America/Los_Angeles. No new calls start during 3:00–11:00 AM, and call duration is bounded to end before quiet hours. The fixed daily briefing is disabled. There is no daily call-count cap; nearby updates are grouped with a minimum ten minutes between call attempts. Provider usage charges apply.
 
 ## Behavior
 
-- Existing centralized notifications enter a bounded queue, independently of Telegram connectivity. Source selects Thor, Loki or Odin.
-- High/critical events can cause calls when Home/Away status is Away and current. Scheduled checks run every five minutes; this is not an emergency-response service.
-- Daily briefing: one Thor call covering available updates across the council and, when generation succeeds, one clearly labeled optional improvement idea. Suggestions never execute themselves.
-- Default daily time is 18:00 America/Los_Angeles, pending the user's preference. Default maximum is three call attempts per local calendar day, with a ten-minute minimum interval. Calls last at most three minutes. No automatic retries after missed calls or ambiguous submission failures.
-- The existing SQLite ledger applies reservations synchronously so concurrent cron ticks cannot duplicate calls. Reservations count toward the limit even if Twilio fails. State is additive under `phone:state`; existing ledger schemas and data are preserved.
-- ElevenLabs persona audio is used when available. Twilio speech is the fallback. These are spoken announcements, not two-way phone conversations. A queued call is not reported as answered; signed Twilio callbacks record the final outcome.
+Central notifications, meaningful activity, pending approvals, background job failures, and supported event-bus updates enter a bounded queue. Each main persona can also use notify_owner to ask or tell the owner something. This detects events recorded by these integrations, not arbitrary activity outside ASGARD. Scheduled checks run every five minutes. Identical updates are deduplicated; queue lifetime is 48 hours, maximum 200 entries, and calls combine up to five updates from one persona.
 
-## Presence and phone pairing
+Existing SQLite ledger reservations prevent concurrent ticks from duplicating calls. Calls last at most three minutes, with no automatic redial after missed calls or uncertain submission failures. Signed Twilio callbacks record outcomes; queued does not mean answered.
 
-`/phone/` is the mobile control page. Home coordinates remain in that phone's browser storage. Geolocation compares against a 300-metre radius, accounts for accuracy, and sends only Home/Away/Unknown. Location observations expire after 30 minutes; manual status expires after 12 hours. A locked phone or closed browser can suspend tracking. Unknown does not trigger away-only calls. The daily briefing is independent of presence.
+ElevenLabs supplies persona speech when available; Twilio speech is the fallback. Speech replies are handled in up to eight ordered turns, and duplicate webhooks reuse saved responses. Phone replies are conversational: they do not execute tools, approve pending actions, or grant system access. Other-person make_call and send_text still require their existing confirmations.
 
-The setup operator uses a scoped `PHONE_SETUP_TOKEN` stored locally at `~/.asgard-phone-setup-token`. This is not the existing admin token. `scripts/phone-operator.mjs` reads it without printing it. Configure through a private JSON file outside the repository, e.g. `{to: internationalNumber, enabled: true, dailyTime: HH:mm, timeZone: IANAZone, maxDaily: 3}`. Run the configure command with that file path. Never commit receiving numbers or tokens.
+## Controls and secrets
 
-The pair command creates a ten-minute single-use link. Open it on the receiving phone. Redemption replaces the previous owner device key; the server stores only a hash. That paired phone can update presence, view masked status, pause, or resume. It cannot change the call destination or issue arbitrary calls. Exact GPS coordinates are never sent to ASGARD or Twilio. The setup secret can view provider readiness, configure the destination, and issue a bounded test call.
+The scoped PHONE_SETUP_TOKEN is stored outside the repository at ~/.asgard-phone-setup-token. scripts/phone-operator.mjs reads it without printing it. Use provider or status for redacted readiness/history; configure accepts a private JSON file outside the repository. Receiving numbers and secrets must never be committed. Pause with enabled:false; resume with enabled:true. Live configuration includes allUpdates:true, awayOnly:false, dailyEnabled:false, maxDaily:null, callStart:11:00, callEnd:03:00, and timeZone:America/Los_Angeles.
+
+Optional /phone/ mobile controls require a ten-minute single-use pairing link. Redemption rotates the owner device key. That page can view private call history, pause/resume, and report presence, but cannot change recipients or make arbitrary calls. Home coordinates remain in the phone browser; only Home/Away/Unknown is sent. Presence is optional under the current calling policy.
 
 ## Verification and recovery
 
-`node --test scripts/phone-updates.test.mjs` covers reservations, limits, duplicate suppression, stale presence, DST clock conversion, single-use pairing, authorization, callback signatures/order, and real call request construction with a mocked provider. `scripts/phone-browser-qa.mjs` uses fixtures to verify mobile controls and that coordinates stay local. These are not evidence of a real phone ringing.
+Release checks: 129 unit tests passed; mobile fixture checks passed; all 179 live assets match workspace-dbb085853898. Production version: 6018310e-57cd-4166-bd48-3c644075fbaf. A completed real test call and two recorded replies verify the two-way provider connection.
 
-Provider status is read-only (`node scripts/phone-operator.mjs provider`). A verified configured sender wins; if it does not match and the account owns exactly one voice-capable number, that number is used. Multiple ambiguous numbers or no number block calls. No numbers are purchased by this setup.
+phone-updates.test.mjs covers authorization, atomic reservations, deduplication, limits, quiet hours, stale presence, pairing, signed callbacks, provider requests, persona tools, and ordered speech turns. phone-browser-qa.mjs verifies mobile controls using fixtures.
 
-Pause through the paired phone or configure `{enabled:false}`. Previous pre-feature Worker version with the setup secret: `1a5d4e5c-6992-4415-9c93-1be3b04f6af3`; rollback preserves existing ledger data but stops this scheduler. Phone setup deployment: `4a2fc931-0b91-4142-a73e-7ade2395141d`, UI fingerprint `workspace-afc29c415fb2`.
+Pause before rollback if calling must stop. Pre-feature Worker version 1a5d4e5c-6992-4415-9c93-1be3b04f6af3 retains the setup secret and stops this scheduler; ledger data remains. Do not use the earlier phone-enabled implementation as a quiet-hours rollback because its scheduling rules differ.

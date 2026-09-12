@@ -9,8 +9,8 @@ async function refresh(){
   const s=await api('status');
   say(s.config.enabled?'Connected · calls enabled':'Connected · calls paused');
   $('presence').textContent=s.presence.state==='unknown'?'Unknown — update your status':`${s.presence.state==='home'?'Home':'Away'} · ${s.presence.source}`;
-  $('schedule').textContent=`Calls to ${s.config.to||'no number configured'}. Daily briefing ${s.config.dailyEnabled?s.config.dailyTime+' ('+s.config.timeZone+')':'off'}. Maximum ${s.config.maxDaily} calls per day. ${s.todayCount} attempted today.`;
-  $('calls').replaceChildren(...s.calls.map(c=>{const li=document.createElement('li');li.textContent=`${new Date(c.at).toLocaleString()} · ${c.persona} · ${c.status}${c.voice==='fallback'?' · backup voice':''}`;return li;}));
+  $('schedule').textContent=`Calls to ${s.config.to||'no number configured'}, ${s.config.callStart||'11:00'}–${s.config.callEnd||'03:00'} (${s.config.timeZone}). ${s.config.allUpdates?'All updates':'Important updates'}${s.config.awayOnly?' while Away':' whether Home or Away'}. ${s.config.maxDaily===null?'No daily call cap':`Maximum ${s.config.maxDaily} calls per day`}. Nearby updates are grouped; at least 10 minutes between calls. ${s.todayCount} attempted today.`;
+  $('calls').replaceChildren(...s.calls.map(c=>{const li=document.createElement('li');li.textContent=`${new Date(c.at).toLocaleString()} · ${c.persona} · ${c.status}${c.voice==='fallback'?' · backup voice':''}`;if(c.opening){const details=document.createElement('details'),summary=document.createElement('summary'),text=document.createElement('p');summary.textContent='Update and replies';text.textContent=c.opening+(c.transcript||[]).map(t=>'\n'+(t.role==='user'?'You: ':c.persona+': ')+t.content).join('');details.append(summary,text);li.append(details);}return li;}));
 }
 function safe(fn){return ()=>Promise.resolve().then(fn).catch(e=>say(e.message));}
 function stopWatch(){if(watch!==null)navigator.geolocation.clearWatch(watch);watch=null;}

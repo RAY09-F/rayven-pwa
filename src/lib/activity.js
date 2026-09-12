@@ -4,6 +4,8 @@
 // raw KV. Exposed read-only via GET /activity in index.js.
 
 import { appendCappedLog, readCappedLog } from './util.js';
+import {queuePhoneUpdate} from './phone-updates.js';
+import {safeError} from './chat-diagnostics.js';
 
 const ACTIVITY_LOG_KEY = 'activity:log';
 const ACTIVITY_LOG_CAP = 500;
@@ -21,6 +23,9 @@ export async function logActivity(env, entry) {
     meta: entry.meta || undefined
   };
   await appendCappedLog(env, ACTIVITY_LOG_KEY, record, ACTIVITY_LOG_CAP);
+  if(record.subsystem!=='phone'&&(record.success===false||(record.action&&!/^(none|no.action|skipped|unchanged)$/i.test(record.action)))){
+    await queuePhoneUpdate(env,{source:record.subsystem,priority:record.success?'normal':'high',title:record.success?'Activity update':'System problem',body:safeError([record.observed,record.decided,record.action,record.error].filter(Boolean).join('. ')),dedupeKey:'activity:'+record.subsystem+':'+record.action}).catch(()=>{});
+  }
   return record;
 }
 

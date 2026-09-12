@@ -61,6 +61,10 @@ export async function createApproval(env, { persona, tool, input, tainted, sourc
         { reply_markup: { inline_keyboard: [[{ text: `APPROVE ${id}`, callback_data: `approve:${id}` }, { text: `REJECT ${id}`, callback_data: `reject:${id}` }]] } });   // Phase 6.7: honoured only from Rayan in his private chat
     }
   } catch (e) { console.error('approval notify failed:', e && e.message); }
+  try {
+    const {queuePhoneUpdate}=await import('./phone-updates.js');
+    await queuePhoneUpdate(env,{source:persona,persona,priority:'high',title:'Decision needed',body:`I need your decision about ${tool}. Review approval ${id} in your workspace. Phone replies do not automatically approve actions.`,dedupeKey:'approval:'+id});
+  }catch{}
   emit('approval.created', { id, tool, persona, councillor: councillor || null });
   return { ok: true, id, record: rec, writes: 1 };
 }

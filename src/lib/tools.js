@@ -1,4 +1,5 @@
 import {modelRoundLimit, boundedToolResult} from './cost-policy.js';
+import {queuePhoneUpdate} from './phone-updates.js';
 // The tool schema array Claude sees, the executeTool dispatcher, and the
 // tool-use loop (callClaudeWithTools). This is the most-imported module — it wires
 // together every integration module into what RAYVEN can actually do. Ported
@@ -89,6 +90,12 @@ export async function getTaskLog(env) {
 
 async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {}) {
   switch (name) {
+    case 'notify_owner': {
+      if(!['thor','loki','odin'].includes(personaId))return 'This phone channel is unavailable.';
+      if(!String(input.message||'').trim())return 'Provide the update or question.';
+      const result=await queuePhoneUpdate(env,{source:personaId,persona:personaId,title:input.title||'An update for Rayan',body:input.message,priority:'normal',dedupeKey:'agent:'+personaId+':'+String(input.title||'update')});
+      return result.queued?'Queued for Rayan’s phone within his calling hours. Do not claim it was answered.':`Not queued: ${result.reason||'phone setup unavailable'}.`;
+    }
     case 'web_search': return await runWebSearch(env, input.query);
     case 'tavily_research': return await tavilySearch(env, input.query);
     case 'tavily_extract': return await tavilyExtract(env, input.url);
@@ -280,6 +287,7 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {
 }
 
 export const TOOL_DEFINITIONS = [
+  {name:'notify_owner',description:'Proactively queue an update, useful idea, error report, or question for Rayan’s own phone, spoken by your persona. Uses only his configured number and calling hours; no arbitrary recipient. No extra confirmation needed for this owner-approved channel. Never include credentials. Does not approve or execute any pending action. Identical updates are deduplicated; queued does not mean answered.',input_schema:{type:'object',properties:{title:{type:'string'},message:{type:'string',description:'The concise spoken update or question for Rayan'}},required:['message']}},
   {
     name: 'web_search',
     description: "Quick Google search via SerpAPI for current, real-time, or factual info.",

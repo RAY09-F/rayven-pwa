@@ -1,7 +1,12 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {phoneTransition,publicPhoneState,localClock} from '../src/lib/phone-state.js';
+import {phoneTransition,publicPhoneState,localClock,phoneWindow} from '../src/lib/phone-state.js';
 import {validateTwilio,phonePersona,handlePhoneRequest,runPhoneUpdates} from '../src/lib/phone-updates.js';
+import {toolDefinitionsForPersona} from '../src/lib/tools.js';
+import {coreFor} from '../src/tools/meta.js';
 const now=Date.parse('2026-09-12T01:00:00Z');
+test('all three main personas have the owner notification tool in their active core',()=>{
+  for(const p of ['thor','loki','odin'])assert.ok(coreFor(p,toolDefinitionsForPersona(p)).some(t=>t.name==='notify_owner'));
+});
 function machine(){let s;return {go(a,t=now){const n=phoneTransition(s,a,t);s=n.state;return n.result;},get state(){return s;}};}
 test('calls fail closed; presence expires; daily reservation and cap are atomic',()=>{
   const m=machine();assert.equal(m.go({kind:'reserve',id:'0'}).reason,'disabled');
@@ -64,8 +69,27 @@ test('outbound updates use the fixed owner number, bounded calls and truthful fa
     for(const persona of ['thor','loki','odin']){
       const m=machine();m.go({kind:'configure',config:{enabled:true,to:'+15555550123'}});
       const env={TWILIO_ACCOUNT_SID:'AC_test',TWILIO_AUTH_TOKEN:'secret',TWILIO_PHONE_NUMBER:'+15555550456',LEDGER:{idFromName:()=>0,get:()=>({fetch:async(u,init)=>Response.json({ok:true,result:m.go(JSON.parse(init.body).action)})})}};
-      const r=await runPhoneUpdates(env,{test:true,persona});assert.equal(r.status,'queued');assert.equal(r.voice,'fallback');
+      const r=await runPhoneUpdates(env,{test:true,persona,now:()=>now});assert.equal(r.status,'queued');assert.equal(r.voice,'fallback');
       const p=calls.at(-1).params;assert.equal(p.get('To'),'+15555550123');assert.equal(p.get('From'),'+15555550456');assert.equal(p.get('TimeLimit'),'180');assert.match(p.get('Twiml'),new RegExp(persona));assert.match(p.get('Twiml'),/<Hangup\/>/);assert.equal(p.get('Record'),null);
     }
   }finally{globalThis.fetch=original;}
+});
+test('11 AM–3 AM overnight window blocks quiet hours, including test calls; all updates ignore presence',()=>{
+  const c={timeZone:'America/Los_Angeles',callStart:'11:00',callEnd:'03:00'};
+  for(const [utc,expected] of [['2026-09-12T17:59:59Z',false],['2026-09-12T18:00:00Z',true],['2026-09-13T09:59:00Z',true],['2026-09-13T10:00:00Z',false],['2026-09-13T17:00:00Z',false]])assert.equal(phoneWindow(c,Date.parse(utc)).allowed,expected,utc);
+  const m=machine();m.go({kind:'configure',config:{...c,to:'+15555550123',enabled:true,allUpdates:true,awayOnly:false,dailyEnabled:false,maxDaily:null}});
+  m.go({kind:'enqueue',item:{id:'normal',persona:'odin',priority:'normal',body:'a'}});
+  m.go({kind:'enqueue',item:{id:'low',persona:'odin',priority:'low',body:'b'}});
+  assert.equal(m.go({kind:'reserve',id:'blocked',test:true},Date.parse('2026-09-12T15:00:00Z')).reason,'quiet_hours');
+  const r=m.go({kind:'reserve',id:'allowed'},Date.parse('2026-09-12T18:00:00Z'));assert.equal(r.batch.length,2);assert.equal(r.item.persona,'odin');
+  assert.equal(m.go({kind:'reserve',id:'no-repeat'},Date.parse('2026-09-12T18:20:00Z')).reason,'not_due');
+});
+test('phone turns are claimed once, ordered and cached for duplicate webhooks',()=>{
+  const m=machine();m.go({kind:'configure',config:{enabled:true,to:'+15555550123'}});m.go({kind:'reserve',id:'call',test:true});
+  assert.equal(m.go({kind:'claimTurn',id:'call',turn:1}).denied,true);
+  assert.ok(m.go({kind:'claimTurn',id:'call',turn:0}).call);
+  assert.equal(m.go({kind:'claimTurn',id:'call',turn:0}).busy,true);
+  m.go({kind:'finishTurn',id:'call',turn:0,heard:'question',reply:'answer',xml:'<Response/>'});
+  assert.equal(m.go({kind:'claimTurn',id:'call',turn:0}).cached,'<Response/>');
+  assert.equal(m.state.calls[0].transcript.length,2);
 });
