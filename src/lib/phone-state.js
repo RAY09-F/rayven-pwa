@@ -80,7 +80,7 @@ export function phoneTransition(state,action,now=Date.now()){
     }
     case 'finishTurn': {
       const call=s.calls.find(x=>x.id===action.id);
-      if(call?.turns?.[action.turn]){call.turns[action.turn]={xml:action.xml};call.transcript=[...(call.transcript||[]),{role:'user',content:action.heard},{role:'assistant',content:action.reply}].slice(-16);}
+      if(call?.turns?.[action.turn]){if(['thor','loki','odin'].includes(action.persona))call.persona=action.persona;call.turns[action.turn]={xml:action.xml,persona:call.persona,timing:action.timing||null};call.transcript=[...(call.transcript||[]),{role:'user',content:action.heard},{role:'assistant',content:action.reply}].slice(-16);}
       result={saved:true};break;
     }
     case 'result': {

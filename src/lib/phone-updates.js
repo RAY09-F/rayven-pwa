@@ -118,21 +118,35 @@ export async function handlePhoneRequest(request,env,ctx){
       if(claimed.cached)return xml(claimed.cached);
       if(claimed.busy)return xml(waiting(call.id,turn));
       if(!claimed.call)return xml('<Response><Hangup/></Response>');
+      const started=Date.now();
       const complete = async()=>{
+      let persona=call.persona,modelMs=0;
       let answer="I couldn't finish that request. The result isn't confirmed.";
       try{
-        const {answerPhone}=await import('./phone-agent.js');
-        answer=await answerPhone(env,call,heard);
+        const {answerPhone,phoneHandoff}=await import('./phone-agent.js');
+        const target=phoneHandoff(heard);
+        if(target){
+          persona=target;
+          answer=`It's ${target}. I'm here, Rayan.`;
+        }else answer=await answerPhone(env,call,heard);
+        modelMs=Date.now()-started;
       }catch{}
       const done=turn>=7||/\bDONE\s*$/.test(answer)||/\b(goodbye|bye|hang up)\b/i.test(heard);
       answer=answer.replace(/\bDONE\s*$/,'').trim();
-      const audio=await synthCallAudio(env,answer,call.persona,{fast:true}).catch(()=>null);
+      const audio=await synthCallAudio(env,answer,persona,{fast:true}).catch(()=>null);
       const speak=audio?`<Play>${BASE}/voice/audio/${audio}</Play>`:`<Say voice="Polly.Matthew">${escapeXml(answer)}</Say>`;
       const response=`<Response>${speak}${done?'<Hangup/>':listen(call.id,turn+1)}</Response>`;
-      await ledger.phone(env,{kind:'finishTurn',id:call.id,turn,heard,reply:answer,xml:response});
+      await ledger.phone(env,{kind:'finishTurn',id:call.id,turn,heard,reply:answer,xml:response,persona,timing:{modelMs,readyMs:Date.now()-started}});
       return response;
       };
-      if(ctx?.waitUntil){ctx.waitUntil(complete());return xml(waiting(call.id,turn));}
+      if(ctx?.waitUntil){
+        const work=complete();ctx.waitUntil(work);
+        // Return ordinary replies immediately when ready; poll only slow tool turns.
+        let timer;
+        const ready=await Promise.race([work,new Promise(resolve=>{timer=setTimeout(()=>resolve(null),6500);})]);
+        clearTimeout(timer);
+        return xml(ready||waiting(call.id,turn));
+      }
       return xml(await complete());
     }
     const status=form.get('CallStatus');

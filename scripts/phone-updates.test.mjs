@@ -132,8 +132,18 @@ test('signed speech callbacks enqueue once and polling retrieves the same comple
   };
   try{
     globalThis.fetch=async()=>Response.json(rounds++===0?{stop_reason:'tool_use',content:[{type:'tool_use',id:'task',name:'add_todo',input:{text:'Call the dentist'}}]}:{stop_reason:'end_turn',content:[{type:'text',text:'I added that task.'}]});
-    assert.match(await send(),/<Redirect/);await send();assert.equal(jobs.length,1);
+    assert.match(await send(),/I added that task|<Redirect/);await send();assert.equal(jobs.length,1);
     await Promise.all(jobs);const result=await send(true);assert.match(result,/I added that task/);assert.doesNotMatch(result,/You can reply/);
     assert.equal(await send(),result);assert.equal(rounds,2);assert.equal(JSON.parse(kv.get('todos')).length,1);
   }finally{globalThis.fetch=oldFetch;Date.now=oldNow;}
+});
+
+test('spoken handoffs recognize requests without switching on mentions or negations',async()=>{
+ const {phoneHandoff}=await import('../src/lib/phone-agent.js');
+ for(const [text,p] of [['switch to Odin','odin'],['let me talk to Loki','loki'],['can I speak to Thor','thor'],["use Loki's voice",'loki'],['get Odin on','odin'],['switch me over to Loki','loki']])assert.equal(phoneHandoff(text),p,text);
+ for(const text of ["don't switch to Odin",'What did Loki do today?','Odin has a task','switch to Kevin'])assert.equal(phoneHandoff(text),null,text);
+ const m=machine();m.go({kind:'configure',config:{enabled:true,to:'+15555550123'}});m.go({kind:'reserve',id:'switch',test:true,persona:'thor'});m.go({kind:'claimTurn',id:'switch',turn:0});
+ m.go({kind:'finishTurn',id:'switch',turn:0,persona:'loki',heard:'let me talk to Loki',reply:"It's Loki",xml:'<Response/>',timing:{modelMs:0,readyMs:900}});
+ assert.equal(m.go({kind:'claimTurn',id:'switch',turn:1}).call.persona,'loki');
+ assert.equal(m.state.calls[0].turns[0].timing.readyMs,900);
 });

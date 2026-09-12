@@ -10,3 +10,13 @@ export async function answerPhone(env,call,heard){
   if(!result.ok)throw Error('Phone response unavailable');
   return (result.data?.content||[]).filter(x=>x.type==='text').map(x=>x.text).join(' ').slice(0,1100)||'That request has no confirmed result yet.';
 }
+
+// Route explicit handoff commands before inference; mentioning another agent is not a switch.
+export function phoneHandoff(text){
+  const clean=String(text).toLowerCase().replace(/[.,!?]/g,' ').replace(/\s+/g,' ').trim();
+  if(/\b(don't|do not|not to|instead of)\b/.test(clean))return null;
+  const match=clean.match(/\b(?:switch(?: me)?(?: over)? to|(?:let me |can i |could i |i want to )?(?:talk|speak) to|(?:put|get) (thor|loki|odin) on|(?:use|change to) (thor|loki|odin)(?:'s)? voice)\s*(thor|loki|odin)?\b/);
+  if(!match)return null;
+  const persona=match[1]||match[2]||match[3];
+  return ['thor','loki','odin'].includes(persona)?persona:null;
+}

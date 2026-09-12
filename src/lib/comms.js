@@ -46,7 +46,7 @@ export async function synthCallAudio(env, text, personaId = 'thor', {fast=false}
   const { getPersonaVoiceId, getPersonaVoiceSettings } = await import('./personas.js');
   const voiceId = getPersonaVoiceId(env, personaId);
   if (!env.ELEVENLABS_API_KEY || !voiceId) return null;
-  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}${fast?'?output_format=mp3_22050_32':''}`, {
     method: 'POST',
     headers: { 'xi-api-key': env.ELEVENLABS_API_KEY, 'content-type': 'application/json', accept: 'audio/mpeg' },
     body: JSON.stringify({
