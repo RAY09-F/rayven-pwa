@@ -147,3 +147,23 @@ test('spoken handoffs recognize requests without switching on mentions or negati
  assert.equal(m.go({kind:'claimTurn',id:'switch',turn:1}).call.persona,'loki');
  assert.equal(m.state.calls[0].turns[0].timing.readyMs,900);
 });
+
+test('incoming owner calls work during quiet hours, reject other callers and do not consume outbound allowance',()=>{
+ const m=machine(),quiet=Date.parse('2026-09-12T15:00:00Z');m.go({kind:'configure',config:{to:'+15555550123',enabled:false}});
+ assert.equal(m.go({kind:'inbound',sid:'CA_in',from:'+15555550999'},quiet).denied,true);
+ const a=m.go({kind:'inbound',sid:'CA_in',from:'+15555550123'},quiet);assert.equal(a.call.persona,'thor');assert.equal(a.call.direction,'inbound');assert.equal(m.state.count,0);
+ assert.equal(m.go({kind:'inbound',sid:'CA_in',from:'+15555550123'},quiet).call.id,a.call.id);assert.equal(m.state.calls.length,1);
+});
+test('inbound webhook validates Twilio signature and caller before opening the conversation',async()=>{
+ const m=machine();m.go({kind:'configure',config:{to:'+15555550123',enabled:false}});
+ const env={TWILIO_ACCOUNT_SID:'AC_test',TWILIO_AUTH_TOKEN:'secret',LEDGER:{idFromName:()=>0,get:()=>({fetch:async(u,init)=>Response.json({ok:true,result:m.go(JSON.parse(init.body).action)})})}};
+ const send=async(from,signed=true)=>{
+  const url='https://site/phone-api/inbound',form=new URLSearchParams({AccountSid:'AC_test',CallSid:'CA'+'a'.repeat(32),From:from});let raw=url;for(const k of [...form.keys()].sort())raw+=k+form.get(k);
+  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode('secret'),{name:'HMAC',hash:'SHA-1'},false,['sign']);const sig=Buffer.from(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(raw))).toString('base64');
+  return handlePhoneRequest(new Request(url,{method:'POST',body:form,headers:signed?{'x-twilio-signature':sig}:{}}),env);
+ };
+ assert.equal((await send('+15555550123',false)).status,403);
+ assert.match(await (await send('+15555550999')).text(),/<Reject/);
+ const xml=await (await send('+15555550123')).text();assert.match(xml,/Thor/);assert.match(xml,/<Gather/);assert.doesNotMatch(xml,/You can reply/);
+ assert.equal(await (await send('+15555550123')).text(),xml);assert.equal(m.state.calls.length,1);
+});

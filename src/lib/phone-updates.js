@@ -96,15 +96,31 @@ export async function handlePhoneRequest(request,env,ctx){
   if(!path.startsWith('/phone-api/'))return null;
   const reply=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
   if(!env.LEDGER)return reply({error:'Phone service unavailable'},503);
-  if(path==='/phone-api/callback'||path==='/phone-api/turn'){
+  if(path==='/phone-api/inbound'){
+    if(request.method!=='POST')return reply({error:'Method'},405);
+    const form=new URLSearchParams(await request.text());
+    if(!await validateTwilio(request,env,form)||form.get('AccountSid')!==env.TWILIO_ACCOUNT_SID)return reply({error:'Unauthorized'},403);
+    const xml=x=>new Response(x,{headers:{'Content-Type':'text/xml','Cache-Control':'no-store'}});
+    if(!/^CA[a-f0-9]{32}$/i.test(form.get('CallSid')||''))return xml('<Response><Reject/></Response>');
+    const r=await ledger.phone(env,{kind:'inbound',sid:form.get('CallSid'),from:form.get('From')});
+    if(!r.call)return xml('<Response><Reject reason="rejected"/></Response>');
+    const call=r.call;
+    if(call.greetingXml)return xml(call.greetingXml);
+    const audio=await synthCallAudio(env,call.opening,'thor',{fast:true}).catch(()=>null);
+    const spoken=audio?`<Play>${BASE}/voice/audio/${audio}</Play>`:`<Say voice="Polly.Matthew">${escapeXml(call.opening)}</Say>`;
+    const greetingXml=`<Response>${spoken}${listen(call.id,0)}</Response>`;
+    await ledger.phone(env,{kind:'result',id:call.id,result:{greetingXml,voice:audio?'persona':'fallback'}});
+    return xml(greetingXml);
+  }
+  if(path==='/phone-api/callback'||path==='/phone-api/turn'||path==='/phone-api/inbound-status'){
     if(request.method!=='POST')return reply({error:'Method'},405);
     const form=new URLSearchParams(await request.text());
     if(!await validateTwilio(request,env,form))return reply({error:'Unauthorized'},403);
-    const state=await ledger.phone(env,{kind:'status'}),call=state.calls.find(x=>x.id===url.searchParams.get('id'));
+    const state=await ledger.phone(env,{kind:'status'}),call=state.calls.find(x=>path==='/phone-api/inbound-status'?x.sid===form.get('CallSid'):x.id===url.searchParams.get('id'));
     if(!call||form.get('AccountSid')!==env.TWILIO_ACCOUNT_SID||(call.sid&&call.sid!==form.get('CallSid')))return reply({error:'Unknown call'},403);
     if(path==='/phone-api/turn'){
       const xml=x=>new Response(x,{headers:{'Content-Type':'text/xml','Cache-Control':'no-store'}});
-      if(!state.config.enabled||!phoneWindow(state.config).allowed)return xml('<Response><Hangup/></Response>');
+      if(call.direction!=='inbound'&&(!state.config.enabled||!phoneWindow(state.config).allowed))return xml('<Response><Hangup/></Response>');
       const turn=Number(url.searchParams.get('turn'));
       if(url.searchParams.get('poll')==='1'){
         const pending=call.turns?.[turn];
@@ -131,7 +147,7 @@ export async function handlePhoneRequest(request,env,ctx){
         }else answer=await answerPhone(env,call,heard);
         modelMs=Date.now()-started;
       }catch{}
-      const done=turn>=7||/\bDONE\s*$/.test(answer)||/\b(goodbye|bye|hang up)\b/i.test(heard);
+      const done=turn>=(call.direction==='inbound'?19:7)||/\bDONE\s*$/.test(answer)||/\b(goodbye|bye|hang up)\b/i.test(heard);
       answer=answer.replace(/\bDONE\s*$/,'').trim();
       const audio=await synthCallAudio(env,answer,persona,{fast:true}).catch(()=>null);
       const speak=audio?`<Play>${BASE}/voice/audio/${audio}</Play>`:`<Say voice="Polly.Matthew">${escapeXml(answer)}</Say>`;
@@ -184,6 +200,15 @@ export async function handlePhoneRequest(request,env,ctx){
   if(path==='/phone-api/test'&&request.method==='POST'){
     const {persona}=await request.json();if(!PERSONAS.includes(persona))return reply({error:'Invalid persona'},400);
     return reply(await runPhoneUpdates(env,{test:true,persona}));
+  }
+  if(path==='/phone-api/setup-inbound'&&request.method==='POST'){
+    const p=await phoneProvider(env);
+    if(!p.selected)return reply({error:'No verified phone number'},409);
+    const number=p.selected,voiceUrl=BASE+'/phone-api/inbound',statusUrl=BASE+'/phone-api/inbound-status';
+    if(!await env.RAYVEN_KV.get('phone:inbound-backup'))await env.RAYVEN_KV.put('phone:inbound-backup',JSON.stringify({sid:number.sid,voiceUrl:number.voice_url,voiceMethod:number.voice_method,statusCallback:number.status_callback,statusCallbackMethod:number.status_callback_method,voiceApplicationSid:number.voice_application_sid,trunkSid:number.trunk_sid}));
+    const result=await fetch(api(env)+'/IncomingPhoneNumbers/'+number.sid+'.json',{method:'POST',headers:{...auth(env),'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({VoiceApplicationSid:'',TrunkSid:'',VoiceUrl:voiceUrl,VoiceMethod:'POST',StatusCallback:statusUrl,StatusCallbackMethod:'POST'}),signal:AbortSignal.timeout(10000)});
+    const saved=await result.json();
+    return reply({ok:result.ok&&saved.voice_url===voiceUrl&&saved.status_callback===statusUrl&&!saved.voice_application_sid&&!saved.trunk_sid,number:number.phone_number,voiceUrl:saved.voice_url},result.ok?200:502);
   }
   if(path==='/phone-api/provider'&&request.method==='GET'){
     const p=await phoneProvider(env);

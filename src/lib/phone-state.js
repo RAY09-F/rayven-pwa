@@ -47,12 +47,18 @@ export function phoneTransition(state,action,now=Date.now()){
       if(s.queue.some(x=>x.id===n.id)||s.calls.some(x=>x.event===n.id)){result={queued:false,reason:'duplicate'};break;}
       s.queue.push({...n,at:now});result={queued:true};break;
     }
+    case 'inbound': {
+      if(!c.to||action.from!==c.to){result={denied:true};break;}
+      let call=s.calls.find(x=>x.sid===action.sid);
+      if(!call){call={id:action.sid,sid:action.sid,persona:'thor',direction:'inbound',at:now,status:'in-progress',opening:"It's Thor. I'm here, Rayan."};s.calls.push(call);}
+      result={call};break;
+    }
     case 'reserve': {
       if(!c.enabled||!c.to){result={reason:'disabled'};break;}
       const window=phoneWindow(c,now);
       if(!window.allowed||window.remainingSeconds<=30){result={reason:'quiet_hours'};break;}
       if(c.maxDaily!==null&&s.count>=c.maxDaily){result={reason:'daily_limit'};break;}
-      if(s.calls.some(x=>now-x.at<600000)){result={reason:'cooldown'};break;}
+      if(s.calls.some(x=>x.direction!=='inbound'&&now-x.at<600000)){result={reason:'cooldown'};break;}
       const [h,m]=c.dailyTime.split(':').map(Number),dailyId='daily:'+clock.day;
       const daily=c.dailyEnabled&&clock.minute>=h*60+m&&clock.minute<h*60+m+60&&!s.calls.some(x=>x.event===dailyId);
       const away=s.presence.state==='away'&&s.presence.expires>now;
@@ -72,7 +78,7 @@ export function phoneTransition(state,action,now=Date.now()){
     }
     case 'claimTurn': {
       const call=s.calls.find(x=>x.id===action.id);
-      if(!call||!Number.isInteger(action.turn)||action.turn<0||action.turn>7){result={denied:true};break;}
+      if(!call||!Number.isInteger(action.turn)||action.turn<0||action.turn>(call?.direction==='inbound'?19:7)){result={denied:true};break;}
       call.turns??={};
       if(call.turns[action.turn]){result={cached:call.turns[action.turn].xml||null,busy:!call.turns[action.turn].xml};break;}
       if(action.turn!==Object.keys(call.turns).length){result={denied:true};break;}
