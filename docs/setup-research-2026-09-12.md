@@ -1,11 +1,11 @@
-# ASGARD setup research â€” September 12, 2026
+# ASGARD setup research — September 12, 2026
 
 ## Implemented in this pass
 
 1. Public performance lab with local CSV processing, per-process/swap-chain selection, frame-time trace, average FPS, p95/p99, defined slowest-1% FPS and a saved baseline summary. Captures are not uploaded.
 2. PapaParse 5.7.0 vendored from the official npm archive. SHA-512 matched npm integrity. MIT license included beside the library. Repository: https://github.com/mholt/PapaParse
 3. PresentMon 2.5.1 console binary installed in `%LOCALAPPDATA%/ASGARD-Tools/PresentMon-2.5.1`. SHA-256 matched GitHub's release digest: `9bec3083069f58f911e6a512f4806db51a27bd096103087bc1d05ef54c80a191`. `--help` ran successfully; no live game capture was claimed. MIT license copied. No service, driver or startup item was installed.
-4. A bounded `scripts/capture-fortnite.ps1` records 15â€“120 seconds of Fortnite frame timing on demand, without input tracking. It requires Fortnite running, preserves separate timestamped files and does not elevate or change Windows groups. Real capture remains to be verified during gameplay.
+4. A bounded `scripts/capture-fortnite.ps1` records 15–120 seconds of Fortnite frame timing on demand, without input tracking. It requires Fortnite running, preserves separate timestamped files and does not elevate or change Windows groups. Real capture remains to be verified during gameplay.
 5. Three additional agent tools: `github_project_review`, `frame_time_report`, `paper_account_health`. Four main-page catalogs synchronized. Odin's mini-agents also receive paper-account health and GitHub review.
 6. Setup guide and performance-lab links added to the command center.
 
