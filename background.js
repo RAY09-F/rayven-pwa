@@ -1,14 +1,6 @@
-// Backend hosts, in preference order. This is a LIST rather than a single
-// hardcoded const because one hardcoded URL took browser control down silently:
-// the Worker was renamed (rayven-backend -> asgrard-backend) on 2026-08-15, the
-// old hostname stopped resolving, and this extension went on polling a dead
-// address forever. Nothing surfaced the failure — the backend simply saw the
-// extension disappear, and the only fix was noticing and manually reloading.
-//
-// Trying each host in turn means a rename costs one failed request instead of an
-// outage. Keep the current host first; leave the old one in place as a fallback.
+// Use the current ASGARD Worker only. The retired hostname can answer
+// without delivering commands, silently disconnecting this extension.
 const BACKEND_CANDIDATES = [
-  "https://rayven-backend.rayanfahil2.workers.dev",
   "https://asgrard-backend.rayanfahil2.workers.dev"
 ];
 
@@ -23,10 +15,10 @@ async function backendFetch(path, init) {
   let lastError = null;
   for (const host of ordered) {
     try {
-      const res = await fetch(`${host}${path}`, init);
+      const res = await fetch(`${host}${path}`, { ...init, signal: AbortSignal.timeout(10000) });
       // A 404 here is Cloudflare's "no such Worker" page for a released
       // hostname, not a real answer from the backend — keep looking.
-      if (res.status === 404) { lastError = new Error(`${host} returned 404`); continue; }
+      if (!res.ok) { lastError = new Error(`${host} returned HTTP ${res.status}`); continue; }
       if (host !== activeBackend) console.log('RAYVEN: backend switched to', host);
       activeBackend = host;
       return res;
