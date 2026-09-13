@@ -1,17 +1,18 @@
 import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';
 import {createCompanion,SITE,applySignal} from './rgb-companion.mjs';
-test('flow starts from current colors, eases to exact targets, and retargets without jumps',()=>{
- let now=10000;const ctx={fillRect(){},beginPath(){},moveTo(){},lineTo(){},closePath(){},fill(){}};
+test('rainbow lasts two seconds, keeps exact selected palette and ignores duplicate events',()=>{
+ let now=10000;const fills=[],ctx={fillRect(){},beginPath(){},moveTo(){},lineTo(){},closePath(){},fill(){fills.push(this.fillStyle);}};
  const s={Date:{now:()=>now},document:{getElementById:()=>({getContext:()=>ctx})},requestAnimationFrame(){}};
  vm.createContext(s);vm.runInContext(readFileSync(new URL('./effects/ASGARD Flow.html',import.meta.url),'utf8').match(/<script>([\s\S]*?)<\/script>/)[1],s);
- const before=Array.from(s.sample(now));s.onCanvasApiEvent({sender:'asgard-rgb',event:'loki'});assert.deepEqual(Array.from(s.sample(now)),before);
- now+=100;assert.notDeepEqual(Array.from(s.sample(now)),before);
- const mid=Array.from(s.sample(now));s.onCanvasApiEvent({sender:'asgard-rgb',event:'thor'});assert.deepEqual(Array.from(s.sample(now)),mid);
- now+=1200;assert.deepEqual(Array.from(s.sample(now)),Array.from(s.palettes.thor));
- const started=s.started;s.onCanvasApiEvent({sender:'asgard-rgb',event:'thor'});assert.equal(s.started,started);
- s.onCanvasApiEvent({sender:'other',event:'odin'});assert.equal(s.mode,'thor');
-});
-test('slow desktop update does not hold up later lighting requests',async()=>{
+ s.onCanvasApiEvent({sender:'asgard-rgb',event:'loki'});assert.equal(s.spinProgress(now),0);
+ now+=1000;s.paint();assert.ok(fills.some(x=>x.startsWith('hsl(')));
+ const started=s.started;s.onCanvasApiEvent({sender:'asgard-rgb',event:'loki'});assert.equal(s.started,started);
+ s.onCanvasApiEvent({sender:'other',event:'odin'});assert.equal(s.mode,'loki');
+ s.onCanvasApiEvent({sender:'asgard-rgb',event:'thor'});assert.equal(s.started,now);
+ now+=1999;assert.ok(s.spinProgress(now)<1);now++;assert.equal(s.spinProgress(now),1);
+ fills.length=0;s.paint();assert.ok(!fills.some(x=>x.startsWith('hsl(')));
+ assert.deepEqual(Array.from(s.target),Array.from(s.palettes.thor));assert.equal(ctx.globalAlpha,1);
+});test('slow desktop update does not hold up later lighting requests',async()=>{
  let release;const pending=new Promise(r=>release=r),calls=[];
  const server=createCompanion({token:'a'.repeat(64),apply:async mode=>calls.push(mode),desktop:()=>pending});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));

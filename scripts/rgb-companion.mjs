@@ -42,7 +42,7 @@ export function createCompanion({token,port=18771,apply=applySignal,desktop=main
       chain=chain.catch(()=>{}).then(async()=>{
         if(myRevision!==revision)return;
         await apply(mode);
-        last={persona:data.persona,locked:data.locked,color:COLORS[mode],at:new Date().toISOString(),transitionMs:1200};
+        last={persona:data.persona,locked:data.locked,color:COLORS[mode],at:new Date().toISOString(),transitionMs:2000};
         const d=++desktopRevision;
         desktopChain=desktopChain.catch(()=>{}).then(async()=>{if(d===desktopRevision)await desktop(mode);}).catch(()=>{});
       });
