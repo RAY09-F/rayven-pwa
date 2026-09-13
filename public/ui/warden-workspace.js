@@ -92,7 +92,7 @@ async function send(){
     if(req.controller.signal.aborted)throw new DOMException('Aborted','AbortError');
     if(data?.error)throw Error(requestErrorMessage(500,JSON.stringify(data)));
     const reply=replyText(data);if(!reply)throw Error('The server returned no readable reply. Please try again.');
-    answer.text=reply;answer.pending=false;outcome='complete';
+    answer.text=reply;answer.pending=false;outcome='complete';dispatchEvent(new CustomEvent('asgard:reply-ready',{detail:{persona:id}}));
   }catch(error){
     const cancelled=req.controller.signal.aborted;
     outcome=cancelled?'cancelled':'error';answer.role='error';answer.pending=false;answer.retry=text;

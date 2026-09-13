@@ -5801,6 +5801,23 @@
       }
     },
     {
+      "id": "paper_research_replay",
+      "title": "paper research replay",
+      "description": "Compare fixed strategies on chronologically held-out PAPER candles, with independent replay accounts, regime breakdowns and cash/buy-hold baselines. No parameter fitting or orders.",
+      "group": "markets",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
       "id": "paper_category_report",
       "title": "paper category report",
       "description": "Read PAPER win rates, net P/L and sample counts separately for regular markets, stocks, crypto and meme coins. Excludes manual demos.",

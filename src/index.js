@@ -1,3 +1,6 @@
+import {getPaperResearch} from './lib/paperTrading.js';
+import {paperEnvironment} from './lib/paper-store.js';
+export {PaperLedger} from './paper-ledger.js';
 import {workspaceSnapshot} from './lib/workspace-snapshot.js';
 import {handlePhoneRequest,runPhoneUpdates,queuePhoneEvents,queuePhoneUpdate} from './lib/phone-updates.js';
 import {summarizeOlderHistory} from './lib/history-summary.js';
@@ -520,6 +523,7 @@ export { AsgardLedger } from './ledger-do.js';
 
 export default {
   async fetch(request, env, ctx) {
+    env=paperEnvironment(env);
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -781,6 +785,7 @@ export default {
     // Feeds the HUD's candlestick + equity-curve panel: recent candles and
     // entry/exit markers per agent, plus the balance history. Same
     // unauthenticated, read-only, already-labeled posture as /status above.
+    if(url.pathname==='/paper-trading/research')return json(await getPaperResearch(env),corsHeaders);
     if (url.pathname === '/paper-trading/charts') {
       return json(await getPaperChartData(env), corsHeaders);
     }
@@ -1574,6 +1579,7 @@ How to speak on a phone call:
   },
 
   async scheduled(event, env, ctx) {
+    env=paperEnvironment(env);
     // Each subsystem below tracks its own "last run" KV state and decides
     // internally whether it's actually due this tick. They all run together;
     // one failing never blocks the others. The TICK runs last, after every

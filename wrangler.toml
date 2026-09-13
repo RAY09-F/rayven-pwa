@@ -82,3 +82,11 @@ class_name = "AsgardLedger"
 [[migrations]]
 tag = "v1-ledger"
 new_sqlite_classes = ["AsgardLedger"]
+
+[[durable_objects.bindings]]
+name = "PAPER_LEDGER"
+class_name = "PaperLedger"
+
+[[migrations]]
+tag = "v2-paper-ledger"
+new_sqlite_classes = ["PaperLedger"]

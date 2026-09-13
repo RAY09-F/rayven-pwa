@@ -5,6 +5,7 @@ export function connectPCLights(){
   const form=document.querySelector('#settings-dialog form');
   form?.insertBefore(section,form.querySelector('button:not([type])'));
   const status=section.querySelector('#pc-lights-status');let token='',timer,busy=false,again=false;
+  for(const [label,path,enabled]of [['Sleep lights','sleep',true],['Wake lights','sleep',false],['Match desktop','desktop',true],['Restore desktop','desktop',false]]){const b=document.createElement('button');b.type='button';b.textContent=label;section.append(b);b.onclick=async()=>{if(!token){status.textContent='Connect PC lights first.';return;}try{const r=await fetch(BASE+'/'+path,{method:'POST',headers:{'Content-Type':'application/json','X-ASGARD-Key':token},body:JSON.stringify({enabled}),signal:AbortSignal.timeout(12000)});if(!r.ok)throw Error();status.textContent=label+' applied.';schedule();}catch{status.textContent='Local control unavailable. Keep the PC helper running.';}};}
   try{
     const match=location.hash.match(/^#rgb-pair=([a-f0-9]{64})$/);
     if(match){localStorage.setItem(KEY,match[1]);history.replaceState(null,'',location.pathname+location.search);}

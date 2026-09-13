@@ -58,6 +58,7 @@ export function summarizeBook(book){
 }
 const tool=(name,description,input_schema,run,group='markets',taint=false)=>({name,description,input_schema,run,group,taint});
 export const TOOLS=[
+  tool('paper_research_replay','Compare fixed strategies on chronologically held-out PAPER candles, with independent replay accounts, regime breakdowns and cash/buy-hold baselines. No parameter fitting or orders.',schema(),async env=>output(await (await import('../lib/paperTrading.js')).getPaperResearch(env))),
   tool('paper_category_report','Read PAPER win rates, net P/L and sample counts separately for regular markets, stocks, crypto and meme coins. Excludes manual demos.',schema(),async env=>{const c=await context(env);return output(paperSegments(c.trades,c.agents,c.instruments));}),
   tool('paper_risk_snapshot','Read open PAPER exposure at entry prices and modeled loss to stops. Does not claim current equity or maximum loss.',schema(),async env=>{const c=await context(env);return output(riskSnapshot(c.portfolio,c.agents,c.instruments));}),
   tool('paper_agent_review','Read each PAPER agent’s historical net results and sample size, excluding demo trades. No strategy tuning or real trade advice.',schema(),async env=>{const c=await context(env),trades=automatic(c.trades);return output({label:'PAPER retained history',agents:Object.values(c.agents).map(a=>({id:a.id,name:a.name||a.label,strategy:a.strategy,...summarizePaperTrades(trades.filter(t=>t.agent===a.id))})),limitation:'Small and correlated samples do not establish future performance.'});}),
@@ -69,4 +70,3 @@ export const TOOLS=[
   tool('benchmark_compare','Compare two user-supplied FPS measurements and frame times. Does not scan or alter the PC.',schema({before_fps:number('Measured FPS before change'),after_fps:number('Measured FPS after change')},['before_fps','after_fps']),async(env,input)=>output(benchmarkCompare(input)),'math'),
   tool('trade_expectancy_calculator','Calculate hypothetical net expectancy and break-even win rate from supplied average wins, losses and costs. No predicted results or trades.',schema({win_rate_pct:number('Hypothetical win rate 0–100'),average_win:number('Positive gross average win'),average_loss:number('Positive gross average loss'),cost_per_trade:number('Costs per round trip')},['win_rate_pct','average_win','average_loss','cost_per_trade']),async(env,input)=>output(expectancy(input)))
 ];
-

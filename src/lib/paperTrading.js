@@ -1,3 +1,5 @@
+import {paperRpc} from './paper-store.js';
+import {portfolioValuation,entryGate,depthFill,replayResearch,RESEARCH_VERSION} from './paperResearch.js';
 // ODIN's paper-trading simulation. SIMULATED ONLY — no real money, no real
 // brokerage/exchange keys with trading permissions, nothing here executes a
 // real trade. This is deliberately separate from ODIN's real trading rules
@@ -326,7 +328,7 @@ function momentumBreakoutSignal(candles, hasPosition) {
   // Falls back to "confirmed" when a feed reports no volume at all, rather
   // than permanently blocking trades on a data gap.
   const avgVol = window.reduce((s, c) => s + (c.volume || 0), 0) / window.length;
-  const volumeConfirmed = avgVol > 0 ? (lastCandle.volume || 0) >= avgVol * VOLUME_CONFIRM_MULTIPLIER : true;
+  const volumeConfirmed = avgVol > 0 && (lastCandle.volume || 0) >= avgVol * VOLUME_CONFIRM_MULTIPLIER;
   if (!hasPosition && last > donchianHigh && volumeConfirmed) {
     return { action: 'enter', reason: `breakout above ${LOOKBACK}-bar high ${donchianHigh.toFixed(2)}, volume ${(avgVol ? lastCandle.volume / avgVol : 1).toFixed(1)}x average` };
   }
@@ -347,18 +349,18 @@ function trendFollowingSignal(candles, hasPosition) {
   // mostly whipsaws -- this is the single biggest documented cause of
   // trend-following losses. Null ADX (not enough history) doesn't block the
   // trade; an unmeasurable filter shouldn't strand the strategy forever.
-  const trending = adx === null || adx >= ADX_TREND_THRESHOLD;
+  const trending = adx !== null && adx >= ADX_TREND_THRESHOLD;
   if (!hasPosition && separation > MA_SEPARATION_MIN && trending) {
     return { action: 'enter', reason: `uptrend: 8-bar avg ${fast.toFixed(2)} > 21-bar avg ${slow.toFixed(2)}${adx !== null ? `, ADX ${adx.toFixed(0)} confirms trending regime` : ''}` };
   }
   if (!hasPosition && separation > MA_SEPARATION_MIN && !trending) {
-    return { action: 'hold', reason: `MAs crossed but ADX ${adx.toFixed(0)} says sideways chop -- sitting out to avoid a whipsaw` };
+    return { action: 'hold', reason: `MAs crossed but ADX ${adx===null?'unavailable':adx.toFixed(0)} says sideways chop -- sitting out to avoid a whipsaw` };
   }
   if (hasPosition && fast < slow) return { action: 'exit', reason: `trend reversed: 8-bar avg ${fast.toFixed(2)} < 21-bar avg ${slow.toFixed(2)}` };
   return { action: 'hold', reason: 'trend intact' };
 }
 
-const SIGNAL_FNS = { meanReversion: meanReversionSignal, momentum: momentumBreakoutSignal, trendFollowing: trendFollowingSignal };
+export const SIGNAL_FNS = { meanReversion: meanReversionSignal, momentum: momentumBreakoutSignal, trendFollowing: trendFollowingSignal };
 
 function computeVolatility(candles) {
   const recent = candles.slice(-LOOKBACK);
@@ -425,6 +427,15 @@ function brokerFor(env, portfolio, instrumentCache) {
     quotes,
     providerOf: agentOrInstrument => { const a = AGENTS[agentOrInstrument]; const instr = INSTRUMENTS[a ? a.instrumentId : agentOrInstrument]; return instr?.category==='memes' ? 'kraken_meme' : instr ? instr.provider : 'twelvedata'; },
     hooks: { onClose: (agentId, position, exitPrice, exitTime, reason, fees) => logTrade(env, AGENTS[agentId], position, exitPrice, exitTime, reason, fees) }
+  }).then(broker=>{
+    const close=broker.closePosition.bind(broker);
+    broker.closePosition=async(agentId,opts)=>{
+      const i=INSTRUMENTS[AGENTS[agentId]?.instrumentId],position=portfolio.positions[agentId];
+      if(i?.provider==='kraken'&&position){const depth=depthFill(await fetchPaperBook(i.krakenPair),'sell',position.qty);
+        if(depth.ok)opts={...opts,price:/stop/i.test(opts.reason)?Math.min(opts.price,depth.price):depth.price,reason:opts.reason+'; displayed bid-depth estimate + slippage stress'};
+        else opts={...opts,reason:opts.reason+'; depth unavailable, candle/slippage fallback'};
+      }return close(agentId,opts);
+    };return broker;
   });
 }
 
@@ -484,6 +495,9 @@ export async function processAgent(env, agentId, portfolio, instrumentCache, bro
 
   const lastCandle = candles[candles.length - 1];
   const lastProcessedKey = `paper:lastCandle:${agentId}`;
+  const previousArchive=JSON.parse(await env.RAYVEN_KV.get('paper:archive:'+agentId)||'[]');
+  const archive=[...new Map([...previousArchive,...candles].map(c=>[c.time,c])).values()].sort((a,b)=>a.time-b.time).slice(-10000);
+  if(previousArchive.at(-1)?.time!==archive.at(-1)?.time)await env.RAYVEN_KV.put('paper:archive:'+agentId,JSON.stringify(archive));
   const lastProcessedRaw = await env.RAYVEN_KV.get(lastProcessedKey);
   if (lastProcessedRaw && parseInt(lastProcessedRaw, 10) >= lastCandle.time) {
     return { agentId, skipped: 'already processed this candle' };
@@ -514,10 +528,18 @@ export async function processAgent(env, agentId, portfolio, instrumentCache, bro
       outcome = c.ok ? { agentId, action: 'closed', reason: signal.reason, price: c.fill.price, quoted: lastCandle.close } : { agentId, error: c.error };
     } else if (!position && signal.action === 'enter') {
       const pairId = CORRELATED_PAIR[agentId];
+      const gate=entryGate({candles,strategy:a.strategy,provider:instr.category==='memes'?'kraken_meme':instr.provider,portfolio,agents:AGENTS,instruments:INSTRUMENTS,agentId,trades:risk?.trades||[]});
+      const marked=await valuationFor(env,portfolio,risk?.trades||[]);
+      const peak=Math.max(portfolio.startingBalance,portfolio.equityPeak||0,marked.equity);
+      const equityDrawdown=(peak-marked.equity)/peak;
       if (risk && risk.halt && risk.halt.halted) {
         outcome = { agentId, action: 'skipped_halted', reason: `trading halt is on (${risk.halt.reason || 'no reason given'}) — no new PAPER positions until resumed` };
       } else if (risk && risk.dailyLossCapHit) {
         outcome = { agentId, action: 'skipped_daily_loss_cap', reason: `today's realised PAPER loss (${risk.todayPnl.toFixed(2)}) has reached the ${DAILY_LOSS_CAP * 100}% daily cap — no new positions until tomorrow` };
+      } else if (equityDrawdown>=.08 || Math.abs(marked.reconciliationDifference)>.05) {
+        outcome={agentId,action:'skipped_equity_guard',reason:'Equity drawdown reached 8% or accounting does not reconcile'};
+      } else if (!gate.ok) {
+        outcome={agentId,action:'skipped_research_gate',reason:gate.reason,evidence:gate};
       } else if (instr.provider !== 'kraken' && minutesToNyseClose() <= NEAR_CLOSE_MINUTES) {
         outcome = { agentId, action: 'skipped_near_close', reason: `inside the last ${NEAR_CLOSE_MINUTES} minutes before the NYSE close — no new positions` };
       } else if (pairId && portfolio.positions[pairId]) {
@@ -527,12 +549,23 @@ export async function processAgent(env, agentId, portfolio, instrumentCache, bro
         const sizeFraction = sizeFractionForVolatility(vol);
         const memeExposure = Object.entries(portfolio.positions).filter(([id])=>INSTRUMENTS[AGENTS[id]?.instrumentId]?.category==='memes').reduce((sum,[,p])=>sum+p.qty*p.entryPrice,0);
         const categoryCapacity = instr.category==='memes' ? Math.max(0,portfolio.startingBalance*0.10-memeExposure) : Infinity;
-        const spend = Math.min(portfolio.cash * sizeFraction, POSITION_CAP_FRACTION * portfolio.startingBalance, categoryCapacity);
+        const spend = Math.min(portfolio.cash * sizeFraction, POSITION_CAP_FRACTION * portfolio.startingBalance, categoryCapacity, gate.capacity);
         const fillProvider = instr.category==='memes' ? 'kraken_meme' : instr.provider;
         const fillCosts = fillModelFor(fillProvider);
         const qty = spend / (lastCandle.close * (1+fillCosts.slippageBps/10000) * (1+fillCosts.commissionPct/100));
         const stopFraction = stopDistanceFraction(candles, lastCandle.close);
-        const o = await broker.placeOrder({ agentId, symbol: a.instrumentId, side: 'buy', qty, price: lastCandle.close, time: Date.now(), stop: lastCandle.close * (1 - stopFraction), reason: signal.reason, provider: fillProvider, meta: { strategy: a.strategy, sizeFraction, volatilityAtEntry: vol, stopFraction } });
+        let executionPrice=lastCandle.close;
+        if(instr.provider==='kraken'){
+          const book=await fetchPaperBook(instr.krakenPair);
+          const fill=depthFill(book,'buy',qty),bid=Number(book?.bids?.[0]?.[0]),ask=Number(book?.asks?.[0]?.[0]);
+          if(!fill.ok||!(bid>0)||!(ask>=bid)||(ask/bid-1)>.005){
+            await env.RAYVEN_KV.put(lastProcessedKey,String(lastCandle.time));
+            return {agentId,action:'skipped_liquidity',reason:fill.reason||'Spread above 0.5% or invalid book'};
+          }
+          if(instr.category==='memes'){const available=book.asks.reduce((sum,r)=>sum+Number(r[0])*Number(r[1]),0);if(spend>available*.01){await env.RAYVEN_KV.put(lastProcessedKey,String(lastCandle.time));return {agentId,action:'skipped_meme_depth',reason:'Order exceeds 1% of displayed ask notional'};}}
+          executionPrice=fill.price;
+        }
+        const o = await broker.placeOrder({ agentId, symbol: a.instrumentId, side: 'buy', qty, price: executionPrice, time: Date.now(), stop: lastCandle.close * (1 - stopFraction), reason: signal.reason, provider: fillProvider, meta: { strategy: a.strategy, sizeFraction, volatilityAtEntry: vol, stopFraction } });
         outcome = o.ok
           ? { agentId, action: 'entered', reason: signal.reason, qty, price: o.fill.price, quoted: lastCandle.close, sizeFraction, stopFraction, fees: o.fill.commission }
           : { agentId, action: 'skipped_no_cash', reason: o.error };
@@ -553,6 +586,7 @@ export async function processAgent(env, agentId, portfolio, instrumentCache, bro
 // labeled as such everywhere it surfaces so it's never mistaken for a real
 // signal. One-off operator tool, not part of the normal trading cycle.
 export async function forceDemoTrade(env, agentId, action) {
+  if(env.PAPER_LEDGER&&!env._paperTransaction)return paperRpc(env,'demo',{agentId,action});
   const a = AGENTS[agentId];
   if (!a) return { ok: false, error: `unknown agent ${agentId}` };
   const raw = await fetchInstrumentCandles(env, a.instrumentId);
@@ -575,7 +609,7 @@ export async function forceDemoTrade(env, agentId, action) {
     const o = await broker.placeOrder({ agentId, symbol: a.instrumentId, side: 'buy', qty, price: lastCandle.close, time: lastCandle.time, stop: lastCandle.close * (1 - stopFraction), reason: 'MANUAL TEST ENTRY — demo requested by Rayan, not a real strategy signal', provider: INSTRUMENTS[a.instrumentId].provider, meta: { strategy: a.strategy, sizeFraction, volatilityAtEntry: vol, stopFraction, manual: true } });
     if (!o.ok) return { ok: false, error: o.error };
     await savePortfolio(env, portfolio);
-    await appendCappedLog(env, EQUITY_LOG_KEY, { time: Date.now(), cash: portfolio.cash }, EQUITY_LOG_CAP);
+    await appendCappedLog(env, EQUITY_LOG_KEY, { time: Date.now(), ...(await valuationFor(env,portfolio,await readCappedLog(env,TRADES_KEY))) }, EQUITY_LOG_CAP);
     return { ok: true, action: 'entered', agentId, price: lastCandle.close, qty, stopPrice: portfolio.positions[agentId].stopPrice };
   }
 
@@ -586,7 +620,7 @@ export async function forceDemoTrade(env, agentId, action) {
     const c = await broker.closePosition(agentId, { price: lastCandle.close, time: lastCandle.time, reason: 'MANUAL TEST EXIT — demo requested by Rayan, not a real strategy signal' });
     if (!c.ok) return { ok: false, error: c.error };
     await savePortfolio(env, portfolio);
-    await appendCappedLog(env, EQUITY_LOG_KEY, { time: Date.now(), cash: portfolio.cash }, EQUITY_LOG_CAP);
+    await appendCappedLog(env, EQUITY_LOG_KEY, { time: Date.now(), ...(await valuationFor(env,portfolio,await readCappedLog(env,TRADES_KEY))) }, EQUITY_LOG_CAP);
     return { ok: true, action: 'closed', agentId, price: c.fill.price, pnl: c.trade ? c.trade.pnl : null };
   }
 
@@ -596,16 +630,19 @@ export async function forceDemoTrade(env, agentId, action) {
 const PORTFOLIO_MUTATING_ACTIONS = new Set(['entered', 'closed', 'stopped_out']);
 
 export async function runPaperTradingCycleIfDue(env) {
+  if(env.PAPER_LEDGER&&!env._paperTransaction)return paperRpc(env,'cycle');
   const portfolio = await getPortfolio(env);
   const results = [];
   let mutated = false;
   const instrumentCache = new Map();
   const risk = await riskStateFor(env, portfolio);
+  await env.RAYVEN_KV.put('paper:heartbeat',JSON.stringify({startedAt:Date.now(),status:'running'}));
   const broker = await brokerFor(env, portfolio, instrumentCache);   // PaperBroker; a LiveBroker (mode 'live') refuses every call and no trade happens
   for (const agentId of Object.keys(AGENTS)) {
     try {
       const outcome = await processAgent(env, agentId, portfolio, instrumentCache, broker, risk);
       results.push(outcome);
+      if(outcome)await appendCappedLog(env,'paper:decisions',{...outcome,at:Date.now(),version:RESEARCH_VERSION},3000);
       if (outcome && PORTFOLIO_MUTATING_ACTIONS.has(outcome.action)) mutated = true;
       // A loss earlier in this tick must block later entries in the same tick.
       if (outcome && ['closed','stopped_out'].includes(outcome.action)) Object.assign(risk,await riskStateFor(env,portfolio));
@@ -634,7 +671,7 @@ export async function runPaperTradingCycleIfDue(env) {
     // save above -- feeds the HUD's balance-over-time chart with real history
     // instead of another random walk.
     try {
-      await appendCappedLog(env, EQUITY_LOG_KEY, { time: Date.now(), cash: portfolio.cash }, EQUITY_LOG_CAP);
+      await appendCappedLog(env, EQUITY_LOG_KEY, { time: Date.now(), ...(await valuationFor(env,portfolio,await readCappedLog(env,TRADES_KEY))) }, EQUITY_LOG_CAP);
     } catch (err) {
       console.error('Paper trading: equity log write failed:', err.message);
     }
@@ -645,6 +682,13 @@ export async function runPaperTradingCycleIfDue(env) {
     try { const trades = await readCappedLog(env, TRADES_KEY); for (const id of closedAgents) await updateAgentStats(env, id, trades, portfolio, { sample: false }); }
     catch (err) { console.error('Paper trading: stats update failed:', err.message); }
   }
+  const mark=await valuationFor(env,portfolio,await readCappedLog(env,TRADES_KEY));
+  portfolio.equityPeak=Math.max(portfolio.startingBalance,portfolio.equityPeak||0,mark.equity);
+  await savePortfolio(env,portfolio);
+  const previousEquity=(await readCappedLog(env,EQUITY_LOG_KEY)).at(-1);
+  if(!previousEquity||previousEquity.equity!==mark.equity)await appendCappedLog(env,EQUITY_LOG_KEY,{time:Date.now(),...mark},EQUITY_LOG_CAP);
+  const errors=results.filter(r=>r.error);
+  await env.RAYVEN_KV.put('paper:heartbeat',JSON.stringify({completedAt:Date.now(),status:errors.length?'degraded':'ok',errors}));
   return { ok: !saveError, results, saveError, portfolioSaved: mutated };
 }
 
@@ -669,6 +713,12 @@ export async function getPaperStatus(env) {
   return {
     label: 'PAPER / SIMULATED — no real money',
     segments: paperSegments(trades, AGENTS, INSTRUMENTS),
+    valuation:await valuationFor(env,portfolio,trades),
+    scheduler:await schedulerHealth(env),
+    researchVersion:RESEARCH_VERSION,
+    equityPeak:portfolio.equityPeak||portfolio.startingBalance,
+    currentDrawdownPct:100*Math.max(0,1-(await valuationFor(env,portfolio,trades)).equity/(portfolio.equityPeak||portfolio.startingBalance)),
+    decisions:(await readCappedLog(env,'paper:decisions')).slice(-100).reverse(),
     startingBalance: portfolio.startingBalance,
     currentCash: portfolio.cash,
     openPositions,
@@ -719,7 +769,8 @@ export async function getPaperChartData(env) {
   return {
     label: 'PAPER / SIMULATED — no real money',
     agents,
-    equityCurve: equity,
+    equityCurve: equity.filter(p=>Number.isFinite(p.equity)),
+    valuation:await valuationFor(env,portfolio,trades),
     startingBalance: portfolio.startingBalance,
     currentCash: portfolio.cash
   };
@@ -1011,3 +1062,28 @@ export async function collectTraderReviews(env, entry, results) {
   return { note: `${n} review(s) journaled` };
 }
 export async function getTraderJournal(env, agentId) { return await readCappedLog(env, JOURNAL_KEY(agentId)); }
+
+async function fetchPaperBook(pair){
+  try{const r=await fetch('https://api.kraken.com/0/public/Depth?pair='+encodeURIComponent(pair)+'&count=100',{signal:AbortSignal.timeout(5000)});if(!r.ok)return null;const j=await r.json();return j.error?.length?null:Object.values(j.result||{})[0];}catch{return null;}
+}
+async function valuationFor(env,portfolio,trades){
+  const marks={};await Promise.all(Object.keys(portfolio.positions||{}).map(async id=>{try{const bars=JSON.parse(await env.RAYVEN_KV.get('paper:candles:'+id)||'[]');marks[id]=bars.at(-1);}catch{}}));
+  return portfolioValuation(portfolio,trades,marks);
+}
+async function schedulerHealth(env){
+  const h=JSON.parse(await env.RAYVEN_KV.get('paper:heartbeat')||'null');const age=h?.completedAt?(Date.now()-h.completedAt)/60000:null;
+  return {...h,ageMinutes:age,alert:age===null?'No completed heartbeat':age>15?'Paper scheduler overdue':h.status==='degraded'?'Some feeds failed':null};
+}
+export async function getPaperResearch(env){
+  const result={version:RESEARCH_VERSION,label:'Independent held-out PAPER replay accounts',agents:{}};
+  const feeds=new Map();
+  for(const [id,a]of Object.entries(AGENTS)){
+    let bars=JSON.parse(await env.RAYVEN_KV.get('paper:archive:'+id)||await env.RAYVEN_KV.get('paper:candles:'+id)||'[]');const i=INSTRUMENTS[a.instrumentId];
+    if(bars.length<120&&i.provider==='kraken'){
+      if(!feeds.has(a.instrumentId))feeds.set(a.instrumentId,await fetchKrakenCandles(i.krakenPair,i.krakenInterval));
+      const raw=feeds.get(a.instrumentId);if(raw.ok)bars=closedPaperCandles(raw.candles,i.krakenInterval);
+    }
+    result.agents[id]=replayResearch(bars,SIGNAL_FNS,i.category==='memes'?'kraken_meme':i.provider);
+  }
+  return result;
+}

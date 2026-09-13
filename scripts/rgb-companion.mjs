@@ -1,3 +1,4 @@
+import {sleepLights,desktopMode,maintainDesktop,telemetry,transitionBrightness} from './desktop-local.mjs';
 import http from 'node:http';
 import {randomBytes,timingSafeEqual} from 'node:crypto';
 import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
@@ -27,6 +28,8 @@ export function createCompanion({token,port=18771,apply=applySignal}){
     }
     const supplied=Buffer.from(String(req.headers['x-asgard-key']||'')),expected=Buffer.from(token);
     if(supplied.length!==expected.length||!timingSafeEqual(supplied,expected))return reply(401,{error:'Pair this browser first'});
+    if(req.method==='GET'&&req.url==='/telemetry')return reply(200,await telemetry());
+    if(req.method==='POST'&&['/sleep','/desktop'].includes(req.url)){try{let raw='';for await(const c of req){raw+=c;if(raw.length>100)return reply(413,{error:'Too large'});}const v=JSON.parse(raw);if(typeof v.enabled!=='boolean')return reply(400,{error:'Boolean required'});return reply(200,await(req.url==='/sleep'?sleepLights(v.enabled):desktopMode(v.enabled)));}catch{return reply(502,{error:'Local setting unavailable'});}}
     if(req.method==='GET'&&req.url==='/status')return reply(200,{ok:true,last});
     if(req.method!=='POST'||req.url!=='/state')return reply(404,{error:'Not found'});
     if(!String(req.headers['content-type']).startsWith('application/json'))return reply(415,{error:'JSON required'});
@@ -39,6 +42,7 @@ export function createCompanion({token,port=18771,apply=applySignal}){
       chain=chain.catch(()=>{}).then(async()=>{
         if(myRevision!==revision)return;
         await apply(mode);
+        await maintainDesktop(mode);
         last={persona:data.persona,locked:data.locked,color:COLORS[mode],at:new Date().toISOString()};
       });
       await chain;reply(200,{ok:true,last});
@@ -54,6 +58,9 @@ async function applySignal(mode){
   if(!current.ok)throw Error('SignalRGB unavailable');
   const state=await current.json();
   if(state.data?.id===effect&&state.data?.attributes?.enabled)return;
+  const previousBrightness=state.data?.attributes?.global_brightness??100;
+  if(previousBrightness>0){await transitionBrightness(previousBrightness*.85);await transitionBrightness(previousBrightness*.7);}
+  try{
   const result=await fetch(base+'/effects/'+encodeURIComponent(effect)+'/apply',{method:'POST',signal:AbortSignal.timeout(4000)});
   if(!result.ok||(await result.json()).status!=='ok')throw Error('Effect unavailable');
   const enabled=await fetch(base+'/enabled',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:true}),signal:AbortSignal.timeout(4000)});
@@ -67,6 +74,7 @@ async function applySignal(mode){
     if(actual.data?.id===effect&&actual.data?.attributes?.enabled)return;
   }
   throw Error('SignalRGB did not load the requested effect');
+  }finally{if(previousBrightness>0){await transitionBrightness(previousBrightness*.85);await transitionBrightness(previousBrightness);}}
 }
 if(process.argv[1]&&fileURLToPath(import.meta.url)===process.argv[1]){
   const dir=join(process.env.LOCALAPPDATA,'ASGARD-RGB');mkdirSync(dir,{recursive:true});

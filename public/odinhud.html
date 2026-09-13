@@ -175,7 +175,7 @@ function drawEquityChart(cv,points,startingBalance){
     ctx.fillStyle='rgba(255,244,221,.35)';ctx.font='8px "JetBrains Mono",monospace';
     ctx.fillText('balance history builds as trades close',4,h/2+3);return;
   }
-  let lo=Math.min(startingBalance,...pts.map(p=>p.cash)),hi=Math.max(startingBalance,...pts.map(p=>p.cash));
+  let lo=Math.min(startingBalance,...pts.map(p=>p.equity)),hi=Math.max(startingBalance,...pts.map(p=>p.equity));
   const pad=(hi-lo)*.1||1;lo-=pad;hi+=pad;
   const y=v=>h-((v-lo)/(hi-lo))*h;
   const x=i=>(i/(pts.length-1))*w;
@@ -183,9 +183,9 @@ function drawEquityChart(cv,points,startingBalance){
   ctx.beginPath();ctx.moveTo(0,y(startingBalance));ctx.lineTo(w,y(startingBalance));ctx.stroke();
   ctx.setLineDash([]);
   ctx.strokeStyle='rgba(255,200,90,.9)';ctx.lineWidth=1.3;ctx.beginPath();
-  pts.forEach((p,i)=>i?ctx.lineTo(x(i),y(p.cash)):ctx.moveTo(x(i),y(p.cash)));
+  pts.forEach((p,i)=>i?ctx.lineTo(x(i),y(p.equity)):ctx.moveTo(x(i),y(p.equity)));
   ctx.stroke();
-  const last=pts[pts.length-1].cash;
+  const last=pts[pts.length-1].equity;
   ctx.fillStyle=last>=startingBalance?'rgba(125,255,168,1)':'rgba(255,110,110,1)';
   ctx.beginPath();ctx.arc(x(pts.length-1),y(last),2.2,0,6.283);ctx.fill();
 }

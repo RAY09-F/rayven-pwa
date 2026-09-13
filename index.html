@@ -917,6 +917,7 @@ function fallback(){
   var ctx=cv.getContext('2d'); if(!ctx) return;
   var step=Math.max(1,Math.floor(COUNT/7000)),t0=performance.now(),last=t0;
   function f(now){
+    if(window.asgardGamingMode||document.hidden){last=now;setTimeout(()=>requestAnimationFrame(f),500);return;}
     var t=REDUCED?0:(now-t0)/1000;
     var dt=Math.min(.06,(now-last)/1000);last=now;
     voiceTarget=external>=0?external:micOn?readMic():0;
@@ -958,6 +959,7 @@ if(!initGL()){ fallback(); }
 else{
   var t0=performance.now(),prev=t0,Rm=new Float32Array(9),clock=0;
   function frame(now){
+    if(window.asgardGamingMode||document.hidden){prev=now;setTimeout(()=>requestAnimationFrame(frame),500);return;}
     var dt=Math.min(0.06,(now-prev)/1000);prev=now;
     lat=lat*0.9+dt*100;
     clock+=dt*tempoNow;
@@ -1082,4 +1084,4 @@ else{
   requestAnimationFrame(frame);
 }
 })();
-</script><script type="module" src="/ui/warden-workspace.js"></script><script type="module" src="/ui/aurum.js"></script></body></html>
+</script><script type="module" src="/ui/warden-workspace.js"></script><script type="module" src="/ui/aurum.js"></script><script type="module" src="/ui/desktop-suite.js"></script></body></html>

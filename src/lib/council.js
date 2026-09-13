@@ -127,7 +127,7 @@ export const COUNCIL = {
 // messaging permissions or changing their scheduled trading strategies.
 for (const c of Object.values(COUNCIL)) {
   if (c.owner === 'odin' && !c.hidden) {
-    c.tools.push('paper_category_report','paper_risk_snapshot','paper_agent_review','paper_cost_sensitivity','paper_feed_health','market_session_clock','trade_expectancy_calculator');
+    c.tools.push('paper_research_replay','paper_category_report','paper_risk_snapshot','paper_agent_review','paper_cost_sensitivity','paper_feed_health','market_session_clock','trade_expectancy_calculator');
     if (['tyr','freya'].includes(c.paperAgentId)) c.tools.push('crypto_orderbook_snapshot');
     c.prompt += '\nResearch protocol: use the diagnostic tools relevant to the question before stating a result. Report sample size and net P/L together. Identify the timestamp, missing evidence, and the strongest alternative explanation. Separate observations from hypotheses. Use cost sensitivity for claims about profitability. A short or losing record is inconclusive or unfavorable evidence, never a reason to raise risk or force trades. Cite the tool result accurately and give one concrete next experiment. Do not change strategies, place real orders or claim improved win rates without measurements.';
   }
