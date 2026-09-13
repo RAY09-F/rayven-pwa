@@ -5,8 +5,19 @@ async function api(path,body){
   const j=await r.json();if(!r.ok)throw Error(j.error||'Connection unavailable');return j;
 }
 function say(text){$('status').textContent=text;}
+function showTiming(state){
+  let section=document.getElementById('phone-timing');
+  if(!section){section=document.createElement('section');section.id='phone-timing';$('calls').closest('section').after(section);}
+  const h=document.createElement('h2'),note=document.createElement('p'),list=document.createElement('ul');h.textContent='Response timing';
+  note.textContent='Server processing measurements from recent owner calls. These exclude speech recognition, carrier delay and playback; they are not total mouth-to-ear latency.';
+  const rows=state.calls.flatMap(c=>Object.entries(c.turns||{}).map(([turn,t])=>({persona:t.persona||c.persona,turn:Number(turn)+1,timing:t.timing,at:c.at}))).filter(x=>Number.isFinite(x.timing?.readyMs)).slice(0,12);
+  for(const x of rows){const t=x.timing,li=document.createElement('li'),sec=n=>(n/1000).toFixed(2)+'s';li.textContent=`${new Date(x.at).toLocaleDateString()} · ${x.persona} turn ${x.turn}: ${sec(t.readyMs)} processing; model/tools ${sec(t.modelMs||0)}${Number.isFinite(t.speechReadyMs)?'; voice/storage '+sec(t.speechReadyMs):''}${t.audioStorage?' · '+t.audioStorage.toUpperCase():''}${t.voice==='fallback'?' · backup voice':''}`;list.append(li);}
+  if(!rows.length){const li=document.createElement('li');li.textContent='No measured call turns yet. Timing appears after your next conversation.';list.append(li);}
+  section.replaceChildren(h,note,list);
+}
 async function refresh(){
   const s=await api('status');
+  showTiming(s);
   say(s.config.enabled?'Connected · calls enabled':'Connected · calls paused');
   $('presence').textContent=s.presence.state==='unknown'?'Unknown — update your status':`${s.presence.state==='home'?'Home':'Away'} · ${s.presence.source}`;
   $('schedule').textContent=`Calls to ${s.config.to||'no number configured'}, ${s.config.callStart||'11:00'}–${s.config.callEnd||'03:00'} (${s.config.timeZone}). ${s.config.allUpdates?'All updates':'Important updates'}${s.config.awayOnly?' while Away':' whether Home or Away'}. ${s.config.maxDaily===null?'No daily call cap':`Maximum ${s.config.maxDaily} calls per day`}. Nearby updates are grouped; at least 10 minutes between calls. ${s.todayCount} attempted today.`;

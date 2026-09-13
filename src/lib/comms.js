@@ -1,5 +1,6 @@
 // Twilio SMS/calls and OpenRouter alternate-model routing. Ported unchanged.
 import { escapeXml } from './util.js';
+import {storePhoneAudio} from './phone-audio.js';
 
 function twilioReady(env) {
   return !!(env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_PHONE_NUMBER);
@@ -42,13 +43,15 @@ export async function sendTextMessage(env, toNumber, message) {
 // ---------------------------------------------------------------------------
 const CALL_AUDIO_TTL = 900;   // seconds; Twilio fetches within moments
 
-export async function synthCallAudio(env, text, personaId = 'thor', {fast=false} = {}) {
+export async function synthCallAudio(env, text, personaId = 'thor', {fast=false,onTiming=()=>{}} = {}) {
+  const started=Date.now();
   const { getPersonaVoiceId, getPersonaVoiceSettings } = await import('./personas.js');
   const voiceId = getPersonaVoiceId(env, personaId);
   if (!env.ELEVENLABS_API_KEY || !voiceId) return null;
   const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}${fast?'?output_format=mp3_22050_32':''}`, {
     method: 'POST',
     headers: { 'xi-api-key': env.ELEVENLABS_API_KEY, 'content-type': 'application/json', accept: 'audio/mpeg' },
+    signal: AbortSignal.timeout(fast?5000:12000),
     body: JSON.stringify({
       text,
       model_id: fast ? 'eleven_flash_v2_5' : 'eleven_turbo_v2_5',
@@ -57,10 +60,15 @@ export async function synthCallAudio(env, text, personaId = 'thor', {fast=false}
   });
   if (!res.ok) return null;
   const buf = new Uint8Array(await res.arrayBuffer());
+  const generatedAt=Date.now();
+  if(fast&&env.CLIPS){
+    try{const id=await storePhoneAudio(env,buf,CALL_AUDIO_TTL);onTiming({ttsMs:generatedAt-started,audioStoreMs:Date.now()-generatedAt,audioStorage:'r2'});return id;}catch{/* Legacy storage remains available if R2 is temporarily unavailable. */}
+  }
   let bin = '';
   for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 8192));
   const id = crypto.randomUUID().replace(/-/g, '').slice(0, 20);
   await env.RAYVEN_KV.put(`callaudio:${id}`, btoa(bin), { expirationTtl: CALL_AUDIO_TTL });
+  onTiming({ttsMs:generatedAt-started,audioStoreMs:Date.now()-generatedAt,audioStorage:'kv'});
   return id;
 }
 
@@ -73,10 +81,10 @@ export async function makePhoneCall(env, toNumber, message, opts = {}) {
     // his voice if we can get it; Twilio's robot only as a fallback, because a
     // failed call is worse than a robotic one
     let twiml;
-    const id = await synthCallAudio(env, message, personaId).catch(() => null);
+    const id = await synthCallAudio(env, message, personaId,{fast:true}).catch(() => null);
     if (id) {
       const gather = opts.conversational === false ? '' :
-        `<Gather input="speech" action="${base}/voice/turn?p=${personaId}" method="POST" speechTimeout="auto" language="en-US"></Gather>` +
+        `<Gather input="speech" action="${base}/voice/turn?p=${personaId}" method="POST" timeout="15" speechTimeout="1" language="en-US"></Gather>` +
         `<Redirect>${base}/voice/turn?p=${personaId}&amp;silent=1</Redirect>`;
       twiml = `<Response><Play>${base}/voice/audio/${id}</Play>${gather}</Response>`;
     } else {

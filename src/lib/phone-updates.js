@@ -72,7 +72,7 @@ export async function runPhoneUpdates(env,{test=false,persona='thor',now=Date.no
     const provider=await phoneProvider(env);
     if(!provider.selected){await ledger.phone(env,{kind:'result',id,result:{status:'failed',reason:'no_verified_sender'}});return {ok:false,reason:'no_verified_sender'};}
     const message=`Hi Rayan, this is ${r.item.persona}, your ASGARD AI assistant. ${await brief(env,r)}`;
-    const audio=await synthCallAudio(env,message,r.item.persona).catch(()=>null);
+    const audio=await synthCallAudio(env,message,r.item.persona,{fast:true}).catch(()=>null);
     const spoken=audio?`<Play>${BASE}/voice/audio/${audio}</Play>`:`<Say voice="Polly.Matthew">${escapeXml(message)}</Say>`;
     const latest=await ledger.phone(env,{kind:'status'}),window=phoneWindow(latest.config,now());
     if(!latest.config.enabled||latest.config.to!==r.to||!window.allowed||window.remainingSeconds<=30){await ledger.phone(env,{kind:'defer',id});return {ok:true,skipped:'paused_or_quiet_hours'};}
@@ -145,14 +145,15 @@ export async function handlePhoneRequest(request,env,ctx){
           persona=target;
           answer=`It's ${target}. I'm here, Rayan.`;
         }else answer=await answerPhone(env,call,heard);
-        modelMs=Date.now()-started;
       }catch{}
+      modelMs=Date.now()-started;
       const done=turn>=(call.direction==='inbound'?19:7)||/\bDONE\s*$/.test(answer)||/\b(goodbye|bye|hang up)\b/i.test(heard);
       answer=answer.replace(/\bDONE\s*$/,'').trim();
-      const audio=await synthCallAudio(env,answer,persona,{fast:true}).catch(()=>null);
+      const speechStarted=Date.now();let speechTiming={};
+      const audio=await synthCallAudio(env,answer,persona,{fast:true,onTiming:t=>{speechTiming=t;}}).catch(()=>null);
       const speak=audio?`<Play>${BASE}/voice/audio/${audio}</Play>`:`<Say voice="Polly.Matthew">${escapeXml(answer)}</Say>`;
       const response=`<Response>${speak}${done?'<Hangup/>':listen(call.id,turn+1)}</Response>`;
-      await ledger.phone(env,{kind:'finishTurn',id:call.id,turn,heard,reply:answer,xml:response,persona,timing:{modelMs,readyMs:Date.now()-started}});
+      await ledger.phone(env,{kind:'finishTurn',id:call.id,turn,heard,reply:answer,xml:response,persona,timing:{modelMs,...speechTiming,speechReadyMs:Date.now()-speechStarted,readyMs:Date.now()-started,voice:audio?'persona':'fallback',scope:'Server processing only; excludes speech recognition, carrier and playback delay.'}});
       return response;
       };
       if(ctx?.waitUntil){

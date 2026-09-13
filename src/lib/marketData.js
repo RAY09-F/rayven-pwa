@@ -87,7 +87,7 @@ function normalizeCandle(time, open, high, low, close, volume) {
 // (Kraken's own supported set: 1,5,15,30,60,240,1440,10080,21600).
 export async function fetchKrakenCandles(pair, intervalMinutes) {
   const url = `https://api.kraken.com/0/public/OHLC?pair=${encodeURIComponent(pair)}&interval=${intervalMinutes}`;
-  const res = await fetch(url);
+  const res = await fetch(url,{signal:AbortSignal.timeout(8000)});
   if (!res.ok) return { ok: false, error: `Kraken HTTP ${res.status}` };
   const data = await res.json().catch(() => null);
   if (!data) return { ok: false, error: 'Kraken returned non-JSON.' };

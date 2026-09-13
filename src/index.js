@@ -3,6 +3,7 @@ import {paperEnvironment} from './lib/paper-store.js';
 export {PaperLedger} from './paper-ledger.js';
 import {workspaceSnapshot} from './lib/workspace-snapshot.js';
 import {handlePhoneRequest,runPhoneUpdates,queuePhoneEvents,queuePhoneUpdate} from './lib/phone-updates.js';
+import {readPhoneAudio,cleanupPhoneAudio} from './lib/phone-audio.js';
 import {summarizeOlderHistory} from './lib/history-summary.js';
 import { activeIdentity, safeError } from './lib/chat-diagnostics.js';
 // ASGARD backend — Cloudflare Worker entrypoint. HTTP router plus the main
@@ -1341,6 +1342,7 @@ export default {
     // expires in fifteen minutes and points at nothing but a spoken sentence.
     if (url.pathname.startsWith('/voice/audio/') && request.method === 'GET') {
       const id = url.pathname.split('/').pop().replace(/[^a-zA-Z0-9]/g, '');
+      if(id.startsWith('r2'))return readPhoneAudio(env,id);
       const b64 = await env.RAYVEN_KV.get(`callaudio:${id}`);
       if (!b64) return new Response('gone', { status: 404 });
       const bin = atob(b64);
@@ -1387,7 +1389,7 @@ How to speak on a phone call:
       let reply = 'Sorry, I did not catch that.';
       try {
         const r = await callAnthropicSimple(env, sys,
-          script.map(m => `${m.role === 'user' ? 'THEM' : 'YOU'}: ${m.content}`).join('\n') + '\nYOU:', 250);
+          script.map(m => `${m.role === 'user' ? 'THEM' : 'YOU'}: ${m.content}`).join('\n') + '\nYOU:', 160, MODELS.haiku);
         if (r.ok) reply = r.text.trim();
       } catch (e) {}
 
@@ -1396,12 +1398,12 @@ How to speak on a phone call:
       script.push({ role: 'assistant', content: reply });
       await env.RAYVEN_KV.put('call:transcript', JSON.stringify(script.slice(-24)), { expirationTtl: 3600 });
 
-      const id = await synthCallAudio(env, reply, personaId).catch(() => null);
+      const id = await synthCallAudio(env, reply, personaId,{fast:true}).catch(() => null);
       const speak = id ? `<Play>${base}/voice/audio/${id}</Play>`
                        : `<Say voice="Polly.Matthew">${reply.replace(/[<>&]/g, '')}</Say>`;
       const xml = done
         ? `<Response>${speak}<Hangup/></Response>`
-        : `<Response>${speak}<Gather input="speech" action="${base}/voice/turn?p=${personaId}" method="POST" speechTimeout="auto" language="en-US"></Gather><Redirect>${base}/voice/turn?p=${personaId}&amp;silent=1</Redirect></Response>`;
+        : `<Response>${speak}<Gather input="speech" action="${base}/voice/turn?p=${personaId}" method="POST" timeout="15" speechTimeout="1" language="en-US"></Gather><Redirect>${base}/voice/turn?p=${personaId}&amp;silent=1</Redirect></Response>`;
       return new Response(xml, { headers: { 'content-type': 'text/xml' } });
     }
 
@@ -1591,6 +1593,7 @@ How to speak on a phone call:
     });
     const jobs = [
       job(runPhoneUpdates),
+      job(cleanupPhoneAudio),
       job(runProactiveCheckInIfDue),
       job(runMorningBriefingIfDue),
       job(runCodeCheckIfDue),
