@@ -53,7 +53,15 @@ Design direction: dark neutral surfaces, one accent color per agent, hidden powe
 
 ## In-home cable-management providers
 
-Local company selection is waiting for the user's city or ZIP. A phone area code is not enough to assume service location. No address was disclosed and no booking/message was sent.
+Updated with Bakersfield-area providers after the location clarification. Their websites advertise local service; acceptance of this specific desk-only job, current appointment availability and the final quote have not been confirmed. No booking or message was sent.
+
+| Provider | Contact | Fit for this setup |
+|---|---|---|
+| [Central Valley Tech Solutions](https://www.centralvalleytechsolutions.com/) | (661) 282-1094 | First quote to request: home visits across Kern County, workstation cabling and monitor-arm/peripheral installation. Their website lists an $89 home diagnostic, credited toward approved repair; that is not a cable-management quote. Ask whether a diagnostic fee applies to installation-only work. |
+| [Kalieb Designs](https://kaliebdesigns.com/) | (661) 412-4308 | Mobile Bakersfield crew advertising structured cabling, equipment mounting and LED accent lighting; a good candidate for the wider room upgrade. Advertises free phone quotes. Confirm it accepts a gaming-desk-only job. |
+| [inFixcorp](https://infixcorp.com/) | (661) 671-7332 | Bakersfield mobile PC service and custom builds. Backup option if you also need computer setup help; external desk cable organization is not explicitly listed, so ask first. |
+
+Suggested first contact: Central Valley Tech Solutions for desk cable routing and monitor mounting. Compare with Kalieb Designs if adding lighting, speaker mounts or wall concealment. These are fit judgments based on advertised services, not independently verified workmanship ratings.
 
 - [Taskrabbit services](https://www.taskrabbit.com/services): lists computer help and office tech setup. Ask a local tasker explicitly whether under-desk cable routing and mounting are included; not every computer-help task is an in-home cable-management appointment.
 - [HelloTech](https://www.hellotech.com/geek-squad-isnt-best): advertises in-home technical service. Desk-only cable organization and service coverage must be confirmed before booking; this is a candidate provider, not a verified local quote.
@@ -94,4 +102,4 @@ No new subscriptions, hardware purchases or business outreach were made in this 
 - The GitHub review tool queried PresentMon's live metadata successfully. Browser control and the cloud scheduler remained connected on final check. Paper accounting still reconciled to floating-point rounding.
 - C: had approximately 554.7 GB free out of 930.5 GB at inspection; no cleanup deletion was needed.
 - To capture actual Fortnite performance, start a repeatable game scene, then run the installed `Capture Fortnite.ps1` in `%LOCALAPPDATA%/ASGARD-Tools/PresentMon-2.5.1`. It saves CSV files to Documents/ASGARD-Captures. Import one into the performance lab. Capture permission and real gameplay remain to be verified when the user is back.
-- Exact fan-ring mapping still requires the fan model or a physical LED test. In-home cable-management coverage still requires a city or ZIP.
+- Exact fan-ring mapping still requires the fan model or a physical LED test. Bakersfield provider options are now listed; desk-only scope, exact-address coverage, quotes and appointments still need confirmation.
