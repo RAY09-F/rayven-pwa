@@ -48,6 +48,6 @@ test('the doubled catalogue keeps proposals distinct and does not double-count w
  const queue=JSON.parse(readFileSync('public/ui/prism-v1/expansion-catalog.json')).tools;
  assert.equal(queue.length,186);assert.equal(new Set(queue.map(t=>t.id)).size,186);
  assert.ok(queue.every(t=>t.status==='proposed'&&t.requirements&&t.acceptance));
- assert.equal(backend.length+LOCAL_TOOLS.length+queue.length,457); // includes ten new research diagnostics
+ assert.equal(backend.length+LOCAL_TOOLS.length+queue.length,460); // includes ten new research diagnostics
  assert.equal(AUTOMATIONS.length,24);assert.ok(AUTOMATIONS.every(t=>t.trigger&&t.action&&t.tools));
 });

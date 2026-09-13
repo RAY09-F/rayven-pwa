@@ -1,0 +1,14 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+const escape=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const inline=s=>escape(s).replace(/\[([^\]]+)\]\((https:\/\/[^\s)]+)\)/g,'<a href="$2">$1 ↗</a>').replace(/`([^`]+)`/g,'<code>$1</code>');
+const lines=readFileSync('docs/setup-research-2026-09-12.md','utf8').split(/\r?\n/);let html='',table=false;
+for(const line of lines){
+ if(line.startsWith('|')){if(/^\|[-| :]+$/.test(line))continue;const cells=line.split('|').slice(1,-1);if(!table){html+='<div class="table"><table><thead><tr>'+cells.map(c=>'<th>'+inline(c.trim())+'</th>').join('')+'</tr></thead><tbody>';table=true;}else html+='<tr>'+cells.map(c=>'<td>'+inline(c.trim())+'</td>').join('')+'</tr>';continue;}
+ if(table){html+='</tbody></table></div>';table=false;}
+ if(line.startsWith('# '))html+='<h1>'+inline(line.slice(2))+'</h1>';
+ else if(line.startsWith('## '))html+='<h2>'+inline(line.slice(3))+'</h2>';
+ else if(line.startsWith('> '))html+='<blockquote>'+inline(line.slice(2))+'</blockquote>';
+ else if(line.trim())html+='<p>'+inline(line)+'</p>';
+}
+if(table)html+='</tbody></table></div>';
+writeFileSync('public/setup-guide.html',`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ASGARD · Setup upgrade guide</title><link rel="icon" href="/brand/asgard-crown.ico"><style>*{box-sizing:border-box}body{margin:0;background:#080c12;color:#e8ecee;font:17px/1.65 system-ui}main{max-width:1150px;padding:5vw;margin:auto}nav{display:flex;gap:24px;flex-wrap:wrap;padding:18px 0;border-bottom:1px solid #d7b66d55}a{color:#e6c37c}h1{font-size:clamp(32px,6vw,60px);font-weight:400;line-height:1.15;margin:45px 0}h2{font-size:27px;margin-top:54px;border-top:1px solid #d7b66d44;padding-top:24px}p{color:#c1cbd3}code{overflow-wrap:anywhere;color:#efd798;background:#17202b;padding:2px 5px;border-radius:4px}blockquote{border-left:3px solid #d7b66d;padding:20px;background:#111a24;margin:20px 0}.table{overflow:auto;border:1px solid #d7b66d44;border-radius:12px}table{border-collapse:collapse;width:100%;min-width:650px}th,td{text-align:left;padding:18px;border-bottom:1px solid #d7b66d22;vertical-align:top}th{color:#e6c37c}a:focus-visible{outline:2px solid white;outline-offset:4px}.badge{display:inline-block;color:#e6c37c;letter-spacing:3px;font-size:12px;margin-top:30px}@media print{body{background:white;color:black}p,code,a,th{color:black}main{max-width:none;padding:10px}nav{display:none}.table{overflow:visible}table{min-width:0}h2{break-after:avoid}tr{break-inside:avoid}}</style></head><body><main><nav><a href="/command-center">Command center</a><a href="/performance-lab">Performance lab</a><a href="/">ASGARD</a></nav><span class="badge">THE NEXT CHAPTER / RESEARCH & DELIVERY</span>${html}</main></body></html>`);

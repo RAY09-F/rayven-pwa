@@ -5775,6 +5775,80 @@
       }
     },
     {
+      "id": "github_project_review",
+      "title": "github project review",
+      "description": "Read public GitHub repository maintenance, license and latest stable release metadata. No installation; metadata is not a safety audit.",
+      "group": "tech",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "GitHub owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "frame_time_report",
+      "title": "frame time report",
+      "description": "Analyze user-supplied frame durations in milliseconds from one process/swap chain. Returns average FPS, p95/p99 and defined slowest-1% FPS. Does not scan the PC.",
+      "group": "math",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "samples": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 500000
+          }
+        },
+        "required": [
+          "samples"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "paper_account_health",
+      "title": "paper account health",
+      "description": "Read PAPER account equity, reconciliation, drawdown, cycle health and recent decision reasons. Cached prices are dated; no trades or account changes.",
+      "group": "markets",
+      "personas": [
+        "thor",
+        "loki",
+        "odin"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
       "id": "paper_research_replay",
       "title": "paper research replay",
       "description": "Compare fixed strategies on chronologically held-out PAPER candles, with independent replay accounts, regime breakdowns and cash/buy-hold baselines. No parameter fitting or orders.",

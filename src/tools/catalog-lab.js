@@ -2,6 +2,8 @@
 // background polling, new secrets, or paid services.
 import {readCappedLog} from '../lib/util.js';
 import {httpJson} from '../lib/http.js';
+import {projectReview} from '../lib/projectReview.js';
+import {frameSummary} from '../../public/ui/performance-math.js';
 import {paperSegments,summarizePaperTrades} from '../lib/paperAnalytics.js';
 import {isNyseSessionOpen,minutesToNyseClose} from '../lib/marketData.js';
 const schema=(properties={},required=[])=>({type:'object',properties,required,additionalProperties:false});
@@ -58,6 +60,9 @@ export function summarizeBook(book){
 }
 const tool=(name,description,input_schema,run,group='markets',taint=false)=>({name,description,input_schema,run,group,taint});
 export const TOOLS=[
+  tool('github_project_review','Read public GitHub repository maintenance, license and latest stable release metadata. No installation; metadata is not a safety audit.',schema({owner:str('GitHub owner'),repo:str('Repository name')},['owner','repo']),async(env,input)=>output(await projectReview(env,input.owner,input.repo)),'tech',true),
+  tool('frame_time_report','Analyze user-supplied frame durations in milliseconds from one process/swap chain. Returns average FPS, p95/p99 and defined slowest-1% FPS. Does not scan the PC.',schema({samples:{type:'array',items:{type:'number'},minItems:2,maxItems:500000}},['samples']),async(env,input)=>output(frameSummary(input.samples)),'math'),
+  tool('paper_account_health','Read PAPER account equity, reconciliation, drawdown, cycle health and recent decision reasons. Cached prices are dated; no trades or account changes.',schema(),async env=>{const s=await(await import('../lib/paperTrading.js')).getPaperStatus(env);return output({label:s.label,valuation:s.valuation,scheduler:s.scheduler,drawdownPct:s.currentDrawdownPct,decisions:s.decisions?.slice(-10)});}),
   tool('paper_research_replay','Compare fixed strategies on chronologically held-out PAPER candles, with independent replay accounts, regime breakdowns and cash/buy-hold baselines. No parameter fitting or orders.',schema(),async env=>output(await (await import('../lib/paperTrading.js')).getPaperResearch(env))),
   tool('paper_category_report','Read PAPER win rates, net P/L and sample counts separately for regular markets, stocks, crypto and meme coins. Excludes manual demos.',schema(),async env=>{const c=await context(env);return output(paperSegments(c.trades,c.agents,c.instruments));}),
   tool('paper_risk_snapshot','Read open PAPER exposure at entry prices and modeled loss to stops. Does not claim current equity or maximum loss.',schema(),async env=>{const c=await context(env);return output(riskSnapshot(c.portfolio,c.agents,c.instruments));}),
