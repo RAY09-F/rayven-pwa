@@ -1,4 +1,4 @@
-import {sleepLights,desktopMode,maintainDesktop,telemetry,transitionBrightness} from './desktop-local.mjs';
+import {sleepLights,desktopMode,maintainDesktop,telemetry} from './desktop-local.mjs';
 import http from 'node:http';
 import {randomBytes,timingSafeEqual} from 'node:crypto';
 import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
@@ -6,9 +6,9 @@ import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 export const SITE='https://asgrard-backend.rayanfahil2.workers.dev';
-export const COLORS={thor:'#47B3FF',loki:'#1FB352',odin:'#DBA340',locked:'#FF0B12'};
-export function createCompanion({token,port=18771,apply=applySignal}){
-  let last=null,chain=Promise.resolve(),revision=0;
+export const COLORS={thor:'#47B3FF',loki:'#006400',odin:'#FF9000',locked:'#B00000'};
+export function createCompanion({token,port=18771,apply=applySignal,desktop=maintainDesktop}){
+  let last=null,chain=Promise.resolve(),revision=0,desktopChain=Promise.resolve(),desktopRevision=0;
   const server=http.createServer(async(req,res)=>{
     const origin=req.headers.origin;
     res.setHeader('Cache-Control','no-store');res.setHeader('X-Frame-Options','DENY');
@@ -42,8 +42,9 @@ export function createCompanion({token,port=18771,apply=applySignal}){
       chain=chain.catch(()=>{}).then(async()=>{
         if(myRevision!==revision)return;
         await apply(mode);
-        await maintainDesktop(mode);
-        last={persona:data.persona,locked:data.locked,color:COLORS[mode],at:new Date().toISOString()};
+        last={persona:data.persona,locked:data.locked,color:COLORS[mode],at:new Date().toISOString(),transitionMs:1200};
+        const d=++desktopRevision;
+        desktopChain=desktopChain.catch(()=>{}).then(async()=>{if(d===desktopRevision)await desktop(mode);}).catch(()=>{});
       });
       await chain;reply(200,{ok:true,last});
     }catch(error){reply(502,{error:'SignalRGB is unavailable or Pro is not active'});}
@@ -51,30 +52,28 @@ export function createCompanion({token,port=18771,apply=applySignal}){
   server.requestTimeout=5000;server.headersTimeout=5000;
   return server;
 }
-async function applySignal(mode){
-  const base='http://127.0.0.1:16038/api/v1/lighting';
-  const effect='ASGARD '+mode+'.html';
-  const current=await fetch(base,{signal:AbortSignal.timeout(4000)});
+export async function applySignal(mode){
+  const base='http://127.0.0.1:16038/api/v1/lighting',effect='ASGARD Flow.html';
+  const current=await fetch(base,{signal:AbortSignal.timeout(1500)});
   if(!current.ok)throw Error('SignalRGB unavailable');
   const state=await current.json();
-  if(state.data?.id===effect&&state.data?.attributes?.enabled)return;
-  const previousBrightness=state.data?.attributes?.global_brightness??100;
-  if(previousBrightness>0){await transitionBrightness(previousBrightness*.85);await transitionBrightness(previousBrightness*.7);}
-  try{
-  const result=await fetch(base+'/effects/'+encodeURIComponent(effect)+'/apply',{method:'POST',signal:AbortSignal.timeout(4000)});
-  if(!result.ok||(await result.json()).status!=='ok')throw Error('Effect unavailable');
-  const enabled=await fetch(base+'/enabled',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:true}),signal:AbortSignal.timeout(4000)});
-  if(!enabled.ok)throw Error('Canvas unavailable');
-  // An accepted request does not guarantee SignalRGB loaded the effect.
-  for(let attempt=0;attempt<8;attempt++){
-    await new Promise(resolve=>setTimeout(resolve,250));
-    const check=await fetch(base,{signal:AbortSignal.timeout(1500)});
-    if(!check.ok)continue;
-    const actual=await check.json();
-    if(actual.data?.id===effect&&actual.data?.attributes?.enabled)return;
+  if(state.data?.id!==effect){
+    const result=await fetch(base+'/effects/'+encodeURIComponent(effect)+'/apply',{method:'POST',signal:AbortSignal.timeout(2000)});
+    if(!result.ok||(await result.json()).status!=='ok')throw Error('Flow effect unavailable');
+    let loaded=false;
+    for(let attempt=0;attempt<12;attempt++){
+      await new Promise(r=>setTimeout(r,80));
+      const check=await fetch(base,{signal:AbortSignal.timeout(1000)});
+      if(check.ok&&(await check.json()).data?.id===effect){loaded=true;break;}
+    }
+    if(!loaded)throw Error('Flow effect did not load');
   }
-  throw Error('SignalRGB did not load the requested effect');
-  }finally{if(previousBrightness>0){await transitionBrightness(previousBrightness*.85);await transitionBrightness(previousBrightness);}}
+  if(!state.data?.attributes?.enabled){
+    const r=await fetch(base+'/enabled',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:true}),signal:AbortSignal.timeout(1500)});
+    if(!r.ok)throw Error('Canvas unavailable');
+  }
+  const event=await fetch('http://127.0.0.1:16034/canvas/event?sender=asgard-rgb&event='+encodeURIComponent(mode),{method:'POST',signal:AbortSignal.timeout(1500)});
+  if(!event.ok)throw Error('Palette event unavailable');
 }
 if(process.argv[1]&&fileURLToPath(import.meta.url)===process.argv[1]){
   const dir=join(process.env.LOCALAPPDATA,'ASGARD-RGB');mkdirSync(dir,{recursive:true});

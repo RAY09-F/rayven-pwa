@@ -21,9 +21,9 @@ export function connectPCLights(){
       if(!res.ok)throw Error('unavailable');
       if(token)status.textContent='Connected · '+(locked?'red focus':persona[0].toUpperCase()+persona.slice(1))+' lighting';
     }catch{if(token)status.textContent='Not connected. Check the PC helper, SignalRGB Pro and browser local-network permission.';}
-    finally{busy=false;if(again)schedule();}
+    finally{busy=false;if(again)sync();}
   }
-  function schedule(){clearTimeout(timer);timer=setTimeout(sync,180);}
+  function schedule(){clearTimeout(timer);sync();}
   section.querySelector('#pc-lights-off').onclick=()=>{token='';try{localStorage.removeItem(KEY);}catch{}clearTimeout(timer);status.textContent='Disconnected. Lights keep their last color.';};
   new MutationObserver(schedule).observe(document.body,{attributes:true,attributeFilter:['data-identity','data-locked']});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)schedule();});

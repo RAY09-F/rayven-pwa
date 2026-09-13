@@ -1,12 +1,13 @@
 import {mkdirSync,writeFileSync,copyFileSync} from 'node:fs';
 import {join} from 'node:path';
-import {COLORS} from './rgb-companion.mjs';
+
 const target=join(process.env.LOCALAPPDATA,'ASGARD-RGB');mkdirSync(target,{recursive:true});
 copyFileSync(new URL('./rgb-companion.mjs',import.meta.url),join(target,'rgb-companion.mjs'));
 const effects=join(process.env.USERPROFILE,'Documents','WhirlwindFX','Effects');mkdirSync(effects,{recursive:true});
-for(const [mode,color]of Object.entries(COLORS))writeFileSync(join(effects,'ASGARD '+mode+'.html'),`<head>\n<title>ASGARD ${mode}</title>\n<meta description="ASGARD ${mode} lighting"/>\n<meta publisher="ASGARD"/>\n</head>\n<body style="margin:0"><canvas id="lights" width="320" height="200"></canvas>\n<script>var ctx=document.getElementById('lights').getContext('2d');function paint(){ctx.fillStyle='${color}';ctx.fillRect(0,0,320,200);requestAnimationFrame(paint);}paint();</script>\n</body>`);
+copyFileSync(new URL('./effects/ASGARD Flow.html',import.meta.url),join(effects,'ASGARD Flow.html'));
+copyFileSync(new URL('./desktop-local.mjs',import.meta.url),join(target,'desktop-local.mjs'));
 const vbs='Set shell = CreateObject("WScript.Shell")\r\nshell.Run Chr(34) & "'+process.execPath+'" & Chr(34) & " " & Chr(34) & "'+join(target,'rgb-companion.mjs')+'" & Chr(34), 0, False\r\n';
 writeFileSync(join(target,'Start ASGARD Lights.vbs'),vbs);
 const startup=join(process.env.APPDATA,'Microsoft','Windows','Start Menu','Programs','Startup');
 writeFileSync(join(startup,'ASGARD Lights.vbs'),vbs);
-console.log('Installed local lighting helper, four effects, and Windows sign-in startup.');
+console.log('Installed local lighting helper, Flow effect (restart SignalRGB to discover it), and Windows sign-in startup.');

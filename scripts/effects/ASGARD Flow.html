@@ -1,0 +1,20 @@
+<head><title>ASGARD Flow</title><meta description="Immediate agent events with smooth 1.2-second palette blending"/><meta publisher="ASGARD"/></head>
+<body style="margin:0"><canvas id="lights" width="320" height="200"></canvas></body>
+<script>
+var ctx=document.getElementById('lights').getContext('2d');
+// Existing calibrated RGB colors and accent geometry. Device channel correction
+// stays in the device plugins, not in this shared canvas.
+var palettes={thor:[71,179,255,255,144,0,12],loki:[0,100,0,255,255,255,9],odin:[255,144,0,255,255,255,9],locked:[176,0,0,255,255,255,0]};
+var mode='odin',from=palettes[mode].slice(),target=from.slice(),started=0,duration=1200;
+function sample(now){var t=Math.max(0,Math.min(1,(now-started)/duration));var eased=1-Math.pow(1-t,3);return from.map(function(v,i){return v+(target[i]-v)*eased;});}
+function onCanvasApiEvent(event){
+ if(event.sender!=='asgard-rgb'||!Object.prototype.hasOwnProperty.call(palettes,event.event)||event.event===mode)return;
+ var now=Date.now();from=sample(now);mode=event.event;target=palettes[mode].slice();started=now;
+}
+function rgb(p,offset){return 'rgb('+p.slice(offset,offset+3).map(Math.round).join(',')+')';}
+function paint(){
+ var p=sample(Date.now());ctx.fillStyle=rgb(p,0);ctx.fillRect(0,0,320,200);ctx.fillStyle=rgb(p,3);
+ for(var x=-80;x<360;x+=36){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x+p[6],0);ctx.lineTo(x+70+p[6],200);ctx.lineTo(x+70,200);ctx.closePath();ctx.fill();}
+ requestAnimationFrame(paint);
+}paint();
+</script>
