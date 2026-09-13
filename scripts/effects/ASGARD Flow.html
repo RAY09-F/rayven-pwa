@@ -1,59 +1,20 @@
-<head><title>ASGARD Flow</title><meta description="Simultaneous moving rainbow bands landing on the selected agent palette"/><meta publisher="ASGARD"/></head>
+<head><title>ASGARD Flow</title><meta description="Immediate agent events with smooth 1.2-second palette blending"/><meta publisher="ASGARD"/></head>
 <body style="margin:0"><canvas id="lights" width="320" height="200"></canvas></body>
 <script>
-var canvas=document.getElementById('lights'),ctx=canvas.getContext('2d');
-var lockSnapshot=document.createElement('canvas');lockSnapshot.width=320;lockSnapshot.height=200;var lockCtx=lockSnapshot.getContext('2d');
+var ctx=document.getElementById('lights').getContext('2d');
 // Existing calibrated RGB colors and accent geometry. Device channel correction
 // stays in the device plugins, not in this shared canvas.
 var palettes={thor:[71,179,255,255,144,0,12],loki:[0,100,0,255,255,255,9],odin:[255,144,0,255,255,255,9],locked:[176,0,0,255,255,255,0]};
-var mode='odin',target=palettes[mode].slice(),started=-2000,duration=2000,phase=0;
-function spinProgress(now){return Math.max(0,Math.min(1,(now-started)/duration));}
+var mode='odin',from=palettes[mode].slice(),target=from.slice(),started=0,duration=1200;
+function sample(now){var t=Math.max(0,Math.min(1,(now-started)/duration));var eased=1-Math.pow(1-t,3);return from.map(function(v,i){return v+(target[i]-v)*eased;});}
 function onCanvasApiEvent(event){
  if(event.sender!=='asgard-rgb'||!Object.prototype.hasOwnProperty.call(palettes,event.event)||event.event===mode)return;
- if(event.event==='locked'){lockCtx.clearRect(0,0,320,200);lockCtx.drawImage(canvas,0,0);}
- mode=event.event;target=palettes[mode].slice();started=Date.now();phase=Math.random()*Math.PI*2;
+ var now=Date.now();from=sample(now);mode=event.event;target=palettes[mode].slice();started=now;
 }
 function rgb(p,offset){return 'rgb('+p.slice(offset,offset+3).map(Math.round).join(',')+')';}
-function paintPalette(p){
- ctx.fillStyle=rgb(p,0);ctx.fillRect(0,0,320,200);ctx.fillStyle=rgb(p,3);
- for(var x=-80;x<360;x+=36){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x+p[6],0);ctx.lineTo(x+70+p[6],200);ctx.lineTo(x+70,200);ctx.closePath();ctx.fill();}
-}
-function lockFrame(elapsed){
- if(elapsed<1800)return {stage:'fade',brightness:Math.pow(1-Math.max(0,elapsed)/1800,2)};
- if(elapsed<2050)return {stage:'black'};
- if(elapsed<4000)return {stage:'flash',on:(elapsed-2050)%650<180,index:Math.floor((elapsed-2050)/650)};
- var t=elapsed-4000;
- return {stage:'hold',glitch:t>=3200&&t%3200<110,cycle:Math.floor(t/3200)};
-}
-function paintLocked(now){
- var f=lockFrame(now-started);ctx.globalAlpha=1;ctx.fillStyle='#000000';ctx.fillRect(0,0,320,200);
- if(f.stage==='fade'){ctx.globalAlpha=f.brightness;ctx.drawImage(lockSnapshot,0,0);}
- else if(f.stage==='flash'&&f.on){ctx.fillStyle='#FF0000';ctx.fillRect(0,0,320,200);}
- else if(f.stage==='hold'){
-  ctx.fillStyle='#B00000';ctx.fillRect(0,0,320,200);
-  if(f.glitch){
-   ctx.fillStyle='#FFFFFF';
-   for(var i=0;i<5;i++){var x=(i*67+f.cycle*29)%320,y=(i*41+f.cycle*17)%200;ctx.fillRect(x,y,22,4);ctx.fillRect((x+37)%320,(y+15)%200,5,16);}
-  }
- }
- ctx.globalAlpha=1;
-}
 function paint(){
- var now=Date.now(),progress=spinProgress(now);ctx.globalAlpha=1;
- if(mode==='locked'){paintLocked(now);requestAnimationFrame(paint);return;}
- paintPalette(target);
- if(progress<1){
-  // Repeat a full rainbow every 24 canvas pixels so individual devices see
-  // several simultaneous colors, rather than one large rotating color sector.
-  var shift=phase*24/(Math.PI*2)+(now-started)*0.048;
-  ctx.globalAlpha=progress<0.9?1:Math.pow((1-progress)/0.1,2);
-  for(var i=-112;i<176;i++){
-   var x=i*2+(shift%24);
-   ctx.fillStyle='hsl('+(((i%12)+12)%12*30)+',100%,50%)';
-   ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x+2.2,0);
-   ctx.lineTo(x+202.2,200);ctx.lineTo(x+200,200);ctx.closePath();ctx.fill();
-  }
- }
- ctx.globalAlpha=1;requestAnimationFrame(paint);
+ var p=sample(Date.now());ctx.fillStyle=rgb(p,0);ctx.fillRect(0,0,320,200);ctx.fillStyle=rgb(p,3);
+ for(var x=-80;x<360;x+=36){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x+p[6],0);ctx.lineTo(x+70+p[6],200);ctx.lineTo(x+70,200);ctx.closePath();ctx.fill();}
+ requestAnimationFrame(paint);
 }paint();
 </script>
