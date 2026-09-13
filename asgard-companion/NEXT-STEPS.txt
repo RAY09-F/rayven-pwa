@@ -13,9 +13,8 @@ Chrome can suspend this zero-idle-traffic extension; reopen the popup if the bad
 
 2. FIRST VOICE CHECK
 Say "Thor, are you there." Expect "Here, sir."
-As of setup, Windows default communications input is "Headset Microphone (3- DualSense Wireless Controller)".
-If you use your FIFINE instead, set it as Windows' default communications recording device.
-Asgard rechecks the default input locally and follows a changed selection within about ten seconds.
+Asgard is explicitly configured to use Microphone (fifine Microphone).
+If it is disconnected, Asgard reports a microphone error instead of listening through another device.
 Say "Thor, clip that." Clips are saved in C:\Asgard\Clips.
 Ctrl+Shift+M mutes/unmutes. Once muted, names are ignored, including "wake up".
 Do not test message/call commands unless you actually want the message/call sent.

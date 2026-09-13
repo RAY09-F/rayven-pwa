@@ -24,18 +24,32 @@ def communications_device():
     except Exception as e:
         logging.warning('Communications microphone lookup failed: %s',type(e).__name__)
         return None
+def selected_device(config):
+    name=config.data.get('microphone_name','')
+    if not name:
+        return communications_device()
+    candidates=[(i,d) for i,d in enumerate(sd.query_devices())
+                if d['max_input_channels'] and d['name']==name]
+    wasapi=[(i,d) for i,d in candidates if 'WASAPI' in sd.query_hostapis(d['hostapi'])['name']]
+    if not candidates:
+        raise ConnectionError('Selected microphone is unavailable')
+    return (wasapi or candidates)[0][0]
+
 class Audio:
     def __init__(self,config,health):
         self.config=config;self.health=health;self.frames=queue.Queue(maxsize=150);self.stop=False
         self.dropped=0;self.device_name='';self.ring=collections.deque(maxlen=18)
     def run(self):
+        # WASAPI requires COM initialization on the capture thread.
+        import comtypes
+        comtypes.CoInitialize()
         while not self.stop:
             try:
-                device=communications_device()
+                device=selected_device(self.config)
                 info=sd.query_devices(device,'input');self.device_name=info['name']
-                rate=16000
-                try: sd.check_input_settings(device=device,channels=1,dtype='int16',samplerate=rate)
-                except Exception: rate=int(info['default_samplerate'])
+                # WASAPI may advertise 16k support but reject it when opening USB microphones.
+                # Open the endpoint at its native rate and resample below.
+                rate=int(info['default_samplerate'])
                 last_callback=[time.monotonic()]
                 def callback(indata,frames,clock,status):
                     last_callback[0]=time.monotonic()
@@ -56,7 +70,7 @@ class Audio:
                             raise ConnectionError('Microphone stream stopped')
                         if time.monotonic()>=next_device_check:
                             next_device_check=time.monotonic()+10
-                            if communications_device()!=device:break
+                            if selected_device(self.config)!=device:break
             except Exception as e:
                 logging.warning('Microphone disconnected/unavailable: %s',type(e).__name__)
                 self.health('mic','Microphone unavailable; reconnect it or select a Windows input.')
