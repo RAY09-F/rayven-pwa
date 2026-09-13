@@ -16,3 +16,15 @@ ruvector.db
 # Local browser sessions and working captures
 .playwright-cli/
 output/
+asgard-companion/secrets.json
+asgard-companion/config.json
+asgard-companion/*.pid
+asgard-companion/*.key
+asgard-companion/models/
+asgard-companion/audio/
+asgard-companion/.venv/
+asgard-companion/__pycache__/
+asgard-companion/.pytest_cache/
+asgard-companion/tests/__pycache__/
+asgard-companion/**/__pycache__/
+asgard-face/pairing.js

@@ -23,6 +23,7 @@ export async function callAnthropic(env, systemBlocks, tools, messages, maxToken
         model: model || MODELS.sonnet,
         max_tokens: maxTokens || 1400,   // 900 was clipping longer answers mid-thought
         ...stableRequest(systemBlocks,tools,messages),
+        ...(opts.disableThinking ? {thinking:{type:'disabled'}} : {}),
         ...(opts.toolChoiceNone ? {tool_choice:{type:'none'}} : {})
       })
     });

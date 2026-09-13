@@ -1,0 +1,83 @@
+ASGARD VOICE — YOUR NEXT STEPS
+Installed September 13, 2026. Read C:\Asgard\logs\acceptance.json for measured results.
+
+1. CHROME CONTROL PANEL
+ALREADY INSTALLED AND PAIRED in your Rayan Chrome profile. The following is only for reinstalling:
+Open your usual Rayan Chrome profile and enter chrome://extensions.
+Turn Developer mode ON, click Load unpacked, select C:\Asgard\asgard-face.
+That installed folder is already locally paired; no key entry is needed.
+Pin Asgard using Chrome's puzzle-piece menu. Open it once and select Open setup.
+The Windows listener works even if you never load the extension.
+The page overlay requires "Enable face on this page" from the popup.
+Chrome can suspend this zero-idle-traffic extension; reopen the popup if the badge is stale.
+
+2. FIRST VOICE CHECK
+Say "Thor, are you there." Expect "Here, sir."
+As of setup, Windows default communications input is "Headset Microphone (3- DualSense Wireless Controller)".
+If you use your FIFINE instead, set it as Windows' default communications recording device.
+Asgard rechecks the default input locally and follows a changed selection within about ten seconds.
+Say "Thor, clip that." Clips are saved in C:\Asgard\Clips.
+Ctrl+Shift+M mutes/unmutes. Once muted, names are ignored, including "wake up".
+Do not test message/call commands unless you actually want the message/call sent.
+
+3. OPTIONAL GROQ TRANSCRIPTION UPGRADE
+Open https://console.groq.com/keys and create your own key.
+Save only that key locally as C:\Asgard\groq.txt. Do not paste it into chat.
+Open Command Prompt in C:\Users\Hoengager\Desktop\ASGARD\rayven-warden-release.
+Run these exact commands:
+set "PATH=C:\Asgard\tools\node-v24.13.0-win-x64;%PATH%"
+C:\Asgard\tools\node_modules\.bin\wrangler.cmd secret put GROQ_API_KEY < C:\Asgard\groq.txt
+Then click Test Worker in the extension setup so the companion detects Groq.
+This uploads only command audio after a wake name. Without it, small Vosk stays local.
+The larger installed Vosk model cold-loaded in 23.83 seconds; it is not the default.
+
+4. OPTIONAL PICOVOICE WAKE UPGRADE
+Open https://console.picovoice.ai/ and create/sign in to your own account.
+Create three custom Porcupine keywords: Thor, Loki, Odin. Choose Windows.
+Save their downloaded keyword files as:
+C:\Asgard\companion\keywords\thor.ppn
+C:\Asgard\companion\keywords\loki.ppn
+C:\Asgard\companion\keywords\odin.ppn
+Save your AccessKey, by itself, to C:\Asgard\companion\picovoice.key.
+Restart Asgard. Invalid/missing keyword setup falls back to Vosk and logs a warning.
+Provider pricing/limits depend on your account; no new subscription was purchased.
+
+5. IF THE TRAY ICON IS RED
+Hover over it for the reason. Microphone: check Windows default communications input and reconnect it.
+Worker: test your connection and click Test Worker. Local commands still work offline.
+OBS: open OBS and dismiss a genuine crash/safe-mode prompt if present, then test a clip.
+No sound: check Windows default output device/volume. Cached phrases use the existing voices; SAPI is fallback.
+Logs: C:\Asgard\logs\asgard.log. Setup: C:\Asgard\companion\SETUP.html.
+
+6. MANUAL ACCEPTANCE CHECKLIST — NOT YET VERIFIED WITH YOUR VOICE
+[ ] Reboot: Asgard tray and OBS replay start without opening Chrome; check within 30 seconds.
+[ ] Talk normally for five minutes without a wake name: nothing triggers.
+[ ] "Thor" alone: low chime, up to six seconds listening, no reply.
+[ ] "Loki": high chime. "Odin": middle chime.
+[ ] "Thor, clip that" in a game: a real playable clip appears; measure total delay and Fortnite frame times.
+    The brief's <=0.5s total and zero FPS change are unproven, not promised.
+[ ] "Thor, what time is it": correct time without internet.
+[ ] "Loki, what's next today": a real calendar response if the existing calendar tool is configured.
+[ ] "Odin, how did the week do": a grounded reply in Odin's configured voice.
+[ ] Only if desired: "Thor, text Jay hello". Verify actual delivery; existing approval rules still apply.
+[ ] "Thor, delete my last clip": correct filename + "Say confirm"; confirm deletes only that clip.
+    Repeat and stay silent: after eight seconds it cancels.
+[ ] During a long reply say "Thor, stop": verify interruption; target <=200ms from wake detection remains unmeasured.
+[ ] Unplug/replug the microphone: red then recovery without restarting Asgard.
+[ ] Close Chrome entirely: "Thor, clip that" still saves a clip.
+[ ] Disable Wi-Fi: local clipping works; a weather request gives an honest offline response.
+[ ] Ctrl+Shift+M: mute/grey; names ignored. Again: unmuted.
+
+7. IMPORTANT MEASURED LIMITS
+The final 60-second sample passed CPU at 3.8% of one core but FAILED the requested 150MB RAM cap at 196.3MB.
+The watchdog restarted a deliberately stopped companion in 2.05 seconds when run immediately.
+A short cloud reply took 2.16 seconds before speech playback. Internet/tool requests can take longer.
+The final OBS saved-file test took 1.094 seconds; this excludes the 700ms end-of-speech wait and recognition.
+OBS uses GPU encoding continuously. Powered-off/asleep PCs cannot listen or clip.
+This installation is not declared fully accepted until the failures/manual checks are resolved.
+
+8. RECOVERY
+Run C:\Asgard\companion\INSTALL-ASGARD.bat to repair the local install.
+Run C:\Asgard\companion\UNINSTALL-ASGARD.bat to disable only these startup entries/task.
+Uninstall deliberately preserves clips, models, keys and OBS profiles for recovery.
+No other Asgard UI, RGB profile, trading configuration or existing browser-control extension was replaced.

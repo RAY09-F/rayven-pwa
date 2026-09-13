@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Asgard",
+  "description": "Controls and optional page status for the local Asgard voice companion.",
+  "version": "1.0.0",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "background": {"service_worker": "background.js"},
+  "action": {"default_popup": "popup.html", "default_icon": "icon.png"},
+  "icons": {"128": "icon.png"},
+  "options_page": "options.html",
+  "content_security_policy": {"extension_pages": "script-src 'self'; object-src 'none'; connect-src ws://127.0.0.1:*"}
+}

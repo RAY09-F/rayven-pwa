@@ -954,7 +954,7 @@ export async function callClaudeWithTools(env, personaAndBaseline, channelAndSen
     if (iteration > 0) toolsForThisCall = toolsForCall();   // find_tools may have opened groups since the last call
     const finalRound=iteration===maxIter-1;
     if(finalRound&&iteration>0){console.log('TOOL_ROUND_LIMIT',{persona:personaId,rounds:maxIter});messages.push({role:'user',content:'Answer now using only results already obtained. Clearly state any unfinished work. Do not request more tools.'});}
-    const result = await callAnthropic(env, systemBlocks, toolsForThisCall, messages, maxTok, opts.model, {toolChoiceNone:finalRound});
+    const result = await callAnthropic(env, systemBlocks, toolsForThisCall, messages, maxTok, opts.model, {toolChoiceNone:finalRound,disableThinking:opts.disableThinking});
     lastResult = result;
     // Phase 6.6: every call's usage becomes a cost line -- in the conversation's spool on the
     // reply path, in the tick buffer for cron -- rolled up by the tick, never a write here.

@@ -1,3 +1,4 @@
+import {companionVoice,VOICE_ADDENDUM} from './lib/companion-voice.js';
 import {getPaperResearch} from './lib/paperTrading.js';
 import {paperEnvironment} from './lib/paper-store.js';
 export {PaperLedger} from './paper-ledger.js';
@@ -393,7 +394,7 @@ async function handleChatTurn(env, ctx, opts) {
   // with anyone who is not Rayan (Rule 15). The bit persists in meta.
   tickTaint(meta);   // one turn older: a taint clears once its turns have rolled out of the window
   const convo = { meta, channel: isTelegram ? (isGroupChat ? 'telegram-group' : 'telegram') : 'web', sender: senderTag };
-  const result = await callClaudeWithTools(env, activeIdentity(persona), channelContext, longTermMemoryBlock, claudeMessages, !isWakeTrigger, wakeCodeCheckContext, personaId, channelStartsTainted(isTelegram, telegramChatType, senderTag === 'Rayan'), convo);
+  const result = await callClaudeWithTools(env, activeIdentity(persona), channelContext+(opts.voiceMode?'\n'+VOICE_ADDENDUM:''), longTermMemoryBlock, claudeMessages, !isWakeTrigger, wakeCodeCheckContext, personaId, channelStartsTainted(isTelegram, telegramChatType, senderTag === 'Rayan'), convo, opts.voiceMode?{maxTokens:160,maxIter:3,disableThinking:true}:{});
 
   if (!smoke) ctx.waitUntil(setPersonaStatus(env, personaId, 'idle'));
 
@@ -412,7 +413,7 @@ async function handleChatTurn(env, ctx, opts) {
   }
 
   const textBlock = result.data.content.find(b => b.type === 'text');
-  const reply = textBlock ? textBlock.text : "Done, sir.";
+  const reply = textBlock ? textBlock.text : (opts.voiceMode ? "I don't have a complete answer yet." : "Done, sir.");
 
   history.push({ role: 'assistant', content: reply });
   if (history.length > _hl2) history = history.slice(-_hl2);
@@ -536,6 +537,9 @@ export default {
     }
 
     const url = new URL(request.url);
+
+    const voiceResponse=await companionVoice(request,env,ctx,handleChatTurn);
+    if(voiceResponse)return voiceResponse;
 
     // Phase 5.4: Asgard as an MCP server. JSON-RPC 2.0 over POST, stateless,
     // Bearer = ADMIN_TOKEN, auto/notify tools only, every call tainted.
