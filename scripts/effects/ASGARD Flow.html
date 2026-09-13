@@ -1,4 +1,4 @@
-<head><title>ASGARD Flow</title><meta description="Two-second fast rainbow spin landing on the selected agent palette"/><meta publisher="ASGARD"/></head>
+<head><title>ASGARD Flow</title><meta description="Simultaneous moving rainbow bands landing on the selected agent palette"/><meta publisher="ASGARD"/></head>
 <body style="margin:0"><canvas id="lights" width="320" height="200"></canvas></body>
 <script>
 var ctx=document.getElementById('lights').getContext('2d');
@@ -20,15 +20,15 @@ function paint(){
  var now=Date.now(),progress=spinProgress(now);ctx.globalAlpha=1;
  paintPalette(target);
  if(progress<1){
-  // Rotating rainbow spokes on the shared lighting canvas, not fan-speed control.
-  // Random starting phase; the landing color always comes from the selected agent.
-  var angle=phase+(now-started)/1000*Math.PI*2*7;
+  // Repeat a full rainbow every 24 canvas pixels so individual devices see
+  // several simultaneous colors, rather than one large rotating color sector.
+  var shift=phase*24/(Math.PI*2)+(now-started)*0.048;
   ctx.globalAlpha=progress<0.9?1:Math.pow((1-progress)/0.1,2);
-  for(var i=0;i<72;i++){
-   var a=angle+i*Math.PI*2/72,b=a+Math.PI*2/72+0.004;
-   ctx.fillStyle='hsl('+(i*5)+',100%,50%)';ctx.beginPath();ctx.moveTo(160,100);
-   ctx.lineTo(160+400*Math.cos(a),100+400*Math.sin(a));
-   ctx.lineTo(160+400*Math.cos(b),100+400*Math.sin(b));ctx.closePath();ctx.fill();
+  for(var i=-112;i<176;i++){
+   var x=i*2+(shift%24);
+   ctx.fillStyle='hsl('+(((i%12)+12)%12*30)+',100%,50%)';
+   ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x+2.2,0);
+   ctx.lineTo(x+202.2,200);ctx.lineTo(x+200,200);ctx.closePath();ctx.fill();
   }
  }
  ctx.globalAlpha=1;requestAnimationFrame(paint);

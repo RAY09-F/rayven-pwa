@@ -5,7 +5,7 @@ test('rainbow lasts two seconds, keeps exact selected palette and ignores duplic
  const s={Date:{now:()=>now},document:{getElementById:()=>({getContext:()=>ctx})},requestAnimationFrame(){}};
  vm.createContext(s);vm.runInContext(readFileSync(new URL('./effects/ASGARD Flow.html',import.meta.url),'utf8').match(/<script>([\s\S]*?)<\/script>/)[1],s);
  s.onCanvasApiEvent({sender:'asgard-rgb',event:'loki'});assert.equal(s.spinProgress(now),0);
- now+=1000;s.paint();assert.ok(fills.some(x=>x.startsWith('hsl(')));
+ now+=1000;s.paint();assert.equal(new Set(fills.filter(x=>x.startsWith('hsl('))).size,12);
  const started=s.started;s.onCanvasApiEvent({sender:'asgard-rgb',event:'loki'});assert.equal(s.started,started);
  s.onCanvasApiEvent({sender:'other',event:'odin'});assert.equal(s.mode,'loki');
  s.onCanvasApiEvent({sender:'asgard-rgb',event:'thor'});assert.equal(s.started,now);
