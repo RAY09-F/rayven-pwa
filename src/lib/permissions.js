@@ -8,7 +8,7 @@ export const GATEABLE_TOOLS = [
   'send_text', 'make_call', 'browser_navigate', 'browser_click', 'browser_type', 'browser_scroll',
   'browser_click_coords', 'browser_type_coords',
   'spotify_play', 'spotify_shuffle_playlist', 'spotify_pause', 'spotify_resume', 'spotify_next', 'spotify_previous', 'spotify_seek',
-  'play_youtube_video', 'ask_jarvis', 'ask_kevos', 'ask_alternate_model',
+  'play_youtube_video', 'ask_jarvis', 'ask_achilles', 'ask_alternate_model',
   'watch_add', 'watch_remove', 'watch_pause', 'watch_resume'
 ];
 

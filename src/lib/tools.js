@@ -275,7 +275,7 @@ async function runTool(env, name, input, personaId = DEFAULT_PERSONA_ID, ctx = {
     case 'maps_directions': return await googleDirections(env, input.origin, input.destination, input.mode);
     case 'maps_geocode': return await googleGeocode(env, input.address);
     case 'ask_jarvis': return await askSiblingAgent('JARVIS', env.JARVIS_AGENT_URL, env.AGENT_KEY_JARVIS_RAYVEN, input.question);
-    case 'ask_kevos': return await askSiblingAgent('KEVOS', env.KEVOS_AGENT_URL, env.AGENT_KEY_RAYVEN_KEVOS, input.question);
+    case 'ask_achilles': return await askSiblingAgent('ACHILLES', env.ACHILLES_AGENT_URL, env.AGENT_KEY_RAYVEN_ACHILLES, input.question);
     case 'ask_alternate_model': return await askAlternateModel(env, input.model, input.prompt);
     case 'watch_add': return await watchAdd(env, input);
     case 'watch_list': return await watchList(env);
@@ -764,8 +764,8 @@ export const TOOL_DEFINITIONS = [
     input_schema: { type: 'object', properties: { question: { type: 'string' } }, required: ['question'] }
   },
   {
-    name: 'ask_kevos',
-    description: "Ask Kevin's KEVOS assistant a question directly, agent-to-agent.",
+    name: 'ask_achilles',
+    description: "Ask Kevin's ACHILLES assistant a question directly, agent-to-agent.",
     input_schema: { type: 'object', properties: { question: { type: 'string' } }, required: ['question'] }
   },
   {

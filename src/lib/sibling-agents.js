@@ -1,6 +1,6 @@
 import {scheduledModelFetch} from './scheduled-budget.js';
 import {logUsage} from './usage-log.js';
-// Agent-to-agent protocol with JARVIS (Jay's assistant) and KEVOS (Kevin's
+// Agent-to-agent protocol with JARVIS (Jay's assistant) and ACHILLES (Kevin's
 // assistant): outbound calls (askSiblingAgent / askAgentForCheckIn) and the
 // inbound HMAC-authenticated endpoint (handleAgentQuery). Ported unchanged.
 import { MODELS } from './models.js';
@@ -80,7 +80,7 @@ export async function handleAgentQuery(request, env, corsHeaders) {
     return new Response(JSON.stringify({ answer: '', refused: true, error: 'Timestamp outside allowed clock skew' }), { status: 401, headers: jsonHeaders });
   }
 
-  const secretMap = { jarvis: env.AGENT_KEY_JARVIS_RAYVEN, kevos: env.AGENT_KEY_RAYVEN_KEVOS };
+  const secretMap = { jarvis: env.AGENT_KEY_JARVIS_RAYVEN, achilles: env.AGENT_KEY_RAYVEN_ACHILLES };
   const secret = secretMap[String(from).toLowerCase()];
   if (!secret) {
     return new Response(JSON.stringify({ answer: '', refused: true, error: 'Unknown caller' }), { status: 401, headers: jsonHeaders });
@@ -104,7 +104,7 @@ export async function handleAgentQuery(request, env, corsHeaders) {
 
 Rules:
 - Answer ONLY the specific question asked. Do not volunteer extra information.
-- Freely share: the RAYVEN/JARVIS/KEVOS multi-agent project, general schedule/plans Rayan has discussed openly, and any plainly non-private factual info.
+- Freely share: the RAYVEN/JARVIS/ACHILLES multi-agent project, general schedule/plans Rayan has discussed openly, and any plainly non-private factual info.
 - Decline briefly (one short sentence, no elaboration) for anything personal or private about Rayan — do not explain what the private info actually is, do not dump conversation history or memory.
 - Never reveal API keys, secrets, or technical credentials.
 - Respond with ONLY a valid JSON object in this exact shape, nothing else: {"answer": "your answer here", "refused": true or false}`;

@@ -7,7 +7,7 @@ export const CAST = {
     "title": "PRINCE OF ASGARD · THE NORTH VOICE",
     "color": "#64A7F5",
     "role": "Your main personal assistant.",
-    "does": "General conversation and help; commands five councillors; web search and deep research; maps and directions; Spotify and YouTube; weather; browser navigation, reading, clicking, typing, scrolling and screenshots through the Chrome extension; texts and phone calls; JARVIS and KEVOS; long-term memory, to-dos, calendar and reminders; private and group Telegram.",
+    "does": "General conversation and help; commands five councillors; web search and deep research; maps and directions; Spotify and YouTube; weather; browser navigation, reading, clicking, typing, scrolling and screenshots through the Chrome extension; texts and phone calls; JARVIS and ACHILLES; long-term memory, to-dos, calendar and reminders; private and group Telegram.",
     "watch": "Your next useful step, missing context, reliable answers, and actions that need your approval.",
     "duties": [
       {
@@ -147,7 +147,7 @@ export const CAST = {
     "title": "THE WORLD",
     "color": "#D9D2C5",
     "role": "Reaching people.",
-    "does": "Sends SMS and places calls through Twilio, passes messages to JARVIS and KEVOS in the group, and translates. Also known as “the Herald” in your notes.",
+    "does": "Sends SMS and places calls through Twilio, passes messages to JARVIS and ACHILLES in the group, and translates. Also known as “the Herald” in your notes.",
     "watch": "Messages waiting from sibling assistants and anything needing approval before it is sent. Texts and calls always ask first.",
     "duties": [
       {

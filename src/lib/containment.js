@@ -44,9 +44,9 @@ export const UNTRUSTED_SOURCES = new Set([
   'play_youtube_video', 'clips_find', 'clips_history', 'clips_analytics',
   'clips_account_stats', 'clips_verify_accounts', 'clips_whop_inspect',
   'vizard_held', 'vizard_jobs', 'ig_accounts',
-  // other agents. Jay's JARVIS and Kevin's KEVOS are trusted people running
+  // other agents. Jay's JARVIS and Kevin's ACHILLES are trusted people running
   // untrusted-by-default software; their output is somebody else's model text
-  'ask_jarvis', 'ask_kevos', 'ask_alternate_model',
+  'ask_jarvis', 'ask_achilles', 'ask_alternate_model',
   // capabilities HELA wrote for herself, calling hosts she chose
   'use_capability',
   // market and reference feeds
@@ -82,7 +82,7 @@ export const CONSEQUENTIAL = new Set([
   'clips_whop_set_campaign', 'ig_add_account', 'ig_remove_account',
   'vizard_clip', 'vizard_approve',
   // reaching other agents with content of our own
-  'ask_jarvis', 'ask_kevos',
+  'ask_jarvis', 'ask_achilles',
   // widening what the system can reach is itself a consequential act
   'allow_host'
 ]);

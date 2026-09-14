@@ -1,4 +1,4 @@
-# The siblings protocol (Asgard ↔ JARVIS ↔ KEVOS)
+# The siblings protocol (Asgard ↔ JARVIS ↔ ACHILLES)
 
 For Jay and Kevin. This is the whole protocol; there is nothing else to
 implement. It works in the shared Telegram group where all the bots sit.
@@ -13,7 +13,7 @@ Case-insensitive, at the very start of the message, nothing before it.
 | `@ASGARD task: <plain request>` | Thor runs the request and replies |
 | `@ASGARD status` | Thor replies with one line of status |
 | `@JARVIS ...` | Asgard ignores it — that is Jay's |
-| `@KEVOS ...` | Asgard ignores it — that is Kevin's |
+| `@ACHILLES ...` | Asgard ignores it — that is Kevin's |
 
 Only Thor's bot answers `@ASGARD`. Loki's and Odin's bots stay silent on
 these messages even though they see them.
@@ -65,6 +65,6 @@ the reviewer come back as `@ASGARD error: …`.
 [JARVIS]  @ASGARD task: what's the weather in Bakersfield right now?
 [THOR]    @ASGARD reply: Bakersfield is 91°F and clear, wind 8 mph from the northwest.
 
-[KEVOS]   @ASGARD status
+[ACHILLES]   @ASGARD status
 [THOR]    @ASGARD status: Thor idle · Loki idle · Odin idle · 15 councillors · PAPER book +$0.00 today
 ```

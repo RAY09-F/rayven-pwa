@@ -51,11 +51,11 @@ const DIES = {
   DEBUG_SECRET: 'every /debug-* route refuses (fails closed)', ADMIN_TOKEN: 'every /admin/* route refuses (fails closed); smoke test webhook check',
   SERPAPI_KEY: 'web_search, play_youtube_video, morning briefing research', TAVILY_API_KEY: 'tavily_*, watchlist checks, Hela\'s vigil and the forge',
   GOOGLE_MAPS_API_KEY: 'all maps_* tools', SPOTIFY_CLIENT_ID: 'Spotify', SPOTIFY_CLIENT_SECRET: 'Spotify', TWILIO_ACCOUNT_SID: 'send_text / make_call', TWILIO_AUTH_TOKEN: 'send_text / make_call', TWILIO_PHONE_NUMBER: 'send_text / make_call',
-  OPENROUTER_API_KEY: 'ask_alternate_model', JARVIS_AGENT_URL: 'ask_jarvis', AGENT_KEY_JARVIS_RAYVEN: 'ask_jarvis + inbound /agent/query from JARVIS', KEVOS_AGENT_URL: 'ask_kevos', AGENT_KEY_RAYVEN_KEVOS: 'ask_kevos + inbound /agent/query from KEVOS',
+  OPENROUTER_API_KEY: 'ask_alternate_model', JARVIS_AGENT_URL: 'ask_jarvis', AGENT_KEY_JARVIS_RAYVEN: 'ask_jarvis + inbound /agent/query from JARVIS', ACHILLES_AGENT_URL: 'ask_achilles', AGENT_KEY_RAYVEN_ACHILLES: 'ask_achilles + inbound /agent/query from ACHILLES',
   TWELVE_DATA_API_KEY: 'paper trading candles for SPY/QQQ/GLD/USO', AYRSHARE_API_KEY: 'clip publishing/history/analytics (retired business)', UPLOAD_POST_API_KEY: 'alternate clip publisher', VIZARD_API_KEY: 'Vizard clipping jobs', TWITCH_CLIENT_ID: 'clips_find', TWITCH_CLIENT_SECRET: 'clips_find',
   PUBLIC_BASE_URL: 'var: base URL for Twilio callbacks (defaults to the workers.dev URL)', R2_PUBLIC_BASE: 'var: public R2 base for generated images (defaults to the r2.dev URL)'
 };
-const LIVE_SECRETS = ['AGENT_KEY_JARVIS_RAYVEN', 'AGENT_KEY_RAYVEN_KEVOS', 'ANTHROPIC_API_KEY', 'AYRSHARE_API_KEY', 'DEBUG_SECRET', 'ELEVENLABS_API_KEY', 'ELEVENLABS_VOICE_ID_HELA', 'ELEVENLABS_VOICE_ID_LOKI', 'ELEVENLABS_VOICE_ID_ODIN', 'ELEVENLABS_VOICE_ID_THOR', 'GOOGLE_MAPS_API_KEY', 'OPENROUTER_API_KEY', 'SERPAPI_KEY', 'SPOTIFY_CLIENT_ID', 'SPOTIFY_CLIENT_SECRET', 'TAVILY_API_KEY', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_BOT_TOKEN_HELA', 'TELEGRAM_BOT_TOKEN_LOKI', 'TELEGRAM_BOT_TOKEN_ODIN', 'TELEGRAM_WEBHOOK_SECRET', 'TWELVE_DATA_API_KEY', 'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER', 'TWITCH_CLIENT_ID', 'TWITCH_CLIENT_SECRET', 'VIZARD_API_KEY', 'ADMIN_TOKEN'];
+const LIVE_SECRETS = ['AGENT_KEY_JARVIS_RAYVEN', 'AGENT_KEY_RAYVEN_ACHILLES', 'ANTHROPIC_API_KEY', 'AYRSHARE_API_KEY', 'DEBUG_SECRET', 'ELEVENLABS_API_KEY', 'ELEVENLABS_VOICE_ID_HELA', 'ELEVENLABS_VOICE_ID_LOKI', 'ELEVENLABS_VOICE_ID_ODIN', 'ELEVENLABS_VOICE_ID_THOR', 'GOOGLE_MAPS_API_KEY', 'OPENROUTER_API_KEY', 'SERPAPI_KEY', 'SPOTIFY_CLIENT_ID', 'SPOTIFY_CLIENT_SECRET', 'TAVILY_API_KEY', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_BOT_TOKEN_HELA', 'TELEGRAM_BOT_TOKEN_LOKI', 'TELEGRAM_BOT_TOKEN_ODIN', 'TELEGRAM_WEBHOOK_SECRET', 'TWELVE_DATA_API_KEY', 'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER', 'TWITCH_CLIENT_ID', 'TWITCH_CLIENT_SECRET', 'VIZARD_API_KEY', 'ADMIN_TOKEN'];
 
 // ---- routes: every url.pathname comparison in index.js ----
 const routes = new Set();
@@ -63,7 +63,7 @@ for (const m of indexSrc.matchAll(/url\.pathname\s*(===|\.startsWith\()\s*'([^']
 for (const m of indexSrc.matchAll(/'(\/[a-z-]+)':\s*'[a-z:]+'/g)) routes.add(m[1]);
 const ROUTE_NOTES = {
   '/': 'POST: web chat {message, persona} AND the legacy THOR Telegram webhook (JARVIS federation contract — never move). GET: the hall (public/index.html)',
-  '/ping': 'latency probe', '/agent/query': 'POST, HMAC-signed sibling-agent channel (JARVIS/KEVOS)', '/telegram/*': 'POST /telegram/<persona> per-bot webhooks, secret_token verified',
+  '/ping': 'latency probe', '/agent/query': 'POST, HMAC-signed sibling-agent channel (JARVIS/ACHILLES)', '/telegram/*': 'POST /telegram/<persona> per-bot webhooks, secret_token verified',
   '/agent/log': 'sibling query log', '/activity': 'activity log', '/notifications': 'notification log', '/monitors': 'watchlist', '/paper-trading/status': 'PAPER portfolio + trades', '/paper-trading/charts': 'PAPER candles + equity curve',
   '/status': 'per-persona status strip + autonomy log (hidden personas excluded)', '/roundtable': 'POST two-persona debate', '/memory': 'GET long-term memory by persona', '/memory/map': 'memory map (hidden excluded)', '/memory/share': 'POST copy a memory between personas', '/memory/update': 'POST edit', '/memory/delete': 'POST delete one fact',
   '/todos': 'GET/POST', '/calendar': 'GET/POST', '/history': 'web conversation turns by persona', '/permissions': 'GET/POST', '/permissions/all': 'structured view', '/kpi': 'GET/POST list', '/goals': 'GET/POST list', '/clipping': 'GET/POST list',
@@ -86,7 +86,7 @@ out.push(`## Tools (${T.TOOL_DEFINITIONS.length})`, '', 'All dispatch through `r
 for (const t of T.TOOL_DEFINITIONS) out.push(`| ${t.name} | ${String(t.description).replace(/\|/g, '/').replace(/\s+/g, ' ').slice(0, 110)}${t.description.length > 110 ? '…' : ''} | ${implOf[t.name] || '?'} | ${level(t.name)} | ${flags(t.name) || '—'} | ${(seen[t.name] || []).join(', ') || 'nobody'} |`);
 out.push('', '## Cron jobs (one trigger: `*/5 * * * *`, UTC; each job decides for itself whether it is due)', '', '| job (src) | cadence | what it does | worst-case KV writes per run | runs/day | writes/day |', '|---|---|---|---|---|---|');
 const CRON = [
-  ['runProactiveCheckInIfDue (checkin.js)', 'every 4 h', 'THOR reaches out on Telegram, may ask JARVIS/KEVOS', '4 (last_run, history, remember_this ×2)', '6', '24'],
+  ['runProactiveCheckInIfDue (checkin.js)', 'every 4 h', 'THOR reaches out on Telegram, may ask JARVIS/ACHILLES', '4 (last_run, history, remember_this ×2)', '6', '24'],
   ['runMorningBriefingIfDue (checkin.js)', '08:00 Pacific daily', 'THOR researches and sends the morning briefing', '5 (last_date, history, memory)', '1', '5'],
   ['runCodeCheckIfDue (checkin.js)', 'daily', 'pulls index.html + worker.js from GitHub main, asks Claude for bugs', '2', '1', '2'],
   ['runPersonaAutonomyIfDue (autonomy.js)', '≤3/persona/day, ≥3.5 h apart, 09–21 Pacific', 'THOR self-check, LOKI nag sweep, ODIN strategy pulse', '~10 (state, status ×3, log, notify ×3, memory ×2)', '≤9', '≤90'],

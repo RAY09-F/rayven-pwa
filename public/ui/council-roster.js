@@ -55,11 +55,11 @@ export const GODS = {
         "name": "KORG",
         "title": "The Herald",
         "c": "#C9B8A6",
-        "job": "Reaches people. Texts, calls, and the line to the other two houses — JARVIS and KEVOS — plus anything that needs saying in another language.",
+        "job": "Reaches people. Texts, calls, and the line to the other two houses — JARVIS and ACHILLES — plus anything that needs saying in another language.",
         "tools": [
           "Send a text",
           "Place a call",
-          "JARVIS and KEVOS",
+          "JARVIS and ACHILLES",
           "Translate"
         ],
         "line": "\"I will say it kindly. That is what I am for.\"",

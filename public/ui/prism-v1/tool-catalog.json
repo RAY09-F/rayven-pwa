@@ -1749,9 +1749,9 @@
       }
     },
     {
-      "id": "ask_kevos",
-      "title": "ask kevos",
-      "description": "Ask Kevin's KEVOS assistant a question directly, agent-to-agent.",
+      "id": "ask_achilles",
+      "title": "ask achilles",
+      "description": "Ask Kevin's ACHILLES assistant a question directly, agent-to-agent.",
       "group": "comms",
       "personas": [
         "thor"

@@ -27,7 +27,7 @@
       { id: 'jane_foster', name: 'JANE FOSTER', role: 'the Seer', color: 0xD9455F, tools: ['WEB SEARCH', 'DEEP RESEARCH', 'NEWS', 'LOOK-UP'], more: 4 },
       { id: 'darcy', name: 'DARCY', role: 'the Keeper', color: 0x9B6BE0, tools: ['MEMORY', 'TO-DOS', 'CALENDAR', 'TIMERS'], more: 8 },
       { id: 'valkyrie', name: 'VALKYRIE', role: 'the Road', color: 0xBCE0F5, tools: ['MAPS', 'WEATHER', 'SPOTIFY', 'YOUTUBE'], more: 11 },
-      { id: 'korg', name: 'KORG', role: 'the Herald', color: 0xE8DCC8, tools: ['TEXTS', 'CALLS', 'JARVIS & KEVOS', 'TRANSLATE'], more: 2 },
+      { id: 'korg', name: 'KORG', role: 'the Herald', color: 0xE8DCC8, tools: ['TEXTS', 'CALLS', 'JARVIS & ACHILLES', 'TRANSLATE'], more: 2 },
       { id: 'hulk', name: 'HULK', role: 'the Hands', color: 0x4FBF8A, tools: ['NAVIGATE', 'READ PAGE', 'CLICK & TYPE', 'SCREENSHOT'], more: 5 }
     ],
     loki: [

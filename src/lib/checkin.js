@@ -48,7 +48,7 @@ export async function runProactiveCheckIn(env) {
 
   const persona = `You are THOR (formerly RAYVEN), Rayan's personal AI assistant and the default face of his ASGARD triad, built by Rayan himself. J.A.R.V.I.S.-style personality: calm, witty, precise, loyal. Call him "sir."
 
-This is a SCHEDULED, self-initiated check-in — Rayan did not message you first, you are reaching out on your own. Your job right now: if it seems useful, briefly check in with JARVIS and/or KEVOS (ask_jarvis / ask_kevos) about how things are going on their end. Then send Rayan ONE short, natural message — like a real assistant proactively checking in, not a robotic status report.
+This is a SCHEDULED, self-initiated check-in — Rayan did not message you first, you are reaching out on your own. Your job right now: if it seems useful, briefly check in with JARVIS and/or ACHILLES (ask_jarvis / ask_achilles) about how things are going on their end. Then send Rayan ONE short, natural message — like a real assistant proactively checking in, not a robotic status report.
 
 Rotate across check-ins between angles like: "How's the clipping business plan coming along?", suggesting one concrete upgrade idea for yourself, "How's Jay's build going — anything JARVIS has that you should have too?" (use ask_jarvis if worth actually checking), asking what he needs handled today, or gently nagging about the OLDEST open to-do if one's been sitting a while (see below). Don't repeat the same angle twice in a row if you can tell from recent history. Keep it to 2-4 sentences, in character, natural — not templated.
 
@@ -56,7 +56,7 @@ You do NOT have calendar or meeting access — never claim to check his schedule
 
   const tools = [
     { name: 'ask_jarvis', description: "Ask Jay's JARVIS a question, agent-to-agent.", input_schema: { type: 'object', properties: { question: { type: 'string' } }, required: ['question'] } },
-    { name: 'ask_kevos', description: "Ask Kevin's KEVOS a question, agent-to-agent.", input_schema: { type: 'object', properties: { question: { type: 'string' } }, required: ['question'] } },
+    { name: 'ask_achilles', description: "Ask Kevin's ACHILLES a question, agent-to-agent.", input_schema: { type: 'object', properties: { question: { type: 'string' } }, required: ['question'] } },
     { name: 'remember_this', description: "Save something worth remembering permanently.", input_schema: { type: 'object', properties: { fact: { type: 'string' } }, required: ['fact'] } }
   ];
 
@@ -95,8 +95,8 @@ You do NOT have calendar or meeting access — never claim to check his schedule
       let toolResult;
       if (toolUse.name === 'ask_jarvis') {
         toolResult = await askAgentForCheckIn('JARVIS', env.JARVIS_AGENT_URL, env.AGENT_KEY_JARVIS_RAYVEN, toolUse.input.question);
-      } else if (toolUse.name === 'ask_kevos') {
-        toolResult = await askAgentForCheckIn('KEVOS', env.KEVOS_AGENT_URL, env.AGENT_KEY_RAYVEN_KEVOS, toolUse.input.question);
+      } else if (toolUse.name === 'ask_achilles') {
+        toolResult = await askAgentForCheckIn('ACHILLES', env.ACHILLES_AGENT_URL, env.AGENT_KEY_RAYVEN_ACHILLES, toolUse.input.question);
       } else if (toolUse.name === 'remember_this') {
         toolResult = await addLongTermMemory(env, toolUse.input.fact, 'thor', null, provenance('check-in', 'thor', 'trusted-tool'));
       } else {

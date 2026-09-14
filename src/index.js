@@ -84,11 +84,11 @@ function json(data, corsHeaders, status = 200) {
 // saved to any conversation; nothing here can reach memory, the browser, the
 // calendar, email, to-dos or delegation. See docs/SIBLINGS_PROTOCOL.md.
 const SIBLINGS_ALLOW = ['web_search', 'weather', 'world_time', 'convert_money', 'calculate', 'paper_trading_status'];
-const SIBLINGS_SYSTEM = 'You are THOR of ASGARD, answering another household agent (JARVIS or KEVOS) that addressed you in a shared Telegram group. Answer the request plainly in at most three sentences, plain text, no markdown, no greetings. Use only the tools you have been given; if the request needs anything else, say in one sentence that it is outside what you do for other agents. Never mention or quote anything about Rayan, his household, his memories, his plans or his contacts. Paper trading numbers are SIMULATED — say so whenever you give one.';
+const SIBLINGS_SYSTEM = 'You are THOR of ASGARD, answering another household agent (JARVIS or ACHILLES) that addressed you in a shared Telegram group. Answer the request plainly in at most three sentences, plain text, no markdown, no greetings. Use only the tools you have been given; if the request needs anything else, say in one sentence that it is outside what you do for other agents. Never mention or quote anything about Rayan, his household, his memories, his plans or his contacts. Paper trading numbers are SIMULATED — say so whenever you give one.';
 function matchSiblingsPrefix(text) {
   if (typeof text !== 'string') return null;
   const t = text.trim();
-  if (/^@(jarvis|kevos)\b/i.test(t)) return { kind: 'foreign' };
+  if (/^@(jarvis|achilles)\b/i.test(t)) return { kind: 'foreign' };
   let m = t.match(/^@asgard\s+task\s*:\s*([\s\S]+)$/i); if (m) return { kind: 'task', text: m[1].trim().slice(0, 1200) };
   if (/^@asgard\s+status\b/i.test(t)) return { kind: 'status' };
   if (/^@asgard\b/i.test(t)) return { kind: 'unknown' };
@@ -161,7 +161,7 @@ async function handleChatTurn(env, ctx, opts) {
       // that starts with a fixed prefix is agent-to-agent: "@ASGARD task: ..." and
       // "@ASGARD status" are answered by THOR's bot only, with a fixed short
       // allow-list, no memory, tainted from the first word, and a reviewer on the
-      // way out. "@JARVIS ..." / "@KEVOS ..." are not ours and are ignored.
+      // way out. "@JARVIS ..." / "@ACHILLES ..." are not ours and are ignored.
       const sib = matchSiblingsPrefix(userMessage);
       if (sib) {
         if (sib.kind === 'foreign' || personaId !== DEFAULT_PERSONA_ID) return null;
@@ -293,7 +293,7 @@ async function handleChatTurn(env, ctx, opts) {
 
   let channelContext;
   if (isTelegram && (telegramChatType === 'group' || telegramChatType === 'supergroup')) {
-    channelContext = `Shared Telegram GROUP chat — Jay's JARVIS and Kevin's KEVOS may also be present. Every message in the history below that starts with "[Name]:" tells you who actually said it — use that to keep track of who you're talking to across the conversation, not just the current message. Keep replies short — a sentence or two.`;
+    channelContext = `Shared Telegram GROUP chat — Jay's JARVIS and Kevin's ACHILLES may also be present. Every message in the history below that starts with "[Name]:" tells you who actually said it — use that to keep track of who you're talking to across the conversation, not just the current message. Keep replies short — a sentence or two.`;
   } else if (isTelegram) {
     channelContext = `Private Telegram chat (you are speaking as ${persona.name} on your own bot).`;
   } else {
@@ -315,7 +315,7 @@ async function handleChatTurn(env, ctx, opts) {
 
   // Auto-capture, fired async so it never adds latency to the reply. Skipped
   // for wake-greetings (nothing was actually said) and, in a group chat, for
-  // anyone who isn't Rayan (JARVIS/KEVOS/other people's messages don't belong
+  // anyone who isn't Rayan (JARVIS/ACHILLES/other people's messages don't belong
   // in Rayan's household memory). The short-length check filters out bare
   // acks ("ok", "yes", "lol") without an extra import — a wasted call on a
   // genuinely short-but-meaningful message just comes back with an empty [].

@@ -19,7 +19,7 @@ export function metaOf(name) { return META.get(name) || { group: groupByPattern(
 // Rayan could say; names and schemas are untouched (Rule 2 is about renaming).
 const PATTERNS = [
   [/^browser_/, 'browser'], [/^spotify_|^play_youtube_video$/, 'music'], [/^maps_/, 'maps'],
-  [/^(send_text|make_call|ask_jarvis|ask_kevos|translate|condense)$/, 'comms'],
+  [/^(send_text|make_call|ask_jarvis|ask_achilles|translate|condense)$/, 'comms'],
   [/^(remember_this|search_memory|memory_)/, 'memory'],
   [/^(add_calendar_event|list_calendar_events|remove_calendar_event|set_timer|timers|cancel_timer|days_until|world_time)$/, 'calendar'],
   [/^(add_todo|list_todos|complete_todo|add_content_idea|list_content_ideas)$/, 'todos'],
@@ -62,7 +62,7 @@ export const KEYWORD_RULES = [
   [/\b(business|break.?even|unit economics|fps|benchmark|frame time|expectancy|liquidity|meme|doge|shib)\b/i, ['markets','math']],
   [/\b(play|pause|skip|next song|song|music|spotify|playlist|volume|now playing)\b/i, ['music']],
   [/\b(youtube|browse|browser|click|type into|website|web ?page|screenshot|scroll|open\s+\S+\.(com|org|net|io|gov|edu|app|co|tv))\b/i, ['browser', 'music']],
-  [/\b(text|sms|call|phone|dial|message (?:jay|kevin)|jarvis|kevos|translate)\b/i, ['comms']],
+  [/\b(text|sms|call|phone|dial|message (?:jay|kevin)|jarvis|achilles|translate)\b/i, ['comms']],
   [/\b(map|maps|directions|drive|driving|route|near me|nearby|address|where is|how far)\b/i, ['maps']],
   [/\b(stock|stocks|crypto|bitcoin|btc|eth|ethereum|market|markets|price of|ticker|earnings|paper (?:book|trading|trade)|portfolio|p&l|pnl|trading)\b/i, ['markets', 'paper']],
   [/\b(watch(?:list)?|monitor|keep an eye)\b/i, ['watchlist']],
