@@ -1,0 +1,1398 @@
+BUILD MANIFEST — THE EVERYTHING LIST, IN CODEX ORDER
+Generated from EVERYTHING.txt. Numbers are the entries; read each one there.
+
+Total entries: 1410. Codex builds 763. Humans do 536. Rules/no-build 89. Deferred 23.
+Tracks: worker = the Cloudflare Worker + KV + Telegram; hub = the web pages; pc = the Windows companion (needs the ALWAYS-ON brief built first).
+Marks:  [C] = a human must supply an account, secret or setting — build everything around it, write the step to NEXT-STEPS-HUMAN.md, never invent the value.
+
+=====================================================================
+PHASE 0 — Inventory and repo prep — no features   [track: worker]   (0 entries)
+=====================================================================
+  (no numbered entries — see the phase text in CODEX-RUN-EVERYTHING.txt)
+
+=====================================================================
+PHASE 1 — Safety and foundations — the Worker cannot be silent, spoofed, or spent   [track: worker]   (69 entries)
+=====================================================================
+  0301  One scheduler, one tick, one write
+  0571  One Worker cron, dispatching
+  0567  The routine registry
+  0572  Bounded routine log
+  0573  Failure told once
+  0599  Nothing-happened suppression
+  0600  The routine budget
+  0566  Retry with backoff, every external call
+  0248  Retry with backoff, not with hope
+  0249  Idempotent everything
+  0312  Timeouts everywhere
+  0311  Retry twice, then report
+  0310  Never silent
+  0309  Error taxonomy
+  0318  Version string in every reply header
+  0319  Structured logs
+  0320  Log retention
+  0323  Rate limits on inbound
+  0324  Allow-list of who can talk to the gods
+  0325  Config in KV, code in git
+  0326  Migrations with a version
+  0330  Feature flags
+  1307  Bot allow-lists
+  1308  Webhook secret token
+  1309  Authenticate /browser/poll
+  1310  Rate limits
+  1314  Tool allow-lists per god
+  1315  Approval log
+  1326  Redacted logging
+  1313  Injection test monthly
+  0149  The tainted-content rule
+  0158  Secrets never in logs
+  0151  Rate-limit guard
+  0152  Spend guard
+  0564  Scheduled execution with an undo window
+  0565  Undo on everything that can be undone
+  0511  Pending approvals, counted everywhere
+  0304  Health page
+  0154  Health page
+  0533  /health, rendered
+  0547  Daily self-check
+  0305  Smoke test on every deploy
+  0306  Rollback in one line
+  0156  Rollback in one line
+  0307  The rename guard
+  0308  Webhook self-check
+  0317  Secrets scan on commit
+  0316  Branch protection on main [C]
+  0331  Dependency freeze
+  1325  Dependency rule
+  0335  Extension health
+  0336  Companion health
+  0337  A runbook, one page
+  0338  Post-mortems, five lines
+  1329  The incident page
+  0302  Write budget in the log
+  0303  The dead-man ping
+  0313  Holiday calendar
+  0314  Time zones in one function
+  0315  The OOM-deploy trap, documented
+  0321  Test messages, nightly
+  0322  The status Telegram
+  0327  The reconcile rule
+  0328  Chaos drills, monthly
+  0329  A staging worker
+  0339  Quarterly re-check
+  0340  "Is everything OK"
+  1277  Keep the fallback URL
+  1278  Name the deploys
+
+=====================================================================
+PHASE 2 — Cost — halve the bill before adding anything   [track: worker]   (45 entries)
+=====================================================================
+  0221  Prompt caching, on
+  0222  Tools → system → messages, in that order
+  0223  Trim the tool list per persona
+  0224  Haiku for triage, Sonnet for the answer
+  0225  Workers AI for yes/no
+  0226  Batch API for everything overnight
+  0227  Max tokens per path
+  0228  Cap the tool loop at six
+  0230  Daily token ceiling
+  0231  Cost per message in the log
+  0232  "What did you cost this week", spoken
+  0233  History trimming
+  0234  Summarise, don't resend
+  0235  No "checking in" calls
+  0236  TTS caching
+  0237  ElevenLabs Flash for short lines
+  0238  Character budget for TTS
+  0239  Kill the double-write
+  0240  Conversation state in a Durable Object
+  0244  Model routing table, written down
+  0245  Research calls are the expensive ones
+  0246  Image calls only on request
+  0247  Free tiers, watched
+  0250  The $20 target
+  0251  Monthly cost review, five lines
+  0252  Alerts on spend, not on tokens
+  0253  Turn off what you don't use
+  0254  Long-term memory injected once, not every turn
+  0255  Shorter system prompts
+  0256  Test in the cheap tier
+  0257  Codex usage, tracked
+  0258  Free models for drafts
+  0259  One expensive call per user message
+  0260  Post the bill in the Sunday report
+  0039  Thor's daily cost line
+  0084  Cost per god
+  0085  Cost per tool
+  0505  Today's spend, in the corner
+  0590  Model cost report — weekly
+  0548  Quota watchers
+  0332  Cloudflare limits, watched
+  0333  ElevenLabs quota, watched
+  0334  Telegram flood rules
+  0123  Free-tier tracker
+  0229  AI Gateway in front of Anthropic [C]
+
+=====================================================================
+PHASE 3 — Memory — what they know, how they forget, and the backups   [track: worker]   (54 entries)
+=====================================================================
+  0261  Two kinds of memory, named
+  0262  The memory map you asked for
+  0263  Forget by voice
+  0264  Pin by voice
+  0265  Decay for the rest
+  0266  Per-person memory
+  0267  The Sunday memory review
+  0268  Memory sources
+  0269  No inferences stored
+  0270  Export to Obsidian
+  0271  Memory versioning
+  0272  Shared vs private, by default private
+  0273  Memory search
+  0274  Memory size line
+  0275  Clipping memories, gone
+  0276  "What did I tell you yesterday"
+  0277  Memory for the room
+  0278  Project memory vs personal memory
+  0279  Memory of decisions
+  0280  Memory conflicts, surfaced
+  0281  Memory of preferences
+  0282  Memory in the brief
+  0283  Memory from Telegram vs web, marked
+  0284  The "you told me" voice
+  0285  A memory of the money rules
+  0286  Memory tests
+  0287  Memory write budget
+  0288  Memory of what broke
+  0289  Memory of tools removed
+  0290  Guest memory: none
+  0291  Memory of your voice profile
+  0292  Memory of streaks and habits
+  0293  A "memory is off" switch
+  0294  Memory of the room's layout
+  0295  Memory across a Max → Pro switch
+  0296  Memory of what you're paying for
+  0297  Memory of your rates and prices
+  0298  Memory of the three humans' roles
+  0299  Memory limits, stated
+  0300  A memory of this list
+  0545  Nightly KV export
+  0586  KV export to R2, not to the repo
+  0587  Memory compaction — weekly
+  1318  Encrypted backups
+  0147  Backup keeper
+  0148  Backup test
+  0162  The "nothing to hide" export
+  0169  Audit-log export
+  1123  Ragnarok drill
+  1328  Restore drill
+  1273  KV export checked
+  1246  The "if the PC dies" page
+  1247  The "if the phone dies" page
+  1275  Voices backed up
+
+=====================================================================
+PHASE 4 — Thor — the one you talk to all day   [track: worker]   (67 entries)
+=====================================================================
+  0001  Thor answers in twelve words or fewer by default
+  0002  Thor remembers where you left off
+  0003  Thor reads any page to you
+  0004  Thor summarises instead of reading
+  0007  The subscription killer
+  0008  Trial-conversion alarm
+  0009  Package tracker
+  0010  "Where did I put" memory
+  0018  Discord presence [C]
+  0019  Spotify DJ mode
+  0020  Wake-up sequence
+  0021  Wind-down sequence
+  0022  Timer and stopwatch by voice
+  0023  Quick maths and conversions
+  0024  "Thor, say that again"
+  0025  Whisper mode
+  0026  Thor knows the time of day
+  0027  Refund and cancellation letters
+  0028  Warranty and return-window tracker
+  0029  Price watcher
+  0030  Local Bakersfield mode
+  0031  Voice notes to text
+  0032  Thor asks one question, never three
+  0033  "Thor, undo"
+  0035  Guest mode
+  0036  Thor's own error voice
+  0037  A "what can you do" that is true
+  0038  Thor explains himself
+  0040  Thor keeps a "things Rayan said he'd do" list
+  1096  Ask the gods to be honest
+  0381  fetch_page — any URL to clean text, with the tainted-content
+  0382  summarise_url — five lines.
+  0383  compare_pages — two URLs, what differs.
+  0384  site_search — search within one site.
+  0385  find_pdf — a PDF on a subject, the direct link.
+  0386  read_pdf — text of a PDF by URL.
+  0387  wayback — an old version of a page (archive.org, free).
+  0388  who_owns — whois for a domain.
+  0389  is_it_down — is a site down for everyone.
+  0390  define — a word, one line.
+  0391  wiki — Wikipedia summary.
+  0392  translate — any text, any language.
+  0393  cite — turn a URL into a citation line.
+  0394  fact_check — "this claim, three sources for and against".
+  0395  trend — what's trending on a topic (public sources).
+  0396  reddit_read — a subreddit's top posts (public JSON).
+  0397  hn_read — Hacker News top.
+  0398  youtube_transcript — transcript of a video by URL.
+  0399  youtube_search — five results.
+  0400  podcast_search — episodes on a subject.
+  0441  telegram_* — existing.
+  0442  sms_send — Twilio, behind approve, allow-list only.
+  0443  call_place — Twilio, behind approve, allow-list, never AI
+  0444  email_draft — existing, draft-only.
+  0445  email_search — 0007 needs it.
+  0446  email_unsubscribe — finds the link, you click.
+  0447  discord_post — 0018. [C]
+  0448  discord_read. [C]
+  0449  contact_lookup — a name to a number/email from your contacts [C]
+  0450  message_jay / message_kevin — shortcuts through Telegram.
+  0451  calendar_* — existing.
+  0452  timer — 0022.
+  0453  countdown — 0070.
+  0454  world_clock — 0074.
+  0455  sun_times — sunrise/sunset for Bakersfield.
+  0456  leave_by — 0044.
+  0457  free_slots — 0045.
+
+=====================================================================
+PHASE 5 — Loki — the day, the card, the dates   [track: worker]   (120 entries)
+=====================================================================
+  0041  The one-card morning brief
+  0042  The brief spoken, on request only
+  0043  Weather-aware wardrobe line
+  0044  Leave-by time
+  0045  Calendar negotiation
+  0046  Reminder escalation
+  0047  Snooze by voice
+  0048  Proposed to-dos, never assigned
+  0049  The evening nudge
+  0050  Weekly review, Sunday, one card
+  0051  Habit tracker by voice
+  0053  "What did I do today"
+  0054  People and dates
+  0055  Grocery list that builds itself
+  0056  Meal plan for a broke week
+  0057  Laundry and small-room chores
+  0058  Bill calendar
+  0059  "Loki, block two hours"
+  0060  Pomodoro that talks
+  0061  Loki's tone dial
+  0062  Delegation to Thor
+  0063  The waiting-on list
+  0064  Appointment prep
+  0065  Job-hunt companion
+  0066  Reading list
+  0067  Watch-and-diff, plain English
+  0068  Quiet hours
+  0069  "Loki, what's the plan"
+  0070  Countdown mode
+  0071  Energy check, once
+  0072  Loki files ideas
+  0073  The "no" tool
+  0074  Time-zone friend
+  0075  Loki's memory review
+  0076  Morning "no-phone" gate
+  0077  Rain-day plan
+  0078  The pause switch
+  0079  Loki learns your lateness
+  0080  Loki reports on Loki
+  0541  The morning tick — 07:00
+  0542  The evening tick — 21:30
+  0549  Price watchers
+  0551  Bill calendar
+  0552  Trial-end alarms
+  0553  Free-tier reset reminders
+  0560  Cleaning rotation
+  0561  Car dates
+  0562  Birthdays
+  0563  Weather-driven
+  0568  Pause all
+  0569  Quiet hours
+  0570  Dry run
+  0594  Sunday "three things"
+  0598  The alarm is Loki
+  0581  Weekly charge check
+  0582  Inbox triage — daily
+  0583  Calendar hygiene
+  0555  Group-chat digest
+  0458  todo_* — the PROPOSED flow.
+  0459  habit_tick — 0051.
+  0460  routine_* — pause/resume/list.
+  0471  gas_prices_near — public sources.
+  0472  dmv_wait — if the public page exposes it; else "not
+  0473  library_hours.
+  0474  weather_hour — at a specific hour.
+  0475  air_quality — Kern's is real; worth a tool.
+  0476  traffic_now — Maps.
+  0477  nearby — "open now" by category.
+  0478  events_this_week — public listings.
+  0479  farmers_markets — days and places.
+  0480  city_notices — public alerts feed if available.
+  0481  explain_like_im_new — any concept, plain English.
+  0482  quiz_me — five questions on a topic you're learning.
+  0483  flashcards — from any text.
+  0484  course_find — free courses on a subject (library first).
+  0485  book_summary — public summaries, cited.
+  0486  word_of_day.
+  0487  practice_spanish — a sentence a day.
+  0488  typing_test — a link plus your log.
+  0489  read_aloud — 0003.
+  0490  progress_log — what you learned this week.
+  1201  Registration date on the card
+  1203  Oil by mileage
+  1206  Smog check timing
+  1209  Mileage log for gigs
+  1210  Parking and tickets
+  1218  Receipts photographed
+  1219  Warranty and serial list
+  1220  Return windows
+  1225  Subscriptions calendar
+  1226  Free-trial rule
+  1230  The monthly admin hour
+  1233  Licence expiry on the card
+  1240  Passport, if you have one
+  1251  Trash day
+  1252  Laundry rotation
+  1264  Dentist yearly
+  1265  Eye check
+  1266  The three-month calendar
+  1269  The quarterly review
+  0910  The sleep line, never typed
+  0918  The honest line
+  0920  One number for fourteen days
+  0935  Streak, without the guilt
+  0942  The eight-week floor programme
+  0967  The done list
+  0969  Blocks of the day
+  0985  Loki's dinner line
+  0986  The ten $5 dinners
+  0987  No delivery for thirty days
+  0988  The list
+  0997  Food on the money log
+  1076  One line a day
+  1077  Three good things
+  1134  The dream line
+  1135  Three questions at night
+  0955  Keep the prompt-file habit, name them
+  0959  Write the decision down
+  0972  Read the error, then the names
+  0962  Commit before experimenting
+
+=====================================================================
+PHASE 6 — Odin — money, the job hunt, the tracker, the audit tool   [track: worker]   (107 entries)
+=====================================================================
+  0081  The money board — one screen of truth
+  0082  Receipt parser
+  0083  Monthly burn, spoken
+  0086  Runway line
+  0087  Job-hunt tracker (full spec at 0661)
+  0088  Resume tailoring
+  0089  Cover letter in your voice
+  0090  Interview prep pack
+  0091  Offer comparison
+  0092  Tax folder
+  0093  Invoice generator
+  0094  Quote generator
+  0095  Payment-link text
+  0096  Client ledger
+  0097  Price research, any product
+  0098  Negotiation script
+  0099  "Should I buy this" — the honest version
+  0100  Subscription value check
+  0101  Cheaper-alternative finder
+  0102  Bounty board (creator campaigns)
+  0103  Campaign brief enforcer
+  0104  Market research on demand
+  0105  Competitor watch
+  0106  Review reader
+  0107  Offer page writer
+  0108  Pitch script
+  0109  Objection list
+  0110  Follow-up cadence
+  0111  Weekly money email to yourself
+  0112  The "first dollar" bell
+  0113  Kill criteria, enforced
+  0114  Hours logging by voice
+  0115  Public grants and programs
+  0117  Refund hunter
+  0118  Bank-statement reader
+  0119  Fee finder
+  0120  Emergency-fund line
+  0121  Odin's "not a good idea" list
+  0122  Odin reads the fine print
+  0124  The Sunday council, human edition
+  0125  Decision log
+  0126  Odin's plain-English glossary
+  0127  Paper P&L in the brief
+  0128  Realtor-photographer outreach kit
+  0129  Missed-call text-back kit
+  0130  Local business finder (for YOU to call)
+  0131  "Who's hiring" scan
+  0132  Skill-gap line
+  0133  Portfolio page for ASGARD
+  0134  Odin holds your rates
+  0135  Expense photo → line
+  0136  Odin's monthly close
+  0137  Sell-list keeper
+  0138  Odin never invents a number
+  0139  Odin's silence rule
+  0140  Odin asks you one money question a week
+  0461  money_board — 0081.
+  0462  receipt_parse — 0082.
+  0463  subscription_audit — 0007.
+  0464  bank_csv_read — 0118.
+  0465  invoice_make — 0093.
+  0466  quote_make — 0094.
+  0467  price_comps — 0097.
+  0468  fx — currency.
+  0469  tip_split — the dumb one everyone uses.
+  0470  paper_trading_* — the HIGH SEAT set, PAPER only.
+  0603  The cancel-everything audit tool
+  0604  The other mailbox [C]
+  0611  The Codex top-up leak
+  0620  Returns
+  0623  Negotiate the two bills
+  0630  The 60-day cash calendar
+  0636  Tax set-aside
+  0637  The over-$20 hold
+  0641  Price from "sold", never "asking"
+  0649  The scam list
+  0650  The 90-day rule
+  0652  Sales log
+  0659  What you learn
+  0661  Odin is the application tracker
+  0662  Three resumes, one truth [C]
+  0663  The one-page "what I built"
+  0664  GitHub, cleaned
+  0669  The daily three
+  0670  Follow-up cadence
+  0671  Interview practice with Odin
+  0676  The 120-word cover note
+  0683  Know the number
+  0684  Commute maths
+  0686  Same-day thank-you
+  0687  The rejection log
+  0695  Job scams
+  0696  The 30-day plan
+  0697  Job mode for the card
+  0580  Job-apply routine — 09:00
+  0550  Job feed — 08:00
+  0543  Sunday review — Odin
+  0544  Monday pre-open — Odin
+  0769  Invoice Friday
+  0774  The kill rule
+  0781  Odin's tooling per business
+  0791  The customer list
+  0797  Log the hours
+  1124  The Norns
+  1127  The oracle line
+  1169  Odin critiques the budget
+  1183  Odin's quarterly letter
+
+=====================================================================
+PHASE 7 — Hela — the vault, the audits, the locks   [track: worker]   (25 entries)
+=====================================================================
+  0141  Hela owns every secret
+  0142  Rotation reminders
+  0143  The vault rule, enforced
+  0144  Leak drill
+  0145  Who-has-access audit
+  0146  2FA audit
+  0150  Approval gate ledger
+  0153  Dead-man switch
+  0155  Change log
+  0157  Canary rule
+  0159  Old-token graveyard
+  0160  Device list
+  0161  Hela's monthly report
+  0163  Hela and the siblings
+  0166  The emergency card
+  0167  Hela's memory is the exception
+  0168  Hela on the HUD
+  0170  Hela's one voice line
+  1312  Rotation calendar
+  1317  Dead-man switch
+  0593  Dead-man check
+  1320  Extension permissions
+  1321  Browser-control blocklist and kill switch
+  1323  Phishing rule
+  1303  Scan the git history
+
+=====================================================================
+PHASE 8 — Councils and the trio   [track: worker]   (52 entries)
+=====================================================================
+  0171  Councils are lanes, not personalities
+  0172  One cheap model call per councillor per run
+  0173  Standing duties, scheduled
+  0174  Delegation by name
+  0175  Councillor result cards
+  0176  Thor's five, upgraded
+  0177  Loki's five, upgraded
+  0178  Councillor journals
+  0179  Councillor cost lines
+  0180  Kill a councillor cleanly
+  0181  Councillor tool allow-lists, enforced
+  0182  Cross-council handoff
+  0183  Councillor self-check
+  0184  Sub-bots, the honest version
+  0185  Councillor uptime line
+  0186  The council page
+  0187  Batch the overnight work
+  0188  Councillor prompts under 400 tokens
+  0189  Result caching per councillor
+  0190  One councillor at a time per god
+  0191  Councillor "I don't know"
+  0192  Council names on the HUD as text, not art
+  0193  Hela's five
+  0194  A councillor for the room
+  0195  Councillor tests
+  0196  Councillor budget caps
+  0197  The idle rule
+  0198  Councillor handoff to a human
+  0199  Council changelog
+  0200  Five is the number
+  0201  The siblings protocol, shipped
+  0202  A shared "hall of three" page
+  0203  Agent-to-agent favours, logged
+  0204  Shared decision log
+  0205  Group-chat etiquette in code
+  0206  Cross-agent memory: none, on purpose
+  0207  Weekly trio report
+  0208  Shared bounty board
+  0209  Code review by JARVIS, gated
+  0210  Shared "do not" list
+  0211  A test each agent can run on the others
+  0212  Handoff format
+  0213  The human override
+  0214  Shared glossary
+  0215  Cost sharing, visible
+  0216  A game night bot line
+  0217  Shared reading list
+  0218  Trio uptime page
+  0219  One protocol version number
+  0588  Council refresh on schedule
+  1149  Trivia night
+  1197  The trio's "shipped" sound
+
+=====================================================================
+PHASE 9 — Interface behaviours — what the page does, whatever it looks like   [track: hub]   (42 entries)
+=====================================================================
+  0501  PAPER · SIM is on every Odin screen, always
+  0502  One page, three gods, one switch
+  0503  The figure is the page; the chat is a drawer
+  0504  The status line tells the truth
+  0506  "Last thing" on load
+  0507  Phone and PC are the same conversation
+  0508  Reduced-motion fallback for every 3D scene
+  0509  Chromebook mode
+  0510  The mic indicator is honest
+  0512  The verb line
+  0513  Copy, and send-to-Telegram, on every reply
+  0514  Design tokens in one file
+  0515  Voice preview
+  0516  Offline banner and queue
+  0517  The "?" overlay
+  0518  Search across all three gods
+  0519  Pin a message
+  0520  Day view
+  0521  Quick-action row per god
+  0522  Long replies fold
+  0523  Tables are tables
+  0524  Code blocks copy cleanly
+  0525  Drop an image on Thor
+  0526  Voice notes become text plus audio
+  0527  A sound per god
+  0528  Night mode is dimmer, not just darker
+  0529  The council is status, not decoration
+  0530  Odin's screen leads with n
+  0531  Loki's screen is the card
+  0532  Thor's screen is nearly empty
+  0534  A "why" button on Odin's answers
+  0535  Approve / deny with a reason
+  0536  Phone-first sizing
+  0537  The frame budget
+  0538  The overlap audit, kept
+  1190  Streak fireworks
+  1184  A "hall of gods" screensaver
+  1101  The hall as a wallpaper
+  0892  The hall on the TV
+  1108  The hall on the TV
+  0899  Say when the gods are recording
+  1311  Cloudflare Access on the hub [C]
+
+=====================================================================
+PHASE 10 — Voice — Worker side   [track: worker]   (19 entries)
+=====================================================================
+  0343  Emotion tags, sparingly
+  0344  Sound design, five sounds
+  0351  Read-back before send
+  0355  Voice-only mode
+  0356  Language switch
+  0357  Numbers said right
+  0358  Names said right
+  0359  Interruptible long reads
+  0363  Speech rate per god
+  0364  Pause words
+  0372  Pre-rendered set, refreshed monthly
+  0373  Laughter, no
+  0374  Text-to-speech for the brief only on request
+  0375  A "say less" dial
+  0376  Read me the news, three items
+  0377  Read me my messages
+  0380  Voice test suite
+  0342  Two voices per god [C]
+  0362  A voice for Hela [C]
+
+=====================================================================
+PHASE 11 — Fun, rituals, the saga   [track: worker]   (50 entries)
+=====================================================================
+  1116  The Sunday saga
+  1117  The lore page
+  1118  Achievements
+  1119  The boss fight
+  1120  XP for real tasks
+  1121  Valhalla
+  1122  The hall of lessons
+  1125  Huginn and Muninn
+  1126  Mimir's well
+  1128  Who is on duty
+  1129  A yearly letter
+  1130  Time capsule
+  1132  Pair of the day
+  1133  Record of the day
+  1136  Council debate
+  1137  Trio leaderboard
+  1140  Would-you-rather for the group
+  1146  Explain it to a ten-year-old
+  1148  Guess the god
+  1150  The compliment, once a day
+  1167  "Loki, I'm bored"
+  1168  "Odin, should I…"
+  1170  Loki's riddle
+  1171  The countdown
+  1172  The ISS
+  1174  Weather in saga voice
+  1175  Fake outage drill
+  1176  Speed-run the desk reset
+  1177  The trio's word of the week
+  1178  Typing race
+  1187  Cat facts, still
+  1188  The weekly "no"
+  1189  Ask the room
+  1191  A god for the car
+  1192  Bakersfield trivia
+  1193  A birthday for ASGARD
+  1195  Loki's excuses
+  1196  Odin's "I do not know"
+  1112  A QR on the wall
+  1049  The "how it works" page
+  0491  dice / coin / random_pick.
+  0492  would_you_rather — for the group chat.
+  0493  compliment — one, honest, no flattery loop.
+  0494  roast — only of code, never of people.
+  0495  horoscope — clearly labelled as entertainment.
+  0496  on_this_day.
+  0497  space_now — where the ISS is, next visible pass over
+  0498  cat_fact / dog_fact.
+  0499  countdown_to_weekend.
+  0500  eight_ball — "Odin, should I…" → "PAPER · SIMULATED. Ask me
+
+=====================================================================
+PHASE 12 — PC companion track — only after the ALWAYS-ON brief has been built   [track: pc]   (105 entries)
+=====================================================================
+  0005  Clipboard agent
+  0006  Screenshot-to-action
+  0011  Download folder janitor
+  0012  Desktop screenshot cleanup
+  0013  PC health line
+  0014  Game session log
+  0015  "Clip that" — already in the ALWAYS-ON brief
+  0016  Clip librarian
+  0017  Clip to short, one command
+  0052  Sleep log from the PC
+  0401  find_file — by name on your PC.
+  0402  recent_files — the last ten you touched.
+  0403  open — a file or app.
+  0404  move_to — a file to a folder.
+  0405  zip / unzip.
+  0406  convert — image/video/audio format via ffmpeg.
+  0407  resize_image.
+  0408  screenshot — 0006.
+  0409  clipboard_read / clipboard_write — 0005.
+  0410  disk_space.
+  0411  big_files — the twenty largest on the disk.
+  0412  duplicates — same file twice.
+  0413  pc_health — 0013.
+  0414  processes — what's using the CPU.
+  0415  kill_process — by name, with confirm.
+  0416  wifi_status — signal, speed test.
+  0417  battery — for the laptop days.
+  0418  updates_pending — Windows updates waiting.
+  0419  startup_apps — what runs at login.
+  0420  uptime.
+  0421  clip_last — 0015.
+  0422  clip_to_short — 0017.
+  0423  caption_video — subtitles burned in (local Whisper).
+  0424  trim_video — start/end.
+  0425  merge_videos.
+  0426  extract_audio.
+  0427  thumbnail — a frame from a video.
+  0428  gif — a clip to gif.
+  0429  compress_video — for sharing.
+  0430  audio_normalise.
+  0431  remove_silence — from a recording.
+  0432  tts_file — text to an mp3 in a god's voice.
+  0433  stt_file — an audio file to text.
+  0434  music_id — what song is this (a free recognition API if one [C]
+  0435  spotify_* — the existing set.
+  0436  obs_* — start, stop, scene, clip (0378).
+  0437  wallpaper — set the desktop wallpaper.
+  0438  screen_record — N seconds of the desktop, not a game.
+  0439  webcam_snap — one frame, only on request, never stored.
+  0440  image_describe — what's in a picture.
+  0556  Screen-time line
+  0557  Sleep, inferred
+  0558  Stand-and-drink, only during long builds
+  0559  Game-session timer
+  0574  PC Task Scheduler jobs
+  0575  Boot routine
+  0576  Shutdown routine
+  0577  Game-launch routine
+  0578  Post-game routine
+  0579  Study / build timer
+  0596  Focus playlist on build start
+  0597  Lights follow state
+  0833  Temperature baseline
+  0834  Startup audit
+  0838  Clips folder rules
+  0845  PowerToys
+  0846  A local model for the free lane
+  0850  Sleep nightly, restart weekly
+  0887  Scene switching by voice
+  0897  Clips backup
+  0901  The hard stop at midnight
+  0921  Fifteen minutes, floor only
+  0936  Music
+  0953  Twenty-five on, five off
+  0954  Notifications held
+  1103  A Windows toast per god
+  1104  The clip key
+  1110  A boot screen
+  1111  Custom Windows sounds
+  1102  A scorecard widget on the desktop
+  1107  Lights follow the god
+  1166  "Thor, movie mode"
+  1180  "Thor, DJ"
+  1182  Loki narrates the game
+  1194  Hall lights on the case
+  0345  Barge-in that works
+  0346  Push-to-talk backup
+  0347  Mic calibration, weekly
+  0348  Headset vs desk mic
+  0349  Whisper-level input
+  0350  Dictation mode
+  0352  Command confirmation sounds instead of words
+  0353  Voice shortcuts you define
+  0354  Volume follows the room
+  0360  Voice memos to Loki
+  0361  Hands-free clip review
+  0365  Ambient mode, off by default
+  0366  Voice from the phone
+  0367  Voice replies to the phone
+  0368  Wake word false-positive log
+  0369  Wake word on the headset only
+  0370  Mute LED
+  0371  Voice health line
+  0378  Voice-controlled OBS
+  0379  Voice-controlled lights
+
+=====================================================================
+PHASE 13 — Automations remainder and the outside checks   [track: worker]   (8 entries)
+=====================================================================
+  0546  Weekly dependency check
+  0554  "Did I build today"
+  0585  Repo mirror [C]
+  0589  Market data warmed once per bar
+  0591  Cloudflare analytics — weekly
+  0592  Outside-in uptime check [C]
+  0595  Monthly "what did I ship"
+  1274  The Ragnarok drill
+
+=====================================================================
+DEFERRED — do not build until Rayan picks one by number
+=====================================================================
+  0034  Speaker-aware Thor
+  0341  Speaker ID, tested
+  0584  Photo backup
+  0751  The subscription finder, as a page
+  0752  "Clip that", the product
+  0753  The morning card, for anyone
+  0754  The scorecard page
+  0755  Garage-sale radar
+  0756  Heat and air bot
+  0757  Local jobs bot
+  0758  Free-tier reset tracker
+  0759  Persona and voice recipes
+  0760  Room-reset by photo
+  0898  A dedicated "on air" signal
+  0945  Form by phone, for consistency not coaching
+  1105  The old phone as the ear
+  1106  Status bulb
+  1109  An e-ink day card
+  1131  Holiday modes
+  1141  Agents introduce each other
+  1142  The trio's hall
+  1173  What is this song
+  1181  Voices swap for a day
+
+=====================================================================
+HUMAN — not Codex work (the room, the body, selling, applying, accounts)
+=====================================================================
+  0116  The library card
+  0164  Password manager, not a tool
+  0165  Recovery codes stored
+  0220  Say it to Jay and Kevin
+  0241  Downgrade decision, honest
+  0242  ChatGPT Plus vs Codex top-ups
+  0243  Claude Max, the day after
+  0601  The flip desk
+  0602  The flip rule of three
+  0605  Operator-for-hire
+  0606  Local PC help
+  0607  Plasma
+  0608  Gig apps, with the maths done
+  0609  Odd jobs, local
+  0610  Build day
+  0612  ElevenLabs before 10 October
+  0613  SignalRGB Pro
+  0614  Cloudflare $5
+  0615  The API bills
+  0616  Plus vs top-ups
+  0617  Sell the setup knowledge, free first
+  0618  Coaching is not a business yet
+  0619  Realtor short-form video
+  0621  Trade-ins
+  0622  Unclaimed property
+  0624  Library card
+  0625  The GPU-renting thing — no
+  0626  The notary path — later
+  0627  Vinyl and streetwear, cautiously
+  0628  The fee-free bank account
+  0629  Cash-back apps — skip
+  0631  Fair week
+  0632  Sell hours to the trio
+  0633  Buy-nothing month
+  0634  The $1,000 line
+  0635  Free stuff for the room
+  0638  Don't fund businesses from the line
+  0639  The first-$50 rule
+  0640  Sell three pairs
+  0642  The Timberlands are seasonal
+  0643  The Supreme sign
+  0644  Controllers, headsets, keyboards
+  0645  The closet
+  0646  Lots, not singles, for the small stuff
+  0647  Shipping without losing money
+  0648  Local meetups, safely
+  0651  The keep list
+  0653  Trade instead of sell
+  0654  Consignment
+  0655  Timing the listing
+  0656  Photos are the price
+  0657  Describe the flaw
+  0658  Sold money goes to the line
+  0660  One in, one out
+  0665  Three Bakersfield channels most people skip
+  0666  The seasonal ramp
+  0667  Apprenticeships — paid training, no debt
+  0668  Temp agencies as the side door
+  0672  The story bank
+  0673  References
+  0674  LinkedIn
+  0675  Indeed profile and alerts
+  0677  The reframe
+  0678  The skills to name
+  0679  Free certificates that mean something
+  0680  Job-search hours
+  0681  Walk-ins still work here
+  0682  Craigslist Bakersfield
+  0685  The interview kit
+  0688  The side door: volunteer automation
+  0689  Bakersfield College
+  0690  The big local employers, by name
+  0691  Oil and energy — with eyes open
+  0692  Remote support roles
+  0693  Bilingual is a multiplier here
+  0694  The typing test
+  0698  The programmes you paid into
+  0699  Build after, not instead
+  0700  First paycheque rules
+  0701  Desk reset house calls
+  0702  Arm and mount installs
+  0703  Console clean and re-paste
+  0704  Gaming party host
+  0705  Sneaker cleaning and restore
+  0706  Local sneaker check
+  0707  Closet flip for other people
+  0708  Pickup-and-ship
+  0709  Tech for elders
+  0710  Wi-Fi fixes
+  0711  Smart-home setup
+  0712  Streaming setup for creators
+  0713  Data-recovery triage, honest
+  0714  Windows reinstall with backup
+  0715  Build consult
+  0716  Skill tournaments
+  0717  Move-out cleans
+  0718  Holiday lights, with a partner
+  0719  Errands and waits
+  0720  Fair-week parking and hauling
+  0721  Telegram bots for small shops
+  0722  Cloudflare Pages migrations
+  0723  Google Business Profile photo refresh
+  0724  Voice notes to clean quotes
+  0725  Brand kit on free tools
+  0726  Job-hunt setup for others
+  0727  Mock interviews
+  0728  Subscription audit for others
+  0729  Cancel concierge
+  0730  Bill negotiation for a cut
+  0731  Family device setup
+  0732  Photo library rescue
+  0733  Password-manager migrations
+  0734  Discord builds
+  0735  Stream overlays and alerts
+  0736  "Clip that" installs
+  0737  AI greetings and IVR menus
+  0738  Product photo cleanup
+  0739  eBay for neighbours
+  0740  Spreadsheets for tiny businesses
+  0741  Build-in-public
+  0742  The trio show
+  0743  The newsletter for non-coders
+  0744  The Voice Design workshop
+  0745  Desk-setup lane
+  0746  Sneaker shelf lane
+  0747  Bakersfield lane
+  0748  The 30-day experiments
+  0749  The outage post
+  0750  Ambient sound
+  0761  One at a time
+  0762  The one-sentence test
+  0763  Three customers before a website
+  0764  Ask, don't pitch
+  0765  Show, don't describe
+  0766  Price with an anchor
+  0767  Fixed price, fixed scope, on paper
+  0768  Half up front for anything over $100
+  0770  Take payment every way
+  0771  Sole proprietor first
+  0772  Taxes: 20 % aside
+  0773  Insurance when physical
+  0775  The two-hour rule while job hunting
+  0776  Referral ask, every job
+  0777  Reviews, honestly
+  0778  Where local customers actually are
+  0779  No paid ads for a year
+  0780  The demo folder
+  0782  A name later
+  0783  Bilingual listing
+  0784  Say the AI part plainly
+  0785  Never keep access
+  0786  Photos before touching
+  0787  The Saturday block
+  0788  Support ends on a date
+  0789  The sneaker skill is a business input
+  0790  The trio as a company, informally
+  0792  Don't sell to friends at friend prices
+  0793  The "no" list per business
+  0794  Get paid before the parts
+  0795  Local first, online second
+  0796  One channel, done well
+  0798  When it is a job, not a business
+  0799  The upgrade path
+  0800  The rule that beats all of these
+  0801  The power strip comes off the floor
+  0802  Is it a surge protector?
+  0803  Count the plugs before buying anything
+  0804  One cable spine
+  0805  Under-desk cable tray
+  0806  Velcro, not zip ties, for anything you will change
+  0807  Label both ends
+  0808  Right-length cables
+  0809  The controller gets a home
+  0810  The headset hook, done properly
+  0811  Monitor arm
+  0812  Monitor height and distance
+  0813  Wrist rest, tested first
+  0814  The mousepad stays
+  0815  Bias light behind the monitor
+  0816  A task lamp
+  0817  One landing tray
+  0818  The return, after the tower leaves
+  0819  Nothing on the floor
+  0820  The five-minute reset
+  0821  Set the chair up once
+  0822  Chair mat
+  0823  A USB hub at the desk edge
+  0824  Edge clips for charging cables
+  0825  One charging spot
+  0826  Hide the strip's own lead
+  0827  If the outlet is far
+  0828  Dust
+  0829  Measure and sketch first
+  0830  The buy order
+  0831  Tower off the return, onto a floor stand
+  0832  Airflow check
+  0835  Power plan by state
+  0836  Game Mode on, Game Bar off
+  0837  Replay buffer cost
+  0839  Backups, 3-2-1, for what matters
+  0840  Updates on a schedule
+  0841  Drivers, monthly, stable only
+  0842  Security baseline
+  0843  Retire the Chromebook from building
+  0844  No second monitor yet
+  0847  RAM
+  0848  Drive health
+  0849  No RGB spend
+  0851  Bed and desk are one metre apart
+  0852  Two layouts on paper
+  0853  Light zones
+  0854  Morning light
+  0855  Heat
+  0856  Noise
+  0857  A rug by the bed
+  0858  The closet, doubled
+  0859  The shoe rack
+  0860  The wall, grouped
+  0861  Wall hooks by the desk
+  0862  One bin for cables and old tech
+  0863  A bin within reach
+  0864  Ten minutes on Sunday
+  0865  Air
+  0866  One plant
+  0867  The TV in the corner
+  0868  A mirror on the closet door
+  0869  Under-bed bins
+  0870  One in, one out
+  0871  Mic position
+  0872  Gain and gate
+  0873  Noise removal
+  0874  Headset vs speakers
+  0875  A small speaker for the gods
+  0876  Streaming, honestly
+  0877  Your own clips, one account each
+  0878  The angle that is actually yours
+  0879  The photo corner
+  0880  The first video is the desk
+  0881  Phone as webcam
+  0882  Light for video
+  0883  The sneaker shelves as the backdrop
+  0884  The records
+  0885  Frame the poster
+  0886  The sign
+  0888  Audio routing, only if streaming
+  0889  Music on stream
+  0890  Discord bridge
+  0891  Capturing the PS5
+  0893  One post a week
+  0894  Thumbnails on free tools
+  0895  What to watch in analytics
+  0896  Editing on free tools
+  0900  The rule
+  0902  Same wake time, every day
+  0903  The phone leaves the room
+  0904  Morning light
+  0905  Caffeine cutoff at 14:00
+  0906  Screens dim after 22:00
+  0907  Bed is for sleep
+  0908  The twenty-minute rule
+  0909  Naps: twenty minutes, before 15:00
+  0911  Weekend drift under an hour
+  0912  The PS5's own timer
+  0913  Cool and dark
+  0914  Thirty minutes of nothing
+  0915  The first fifteen minutes
+  0916  Ship in the morning
+  0917  If it stays broken
+  0919  The chair is not a bed
+  0922  Walk twenty minutes
+  0923  The desk two minutes
+  0924  Progression
+  0925  One purchase, later
+  0926  Water on the desk
+  0927  Posture is the desk
+  0928  Stand every 45 minutes when gaming
+  0929  No fitness app
+  0930  Gym after thirty days
+  0931  Eyes
+  0932  Hands and wrists
+  0933  One number monthly
+  0934  Sleep and this are one project
+  0937  Running, if you want it
+  0938  A bike, if you have one
+  0939  Heat rules
+  0940  Ten minutes of sun
+  0941  Jump rope
+  0943  Rest days are days
+  0944  Two minutes of warm-up
+  0946  Pain is a stop
+  0947  Food is the other half
+  0948  A weekly walk with the trio
+  0949  Twenty minutes standing
+  0950  Not the scale
+  0951  The two-minute rule
+  0952  One task on the "now" line
+  0956  Ship the smallest thing
+  0957  Three, not thirty
+  0958  Time-box research
+  0960  Sunday twenty minutes
+  0961  Restart, don't fight
+  0963  Batch the questions
+  0964  A tool must earn its install
+  0965  Phone in another room, daytime too
+  0966  Music without words
+  0968  Good enough for designs
+  0970  One browser window
+  0971  One shortcut a week
+  0973  Rubber duck
+  0974  Rest is part of the build
+  0975  Track energy, not hours
+  0976  Stack the habits
+  0977  The sticky note
+  0978  The game after the ship
+  0979  No new projects during an outage
+  0980  Stuck thirty minutes → ask
+  0981  The $0-thinking kitchen kit
+  0982  Sunday batch
+  0983  The energy-drink swap
+  0984  Water first
+  0989  Price per unit
+  0990  A rice cooker, later
+  0991  Protein, simply
+  0992  Fruit from where it grows
+  0993  The Sunday fridge check
+  0994  Desk snacks
+  0995  One meal away from the desk
+  0996  Cook to something
+  0998  CalFresh, if you qualify
+  0999  The freezer
+  1000  One real dish
+  1001  Read code for ten minutes a day
+  1002  Git for real: six commands
+  1003  JavaScript in the browser console
+  1004  Workers fundamentals
+  1005  HTTP in plain English
+  1006  JSON by hand
+  1007  Python basics
+  1008  Prompt design, properly
+  1009  Twenty terminal commands
+  1010  Read the logs
+  1011  The debugging method
+  1012  Secrets, the idea
+  1013  Security in plain English
+  1014  DNS and webhooks
+  1015  One regex a day
+  1016  Markdown
+  1017  Typing
+  1018  Sheets
+  1019  SQL, a weekend
+  1020  Read an API doc, make a call
+  1021  Write one test
+  1022  The scorecard maths
+  1023  Why n matters
+  1024  Personal finance, the order
+  1025  Writing clearly
+  1026  Speaking
+  1027  Editing video
+  1028  Audio basics
+  1029  Design basics, because you care about it
+  1030  Three.js fundamentals
+  1031  Shaders
+  1032  Blender basics
+  1033  Write down the Voice Design lessons
+  1034  Teach the Telegram bot end to end
+  1035  Google IT Support
+  1036  A+ later
+  1037  The free learning stack
+  1038  Fix one bug a week yourself
+  1039  Teach-back README
+  1040  The learning log
+  1041  Spanish, ten minutes
+  1042  Sheets badge
+  1043  Support skills
+  1044  Project basics
+  1045  Negotiation
+  1046  Pay stubs and 1099s
+  1047  Business basics for California
+  1048  Copyright basics
+  1050  One book a month
+  1051  Podcasts on the walk
+  1052  OBS, properly
+  1053  The PS5's share features
+  1054  One dish
+  1055  First aid / CPR
+  1056  Car basics
+  1057  Phone photography
+  1058  Windows shortcuts
+  1059  The verify habit
+  1060  The 100-hour rule
+  1061  The trio meets as people
+  1062  A humans-only channel
+  1063  Pair for an hour
+  1064  Name the strengths
+  1065  PRs, not access
+  1066  Bots speak when named
+  1067  Teach one thing a month
+  1068  A shared do-not list
+  1069  Celebrate ships
+  1070  One non-tech hang a week
+  1071  Bakersfield builders
+  1072  A sign on the door
+  1073  The 3 AM loneliness
+  1074  Ask early
+  1075  The gods are tools
+  1078  Money once a week
+  1079  The wins list
+  1080  Your own last week is the yardstick
+  1081  A day off, weekly
+  1082  Outside
+  1083  Music without a screen
+  1084  A hobby with your hands
+  1085  Volunteer
+  1086  Say the plan out loud
+  1087  Sunday plans, Saturday off
+  1088  The feed is not rest
+  1089  Nothing is lost when a subscription ends
+  1090  A mentor, one coffee
+  1091  One business at a time
+  1092  A build day in one room
+  1093  Write the outage story
+  1094  Sleep and mood are one project
+  1095  Decisions at a lower temperature
+  1097  If it stays heavy
+  1098  Kindness to past you
+  1099  The trio story is an interview answer
+  1100  Fun is allowed
+  1113  The whiteboard
+  1114  Printed cards
+  1115  A Raspberry Pi, later
+  1138  The hackathon
+  1139  Friday one-hour build
+  1143  Shirts
+  1144  A game jam, the humans
+  1145  Sunday build stream
+  1147  Teach a kid to make a bot
+  1151  Your own figures
+  1152  Your own keycap
+  1153  A comic of the outage night
+  1154  A short story with Odin
+  1155  The soundscape
+  1156  A zine
+  1157  A physical Mjolnir
+  1158  Your own desk mat design
+  1159  Poster of the architecture
+  1160  A song about the gods
+  1161  Photograph the room, monthly
+  1162  Sneaker photo series
+  1163  Vinyl sleeve art study
+  1164  A room-tour video, yearly
+  1165  Hand-lettered labels
+  1179  Sneaker cleaning race
+  1186  Trophy shelf
+  1202  Insurance shopped every six months
+  1204  Tyre pressure monthly
+  1205  The glovebox
+  1207  A jump pack, later
+  1208  Gas price app
+  1211  Bank alerts on
+  1212  Autopay only for the essentials
+  1213  Credit score, free
+  1214  Credit freeze
+  1215  Unclaimed property, yearly
+  1216  Tax season
+  1217  1099-K rules move
+  1221  Renters insurance
+  1222  Home inventory
+  1223  Emergency fund line
+  1224  Fee audit
+  1227  Annual plans, never for new tools
+  1228  A single money folder
+  1229  Set-aside for the car
+  1231  The document folder
+  1232  REAL ID
+  1234  Voter registration current
+  1235  A trusted person has the recovery codes
+  1236  Emergency contacts on the phone lock screen
+  1237  Library card
+  1238  Address change list
+  1239  Copies of the lease
+  1241  Which email is primary
+  1242  Unsubscribe day
+  1243  Password manager
+  1244  Phone backup on
+  1245  Recovery email and phone on every account
+  1248  Old accounts closed
+  1249  Domain, later
+  1250  Two-factor everywhere
+  1253  Cleaning, ten minutes Sunday
+  1254  A first-aid kit
+  1255  Fire and CO alarms
+  1256  Emergency water
+  1257  Flashlight
+  1258  A spare key
+  1259  Landlord contact
+  1260  Heat plan
+  1261  Insurance card photo
+  1262  Nearest urgent care
+  1263  A doctor on file
+  1267  The 60-day cash calendar
+  1268  Sunday planning
+  1270  A yearly goal, one
+  1271  Back-up the briefs
+  1272  Repo hygiene monthly
+  1276  Chromebook retired properly
+  1279  Tell the trio when something changes
+  1280  Read this list's Part I once a month
+  1281  Birthdays
+  1282  Thank-yous sent
+  1283  A contacts clean-up
+  1284  Family calls on the card
+  1285  References kept warm
+  1286  Surge protector, if needed ($15–25)
+  1287  Cable sleeve ($10)
+  1288  Monitor arm ($30 or free)
+  1289  Chair mat ($15 or free)
+  1290  Bias light ($12)
+  1291  Pull-up bar ($20)
+  1292  Rice cooker ($20)
+  1293  Jump pack ($40)
+  1294  First-aid kit ($10)
+  1295  Under-desk tray ($20)
+  1296  Whiteboard ($10)
+  1297  Frame for the poster ($10)
+  1298  Renters insurance (monthly)
+  1299  Doorframe hooks and clips ($5)
+  1300  Nothing else this year
+  1301  Rotate the three Telegram bot tokens
+  1302  Delete the plaintext key backup
+  1305  Two-factor tonight
+  1306  Password manager
+  1316  Spend caps at the source
+  1319  Device locks
+  1322  Session hygiene on the Chromebook
+  1324  Public repo check
+  1327  The full-permission installer, read once
+
+=====================================================================
+RULES AND CLOSING — nothing to build; Codex reads Part I once and obeys it
+=====================================================================
+  0539, 0540, 0638, 1185, 1198, 1199, 1200, 1304, 1330, 1331, 1332, 1333, 1334, 1335, 1336, 1337, 1338, 1339, 1340, 1341, 1342, 1343, 1344, 1345, 1346, 1347, 1348, 1349, 1350, 1351, 1352, 1353, 1354, 1355, 1356, 1357, 1358, 1359, 1360, 1361, 1362, 1363, 1364, 1365, 1366, 1367, 1368, 1369, 1370, 1371, 1372, 1373, 1374, 1375, 1376, 1377, 1378, 1379, 1380, 1381, 1382, 1383, 1384, 1385, 1386, 1387, 1388, 1389, 1390, 1391, 1392, 1393, 1394, 1395, 1396, 1397, 1398, 1399, 1400, 1401, 1402, 1403, 1404, 1405, 1406, 1407, 1408, 1409, 1410
