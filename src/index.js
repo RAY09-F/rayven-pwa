@@ -1,6 +1,7 @@
 import {scheduledEnvironment} from './lib/scheduled-budget.js';
-import {browserTransportAuthorized} from './lib/browser-auth.js';
 import {dispatchJobs,schedulerStatus,setSchedulerEnabled,schedulerConfig} from './lib/scheduler.js';
+import {browserTransportAuthorized} from './lib/browser-auth.js';
+import {routineView,toggleRoutine} from './lib/routine-view.js';
 import {companionVoice,VOICE_ADDENDUM} from './lib/companion-voice.js';
 import {getPaperResearch} from './lib/paperTrading.js';
 import {paperEnvironment} from './lib/paper-store.js';
@@ -545,7 +546,6 @@ export default {
       return new Response(JSON.stringify({error:'Browser pairing required'}),{status:401,headers:{...corsHeaders,'Content-Type':'application/json','Cache-Control':'no-store'}});
     }
 
-
     const voiceResponse=await companionVoice(request,env,ctx,handleChatTurn);
     if(voiceResponse)return voiceResponse;
 
@@ -676,9 +676,9 @@ export default {
     }
 
     if (url.pathname === '/admin/scheduler') {
-      if(request.method==='GET')return json(await schedulerStatus(env),corsHeaders);
+      if(request.method==='GET')return json({...await schedulerStatus(env),routines:await routineView(env)},corsHeaders);
       if(request.method==='POST'){
-        try{const body=await request.json();return json(await setSchedulerEnabled(env,body.id,body.enabled),corsHeaders);}
+        try{const body=await request.json();return json(await (body.kind==='routine'?toggleRoutine:setSchedulerEnabled)(env,body.id,body.enabled),corsHeaders);}
         catch{return json({error:'Invalid scheduler update'},corsHeaders,400);}
       }
       return json({error:'Method not allowed'},corsHeaders,405);
