@@ -4,6 +4,9 @@ last entry attempted: 0566 (shared read retries and response timeouts; wider aud
 next line to paste: "Read docs/CODEX-RUN-EVERYTHING.txt and docs/PROGRESS.md. Continue Phase 1 safety work from 0566/0248. Git backup and browser extension pairing/reload are complete. Preserve current release lineage and pre-existing edits; finish release acceptance before deployment."
 
 ## Phase summaries (newest first)
+### Final verified version for this work — 2026-09-14
+Production 86757111-911c-4f49-8a0e-7ebfb9d3969f from source e6afcbf includes the safety release plus paper candle-input validation. All 227 Node tests pass. Built Worker/SQLite checks pass. Live safety smoke again passed all nine checks, including three real AI replies; paper research returned HTTP 200 and all 12 agents available. UI assets unchanged from the previously verified 188-asset fingerprint. Rollback predecessor: 8880f41a-15e9-4b1e-9be2-ae0eb185c348. Detailed paper results: docs/PAPER-DIAGNOSTIC-SNAPSHOT.md. No claim that all build phases or every external integration are finished.
+
 ### Safety update deployed — 2026-09-14
 Production Worker version 8880f41a-15e9-4b1e-9be2-ae0eb185c348, source commit 32f4ab6, UI workspace-258eb2a38385. Previous version d9e2ef7c-f901-4256-9159-7c168e8129a9 retained for rollback. 226 Node tests and built Worker/SQLite checks passed before deployment. Live safety smoke passed health, HTML, rejection of unpaired browser poll/result, rejection of unauthenticated scheduler admin, paired poll, and real replies from Thor/Loki/Odin. All 188 frontend asset hashes and MIME checks passed. Later browser/status polling confirmed connected with a recent poll beyond the smoke request. No phone call was placed; no trading position was changed by these checks.
 
