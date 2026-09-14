@@ -4,6 +4,12 @@ last entry attempted: 0566 (shared read retries and response timeouts; wider aud
 next line to paste: "Read docs/CODEX-RUN-EVERYTHING.txt and docs/PROGRESS.md. Continue Phase 1 safety work from 0566/0248. Git backup and browser extension pairing/reload are complete. Preserve current release lineage and pre-existing edits; finish release acceptance before deployment."
 
 ## Phase summaries (newest first)
+### Safety release preparation — 2026-09-14
+0249 | locally-tested | telegram-dedupe.js, ledger-do.js, index.js | 40 concurrent copies yield exactly one SQLite claim; persona isolation and expiry checked | legacy transport claims before persona switching; existing KV receipts honored where keyed by persona; seven-day retention, 10,000-row fail-closed bound. At-most-once admission, not guaranteed successful completion after a crash.
+0318 | locally-tested | response-envelope.js, wrangler.toml | header tests plus built Worker | actual Cloudflare version metadata attached to responses.
+0309 / 0310 / 1326 | partial, locally-tested | response-envelope.js, http.js, anthropic.js | error category and credential redaction tests | unhandled request failures get honest 503 JSON; wider logging and provider audit still pending.
+Shared HTTP credentials cannot cross origins or enter shared cache. 226 Node tests pass. UI manifest rebuilt. Previous deployed version including pairing secret: d9e2ef7c-f901-4256-9159-7c168e8129a9. Preparing a bounded safety update under the owner's subsequent authorization to deploy eligible tested releases; this does not mark all Phase 1 or later work complete. Roll back with Wrangler rollback to that exact version if transport/auth/chat checks regress. Existing DO class migrations remain untouched; new dedupe table is additive.
+
 ### GitHub authentication and upload — 2026-09-14
 Device authorization completed successfully for RAY09-F. Git Credential Manager confirms the account. Fresh working-tree/history token-pattern scan reports zero findings (same scanner limitations as Phase 0). Uploaded pre-everything-2026-09-14 at 212c067fd9c66bfa64cc79ad61fef934a778d373 and phase-1 at bf24383; origin tracking enabled. This supersedes older authentication-blocked notes. Main was not changed. Pre-existing uncommitted companion/face work remains local and preserved. Application-code deployment and remaining phases are still pending.
 

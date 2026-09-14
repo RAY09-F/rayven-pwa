@@ -24,5 +24,11 @@ try{
  const results=await Promise.all(Array.from({length:40},()=>ledger.op({op:'reserveScheduledModels',count:1})));
  assert.equal(results.filter(r=>r.allowed).length,30);
  assert.equal(JSON.parse(db.prepare('SELECT value FROM kv WHERE key=?').get('budget:scheduled-models').value).used,30);
- db.close();console.log('PASS built Worker rejects unpaired transport/admin, accepts paired poll, and SQLite enforces 30 reservations');
+ const claims=await Promise.all(Array.from({length:40},()=>ledger.op({op:'claimTelegramUpdate',persona:'thor',updateId:123})));
+ assert.equal(claims.filter(r=>r.claimed).length,1,'concurrent Telegram copies claim once');
+ assert.equal((await ledger.op({op:'claimTelegramUpdate',persona:'loki',updateId:123})).claimed,true);
+ db.prepare('UPDATE telegram_updates SET expires_at=0').run();
+ assert.equal((await ledger.op({op:'claimTelegramUpdate',persona:'thor',updateId:123})).claimed,true);
+ await assert.rejects(ledger.op({op:'claimTelegramUpdate',persona:'thor',updateId:-1}));
+ db.close();console.log('PASS built Worker transport/admin auth, SQLite model budget, and concurrent Telegram deduplication');
 }catch(error){console.error('FAIL runtime check:',error.message);process.exitCode=1}

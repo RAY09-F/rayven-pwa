@@ -16,6 +16,9 @@ name = "asgrard-backend"
 main = "src/index.js"
 compatibility_date = "2026-08-13"
 
+[version_metadata]
+binding = "ASGARD_VERSION"
+
 # ASGARD is served straight from the worker: public/index.html is a COPY of the
 # repo-root index.html, so re-copy it after every edit or the live page silently
 # stays stale. There is exactly ONE page — THOR, LOKI and ODIN are personas

@@ -31,3 +31,12 @@ test('timeout covers stalled response body, not only headers',async()=>{
  assert.equal(result.ok,false);assert.match(result.error,/timed out/);
  }finally{globalThis.fetch=original}
 });
+test('authenticated fetches never populate shared cache or forward credentials to redirect hosts',async()=>{
+ const original=globalThis.fetch,oldCache=globalThis.caches;let calls=0;
+ globalThis.caches={default:{match:()=>assert.fail('private cache lookup'),put:()=>assert.fail('private cache write')}};
+ globalThis.fetch=async()=>{calls++;return new Response('',{status:302,headers:{location:'https://another.example/'}})};
+ try {
+ const r=await httpFetch({},'https://example.com',{headers:{Authorization:'Bearer fixture'},cacheSeconds:60});
+ assert.equal(r.ok,false);assert.match(r.error,/Cross-origin/);assert.equal(calls,1);
+ }finally{globalThis.fetch=original;if(oldCache===undefined)delete globalThis.caches;else globalThis.caches=oldCache}
+});

@@ -1,4 +1,6 @@
 import {scheduledEnvironment} from './lib/scheduled-budget.js';
+import {claimTelegramUpdate} from './lib/telegram-dedupe.js';
+import {withReleaseHeaders} from './lib/response-envelope.js';
 import {dispatchJobs,schedulerStatus,setSchedulerEnabled,schedulerConfig} from './lib/scheduler.js';
 import {browserTransportAuthorized} from './lib/browser-auth.js';
 import {routineView,toggleRoutine} from './lib/routine-view.js';
@@ -488,13 +490,10 @@ async function resolveTelegramPersona(env, body, fallbackId) {
 // Telegram webhooks must answer immediately: parse, dedupe on update_id, hand
 // the real work to ctx.waitUntil, return 200 at once. Replies go out via
 // sendMessage, so nothing depends on this response body.
-async function ackTelegramAndProcess(env, ctx, body, personaId, botToken, corsHeaders) {
+async function ackTelegramAndProcess(env, ctx, body, personaId, botToken, corsHeaders, alreadyClaimed=false) {
   const updateId = body && body.update_id;
-  if (updateId !== undefined && updateId !== null) {
-    const dedupeKey = `tg:update:${personaId}:${updateId}`;
-    const seen = await env.RAYVEN_KV.get(dedupeKey);
-    if (seen) return new Response('OK', { headers: corsHeaders });
-    await env.RAYVEN_KV.put(dedupeKey, '1', { expirationTtl: 3600 });
+  if (!alreadyClaimed && updateId !== undefined && updateId !== null) {
+    if(!(await claimTelegramUpdate(env,personaId,updateId)))return new Response('OK', { headers: corsHeaders });
   }
   // Phase 6.7: the APPROVE / REJECT buttons on approval messages.
   if (body && body.callback_query) {
@@ -527,7 +526,7 @@ async function handleCallbackQuery(env, cq, botToken) {
 // Phase 9: the ledger class must be exported from the entry module for the binding to resolve.
 export { AsgardLedger } from './ledger-do.js';
 
-export default {
+const workerHandler = {
   async fetch(request, env, ctx) {
     env=paperEnvironment(env);
     const corsHeaders = {
@@ -1568,6 +1567,8 @@ How to speak on a phone call:
       const isTelegram = !!body && body.update_id !== undefined && body.update_id !== null;
 
       if (isTelegram) {
+        // Deduplicate by the delivering bot before a switch changes active persona.
+        if(!(await claimTelegramUpdate(env,'legacy',body.update_id)))return new Response('OK',{headers:corsHeaders});
         // Legacy webhook path — the original RAYVENN_RAYAN_BOT, which stays
         // exactly where JARVIS expects it. It is shared by all three personas;
         // which one answers is remembered per chat and changed by saying
@@ -1580,7 +1581,7 @@ How to speak on a phone call:
           );
           return new Response('OK', { headers: corsHeaders });
         }
-        return ackTelegramAndProcess(env, ctx, body, routed.personaId, env.TELEGRAM_BOT_TOKEN, corsHeaders);
+        return ackTelegramAndProcess(env, ctx, body, routed.personaId, env.TELEGRAM_BOT_TOKEN, corsHeaders,true);
       }
 
       // Web chat — the frontend names the active persona ("persona" from the
@@ -1702,3 +1703,4 @@ How to speak on a phone call:
     })).catch(err => console.error('tick failed:', err && err.message)));
   }
 };
+export default withReleaseHeaders(workerHandler);

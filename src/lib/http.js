@@ -8,6 +8,7 @@
 // Workers Cache API for GETs that may be cached (never a module variable, never
 // KV). Errors come back verbatim (Rule 7). Callers shape their results.
 import {retryRead} from './retry-read.js';
+import {safeError} from './chat-diagnostics.js';
 const DEFAULT_TIMEOUT_MS = 10000;
 const DEFAULT_MAX_BYTES = 1024 * 1024;
 const MAX_HOPS = 5;
@@ -56,7 +57,8 @@ async function httpFetchOnce(env, urlString, opts = {}) {
   const method = (opts.method || 'GET').toUpperCase();
   let g = publicHostCheck(urlString); if (!g.ok) return { ok: false, status: 0, url: urlString, error: g.why };
   const headers = { 'user-agent': userAgent(env), accept: opts.accept || 'application/json, text/plain, */*', ...(opts.headers || {}) };
-  const cacheable = method === 'GET' && Number(opts.cacheSeconds) > 0 && typeof caches !== 'undefined' && caches.default;
+  const hasCredentials=Object.keys(opts.headers||{}).some(k=>/authorization|cookie|token|key|secret/i.test(k)) || [...g.url.searchParams.keys()].some(k=>/token|key|secret|password/i.test(k));
+  const cacheable = !hasCredentials && method === 'GET' && Number(opts.cacheSeconds) > 0 && typeof caches !== 'undefined' && caches.default;
   const cacheKey = cacheable ? new Request(g.url.toString(), { method: 'GET', headers: { accept: headers.accept } }) : null;
   if (cacheable) { try { const hit = await caches.default.match(cacheKey); if (hit) { const text = await hit.text(); return finish(hit, text, g.url.toString(), 0, true); } } catch (e) {} }
   let url = g.url.toString(), hops = 0, res, bytes;
@@ -66,19 +68,20 @@ async function httpFetchOnce(env, urlString, opts = {}) {
       res = await fetch(url, { method, headers, body: opts.body, redirect: 'manual', signal: ac.signal });
       bytes = await readCapped(res,maxBytes);
     }
-    catch (e) { return { ok: false, status: 0, url, retryable:ac.signal.aborted || e instanceof TypeError, error: ac.signal.aborted ? `timed out after ${timeoutMs} ms` : `network: ${e && e.message}` }; }
+    catch (e) { return { ok: false, status: 0, url, retryable:ac.signal.aborted || e instanceof TypeError, error: ac.signal.aborted ? `timed out after ${timeoutMs} ms` : `network: ${safeError(e)}` }; }
     finally { clearTimeout(t); }
     if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
       if (++hops > MAX_HOPS) return { ok: false, status: res.status, url, error: `too many redirects (${hops})` };
       let next; try { next = new URL(res.headers.get('location'), url).toString(); } catch (e) { return { ok: false, status: res.status, url, error: 'bad redirect location' }; }
       const g2 = publicHostCheck(next); if (!g2.ok) return { ok: false, status: res.status, url, error: `redirect refused: ${g2.why}` };
+      if(new URL(url).origin!==g2.url.origin && (hasCredentials || !['GET','HEAD'].includes(method)))return {ok:false,status:res.status,url,error:'Cross-origin redirect refused for credentials or write request'};
       url = g2.url.toString(); continue;
     }
     break;
   }
   const retryHeader=res.headers.get('retry-after');
   const retryAfterMs=retryHeader ? (/^\d+$/.test(retryHeader) ? Number(retryHeader)*1000 : Math.max(0,Date.parse(retryHeader)-Date.now())||0) : 0;
-  if (opts.binary) { const okb = res.status >= 200 && res.status < 300; return { ok: okb, status: res.status, url, bytes, contentType: res.headers.get('content-type') || '', hops, error: okb ? null : `HTTP ${res.status}` }; }
+  if (opts.binary) { const okb = res.status >= 200 && res.status < 300; return { ok: okb, status: res.status, url, bytes, contentType: res.headers.get('content-type') || '', hops, retryAfterMs, error: okb ? null : `HTTP ${res.status}` }; }
   const text = new TextDecoder().decode(bytes);
   if (cacheable && res.ok) { try { await caches.default.put(cacheKey, new Response(text, { status: 200, headers: { 'content-type': res.headers.get('content-type') || 'text/plain', 'cache-control': `public, max-age=${Math.floor(opts.cacheSeconds)}` } })); } catch (e) {} }
   return {...finish(res, text, url, hops, false),retryAfterMs};

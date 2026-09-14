@@ -11,6 +11,8 @@ import {phoneTransition} from './lib/phone-state.js';
 import {reserveBudget} from './lib/scheduled-budget.js';
 
 const SCHEMA = [
+  `CREATE TABLE IF NOT EXISTS telegram_updates (persona TEXT NOT NULL, update_id INTEGER NOT NULL, expires_at INTEGER NOT NULL, PRIMARY KEY(persona, update_id))`,
+  `CREATE INDEX IF NOT EXISTS telegram_updates_expiry ON telegram_updates (expires_at)`,
   `CREATE TABLE IF NOT EXISTS tick (key TEXT PRIMARY KEY, at TEXT NOT NULL, body TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS audit (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, tick_key TEXT, persona TEXT, councillor TEXT, tool TEXT, body TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, kind TEXT NOT NULL, body TEXT NOT NULL)`,
@@ -40,6 +42,17 @@ export class AsgardLedger extends DurableObject {
   async op(b) {
     const now = Date.now();
     switch (b.op) {
+      case 'claimTelegramUpdate': {
+        if(!/^[a-z][a-z0-9_-]{0,31}$/.test(b.persona||'') || !Number.isSafeInteger(b.updateId) || b.updateId<0)throw new Error('Invalid Telegram update identity');
+        this.sql.exec('DELETE FROM telegram_updates WHERE expires_at <= ?',now);
+        const existing=this.rows(this.sql.exec('SELECT update_id FROM telegram_updates WHERE persona=? AND update_id=?',b.persona,b.updateId))[0];
+        if(existing)return {claimed:false};
+        const count=this.rows(this.sql.exec('SELECT COUNT(*) AS n FROM telegram_updates'))[0].n;
+        if(count>=10000)throw new Error('Telegram deduplication capacity reached');
+        // No await between checking and inserting: concurrent deliveries cannot both win.
+        this.sql.exec('INSERT INTO telegram_updates (persona,update_id,expires_at) VALUES (?,?,?)',b.persona,b.updateId,now+7*86400000);
+        return {claimed:true};
+      }
       case 'reserveScheduledModels': {
         const key='budget:scheduled-models';
         const row=this.rows(this.sql.exec('SELECT value FROM kv WHERE key = ?',key))[0];

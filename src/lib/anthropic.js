@@ -1,4 +1,5 @@
 import {scheduledModelFetch} from './scheduled-budget.js';
+import {safeError} from './chat-diagnostics.js';
 import {stableRequest} from './cost-policy.js';
 import {logUsage} from './usage-log.js';
 // Thin wrapper around the Anthropic Messages API with one retry on transient
@@ -45,7 +46,7 @@ export async function callAnthropic(env, systemBlocks, tools, messages, maxToken
     let parsed;
     try { parsed = JSON.parse(raw); }
     catch { parsed = { error: { message: raw.slice(0, 400) || `HTTP ${response.status}` } }; }
-    console.log(`ANTHROPIC ${response.status}: ${raw.slice(0, 800)}`);
+    console.log(`ANTHROPIC ${response.status}: ${safeError(parsed?.error?.message||'Provider request failed')}`);
     return { ok: false, status: response.status, data: parsed };
   }
 }
