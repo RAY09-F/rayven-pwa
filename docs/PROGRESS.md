@@ -1,9 +1,23 @@
 # PROGRESS — The Everything List
 current phase: 1 (partial, local only; remote safety backup blocked by Git authentication)
-last entry attempted: 0567
-next line to paste: "Read docs/CODEX-RUN-EVERYTHING.txt and docs/PROGRESS.md. Finish Git backup, then continue Phase 1 from 0567. Preserve existing edits and current release lineage."
+last entry attempted: 0600 (1309 security prerequisite also implemented locally)
+next line to paste: "Read docs/CODEX-RUN-EVERYTHING.txt and docs/PROGRESS.md. Continue Phase 1 from 0566. Preserve current release lineage and pre-existing edits. Complete Git backup and browser pairing before release."
 
 ## Phase summaries (newest first)
+### Phase 1 continuation — 2026-09-14 — local changes committed, release still pending
+Browser transport now requires a dedicated token for poll AND result before storage access. Updated extension fails closed without pairing. scripts/pair-browser.py provisions privately at release; NOT run yet, so no installed extension or Cloudflare secret changes claimed. Built Worker router test proves 401 for unpaired requests and success for a paired poll.
+
+Fixed cross-persona routine index loss on pause/resume/delete. Unified saved routine and background job controls, last-result summaries and next-check times (including DST). One failure notice per episode; success/resume rearms; batch continuation also pauses after three failures. Empty-result suppression and bounded 20-run history tested. Daily cron model cap 30 implemented with atomic SQLite reservation; batch counts and Workers AI included, retries consume reservations. Missing ledger blocks scheduled models; direct conversations unaffected. Budget exhaustion logs a skip rather than an alert storm. Model fetches touched by this guard have a 20-second timeout; NOT all external fetches have been audited yet.
+
+Verification: 213 Node tests; built Worker/SQLite integration check; Wrangler dry-run. No new deployment. Git CLI still cannot upload without authentication. Entire Phase 1 and later phases remain incomplete. Working pre-existing companion/face edits stay untouched by these commits.
+
+0567 | locally-tested | src/lib/routines.js, src/lib/routine-view.js, public/operations.html | routine-registry and routine-view tests; /admin/scheduler | cross-persona index preserved; live UI acceptance pending
+0572 | locally-tested | existing bounded run storage, scripts/routine-registry.test.mjs | 35 executions retain 20 rows | reused tighter existing bound instead of increasing to 200
+0573 | locally-tested | src/lib/routines.js, scripts/routine-failure.test.mjs | one notification per episode; quota skips | network mocked, no real Telegram sent
+0599 | locally-tested | scripts/routine-registry.test.mjs | NOTHING suppression with recorded successful run | existing behavior verified
+0600 | locally-tested | scheduled-budget.js, ledger-do.js, provider call sites | scheduled-budget tests + built SQLite check | production acceptance pending; no claim about total dollar spend or non-model external APIs
+1309 | blocked-release | browser-auth.js, background.js, scripts/pair-browser.py | browser-auth/extension tests + built router | dedicated secret and installed extension reload required before release
+
 ### Phase 1 — 2026-09-14 — incomplete, not deployed
 194 Node tests pass; Wrangler deployment dry-run passes. Added named dispatch/control for existing background jobs and an operator-token protected registry API with operations page. End-to-end production acceptance is pending; no numbered entry is yet claimed fully deployed. Git CLI cannot push without login. The connected GitHub account is RAY09-F, but GitHub reports the local release baseline object does not exist remotely, so creating a ref via connector cannot replace the required upload. Browser Git login started. Full local Git bundle verified at C:/Asgard/backups/everything-20260914/asgard-history.bundle; working changes and selected untracked companion files also backed up there.
 

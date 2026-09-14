@@ -1,6 +1,8 @@
 # NEXT STEPS — things only Rayan can do
 
 ## Audit note — 2026-09-14
+Release prerequisites: finish the Git Credential Manager browser login for RAY09-F so local history can be backed up remotely. Before releasing browser-auth changes, run `C:\Asgard\companion\.venv\Scripts\python.exe scripts/pair-browser.py --apply` from the release repo, then reload ASGARD Browser Control at chrome://extensions. The script sets the dedicated secret without displaying it and updates the known installed folder. Confirm a paired poll before declaring browser control live. Neither provisioning nor reload has been performed in this continuation.
+
 Actual secret names are TELEGRAM_BOT_TOKEN (Thor), TELEGRAM_BOT_TOKEN_LOKI, TELEGRAM_BOT_TOKEN_ODIN, and TELEGRAM_BOT_TOKEN_HELA. They are configured; rotation status is unknown. The bundle reports prior chat exposure, which a Git scan cannot disprove. Prefer `wrangler secret put NAME` and enter the value privately at the prompt; no plaintext temporary file is necessary. Do not delete a live companion secret store. The obsolete Ayrshare backup's exact path is not established; do not guess or delete unrelated files. Account cancellation/deletion and 2FA setup remain owner tasks, not completed changes.
 
 Numbered. Each one says WHAT, WHY, and the EXACT step. Secret names

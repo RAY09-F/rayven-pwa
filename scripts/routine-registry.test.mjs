@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {routinePause,routineResume,routineDelete,runRoutine} from '../src/lib/routines.js';
+import {routinePause,routineResume,routineDelete,runRoutine,routineRunNow} from '../src/lib/routines.js';
 const fixture=()=>{
  const index=['thor','loki','odin','hela'].map(owner=>({id:owner+'-daily',name:'Daily',owner,enabled:true}));
  const data=new Map([['routines:index',JSON.stringify(index)],...index.map(r=>['routines:'+r.id,JSON.stringify({...r,steps:[{say:'NOTHING'}],deliver:'telegram',runs:[]})])]);
@@ -18,4 +18,8 @@ test('routine lookup cannot modify another persona by exact ID',async()=>{
 test('NOTHING suppresses delivery without dropping the successful run result',async()=>{
  const {env}=fixture();const old=globalThis.fetch;globalThis.fetch=async()=>{throw Error('No network allowed')};
  try{const result=await runRoutine(env,{owner:'loki',name:'empty',steps:[{say:'NOTHING'}],deliver:'telegram'},null,async()=>{});assert.equal(result.ok,true);assert.equal(result.delivered,'nothing to deliver');assert.equal(result.steps.length,1)}finally{globalThis.fetch=old}
+});
+test('stored routine run history stays capped after repeated executions',async()=>{
+ const {env,data}=fixture();for(let i=0;i<35;i++)await routineRunNow(env,'loki','loki-daily',async()=>{});
+ const runs=JSON.parse(data.get('routines:loki-daily')).runs;assert.equal(runs.length,20);assert.ok(runs.every(run=>run.ok&&run.delivered==='nothing to deliver'));
 });

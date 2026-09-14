@@ -1,5 +1,15 @@
 # Everything build — release status, 2026-09-14
 
+## Latest continuation (supersedes earlier counts below)
+- Browser poll/result authentication and matching extension code implemented, not yet provisioned or installed.
+- Fixed routine pause/delete losing other personas from the shared index.
+- Added saved routine controls and next-check times to the operations page, tested across DST.
+- Added failure-notification suppression, quota skips, and stronger diagnostic redaction.
+- Added a 30-request daily scheduled-model cap using atomic SQLite reservations; direct conversations remain independent.
+- Verified empty routine results stay silent and run history stays at 20 records.
+- 213 Node tests pass; built Worker router and real SQLite integration checks pass; Wrangler dry-run passes.
+- STILL NOT DEPLOYED. GitHub authentication, matching browser pairing/reload and full safety-phase acceptance remain outstanding. Later phases are not finished.
+
 ## Completed locally
 - Split the user bundle into seven source documents, without replacing prior project docs.
 - Inventoried repository files, routes, registry tools, persona allow-lists, environment names, bindings and installed components.
