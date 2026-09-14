@@ -4,6 +4,13 @@ last entry attempted: 0600 (1309 security prerequisite also implemented locally)
 next line to paste: "Read docs/CODEX-RUN-EVERYTHING.txt and docs/PROGRESS.md. Continue Phase 1 from 0566. Preserve current release lineage and pre-existing edits. Complete Git backup and browser pairing before release."
 
 ## Phase summaries (newest first)
+### Remote continuation — 2026-09-14 — pairing installed and extension reloaded
+Cloudflare BROWSER_CONTROL_TOKEN was provisioned without exposing its value. Installed ASGARD Browser Control reloaded successfully in Chrome; UI confirms version 1.5, enabled, and Reloaded. This supersedes older pairing-not-run notes below. Authenticated Worker source is still not deployed, so full live enforcement remains pending.
+
+0566 / 0248 / 0312 | partial, locally-tested | retry-read.js, http.js, marketData.js | 220 Node tests pass; Worker dry-run and built router/SQLite checks passed | shared read-only HTTP calls retry up to three attempts with 1s/4s waits and bounded Retry-After; timeout covers body consumption; Kraken and Twelve Data use guarded helper. Not every external call migrated. Writes intentionally not replayed without idempotency guarantees. Fixed Windows encoding handling in pairing script.
+
+Git Credential Manager still lists no authenticated GitHub account; browser authorization remains owner action. No new application-code deployment or GitHub upload. Existing companion and face edits preserved. Later phases and live acceptance remain unfinished.
+
 ### Phase 1 continuation — 2026-09-14 — local changes committed, release still pending
 Browser transport now requires a dedicated token for poll AND result before storage access. Updated extension fails closed without pairing. scripts/pair-browser.py provisions privately at release; NOT run yet, so no installed extension or Cloudflare secret changes claimed. Built Worker router test proves 401 for unpaired requests and success for a paired poll.
 

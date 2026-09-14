@@ -20,7 +20,7 @@ def main():
     prefix='globalThis.ASGARD_BROWSER_TOKEN = '
     token=json.loads(pairing.read_text().removeprefix(prefix).strip().removesuffix(';')) if pairing.exists() else secrets.token_hex(32)
     if not isinstance(token,str) or len(token)!=64:raise RuntimeError('Invalid pairing file')
-    result=subprocess.run([str(NODE),str(WRANGLER),'secret','put','BROWSER_CONTROL_TOKEN'],input=token+'\n',text=True,cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    result=subprocess.run([str(NODE),str(WRANGLER),'secret','put','BROWSER_CONTROL_TOKEN'],input=token+'\n',text=True,encoding='utf-8',errors='replace',cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     if result.returncode:raise RuntimeError('Cloudflare secret update failed; no extension files changed. Check Wrangler login.')
     pairing.write_text(prefix+json.dumps(token)+';\n',encoding='utf-8')
     backup=Path(r'C:\Asgard\backups\everything-20260914\browser-before-pairing');backup.mkdir(parents=True,exist_ok=True)

@@ -14,6 +14,7 @@
 // schedule real gold/oil futures run on. Every caller that surfaces a
 // gold/oil number MUST label it as a stock-market-hours approximation.
 
+import {httpJson} from './http.js';
 const TZ_NY = 'America/New_York';
 
 function nyParts(date = new Date()) {
@@ -87,9 +88,9 @@ function normalizeCandle(time, open, high, low, close, volume) {
 // (Kraken's own supported set: 1,5,15,30,60,240,1440,10080,21600).
 export async function fetchKrakenCandles(pair, intervalMinutes) {
   const url = `https://api.kraken.com/0/public/OHLC?pair=${encodeURIComponent(pair)}&interval=${intervalMinutes}`;
-  const res = await fetch(url,{signal:AbortSignal.timeout(8000)});
+  const res = await httpJson({},url,{timeoutMs:8000});
   if (!res.ok) return { ok: false, error: `Kraken HTTP ${res.status}` };
-  const data = await res.json().catch(() => null);
+  const data = res.json;
   if (!data) return { ok: false, error: 'Kraken returned non-JSON.' };
   if (data.error && data.error.length) return { ok: false, error: `Kraken error: ${data.error.join('; ')}` };
   const resultKey = Object.keys(data.result || {}).find(k => k !== 'last');
@@ -107,9 +108,9 @@ export async function fetchTwelveDataCandles(env, symbol, interval, outputsize) 
   // wall-clock time with no offset marker, and appending "Z" below would then
   // silently mislabel it as UTC -- shifting every candle by the ET/UTC offset.
   const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${interval}&outputsize=${outputsize}&timezone=UTC&apikey=${env.TWELVE_DATA_API_KEY}`;
-  const res = await fetch(url);
+  const res = await httpJson(env,url,{timeoutMs:8000});
   if (!res.ok) return { ok: false, error: `Twelve Data HTTP ${res.status}` };
-  const data = await res.json().catch(() => null);
+  const data = res.json;
   if (!data) return { ok: false, error: 'Twelve Data returned non-JSON.' };
   if (data.status === 'error' || !Array.isArray(data.values)) {
     return { ok: false, error: `Twelve Data error: ${data.message || JSON.stringify(data).slice(0, 200)}` };
