@@ -8,6 +8,7 @@
 // plain request/response so the accessor can call it over the stub.
 import { DurableObject } from 'cloudflare:workers';
 import {phoneTransition} from './lib/phone-state.js';
+import {reserveBudget} from './lib/scheduled-budget.js';
 
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS tick (key TEXT PRIMARY KEY, at TEXT NOT NULL, body TEXT NOT NULL)`,
@@ -39,6 +40,13 @@ export class AsgardLedger extends DurableObject {
   async op(b) {
     const now = Date.now();
     switch (b.op) {
+      case 'reserveScheduledModels': {
+        const key='budget:scheduled-models';
+        const row=this.rows(this.sql.exec('SELECT value FROM kv WHERE key = ?',key))[0];
+        const next=reserveBudget(row?JSON.parse(row.value):null,b.count,now);
+        if(next.result.allowed)this.sql.exec('INSERT OR REPLACE INTO kv (key,value,updated_at) VALUES (?,?,?)',key,JSON.stringify(next.state),now);
+        return next.result;
+      }
       case 'phone': {
         const row=this.rows(this.sql.exec('SELECT value FROM kv WHERE key = ?', 'phone:state'))[0];
         const next=phoneTransition(row?JSON.parse(row.value):null,b.action,now);

@@ -24,7 +24,7 @@ export async function dispatchJobs(env,jobs,{onError=async()=>{}}={}){
   if(config.disabled.includes(id))return {id,status:'disabled'};
   const started=Date.now();
   try{const value=await run(env);const result={id,status:value==null?'idle':'checked',ms:Date.now()-started};if(value!=null)tickLog('notes',{scheduler:result});return result;}
-  catch(error){const result={id,status:'failed',ms:Date.now()-started};tickLog('notes',{scheduler:result});try{await onError(id,error)}catch{}return result;}
+  catch(error){const budget=/SCHEDULED_MODEL_BUDGET_EXHAUSTED/.test(String(error?.message||error));const result={id,status:budget?'skipped-budget':'failed',ms:Date.now()-started};tickLog('notes',{scheduler:result});if(!budget)try{await onError(id,error)}catch{}return result;}
  }));
 }
 export async function schedulerStatus(env){

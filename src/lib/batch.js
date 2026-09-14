@@ -1,3 +1,4 @@
+import {scheduledModelFetch} from './scheduled-budget.js';
 import {logUsage} from './usage-log.js';
 // THE MESSAGE BATCHES WRAPPER (asgard-upgrade Phase 6.2, first used by Phase 4.3).
 //
@@ -17,7 +18,7 @@ export async function submitBatch(env, requests) {
   if (!Array.isArray(requests) || !requests.length) return { ok: false, error: 'no requests' };
   const body = { requests: requests.map(r => ({ custom_id: String(r.custom_id).slice(0, 64), params: { model: r.model, max_tokens: r.max_tokens || 400, system: r.system, messages: r.messages } })) };
   try {
-    const res = await fetch(API, { method: 'POST', headers: HEADERS(env), body: JSON.stringify(body) });
+    const res = await scheduledModelFetch(env,API, { method: 'POST', headers: HEADERS(env), body: JSON.stringify(body) },requests.length);
     const j = await res.json().catch(() => null);
     if (!res.ok || !j || !j.id) return { ok: false, error: `Batches API ${res.status}: ${JSON.stringify(j).slice(0, 300)}` };
     return { ok: true, id: j.id, status: j.processing_status };

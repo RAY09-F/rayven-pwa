@@ -1,3 +1,4 @@
+import {scheduledEnvironment} from './lib/scheduled-budget.js';
 import {browserTransportAuthorized} from './lib/browser-auth.js';
 import {dispatchJobs,schedulerStatus,setSchedulerEnabled,schedulerConfig} from './lib/scheduler.js';
 import {companionVoice,VOICE_ADDENDUM} from './lib/companion-voice.js';
@@ -1601,7 +1602,7 @@ How to speak on a phone call:
   },
 
   async scheduled(event, env, ctx) {
-    env=paperEnvironment(env);
+    env=scheduledEnvironment(paperEnvironment(env));
     // Each subsystem below tracks its own "last run" KV state and decides
     // internally whether it's actually due this tick. They all run together;
     // one failing never blocks the others. The TICK runs last, after every

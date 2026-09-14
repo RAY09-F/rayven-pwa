@@ -1,3 +1,4 @@
+import {scheduledModelFetch} from './scheduled-budget.js';
 import {stableRequest} from './cost-policy.js';
 import {logUsage} from './usage-log.js';
 // Thin wrapper around the Anthropic Messages API with one retry on transient
@@ -8,7 +9,7 @@ import { MODELS } from './models.js';
 
 export async function callAnthropic(env, systemBlocks, tools, messages, maxTokens, model, opts = {}) {
   for (let attempt = 0; attempt < 2; attempt++) {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await scheduledModelFetch(env,'https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'x-api-key': env.ANTHROPIC_API_KEY,
@@ -55,7 +56,7 @@ export async function callAnthropic(env, systemBlocks, tools, messages, maxToken
 // failure just gets picked up again next tick rather than retried in-request.
 export async function callAnthropicSimple(env, systemPrompt, userText, maxTokens, model, schema, usageContext = {}) {
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await scheduledModelFetch(env,'https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({

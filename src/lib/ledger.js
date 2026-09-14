@@ -19,6 +19,7 @@ async function call(env, body) {
   return j.result;
 }
 export const ledger = {
+  reserveScheduledModels: (env,count) => call(env,{op:'reserveScheduledModels',count}),
   phone: (env, action) => call(env, {op:'phone', action}),
   ping: env => call(env, { op: 'ping' }),
   counts: env => call(env, { op: 'counts' }),
