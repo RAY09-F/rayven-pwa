@@ -28,3 +28,4 @@ asgard-companion/.pytest_cache/
 asgard-companion/tests/__pycache__/
 asgard-companion/**/__pycache__/
 asgard-face/pairing.js
+browser-pairing.js

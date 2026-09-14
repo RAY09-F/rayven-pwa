@@ -1,3 +1,5 @@
+// A machine-local ignored file supplies the pairing token; never commit it.
+try { importScripts('browser-pairing.js'); } catch {}
 // Use the current ASGARD Worker only. The retired hostname can answer
 // without delivering commands, silently disconnecting this extension.
 const BACKEND_CANDIDATES = [
@@ -11,11 +13,13 @@ let activeBackend = BACKEND_CANDIDATES[0];
 // Tries the active host first, then the rest. Pins activeBackend to whatever
 // answered. Throws only if every candidate failed.
 async function backendFetch(path, init) {
+  const token=globalThis.ASGARD_BROWSER_TOKEN;
+  if(typeof token!=='string'||token.length<32)throw new Error('ASGARD browser pairing is missing; run the browser pairing setup and reload this extension.');
   const ordered = [activeBackend, ...BACKEND_CANDIDATES.filter(h => h !== activeBackend)];
   let lastError = null;
   for (const host of ordered) {
     try {
-      const res = await fetch(`${host}${path}`, { ...init, signal: AbortSignal.timeout(10000) });
+      const res = await fetch(`${host}${path}`, { ...init, headers:{...init?.headers,'X-Asgard-Browser':token}, signal: AbortSignal.timeout(10000) });
       // A 404 here is Cloudflare's "no such Worker" page for a released
       // hostname, not a real answer from the backend — keep looking.
       if (!res.ok) { lastError = new Error(`${host} returned HTTP ${res.status}`); continue; }

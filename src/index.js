@@ -1,3 +1,4 @@
+import {browserTransportAuthorized} from './lib/browser-auth.js';
 import {dispatchJobs,schedulerStatus,setSchedulerEnabled,schedulerConfig} from './lib/scheduler.js';
 import {companionVoice,VOICE_ADDENDUM} from './lib/companion-voice.js';
 import {getPaperResearch} from './lib/paperTrading.js';
@@ -530,7 +531,7 @@ export default {
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'content-type, x-agent-sig, x-asgard-smoke, x-asgard-admin'
+      'Access-Control-Allow-Headers': 'content-type, x-agent-sig, x-asgard-smoke, x-asgard-admin, x-asgard-browser'
     };
 
     if (request.method === 'OPTIONS') {
@@ -538,6 +539,11 @@ export default {
     }
 
     const url = new URL(request.url);
+
+    if(['/browser/poll','/browser/result'].includes(url.pathname)&&!(await browserTransportAuthorized(request,env))){
+      return new Response(JSON.stringify({error:'Browser pairing required'}),{status:401,headers:{...corsHeaders,'Content-Type':'application/json','Cache-Control':'no-store'}});
+    }
+
 
     const voiceResponse=await companionVoice(request,env,ctx,handleChatTurn);
     if(voiceResponse)return voiceResponse;
