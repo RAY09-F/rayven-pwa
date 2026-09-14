@@ -1,9 +1,12 @@
 # PROGRESS — The Everything List
-current phase: 1 (partial, local only; remote safety backup blocked by Git authentication)
-last entry attempted: 0600 (1309 security prerequisite also implemented locally)
-next line to paste: "Read docs/CODEX-RUN-EVERYTHING.txt and docs/PROGRESS.md. Continue Phase 1 from 0566. Preserve current release lineage and pre-existing edits. Complete Git backup and browser pairing before release."
+current phase: 1 (partial, pushed to GitHub; application deployment pending)
+last entry attempted: 0566 (shared read retries and response timeouts; wider audit outstanding)
+next line to paste: "Read docs/CODEX-RUN-EVERYTHING.txt and docs/PROGRESS.md. Continue Phase 1 safety work from 0566/0248. Git backup and browser extension pairing/reload are complete. Preserve current release lineage and pre-existing edits; finish release acceptance before deployment."
 
 ## Phase summaries (newest first)
+### GitHub authentication and upload — 2026-09-14
+Device authorization completed successfully for RAY09-F. Git Credential Manager confirms the account. Fresh working-tree/history token-pattern scan reports zero findings (same scanner limitations as Phase 0). Uploaded pre-everything-2026-09-14 at 212c067fd9c66bfa64cc79ad61fef934a778d373 and phase-1 at bf24383; origin tracking enabled. This supersedes older authentication-blocked notes. Main was not changed. Pre-existing uncommitted companion/face work remains local and preserved. Application-code deployment and remaining phases are still pending.
+
 ### Remote continuation — 2026-09-14 — pairing installed and extension reloaded
 Cloudflare BROWSER_CONTROL_TOKEN was provisioned without exposing its value. Installed ASGARD Browser Control reloaded successfully in Chrome; UI confirms version 1.5, enabled, and Reloaded. This supersedes older pairing-not-run notes below. Authenticated Worker source is still not deployed, so full live enforcement remains pending.
 
