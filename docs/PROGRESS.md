@@ -1,9 +1,21 @@
 # PROGRESS — The Everything List
-current phase: 0 (inventory complete; acceptance/release work continues)
-last entry attempted: none
-next line to paste: "Read docs/CODEX-RUN-EVERYTHING.txt in full, then do PHASE 0 exactly as written. Do not ask me questions."
+current phase: 1 (partial, local only; remote safety backup blocked by Git authentication)
+last entry attempted: 0567
+next line to paste: "Read docs/CODEX-RUN-EVERYTHING.txt and docs/PROGRESS.md. Finish Git backup, then continue Phase 1 from 0567. Preserve existing edits and current release lineage."
 
 ## Phase summaries (newest first)
+### Phase 1 — 2026-09-14 — incomplete, not deployed
+194 Node tests pass; Wrangler deployment dry-run passes. Added named dispatch/control for existing background jobs and an operator-token protected registry API with operations page. End-to-end production acceptance is pending; no numbered entry is yet claimed fully deployed. Git CLI cannot push without login. The connected GitHub account is RAY09-F, but GitHub reports the local release baseline object does not exist remotely, so creating a ref via connector cannot replace the required upload. Browser Git login started. Full local Git bundle verified at C:/Asgard/backups/everything-20260914/asgard-history.bundle; working changes and selected untracked companion files also backed up there.
+
+Critical pre-existing finding: /browser/poll and /browser/result have no authentication in current source. Entry 1309 must fix BOTH paths and provision/update the installed extension before declaring safety complete. This finding is not fixed or deployed yet.
+
+## Phase 1 — entries under implementation
+0301 | partial | src/lib/tick.js, scripts/tick-foundations.test.mjs | node --test scripts/tick-foundations.test.mjs | empty bookkeeping writes nothing; buffered rows capped; database-fallback pointer overflow fixed; full scheduler idempotence audit outstanding
+0571 | partial | src/index.js, src/lib/scheduler.js, scripts/scheduler.test.mjs | node --test scripts/scheduler.test.mjs | single existing five-minute cron now dispatches named jobs; disabled and failed job behavior tested; live acceptance pending
+0567 | partial | public/operations.html, src/lib/scheduler.js | /operations.html with operator token, /admin/scheduler | existing background jobs can be listed/paused; user-created routines remain separate, next-run details and unified view still needed
+
+Remaining Phase 1 entries and Phases 2–13 are NOT completed. Existing similarly named functionality is not automatically accepted against this spec.
+
 ### 2026-09-14 — Phase 0 audit
 Bundle split into seven docs and original preserved. 785 non-ignored files catalogued; 292 registered tools with real persona allow-lists. 31 configured secret names inspected, no values. 187 Node tests passed. Pattern-based working-tree and all-reachable-history secret scan found no matches; this does not resolve the bundle's reported chat leaks. No new deployment. Current Cloudflare version: b4370f11-1354-4457-81fe-ceae6446f9b7 (100%).
 

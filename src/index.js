@@ -1,3 +1,4 @@
+import {dispatchJobs,schedulerStatus,setSchedulerEnabled,schedulerConfig} from './lib/scheduler.js';
 import {companionVoice,VOICE_ADDENDUM} from './lib/companion-voice.js';
 import {getPaperResearch} from './lib/paperTrading.js';
 import {paperEnvironment} from './lib/paper-store.js';
@@ -665,6 +666,15 @@ export default {
       if (!expected || !(await timingSafeEqual(provided, expected))) {
         return new Response('Unauthorized.', { status: 401, headers: corsHeaders });
       }
+    }
+
+    if (url.pathname === '/admin/scheduler') {
+      if(request.method==='GET')return json(await schedulerStatus(env),corsHeaders);
+      if(request.method==='POST'){
+        try{const body=await request.json();return json(await setSchedulerEnabled(env,body.id,body.enabled),corsHeaders);}
+        catch{return json({error:'Invalid scheduler update'},corsHeaders,400);}
+      }
+      return json({error:'Method not allowed'},corsHeaders,405);
     }
 
     // Every tool schema exactly as it goes to Anthropic, plus which persona sees
@@ -1591,32 +1601,29 @@ How to speak on a phone call:
     // one failing never blocks the others. The TICK runs last, after every
     // job has settled, and writes one key with everything the tick produced
     // (asgard-upgrade Phase 1.4, Rule 5b) -- only if there is anything to write.
-    const job = (fn) => fn(env).catch(async err => {
-      console.error('cron job failed:', err && err.message);
-      if(fn!==runPhoneUpdates)await queuePhoneUpdate(env,{source:'thor',priority:'high',title:'Background task problem',body:`${fn.name||'Background task'}: ${safeError(err)}`,dedupeKey:'job-error:'+(fn.name||'background')}).catch(()=>{});
-    });
+    const job = (id,run) => ({id,run});
     const jobs = [
-      job(runPhoneUpdates),
-      job(cleanupPhoneAudio),
-      job(runProactiveCheckInIfDue),
-      job(runMorningBriefingIfDue),
-      job(runCodeCheckIfDue),
-      job(runPersonaAutonomyIfDue),
+      job('phone-updates', runPhoneUpdates),
+      job('phone-audio-cleanup', cleanupPhoneAudio),
+      job('proactive-checkin', runProactiveCheckInIfDue),
+      job('morning-briefing', runMorningBriefingIfDue),
+      job('code-check', runCodeCheckIfDue),
+      job('persona-autonomy', runPersonaAutonomyIfDue),
       // MISS MINUTES and HULK (Phase 2.5): one reminder per event, once; and
       // the extension-health flag, set once on a transition.
-      job(runMissMinutesIfDue),
-      job(runHulkHealthIfDue),
+      job('calendar-reminders', runMissMinutesIfDue),
+      job('extension-health', runHulkHealthIfDue),
       // SYSTEM (Phase 3.4): webhooks, extension, KV writes, secret NAMES -- every
       // 30 minutes by the clock, Telegram only when the problem set changes.
-      job(runSystemCheckIfDue),
-      job(runLokiBriefIfDue),
-      job(runOdinReportIfDue),
+      job('system-health', runSystemCheckIfDue),
+      job('loki-brief', runLokiBriefIfDue),
+      job('odin-report', runOdinReportIfDue),
       // Paper trading: fully simulated, no real money. Each market checks its
       // own last-processed-candle KV key, so this is a no-op for any market
       // that hasn't produced a new candle yet.
       // Each trade is recorded under the councillor that wraps that agent
       // (state written only when a trade opened or closed, Rule 5c/5d).
-      job(async (e) => {
+      job('paper-cycle', async (e) => {
         const r = await runPaperTradingCycleIfDue(e);
         for (const o of (r && r.results) || []) {
           if (!o || !['entered', 'closed', 'stopped_out'].includes(o.action)) continue;
@@ -1631,41 +1638,41 @@ How to speak on a phone call:
       // Phase 4.3: after the NYSE close, one equity sample per agent and the five
       // traders' self-reviews submitted as ONE Message Batch (cheap tier, off the
       // live bill); on later ticks the collected reviews land in each journal.
-      job(runPaperCloseTasksIfDue),
+      job('paper-close', runPaperCloseTasksIfDue),
       // Phase 5.2: the nightly vault backup to R2 (03:30 Pacific, includes the hidden realm — it is a backup).
-      job(runVaultBackupIfDue),
+      job('vault-backup', runVaultBackupIfDue),
       // Phase 7.13a: the pollers (weather/fire/quake, market/sentiment/yield, trends/feeds) — no subrequest unless an enabled routine subscribes.
-      job(runPollersIfDue),
+      job('pollers', runPollersIfDue),
       // The legacy daily paper report is replaced by ODIN's market-close ROUTINE
       // (Phase 3.4), which honours config:paper:report:hour and defaults to 13:05.
       // The clipping pass (retired business; publishes at most one clip per
       // tick inside the ramp, and only if there is a queue and a publisher).
-      job(async (e) => { const r = await runClipCycleIfDue(e); if (typeof r === 'string' && /Posted to/.test(r)) emit('clip.posted', { report: r.slice(0, 200) }); return r; }),
+      job('clip-cycle', async (e) => { const r = await runClipCycleIfDue(e); if (typeof r === 'string' && /Posted to/.test(r)) emit('clip.posted', { report: r.slice(0, 200) }); return r; }),
       // Vizard: no-op with no jobs in flight.
-      job(runVizardPollIfDue),
+      job('vizard-poll', runVizardPollIfDue),
       // Whop submission: OFF until Rayan turns it on.
-      job(runWhopSubmitIfDue),
+      job('whop-submit', runWhopSubmitIfDue),
       // Countdown timers, five-minute resolution.
-      job(runTimersIfDue),
+      job('timers', runTimersIfDue),
       // Instagram long-lived tokens, refreshed weekly.
-      job(igRefreshIfDue),
+      job('instagram-refresh', igRefreshIfDue),
       // ⟦PROJECT-H:BEGIN⟧ Both no-op instantly unless she is locked in. Recorded
       // under FENRIS / SURTUR / EITRI (hidden councillors) when they did something.
-      job(async (e) => { const r = await runHelaVigilIfDue(e); if (r && r.ok) await recordCouncilRun(e, 'fenris', { summary: `Read up on ${r.topic}: "${r.title}"`, didSomething: true, patch: { lastTopic: r.topic } }); return r; }),
-      job(async (e) => { const r = await runHelaDailyIfDue(e); if (r && r.ok) await recordCouncilRun(e, 'surtur', { summary: 'Assembled the daily brief', didSomething: true }); return r; }),
+      job('hela-vigil', async (e) => { const r = await runHelaVigilIfDue(e); if (r && r.ok) await recordCouncilRun(e, 'fenris', { summary: `Read up on ${r.topic}: "${r.title}"`, didSomething: true, patch: { lastTopic: r.topic } }); return r; }),
+      job('hela-daily', async (e) => { const r = await runHelaDailyIfDue(e); if (r && r.ok) await recordCouncilRun(e, 'surtur', { summary: 'Assembled the daily brief', didSomething: true }); return r; }),
       // The forge: one persona per tick, in rotation by clock slot.
-      job(async (e) => { const r = await runForgeRotation(e, ALL_PERSONA_IDS); if (r && r.persona === 'hela' && r.ok && r.added) await recordCouncilRun(e, 'eitri', { summary: `Forged a new capability: ${r.name}`, didSomething: true, patch: { lastCapability: r.name } }); return r; }),
+      job('capability-forge', async (e) => { const r = await runForgeRotation(e, ALL_PERSONA_IDS); if (r && r.persona === 'hela' && r.ok && r.added) await recordCouncilRun(e, 'eitri', { summary: `Forged a new capability: ${r.name}`, didSomething: true, patch: { lastCapability: r.name } }); return r; }),
       // ⟦PROJECT-H:END⟧
       // Sweep first, then flush, so any digest-priority alerts the sweep just
       // queued go out this same tick instead of waiting for the next one.
       // KANG (Phase 2.5): the sweep, reported under his name; state written
       // only when a watch actually alerted.
-      job(async (e) => { const r = await runMonitoringSweep(e); if (r && r.checked) await recordCouncilRun(e, 'kang', { summary: r.alerted && r.alerted.length ? `Alerted on ${r.alerted.join(', ')}` : `Checked ${r.checked} watch${r.checked === 1 ? '' : 'es'}, nothing meaningful changed`, didSomething: !!(r.alerted && r.alerted.length), patch: { lastAlerted: r.alerted } }); return await flushNotificationDigestIfDue(e); })
+      job('monitoring', async (e) => { const r = await runMonitoringSweep(e); if (r && r.checked) await recordCouncilRun(e, 'kang', { summary: r.alerted && r.alerted.length ? `Alerted on ${r.alerted.join(', ')}` : `Checked ${r.checked} watch${r.checked === 1 ? '' : 'es'}, nothing meaningful changed`, didSomething: !!(r.alerted && r.alerted.length), patch: { lastAlerted: r.alerted } }); return await flushNotificationDigestIfDue(e); })
     ];
     // The tick runs last. Inside it: queued delegations (wait:false), then the
     // routines runner over due schedules + every event raised this tick or
     // drained from the spools (Phase 3.3), then the Rule 5e ceiling warning.
-    ctx.waitUntil(Promise.allSettled(jobs).then(() => runTick(env, {
+    ctx.waitUntil(dispatchJobs(env,jobs,{onError:async(id,error)=>{ if(id!=='phone-updates')await queuePhoneUpdate(env,{source:'thor',priority:'high',title:'Background task problem',body:`${id}: ${safeError(error)}`,dedupeKey:'job-error:'+id}); }}).then(() => runTick(env, {
       onDrained: (drained) => runQueuedDelegations(env, drained),
       every: async (drained) => {
         await seedRoutinesIfMissing(env);
@@ -1674,7 +1681,7 @@ How to speak on a phone call:
         const events = [...eventsFromDrained(drained), ...takePendingEvents()];
         await queuePhoneEvents(env,events).catch(()=>{});
         const r = await runRoutinesIfDue(env, events, (e, t, i, p) => executeTool(e, t, i, p));
-        await runPhoneUpdates(env).catch(()=>{});
+        if(!(await schedulerConfig(env)).disabled.includes('phone-updates'))await runPhoneUpdates(env).catch(()=>{});
         // Rule 5e: at 70% of the daily ceiling Thor tells Rayan once.
         const last = await readTickLast(env);
         const today = new Date().toISOString().slice(0, 10);
