@@ -24,6 +24,7 @@
 // and tells its owner; each run makes at most 2 KV writes.
 // ===========================================================================
 import { isDue, stampRun, validateSchedule, describeSchedule, localParts, DEFAULT_TZ } from './schedule.js';
+import {safeError} from './chat-diagnostics.js';
 import { eventMatches } from './events.js';
 import { getPersona, personaAllowsTool, PERSONAS, getPersonaBotToken, historyKeyFor, ALL_PERSONA_IDS } from './personas.js';
 import { HARD_CONFIRM_TOOLS } from './permissions.js';
@@ -249,7 +250,7 @@ export async function runRoutine(env, routine, event, execute, resume = null) {
         res = { text: s.say, summary: s.say.slice(0, 60) };
       } else throw new Error(`unknown step ${i + 1}`);
     } catch (err) {
-      run.ok = false; run.error = `step ${i + 1}: ${err && err.message ? err.message : String(err)}`;
+      run.ok = false; run.error = `step ${i + 1}: ${safeError(err)}`;
       run.steps.push({ i, error: run.error });
       break;
     }
@@ -290,6 +291,20 @@ async function deliver(env, owner, how, text, routine) {
   return r && r.ok ? 'telegram' : `telegram failed: ${r && r.description}`;
 }
 
+// One owner-only notice per failure episode. A successful run rearms it.
+export async function recordRoutineOutcome(env,r,run){
+  if(/SCHEDULED_MODEL_BUDGET_EXHAUSTED/.test(String(run.error||''))){run.skipped='daily model cap';return;}
+  if(run.ok){r.failures=0;delete r.failureNoticeAttempted;delete r.failureNoticeDelivered;return;}
+  r.failures=(r.failures||0)+1;
+  if(r.failureNoticeAttempted)return;
+  r.failureNoticeAttempted=true;r.failureNoticeDelivered=false;
+  try{
+    const chatId=await getRayanPrivateChatId(env),token=getPersonaBotToken(env,r.owner)||env.TELEGRAM_BOT_TOKEN;
+    if(chatId&&token){const result=await sendTelegramMessage(env,chatId,`${getPersona(r.owner).name}: the "${r.name}" routine failed. ${safeError(run.error)}. I will keep this in the log and pause it after three consecutive failures.`,token);r.failureNoticeDelivered=!!result?.ok;}
+  }catch{}
+  tickLog('notes',{routine:r.id,failureNoticeDelivered:r.failureNoticeDelivered});
+}
+
 // ---- the runner (3.3) ----------------------------------------------------------
 export async function runRoutinesIfDue(env, events, execute) {
   const index = await readIndex(env);
@@ -316,11 +331,10 @@ export async function runRoutinesIfDue(env, events, execute) {
     const run = await runRoutine(env, r, fired, execute);
     ran++; today_runs++;
     r.runs = [...(r.runs || []), run].slice(-MAX_RUNS_KEPT);
-    r.failures = run.ok ? 0 : (r.failures || 0) + 1;
-    if (!run.ok && r.failures >= 3) {
+    await recordRoutineOutcome(env,r,run);
+    if (!run.ok && !run.skipped && r.failures >= 3) {
       r.enabled = false; r.pausedReason = `3 failures in a row; last: ${run.error}`;
       const idx = index.find(e => e.id === r.id); if (idx) { idx.enabled = false; await writeIndex(env, index); }
-      try { const chatId = await getRayanPrivateChatId(env); const token = getPersonaBotToken(env, r.owner) || env.TELEGRAM_BOT_TOKEN; if (chatId && token) await sendTelegramMessage(env, chatId, `${getPersona(r.owner).name}: I paused the "${r.name}" routine — it failed three times in a row. Last error: ${run.error}. Say "resume ${r.name}" once it is fixed.`, token); } catch (e) {}
     }
     if (r.intro && run.delivered && /^(telegram|notify|speak)$/.test(run.delivered)) r.intro = false;
     await writeRoutine(env, r);
@@ -377,7 +391,7 @@ async function setEnabled(env, owner, match, enabled) {
   const { index, hit } = await findMine(env, owner, match);
   if (!hit) return `No routine matching "${match}".`;
   const r = await readRoutine(env, hit.id); if (!r) return 'That routine is missing.';
-  r.enabled = enabled; if (enabled) { r.failures = 0; delete r.pausedReason; }
+  r.enabled = enabled; if (enabled) { r.failures = 0; delete r.pausedReason; delete r.failureNoticeAttempted; }
   hit.enabled = enabled;
   await writeRoutine(env, r); await writeIndex(env, index);
   return `${enabled ? 'Resumed' : 'Paused'} "${r.name}".`;
@@ -459,7 +473,12 @@ export async function resumeBatchedRoutine(env, entry, results, execute) {
     run = await runRoutine(env, r, meta.event || null, execute, { stepIndex: Number(meta.stepIndex) || 0, steps: Array.isArray(meta.steps) ? meta.steps : [], text: String(res.text).trim(), runAt: meta.runAt || new Date().toISOString() });
   }
   r.runs = [...(r.runs || []), run].slice(-MAX_RUNS_KEPT);
-  r.failures = run.ok ? 0 : (r.failures || 0) + 1;
+  await recordRoutineOutcome(env,r,run);
+  if(!run.ok&&!run.skipped&&r.failures>=3){
+    r.enabled=false;r.pausedReason=`3 failures in a row; last: ${safeError(run.error)}`;
+    const index=await readIndex(env);const entry=index.find(e=>e.id===r.id);
+    if(entry){entry.enabled=false;await writeIndex(env,index)}
+  }
   await writeRoutine(env, r);
   return { note: `resumed "${r.name}": ${run.ok ? run.delivered : run.error}` };
 }
