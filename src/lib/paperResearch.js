@@ -1,6 +1,16 @@
 // Deterministic PAPER diagnostics. Thresholds are research policies, not an edge.
 import {fillModelFor,maxDrawdown} from './broker.js';
 export const RESEARCH_VERSION='2026-09-13-cost-aware-v1';
+export function candleInputIssue(candles,minBars=50){
+  if(!Array.isArray(candles)||candles.length<minBars)return `At least ${minBars} closed candles required`;
+  for(let i=0;i<candles.length;i++){
+    const c=candles[i];
+    if(!c||!['open','high','low','close'].every(k=>Number.isFinite(c[k])&&c[k]>0)||!Number.isFinite(c.time))return 'Invalid candle prices or timestamp';
+    if(c.high<Math.max(c.open,c.close,c.low)||c.low>Math.min(c.open,c.close))return 'Invalid candle high/low range';
+    if(i&&c.time<=candles[i-1].time)return 'Candles must have unique ascending timestamps';
+  }
+  return null;
+}
 export function portfolioValuation(portfolio,trades,marks={},now=Date.now()){
   let cost=0,value=0,entryFees=0;const positions=[];
   for(const [id,p] of Object.entries(portfolio.positions||{})){
@@ -24,6 +34,8 @@ export function marketRegime(candles){
 }
 export function correlationGroup(instrumentId){return ['spy','qqq'].includes(instrumentId)?'us-equity':['btc','btcFast','eth','doge','shib'].includes(instrumentId)?'crypto':instrumentId;}
 export function entryGate({candles,strategy,provider,portfolio,agents,instruments,agentId,trades=[],now=Date.now()}){
+  const inputIssue=candleInputIssue(candles);
+  if(inputIssue)return {ok:false,reason:inputIssue,version:RESEARCH_VERSION};
   const a=agents[agentId],instrument=instruments[a.instrumentId],fm=fillModelFor(provider),last=candles.at(-1);
   const roundTripCostPct=((1+fm.slippageBps/10000)*(1+fm.commissionPct/100)/((1-fm.slippageBps/10000)*(1-fm.commissionPct/100))-1)*100;
   const mean=candles.slice(-21,-1).reduce((s,c)=>s+c.close,0)/20;
@@ -54,7 +66,8 @@ export function depthFill(book,side,qty){
 // Immutable parameters; no fitting on the test window. Next-bar opens remove
 // the old same-close fill assumption. All three strategies get their own $10k.
 export function replayResearch(candles,signals,provider){
-  if(candles.length<120)return {available:false,reason:'Need 120 closed bars; no fabricated history',bars:candles.length};
+  const inputIssue=candleInputIssue(candles,120);
+  if(inputIssue)return {available:false,reason:inputIssue,bars:candles?.length||0};
   const split=Math.floor(candles.length*.6),fm=fillModelFor(provider),results=[];
   for(const [strategy,signal]of Object.entries(signals)){
     let cash=10000,pos=null;const trades=[],curve=[10000],regimes={};

@@ -1,9 +1,16 @@
 # PROGRESS — The Everything List
-current phase: 1 (partial, pushed to GitHub; application deployment pending)
+current phase: 1 (partial; bounded safety update deployed and live-checked)
 last entry attempted: 0566 (shared read retries and response timeouts; wider audit outstanding)
 next line to paste: "Read docs/CODEX-RUN-EVERYTHING.txt and docs/PROGRESS.md. Continue Phase 1 safety work from 0566/0248. Git backup and browser extension pairing/reload are complete. Preserve current release lineage and pre-existing edits; finish release acceptance before deployment."
 
 ## Phase summaries (newest first)
+### Safety update deployed — 2026-09-14
+Production Worker version 8880f41a-15e9-4b1e-9be2-ae0eb185c348, source commit 32f4ab6, UI workspace-258eb2a38385. Previous version d9e2ef7c-f901-4256-9159-7c168e8129a9 retained for rollback. 226 Node tests and built Worker/SQLite checks passed before deployment. Live safety smoke passed health, HTML, rejection of unpaired browser poll/result, rejection of unauthenticated scheduler admin, paired poll, and real replies from Thor/Loki/Odin. All 188 frontend asset hashes and MIME checks passed. Later browser/status polling confirmed connected with a recent poll beyond the smoke request. No phone call was placed; no trading position was changed by these checks.
+
+Now deployed: paired browser transport; named scheduler/routine controls; atomic scheduled model cap; routine failure-notice fixes and bounded history; shared read retries/timeouts; atomic Telegram admission; credential-safe cache/redirect handling; response version identity; current Achilles naming. Live unauthenticated/pairing checks do not verify owner admin UI or every routine. Real Telegram delivery concurrency was tested in SQLite locally, not by sending duplicate live messages.
+
+Trading observation at verification: paper-only; scheduler healthy; 43 closed trades, 9 wins (~20.93%), realized P&L -376.51, equity ~9661.77 using cached marks. These are a point-in-time observation, not an improvement claim. Strategy research, wider safety audit, later build phases, account-specific setup, live phone conversations and every-tool acceptance remain unfinished. Existing uncommitted companion/face work remains preserved locally and was not deployed in this Worker release.
+
 ### Safety release preparation — 2026-09-14
 0249 | locally-tested | telegram-dedupe.js, ledger-do.js, index.js | 40 concurrent copies yield exactly one SQLite claim; persona isolation and expiry checked | legacy transport claims before persona switching; existing KV receipts honored where keyed by persona; seven-day retention, 10,000-row fail-closed bound. At-most-once admission, not guaranteed successful completion after a crash.
 0318 | locally-tested | response-envelope.js, wrangler.toml | header tests plus built Worker | actual Cloudflare version metadata attached to responses.

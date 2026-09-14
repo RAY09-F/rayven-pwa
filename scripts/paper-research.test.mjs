@@ -1,5 +1,11 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {portfolioValuation,entryGate,depthFill,replayResearch,correlationGroup} from '../src/lib/paperResearch.js';
+test('missing or malformed market history cannot enter a trade or produce a replay',()=>{
+ const bars=Array.from({length:130},(_,i)=>({time:i,open:100,high:101,low:99,close:100,volume:10}));
+ for(const bad of [[],undefined,bars.map((c,i)=>i===10?{...c,close:NaN}:c),bars.map((c,i)=>i===10?{...c,time:9}:c),bars.map((c,i)=>i===10?{...c,high:98}:c)]){
+ assert.equal(entryGate({candles:bad}).ok,false);assert.equal(replayResearch(bad,{},'kraken').available,false);
+ }
+});
 test('cash spent on positions is not a trading loss; fees reconcile separately',()=>{
  const v=portfolioValuation({startingBalance:10000,cash:5990,positions:{a:{qty:40,entryPrice:100,fees:{entryCommission:10}}}},[],{a:{close:105,time:1}});
  assert.equal(v.equity,10190);assert.equal(v.unrealizedPnl,190);assert.equal(v.reconciliationDifference,0);

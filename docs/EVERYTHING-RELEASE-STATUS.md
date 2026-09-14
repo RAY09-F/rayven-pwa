@@ -1,5 +1,8 @@
 # Everything build — release status, 2026-09-14
 
+## Deployed safety update (supersedes earlier pending-release notes)
+Worker version 8880f41a-15e9-4b1e-9be2-ae0eb185c348 is live at 100%. GitHub backup and Phase 1 upload succeeded. Browser Control 1.5 is paired, reloaded and polling. All 226 pre-release Node tests passed; live auth/health checks, replies from Thor/Loki/Odin and all 188 frontend asset checks passed. See PROGRESS.md for subsequent patches and the latest version. The full build, all external integration acceptance and trading-strategy improvements remain unfinished. No high win-rate claim is supported.
+
 ## Latest continuation (supersedes earlier counts below)
 - Browser poll/result authentication and matching extension code implemented, not yet provisioned or installed.
 - Fixed routine pause/delete losing other personas from the shared index.
