@@ -152,7 +152,7 @@ export async function runTick(env, hooks = {}) {
     // Phase 9: with the ledger on, the tick body, its audit lines and events go to the ledger (single path); KV keeps only what it already has.
     if (ledgerBackend(env) === 'do') {
       try { await ledger.putTick(env, key, body.at, body); if (buffer.audit.length) await ledger.putAudit(env, key, buffer.audit); if (buffer.events.length) await ledger.putEvents(env, buffer.events); wrote = true; next.recent.push(key); if (next.recent.length > RECENT_KEEP) next.recent = next.recent.slice(-RECENT_KEEP); }
-      catch (e) { console.error('ledger tick write failed, falling back to KV:', e && e.message); try { await env.RAYVEN_KV.put(key, JSON.stringify(body)); wrote = true; next.writesToday += 1; next.recent.push(key); } catch (e2) {} }
+      catch (e) { console.error('ledger tick write failed, falling back to KV:', e && e.message); try { await env.RAYVEN_KV.put(key, JSON.stringify(body)); wrote = true; next.writesToday += 1; next.recent.push(key); if (next.recent.length > RECENT_KEEP) next.recent = next.recent.slice(-RECENT_KEEP); } catch (e2) {} }
     } else {
       try { await env.RAYVEN_KV.put(key, JSON.stringify(body)); wrote = true; next.writesToday += 1; next.recent.push(key); if (next.recent.length > RECENT_KEEP) next.recent = next.recent.slice(-RECENT_KEEP); }
       catch (e) { console.error('tick write failed:', e && e.message); }
