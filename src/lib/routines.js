@@ -366,9 +366,10 @@ export async function routineList(env, owner) {
 }
 
 async function findMine(env, owner, match) {
-  const index = (await readIndex(env)).filter(e => visibleTo(owner, e) && !e.deleted);
+  const index = await readIndex(env);
+  const mine = index.filter(e => visibleTo(owner, e) && !e.deleted);
   const m = String(match || '').toLowerCase().trim();
-  const hit = index.find(e => e.id === m) || index.find(e => e.name.toLowerCase() === m) || index.find(e => e.name.toLowerCase().includes(m));
+  const hit = mine.find(e => e.id === m) || mine.find(e => e.name.toLowerCase() === m) || mine.find(e => e.name.toLowerCase().includes(m));
   return { index, hit };
 }
 
