@@ -78,7 +78,7 @@ export async function runPhoneUpdates(env,{test=false,persona='thor',now=Date.no
     if(!latest.config.enabled||latest.config.to!==r.to||!window.allowed||window.remainingSeconds<=30){await ledger.phone(env,{kind:'defer',id});return {ok:true,skipped:'paused_or_quiet_hours'};}
     await ledger.phone(env,{kind:'result',id,result:{opening:message,transcript:[]}});
     const twiml=`<Response>${spoken}${listen(id,0)}</Response>`;
-    const params=new URLSearchParams({To:r.to,From:provider.selected.phone_number,Twiml:twiml,Timeout:'25',TimeLimit:String(Math.min(180,window.remainingSeconds-30)),StatusCallback:`${BASE}/phone-api/callback?id=${id}`,StatusCallbackMethod:'POST'});
+    const params=new URLSearchParams({To:r.to,From:provider.selected.phone_number,Twiml:twiml,Timeout:'25',TimeLimit:String(Math.min(600,window.remainingSeconds-30)),StatusCallback:`${BASE}/phone-api/callback?id=${id}`,StatusCallbackMethod:'POST'});
     for(const event of ['initiated','ringing','answered','completed'])params.append('StatusCallbackEvent',event);
     const res=await fetch(api(env)+'/Calls.json',{method:'POST',headers:{...auth(env),'Content-Type':'application/x-www-form-urlencoded'},body:params,signal:AbortSignal.timeout(12000)});
     const data=await res.json();
@@ -147,7 +147,7 @@ export async function handlePhoneRequest(request,env,ctx){
         }else answer=await answerPhone(env,call,heard);
       }catch{}
       modelMs=Date.now()-started;
-      const done=turn>=(call.direction==='inbound'?19:7)||/\bDONE\s*$/.test(answer)||/\b(goodbye|bye|hang up)\b/i.test(heard);
+      const done=turn>=19||/\bDONE\s*$/.test(answer)||/\b(goodbye|bye|hang up)\b/i.test(heard);
       answer=answer.replace(/\bDONE\s*$/,'').trim();
       const speechStarted=Date.now();let speechTiming={};
       const audio=await synthCallAudio(env,answer,persona,{fast:true,onTiming:t=>{speechTiming=t;}}).catch(()=>null);

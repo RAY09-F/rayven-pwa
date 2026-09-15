@@ -70,7 +70,7 @@ test('outbound updates use the fixed owner number, bounded calls and truthful fa
       const m=machine();m.go({kind:'configure',config:{enabled:true,to:'+15555550123'}});
       const env={TWILIO_ACCOUNT_SID:'AC_test',TWILIO_AUTH_TOKEN:'secret',TWILIO_PHONE_NUMBER:'+15555550456',LEDGER:{idFromName:()=>0,get:()=>({fetch:async(u,init)=>Response.json({ok:true,result:m.go(JSON.parse(init.body).action)})})}};
       const r=await runPhoneUpdates(env,{test:true,persona,now:()=>now});assert.equal(r.status,'queued');assert.equal(r.voice,'fallback');
-      const p=calls.at(-1).params;assert.equal(p.get('To'),'+15555550123');assert.equal(p.get('From'),'+15555550456');assert.equal(p.get('TimeLimit'),'180');assert.match(p.get('Twiml'),new RegExp(persona));assert.match(p.get('Twiml'),/<Hangup\/>/);assert.equal(p.get('Record'),null);
+      const p=calls.at(-1).params;assert.equal(p.get('To'),'+15555550123');assert.equal(p.get('From'),'+15555550456');assert.equal(p.get('TimeLimit'),'600');assert.match(p.get('Twiml'),new RegExp(persona));assert.match(p.get('Twiml'),/<Hangup\/>/);assert.equal(p.get('Record'),null);
     }
   }finally{globalThis.fetch=original;}
 });
@@ -166,4 +166,33 @@ test('inbound webhook validates Twilio signature and caller before opening the c
  assert.match(await (await send('+15555550999')).text(),/<Reject/);
  const xml=await (await send('+15555550123')).text();assert.match(xml,/Thor/);assert.match(xml,/<Gather/);assert.doesNotMatch(xml,/You can reply/);
  assert.equal(await (await send('+15555550123')).text(),xml);assert.equal(m.state.calls.length,1);
+});
+
+test('phone context identifies the browser extension and distinguishes stale alerts from fresh heartbeats',async()=>{
+ const {phoneContext,answerPhone}=await import('../src/lib/phone-agent.js');
+ const kv=new Map([['browser:lastpoll',String(now-1000)]]);
+ const env={ANTHROPIC_API_KEY:'test',RAYVEN_KV:{get:async k=>kv.get(k)||null,put:async(k,v)=>kv.set(k,v)}};
+ assert.match(await phoneContext(env,now),/Recently connected/);
+ kv.set('browser:lastpoll',String(now-700000));assert.match(await phoneContext(env,now),/appears offline/);
+ kv.set('browser:lastpoll','bad');assert.match(await phoneContext(env,now),/unknown/);
+ const old=globalThis.fetch;
+ try{
+  globalThis.fetch=async(url,init)=>{
+   const req=JSON.parse(init.body),system=JSON.stringify(req.system);
+   assert.match(system,/two-way conversation/);assert.match(system,/ASGARD Browser Control/);
+   assert.match(JSON.stringify(req.messages),/Which extension/);
+   assert.match(JSON.stringify(req.messages),/extension offline/);
+   return Response.json({stop_reason:'end_turn',content:[{type:'text',text:'That is ASGARD Browser Control in Chrome. We can still talk while it is offline.'}]});
+  };
+  for(const persona of ['thor','loki','odin'])assert.match(await answerPhone(env,{persona,opening:'extension offline',transcript:[]},'Which extension is offline?'),/Browser Control/);
+ }finally{globalThis.fetch=old;}
+});
+
+test('outbound owner calls permit follow-ups after eight turns and retain a bounded limit',()=>{
+ const m=machine();m.go({kind:'configure',config:{enabled:true,to:'+15555550123'}});m.go({kind:'reserve',id:'long-call',test:true});
+ for(let turn=0;turn<20;turn++){
+  assert.ok(m.go({kind:'claimTurn',id:'long-call',turn}).call);
+  m.go({kind:'finishTurn',id:'long-call',turn,heard:'Question',reply:'Answer',xml:'<Response/>'});
+ }
+ assert.equal(m.go({kind:'claimTurn',id:'long-call',turn:20}).denied,true);
 });

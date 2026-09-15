@@ -78,7 +78,7 @@ export function phoneTransition(state,action,now=Date.now()){
     }
     case 'claimTurn': {
       const call=s.calls.find(x=>x.id===action.id);
-      if(!call||!Number.isInteger(action.turn)||action.turn<0||action.turn>(call?.direction==='inbound'?19:7)){result={denied:true};break;}
+      if(!call||!Number.isInteger(action.turn)||action.turn<0||action.turn>19){result={denied:true};break;}
       call.turns??={};
       if(call.turns[action.turn]){result={cached:call.turns[action.turn].xml||null,busy:!call.turns[action.turn].xml};break;}
       if(action.turn!==Object.keys(call.turns).length){result={denied:true};break;}
